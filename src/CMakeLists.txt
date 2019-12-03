@@ -1,5 +1,5 @@
 add_library(yugawara
-    deleteme.cpp # FIXME
+    type/conversion.cpp
 )
 
 add_executable(yugawara-exec
@@ -16,6 +16,7 @@ target_include_directories(yugawara-exec
 
 target_link_libraries(yugawara
     PUBLIC yugawara-api
+    PUBLIC takatori
 )
 
 target_link_libraries(yugawara-exec

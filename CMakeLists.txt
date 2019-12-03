@@ -15,6 +15,14 @@ option(ENABLE_COVERAGE "enable coverage on debug build" OFF)
 
 include(GNUInstallDirs)
 
+find_package(takatori REQUIRED)
+
+find_package(fpdecimal 3.68 REQUIRED)
+
+find_package(Boost 1.65
+    COMPONENTS container
+    REQUIRED)
+
 find_package(Doxygen
     OPTIONAL_COMPONENTS dot)
 

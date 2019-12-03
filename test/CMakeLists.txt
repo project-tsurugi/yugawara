@@ -25,4 +25,7 @@ target_link_libraries(yugawara-test-main
     PUBLIC gtest
 )
 
-add_test_executable(deleteme_test.cpp)
+# utilities
+add_test_executable(util/either_test.cpp)
+add_test_executable(util/object_cache_test.cpp)
+add_test_executable(util/object_repository_test.cpp)
