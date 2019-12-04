@@ -122,7 +122,7 @@ pipeline {
                 qualityGates: [[threshold: 1, type: 'TOTAL', unstable: true]]
             recordIssues tool: gcc4(),
                 enabledForFailure: true
-            recordIssues tool: doxygen(pattern: 'build/doxygen.log')
+            recordIssues tool: doxygen(pattern: 'build/doxygen/doxygen-warn.log')
             recordIssues tool: taskScanner(
                 highTags: 'FIXME', normalTags: 'TODO',
                 includePattern: '**/*.md,**/*.txt,**/*.in,**/*.cmake,**/*.cpp,**/*.h',
