@@ -25,6 +25,9 @@ target_link_libraries(yugawara-test-main
     PUBLIC gtest
 )
 
+# type system
+add_test_executable(type/type_category_test.cpp)
+
 # utilities
 add_test_executable(util/either_test.cpp)
 add_test_executable(util/object_cache_test.cpp)

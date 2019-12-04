@@ -74,7 +74,7 @@ public:
      *      please invoke std::weak_ptr::lock() before use it
      */
     std::weak_ptr<value_type> add(const_reference value) {
-        if (auto&& cached = find(value); !cached.expired()) {
+        if (auto cached = find(value); !cached.expired()) {
             return cached;
         }
         return internal_add_cache(value);
@@ -82,7 +82,7 @@ public:
 
     /// @copydoc add(const_reference)
     std::weak_ptr<value_type> add(rvalue_reference value) {
-        if (auto&& cached = find(value); !cached.expired()) {
+        if (auto cached = find(value); !cached.expired()) {
             return cached;
         }
         return internal_add_cache(std::move(value));

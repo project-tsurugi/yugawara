@@ -56,7 +56,7 @@ pipeline {
                     cd build
                     # clean up cache variables from previous build
                     rm -f CMakeCache.txt
-                    cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=OFF -DBUILD_DOCUMENTS=OFF -DCMAKE_INSTALL_PREFIX=${WORKSPACE}/.local -DCMAKE_PREFIX_PATH=${WORKSPACE}/.local ..
+                    cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=OFF -DBUILD_DOCUMENTS=OFF -DFORCE_INSTALL_RPATH=ON -DCMAKE_INSTALL_PREFIX=${WORKSPACE}/.local -DCMAKE_PREFIX_PATH=${WORKSPACE}/.local ..
                     make all install -j${BUILD_PARALLEL_NUM}
                 '''
             }
