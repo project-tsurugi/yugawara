@@ -19,6 +19,7 @@ namespace model = takatori::type;
 using kind = model::type_kind;
 using takatori::util::unsafe_downcast;
 using yugawara::util::ternary;
+using yugawara::util::ternary_of;
 
 bool impl::is_conversion_stop_type(model::data const& type) noexcept {
     if (type.kind() == model::extension::tag) {
@@ -626,11 +627,11 @@ ternary is_assignment_convertible(model::data const& type, model::data const& ta
         case npair(kind::array, kind::array):
         case npair(kind::record, kind::record):
         case npair(kind::declared, kind::declared):
-            return ternary { type == target };
+            return ternary_of(type == target);
 
         case npair(kind::extension, kind::extension):
             // FIXME: impl assign extension -> extension
-            return ternary { type == target };
+            return ternary_of(type == target);
 
         default:
             return ternary::no;

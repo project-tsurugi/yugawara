@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -11,62 +12,35 @@ namespace yugawara::util {
 /**
  * @brief an atom of three-valued logic, consists of @c yes, @c no, and @c unknown.
  * @note you can obtain true/false value of ternary by using ternary(bool_value)
- * @note this is based on Kleene's tree-valued logic, but "unknown" is the minimum value of the three in this
+ * @note this is based on Kleene's tree-valued logic.
+ * @see ternary_of(bool)
  */
 enum class ternary {
+
     /**
      * @brief a true value.
      */
-    yes = true,
+    yes = 1,
 
     /**
      * @brief a false value.
      */
-    no = false,
+    no = 0,
 
     /**
      * @brief can not decide either true or false.
      * @details This value may appear when a predicate tries to evaluate erroneous inputs.
      */
-    unknown = -1,
+    unknown = -128,
 };
 
 /**
- * @brief returns the negation (NOT) of the ternary value.
- * @param value the value
- * @return the negation of the value
+ * @brief converts bool values into the corresponded ternary value.
+ * @param value the bool value
+ * @return the corresponded ternary value
  */
-constexpr ternary operator~(ternary value) noexcept {
-    switch (value) {
-        case ternary::yes: return ternary::no;
-        case ternary::no: return ternary::yes;
-        case ternary::unknown: return ternary::unknown;
-    }
-    std::abort();
-}
-
-/**
- * @brief returns the conjunction (AND) of the ternary values.
- * @param a the first value
- * @param b the second value
- * @return the conjunction of the two
- */
-constexpr ternary operator&(ternary a, ternary b) noexcept {
-    if (a == ternary::yes && b == ternary::yes) return ternary::yes;
-    if (a == ternary::unknown || b == ternary::unknown) return ternary::unknown;
-    return ternary::no;
-}
-
-/**
- * @brief returns the disjunction (OR) of the ternary values.
- * @param a the first value
- * @param b the second value
- * @return the conjunction of the two
- */
-constexpr ternary operator|(ternary a, ternary b) noexcept {
-    if (a == ternary::yes || b == ternary::yes) return ternary::yes;
-    if (a == ternary::unknown || b == ternary::unknown) return ternary::unknown;
-    return ternary::no;
+constexpr ternary ternary_of(bool value) noexcept {
+    return ternary { static_cast<int>(value) };
 }
 
 /**
@@ -77,7 +51,7 @@ constexpr ternary operator|(ternary a, ternary b) noexcept {
  * @return false otherwise
  */
 constexpr bool operator==(ternary a, bool b) noexcept {
-    return a == ternary(b);
+    return a == ternary_of(b);
 }
 
 /**
@@ -88,7 +62,7 @@ constexpr bool operator==(ternary a, bool b) noexcept {
  * @return false otherwise
  */
 constexpr bool operator==(bool a, ternary b) noexcept {
-    return ternary(a) == b;
+    return ternary_of(a) == b;
 }
 
 /**
@@ -111,6 +85,96 @@ constexpr bool operator!=(ternary a, bool b) noexcept {
  */
 constexpr bool operator!=(bool a, ternary b) noexcept {
     return !(a == b);
+}
+
+/**
+ * @brief compares two ternary values.
+ * @details ternary values satisfy @c no < @c unknown < @c yes.
+ * @param a the first value
+ * @param b the second value
+ * @return true if a < b
+ * @return false otherwise
+ */
+constexpr bool operator<(ternary a, ternary b) noexcept {
+    if (a == ternary::no) {
+        return b == ternary::yes || b == ternary::unknown;
+    }
+    if (a == ternary::unknown) {
+        return b == ternary::yes;
+    }
+    return false;
+}
+
+/**
+ * @brief compares two ternary values.
+ * @details ternary values satisfy @c no < @c unknown < @c yes.
+ * @param a the first value
+ * @param b the second value
+ * @return true if a > b
+ * @return false otherwise
+ */
+constexpr bool operator>(ternary a, ternary b) noexcept {
+    return (b < a);
+}
+
+/**
+ * @brief compares two ternary values.
+ * @details ternary values satisfy @c no < @c unknown < @c yes.
+ * @param a the first value
+ * @param b the second value
+ * @return true if a <= b
+ * @return false otherwise
+ */
+constexpr bool operator<=(ternary a, ternary b) noexcept {
+    return !(b < a);
+}
+
+/**
+ * @brief compares two ternary values.
+ * @details ternary values satisfy @c no < @c unknown < @c yes.
+ * @param a the first value
+ * @param b the second value
+ * @return true if a >= b
+ * @return false otherwise
+ */
+constexpr bool operator>=(ternary a, ternary b) noexcept {
+    return !(a < b);
+}
+
+/**
+ * @brief returns the negation (NOT) of the ternary value.
+ * @param value the value
+ * @return the negation of the value
+ */
+constexpr ternary operator~(ternary value) noexcept {
+    switch (value) {
+        case ternary::yes: return ternary::no;
+        case ternary::no: return ternary::yes;
+        case ternary::unknown: return ternary::unknown;
+    }
+    std::abort();
+}
+
+/**
+ * @brief returns the conjunction (AND) of the ternary values.
+ * @param a the first value
+ * @param b the second value
+ * @return the conjunction of the two
+ * @note this is equivalent to std::min(a, b)
+ */
+constexpr ternary operator&(ternary a, ternary b) noexcept {
+    return std::min(a, b);
+}
+
+/**
+ * @brief returns the disjunction (OR) of the ternary values.
+ * @param a the first value
+ * @param b the second value
+ * @return the conjunction of the two
+ * @note this is equivalent to std::max(a, b)
+ */
+constexpr ternary operator|(ternary a, ternary b) noexcept {
+    return std::max(a, b);
 }
 
 /**
