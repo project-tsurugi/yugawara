@@ -24,14 +24,24 @@ public:
     /// @brief the extension ID of this type.
     static constexpr extension_id_type extension_tag = ExtensionId;
 
+    /**
+     * @brief returns a clone of this object.
+     * @param creator the object creator
+     * @return the created clone
+     */
     compiler_extension* clone(takatori::util::object_creator creator) const& override {
         return creator.create_object<compiler_extension>();
     }
 
+    /// @copydoc clone()
     compiler_extension* clone(takatori::util::object_creator creator) && override {
         return creator.create_object<compiler_extension>();
     }
 
+    /**
+     * @brief returns the extension ID of this type.
+     * @return the extension ID
+     */
     extension_id_type extension_id() const noexcept override {
         return extension_tag;
     }
@@ -87,14 +97,30 @@ public:
     }
 
 protected:
+    /**
+     * @brief returns whether or not this type is equivalent to the target one.
+     * @param other the target type
+     * @return true if the both are equivalent
+     * @return false otherwise
+     */
     bool equals(extension const& other) const noexcept override {
         return extension_tag == other.extension_id();
     }
 
+    /**
+     * @brief returns hash code of this object.
+     * @details The returned digest value should compute from only type specific information.
+     * @return the computed hash code
+     */
     std::size_t hash() const noexcept override {
         return static_cast<std::size_t>(extension_tag);
     }
 
+    /**
+     * @brief appends string representation of this object into the given output.
+     * @param out the target output
+     * @return the output
+     */
     std::ostream& print_to(std::ostream& out) const override {
         return out << *this;
     }

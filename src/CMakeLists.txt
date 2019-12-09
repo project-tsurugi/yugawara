@@ -1,7 +1,24 @@
 add_library(yugawara
+
+    # storage information
+    storage/relation.cpp
+    storage/table.cpp
+    storage/column.cpp
+    storage/index.cpp
+    storage/provider.cpp
+    storage/details/index_key_element.cpp
+
+    # type system
     type/category.cpp
     type/conversion.cpp
     type/repository.cpp
+
+    # variable binding
+    variable/criteria.cpp
+    variable/predicate.cpp
+    variable/comparison.cpp
+    variable/negation.cpp
+    variable/quantification.cpp
 )
 
 add_executable(yugawara-exec

@@ -28,6 +28,20 @@ target_link_libraries(yugawara-test-main
 # type system
 add_test_executable(type/type_category_test.cpp)
 
+# variable bindings
+add_test_executable(variable/nullity_test.cpp)
+add_test_executable(variable/comparison_test.cpp)
+add_test_executable(variable/negation_test.cpp)
+add_test_executable(variable/quantification_test.cpp)
+add_test_executable(variable/criteria_test.cpp)
+add_test_executable(variable/predicate_dispatch_test.cpp)
+
+# external storage information
+add_test_executable(storage/column_test.cpp)
+add_test_executable(storage/table_test.cpp)
+add_test_executable(storage/index_test.cpp)
+add_test_executable(storage/storage_configurable_provider_test.cpp)
+
 # utilities
 add_test_executable(util/either_test.cpp)
 add_test_executable(util/object_cache_test.cpp)
