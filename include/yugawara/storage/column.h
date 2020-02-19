@@ -10,13 +10,21 @@
 #include <takatori/value/data.h>
 #include <takatori/util/object_creator.h>
 #include <takatori/util/optional_ptr.h>
+#include <takatori/util/reference_list_view.h>
 #include <takatori/util/rvalue_ptr.h>
 
-#include "yugawara/variable/criteria.h"
+#include <yugawara/variable/criteria.h>
 
 namespace yugawara::storage {
 
 class relation;
+
+class column;
+
+/**
+ * @brief a list view of columns on relation.
+ */
+using column_list_view = takatori::util::reference_list_view<takatori::util::double_pointer_extractor<column const>>;
 
 /**
  * @brief represents a column on external relations.

@@ -2,8 +2,8 @@
 
 #include <takatori/type/extension.h>
 
-#include "yugawara/type/extensions/compiler_extension.h"
-#include "yugawara/type/extensions/extension_kind.h"
+#include <yugawara/type/extensions/compiler_extension.h>
+#include <yugawara/type/extensions/extension_kind.h>
 
 namespace yugawara::type {
 

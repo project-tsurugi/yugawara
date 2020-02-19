@@ -1,4 +1,4 @@
-#include "yugawara/storage/table.h"
+#include <yugawara/storage/table.h>
 
 #include <gtest/gtest.h>
 

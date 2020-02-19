@@ -1,4 +1,4 @@
-#include "yugawara/variable/comparison.h"
+#include <yugawara/variable/comparison.h>
 
 #include <takatori/util/clonable.h>
 #include <takatori/util/downcast.h>
@@ -55,7 +55,7 @@ takatori::util::optional_ptr<takatori::value::data const> comparison::optional_v
     return takatori::util::optional_ptr<takatori::value::data const> { value_.get() };
 }
 
-std::shared_ptr<takatori::value::data const> comparison::shared_value() const noexcept {
+std::shared_ptr<takatori::value::data const> const& comparison::shared_value() const noexcept {
     return value_;
 }
 

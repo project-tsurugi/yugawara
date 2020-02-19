@@ -1,4 +1,4 @@
-#include "yugawara/util/object_repository.h"
+#include <yugawara/util/object_repository.h>
 
 #include <gtest/gtest.h>
 

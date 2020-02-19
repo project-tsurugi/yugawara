@@ -21,7 +21,7 @@ namespace yugawara::storage {
  * @tparam Mutex the mutex type, must satisfy *DefaultConstructible* and *BasicLockable*
  * @note This class works as thread-safe only if the mutex works right
  */
-template<class Mutex = std::mutex>
+template<class Mutex>
 class basic_configurable_provider : public provider {
 public:
     /// @brief the mutex type.
@@ -58,7 +58,7 @@ public:
      * @param id the relation ID
      * @param element the relation to add
      * @param overwrite true to overwrite the existing entry
-     * @return this
+     * @return the added element
      * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
      * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
      */
@@ -205,7 +205,7 @@ private:
             std::string_view id,
             std::shared_ptr<element_type<Container>> element,
             bool overwrite) {
-        key_type key {id, get_object_creator().allocator(std::in_place_type<char>) };
+        key_type key { id, get_object_creator().allocator(std::in_place_type<char>) };
 
         std::lock_guard lock { mutex_ };
         if (overwrite) {

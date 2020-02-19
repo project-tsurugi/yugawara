@@ -1,4 +1,4 @@
-#include "yugawara/variable/quantification.h"
+#include <yugawara/variable/quantification.h>
 
 #include <takatori/util/clonable.h>
 #include <takatori/util/downcast.h>

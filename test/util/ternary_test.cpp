@@ -1,4 +1,4 @@
-#include "yugawara/util/ternary.h"
+#include <yugawara/util/ternary.h>
 
 #include <gtest/gtest.h>
 

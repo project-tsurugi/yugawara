@@ -13,12 +13,34 @@ add_library(yugawara
     type/conversion.cpp
     type/repository.cpp
 
+    # function information
+    function/declaration.cpp
+
+    # aggregate function information
+    aggregate/declaration.cpp
+
+    # descriptor entities
+    binding/relation_info.cpp
+    binding/exchange_info.cpp
+    binding/index_info.cpp
+    binding/variable_info.cpp
+    binding/table_column_info.cpp
+    binding/external_variable_info.cpp
+    binding/function_info.cpp
+    binding/aggregate_function_info.cpp
+    binding/factory.cpp
+
     # variable binding
+    variable/declaration.cpp
     variable/criteria.cpp
     variable/predicate.cpp
     variable/comparison.cpp
     variable/negation.cpp
     variable/quantification.cpp
+
+    # analyzer
+    analyzer/scalar_expression_analyzer.cpp
+    analyzer/type_diagnostic.cpp
 )
 
 add_executable(yugawara-exec

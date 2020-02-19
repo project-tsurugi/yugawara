@@ -4,7 +4,7 @@
 
 #include "cache.h"
 
-#include "yugawara/util/object_repository.h"
+#include <yugawara/util/object_repository.h>
 
 namespace yugawara::type {
 

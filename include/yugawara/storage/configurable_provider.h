@@ -5,9 +5,9 @@
 namespace yugawara::storage {
 
 /**
- * @brief an implementation of provider that can configurable its contents.
+ * @brief an implementation of storage information provider that can configure its contents.
  * @note This class works as thread-safe.
  */
-using configurable_provider = basic_configurable_provider<>;
+using configurable_provider = basic_configurable_provider<std::mutex>;
 
 } // namespace yugawara::storage

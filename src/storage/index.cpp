@@ -1,4 +1,4 @@
-#include "yugawara/storage/index.h"
+#include <yugawara/storage/index.h>
 
 #include <takatori/util/vector_print_support.h>
 

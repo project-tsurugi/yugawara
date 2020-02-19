@@ -1,11 +1,11 @@
-#include "yugawara/variable/quantification.h"
+#include <yugawara/variable/quantification.h>
 
 #include <gtest/gtest.h>
 
 #include <takatori/value/int.h>
 #include <takatori/util/clonable.h>
 
-#include "yugawara/variable/comparison.h"
+#include <yugawara/variable/comparison.h>
 
 namespace yugawara::variable {
 

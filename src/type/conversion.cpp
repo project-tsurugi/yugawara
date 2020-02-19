@@ -1,4 +1,4 @@
-#include "yugawara/type/conversion.h"
+#include <yugawara/type/conversion.h>
 
 #include <optional>
 
@@ -9,9 +9,9 @@
 #include <takatori/type/dispatch.h>
 #include <takatori/util/downcast.h>
 
-#include "yugawara/type/category.h"
-#include "yugawara/type/extensions/error.h"
-#include "yugawara/type/extensions/pending.h"
+#include <yugawara/type/category.h>
+#include <yugawara/type/extensions/error.h>
+#include <yugawara/type/extensions/pending.h>
 
 namespace yugawara::type {
 
@@ -91,6 +91,25 @@ std::shared_ptr<model::data> unary_numeric_promotion(model::data const& type, re
         case kind::int8:
         case kind::float4:
         case kind::float8:
+        case kind::decimal:
+            return repo.get(type);
+        default:
+            return shared_error();
+    }
+}
+
+std::shared_ptr<model::data> unary_decimal_promotion(model::data const& type, repository& repo) {
+    if (is_conversion_stop_type(type)) return shared_pending();
+    switch (type.kind()) {
+        case kind::unknown:
+        case kind::int1:
+            return repo.get(model::decimal { 3 });
+        case kind::int2:
+            return repo.get(model::decimal { 5 });
+        case kind::int4:
+            return repo.get(model::decimal { 10 });
+        case kind::int8:
+            return repo.get(model::decimal { 19 });
         case kind::decimal:
             return repo.get(type);
         default:

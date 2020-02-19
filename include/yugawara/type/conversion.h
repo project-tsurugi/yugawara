@@ -6,7 +6,7 @@
 
 #include "repository.h"
 
-#include "yugawara/util/ternary.h"
+#include <yugawara/util/ternary.h>
 
 namespace yugawara::type {
 
@@ -61,6 +61,19 @@ std::shared_ptr<takatori::type::data> binary_boolean_promotion(
  * @note if the conversion was not success, this may return some special types generated out of the given repository
  */
 std::shared_ptr<takatori::type::data> unary_numeric_promotion(
+        takatori::type::data const& type,
+        repository& repo = default_repository());
+
+/**
+ * @brief promotes an exact numeric type as a minimal decimal type which can represents the original number.
+ * @param type the target type
+ * @param repo the type repository
+ * @return the promoted type if conversion was succeeded
+ * @return erroneous type if the input is not valid for this conversion
+ * @return pending type if the input contains erroneous or pending type
+ * @note if the conversion was not success, this may return some special types generated out of the given repository
+ */
+std::shared_ptr<takatori::type::data> unary_decimal_promotion(
         takatori::type::data const& type,
         repository& repo = default_repository());
 

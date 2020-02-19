@@ -1,4 +1,4 @@
-#include "yugawara/storage/table.h"
+#include <yugawara/storage/table.h>
 
 #include <takatori/tree/tree_element_vector_forward.h>
 #include <takatori/util/clonable.h>

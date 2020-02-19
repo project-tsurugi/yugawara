@@ -1,4 +1,4 @@
-#include "yugawara/type/category.h"
+#include <yugawara/type/category.h>
 
 #include <gtest/gtest.h>
 
@@ -14,8 +14,8 @@
 #include <takatori/type/time_point.h>
 #include <takatori/type/time_interval.h>
 
-#include "yugawara/type/extensions/error.h"
-#include "yugawara/type/extensions/pending.h"
+#include <yugawara/type/extensions/error.h>
+#include <yugawara/type/extensions/pending.h>
 
 #include "dummy_extension.h"
 

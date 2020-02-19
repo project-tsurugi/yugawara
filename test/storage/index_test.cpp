@@ -1,4 +1,4 @@
-#include "yugawara/storage/index.h"
+#include <yugawara/storage/index.h>
 
 #include <gtest/gtest.h>
 

@@ -5,7 +5,7 @@
 
 #include <takatori/relation/sort_direction.h>
 
-#include "yugawara/storage/column.h"
+#include <yugawara/storage/column.h>
 
 namespace yugawara::storage {
 

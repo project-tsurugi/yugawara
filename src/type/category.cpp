@@ -1,11 +1,11 @@
-#include "yugawara/type/category.h"
+#include <yugawara/type/category.h>
 
 #include <takatori/type/type_kind.h>
 #include <takatori/type/extension.h>
 #include <takatori/util/downcast.h>
 
-#include "yugawara/type/extensions/error.h"
-#include "yugawara/type/extensions/pending.h"
+#include <yugawara/type/extensions/error.h>
+#include <yugawara/type/extensions/pending.h>
 
 namespace yugawara::type {
 

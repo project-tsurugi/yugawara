@@ -1,5 +1,5 @@
-#include "yugawara/storage/column.h"
-#include "yugawara/storage/relation.h"
+#include <yugawara/storage/column.h>
+#include <yugawara/storage/relation.h>
 
 #include <takatori/util/clonable.h>
 

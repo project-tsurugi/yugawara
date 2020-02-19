@@ -1,4 +1,4 @@
-#include "yugawara/variable/comparison.h"
+#include <yugawara/variable/comparison.h>
 
 #include <gtest/gtest.h>
 

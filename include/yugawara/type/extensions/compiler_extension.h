@@ -93,7 +93,11 @@ public:
      */
     friend std::ostream& operator<<(std::ostream& out, compiler_extension const& value) {
         (void) value;
-        return out << extension_tag << "()";
+        if (is_known_compiler_extension(extension_tag)) {
+            return out << static_cast<extension_kind>(extension_tag) << "()";
+        }
+        return out << "compiler_extension("
+                   << "extension_id=" << extension_tag << ")";
     }
 
 protected:

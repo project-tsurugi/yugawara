@@ -9,7 +9,7 @@
 #include "negation.h"
 #include "quantification.h"
 
-#include "takatori/util/callback.h"
+#include <takatori/util/callback.h>
 
 namespace yugawara::variable {
 

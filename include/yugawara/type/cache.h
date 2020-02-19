@@ -2,7 +2,7 @@
 
 #include <takatori/type/data.h>
 
-#include "yugawara/util/object_cache.h"
+#include <yugawara/util/object_cache.h>
 
 namespace yugawara::type {
 

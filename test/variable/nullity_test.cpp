@@ -1,4 +1,4 @@
-#include "yugawara/variable/nullity.h"
+#include <yugawara/variable/nullity.h>
 
 #include <gtest/gtest.h>
 

@@ -4,12 +4,13 @@
 #include <string>
 #include <string_view>
 
-#include "nullity.h"
-#include "predicate.h"
-
+#include <takatori/value/data.h>
 #include <takatori/util/object_creator.h>
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/rvalue_ptr.h>
+
+#include "nullity.h"
+#include "predicate.h"
 
 namespace yugawara::variable {
 
@@ -34,6 +35,12 @@ public:
      * @attention this may take a copy of arguments
      */
     criteria(class nullity nullity, class predicate&& predicate);
+
+    /**
+     * @brief creates a new object which represents a "constant criteria".
+     * @param constant the constant value
+     */
+    criteria(takatori::value::data&& constant); // NOLINT
 
     ~criteria() = default;
 
@@ -93,6 +100,20 @@ public:
      * @return this
      */
     criteria& predicate(takatori::util::unique_object_ptr<class predicate> predicate) noexcept;
+
+    /**
+     * @brief returns the constant value of the variable.
+     * @return the constant value
+     * @return empty if the variable is not decided as a constant
+     */
+    takatori::util::optional_ptr<takatori::value::data const> constant() const noexcept;
+
+    /**
+     * @brief returns the constant value of the variable as its shared pointer.
+     * @return the constant value as its shared pointer
+     * @return empty if the variable is not decided as a constant
+     */
+    std::shared_ptr<takatori::value::data const> const& shared_constant() const noexcept;
 
     /**
      * @brief appends string representation of the given value.

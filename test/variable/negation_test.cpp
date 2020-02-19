@@ -1,11 +1,11 @@
-#include "yugawara/variable/negation.h"
+#include <yugawara/variable/negation.h>
 
 #include <gtest/gtest.h>
 
 #include <takatori/value/int.h>
 #include <takatori/util/clonable.h>
 
-#include "yugawara/variable/comparison.h"
+#include <yugawara/variable/comparison.h>
 
 namespace yugawara::variable {
 

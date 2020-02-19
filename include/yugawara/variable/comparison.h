@@ -98,7 +98,7 @@ public:
      * @return the comparative value for sharing
      * @return empty if the value is absent
      */
-    std::shared_ptr<takatori::value::data const> shared_value() const noexcept;
+    std::shared_ptr<takatori::value::data const> const& shared_value() const noexcept;
 
     /**
      * @brief sets a comparative value.

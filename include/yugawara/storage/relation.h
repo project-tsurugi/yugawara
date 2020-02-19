@@ -12,11 +12,6 @@
 namespace yugawara::storage {
 
 /**
- * @brief a list view of columns on relation.
- */
-using column_list_view = takatori::util::reference_list_view<takatori::util::double_pointer_extractor<column const>>;
-
-/**
  * @brief an abstract interface of external durable relations.
  * @note this does not represent indices of tables nor relations on exchange step.
  */

@@ -1,4 +1,4 @@
-#include "yugawara/variable/negation.h"
+#include <yugawara/variable/negation.h>
 
 #include <takatori/util/clonable.h>
 #include <takatori/util/downcast.h>
