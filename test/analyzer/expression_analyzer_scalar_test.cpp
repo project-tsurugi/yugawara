@@ -1,6 +1,9 @@
-#include <yugawara/analyzer/scalar_expression_analyzer.h>
+#include <yugawara/analyzer/expression_analyzer.h>
 
 #include <gtest/gtest.h>
+
+#include <takatori/document/basic_document.h>
+#include <takatori/document/region.h>
 
 #include <takatori/type/boolean.h>
 #include <takatori/type/int.h>
@@ -16,10 +19,6 @@
 #include <takatori/scalar/immediate.h>
 #include <takatori/scalar/variable_reference.h>
 #include <takatori/scalar/unary.h>
-
-#include <yugawara/binding/factory.h>
-#include <yugawara/type/extensions/error.h>
-#include <yugawara/type/extensions/pending.h>
 #include <takatori/scalar/binary.h>
 #include <takatori/scalar/compare.h>
 #include <takatori/scalar/match.h>
@@ -27,6 +26,10 @@
 #include <takatori/scalar/coalesce.h>
 #include <takatori/scalar/let.h>
 #include <takatori/scalar/function_call.h>
+
+#include <yugawara/binding/factory.h>
+#include <yugawara/type/extensions/error.h>
+#include <yugawara/type/extensions/pending.h>
 
 namespace yugawara::analyzer {
 
@@ -39,17 +42,32 @@ namespace ex = ::yugawara::type::extensions;
 using code = type_diagnostic::code_type;
 using vref = ::takatori::scalar::variable_reference;
 
-class scalar_expression_analyzer_test : public ::testing::Test {
+class expression_analyzer_scalar_test : public ::testing::Test {
 public:
     bool ok() noexcept {
         return !analyzer.has_diagnostics();
     }
 
+    template<class T>
+    T&& bless(T&& t) noexcept {
+        t.region() = { doc_, doc_cursor_ };
+        return std::forward<T>(t);
+    }
+
     ::takatori::util::optional_ptr<type_diagnostic const> find(
             ::takatori::scalar::expression const& expr,
-            type_diagnostic::code_type code) noexcept {
+            type_diagnostic::code_type code) {
+        return find(expr.region(), code);
+    }
+
+    ::takatori::util::optional_ptr<type_diagnostic const> find(
+            ::takatori::document::region region,
+            type_diagnostic::code_type code) {
+        if (!region) {
+            throw std::invalid_argument("unknown region");
+        }
         for (auto&& d : analyzer.diagnostics()) {
-            if (std::addressof(expr) == std::addressof(d.location()) && code == d.code()) {
+            if (code == d.code() && region == d.region()) {
                 return d;
             }
         }
@@ -58,1124 +76,1178 @@ public:
 
     ::takatori::descriptor::variable decl(::takatori::type::data&& type) {
         auto var = bindings.local_variable();
-        analyzer.bind(var, std::move(type));
+        analyzer.variables().bind(var, std::move(type));
         return var;
     }
 
 protected:
-    scalar_expression_analyzer analyzer;
+    expression_analyzer analyzer;
     type::repository repo;
     binding::factory bindings;
+
+    ::takatori::document::basic_document doc_ {
+            "testing.sql",
+            "01234567890123456789012345678901234567890123456789",
+    };
+    std::size_t doc_cursor_ {};
 };
 
-TEST_F(scalar_expression_analyzer_test, immediate) {
+TEST_F(expression_analyzer_scalar_test, immediate) {
     s::immediate expr {
             v::int4 { 100 },
             t::int4 {},
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, variable_reference) {
+TEST_F(expression_analyzer_scalar_test, variable_reference) {
     s::variable_reference expr {
             bindings.local_variable(),
     };
-    analyzer.bind(expr.variable(), t::int4());
-    auto r = analyzer.resolve(expr, repo);
+    analyzer.variables().bind(expr.variable(), t::int4());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, variable_reference_unbound) {
+TEST_F(expression_analyzer_scalar_test, variable_reference_unbound) {
     s::variable_reference expr {
             bindings.local_variable(),
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr, code::unresolved_variable));
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_plus_numeric) {
+TEST_F(expression_analyzer_scalar_test, unary_plus_numeric) {
     s::unary expr {
             s::unary_operator::plus,
             vref { decl(t::int4 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_plus_time_interval) {
+TEST_F(expression_analyzer_scalar_test, unary_plus_time_interval) {
     s::unary expr {
             s::unary_operator::plus,
             vref { decl(t::time_interval {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::time_interval());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_plus_pending) {
+TEST_F(expression_analyzer_scalar_test, unary_plus_pending) {
     s::unary expr {
             s::unary_operator::plus,
             vref { decl(ex::pending {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::pending());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_plus_error) {
+TEST_F(expression_analyzer_scalar_test, unary_plus_error) {
     s::unary expr {
             s::unary_operator::plus,
             vref { decl(ex::error {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_plus_unknow) {
+TEST_F(expression_analyzer_scalar_test, unary_plus_unknow) {
     s::unary expr {
             s::unary_operator::plus,
             vref { decl(t::unknown()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.operand());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.operand(), code::ambiguous_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_plus_invalid) {
+TEST_F(expression_analyzer_scalar_test, unary_plus_invalid) {
     s::unary expr {
             s::unary_operator::plus,
             vref { decl(t::character { t::varying }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.operand());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.operand(), code::unsupported_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_sign_inversion_numeric) {
+TEST_F(expression_analyzer_scalar_test, unary_sign_inversion_numeric) {
     s::unary expr {
             s::unary_operator::sign_inversion,
             vref { decl(t::int4 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_sign_inversion_time_interval) {
+TEST_F(expression_analyzer_scalar_test, unary_sign_inversion_time_interval) {
     s::unary expr {
             s::unary_operator::sign_inversion,
             vref { decl(t::time_interval {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::time_interval());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_sign_inversion_pending) {
+TEST_F(expression_analyzer_scalar_test, unary_sign_inversion_pending) {
     s::unary expr {
             s::unary_operator::sign_inversion,
             vref { decl(ex::pending {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::pending());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_sign_inversion_error) {
+TEST_F(expression_analyzer_scalar_test, unary_sign_inversion_error) {
     s::unary expr {
             s::unary_operator::sign_inversion,
             vref { decl(ex::error {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_sign_inversion_unknow) {
+TEST_F(expression_analyzer_scalar_test, unary_sign_inversion_unknow) {
     s::unary expr {
             s::unary_operator::sign_inversion,
             vref { decl(t::unknown()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.operand());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.operand(), code::ambiguous_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_sign_inversion_invalid) {
+TEST_F(expression_analyzer_scalar_test, unary_sign_inversion_invalid) {
     s::unary expr {
             s::unary_operator::sign_inversion,
             vref { decl(t::character { t::varying }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.operand());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.operand(), code::unsupported_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_length_character) {
+TEST_F(expression_analyzer_scalar_test, unary_length_character) {
     s::unary expr {
             s::unary_operator::length,
             vref { decl(t::character { t::varying, 64 }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_length_bit) {
+TEST_F(expression_analyzer_scalar_test, unary_length_bit) {
     s::unary expr {
             s::unary_operator::length,
             vref { decl(t::bit { 64 }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_length_pending) {
+TEST_F(expression_analyzer_scalar_test, unary_length_pending) {
     s::unary expr {
             s::unary_operator::length,
             vref { decl(ex::pending {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_length_error) {
+TEST_F(expression_analyzer_scalar_test, unary_length_error) {
     s::unary expr {
             s::unary_operator::length,
             vref { decl(ex::error {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_length_unknow) {
+TEST_F(expression_analyzer_scalar_test, unary_length_unknow) {
     s::unary expr {
             s::unary_operator::length,
             vref { decl(t::unknown()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.operand());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(find(expr.operand(), code::ambiguous_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_length_invalid) {
+TEST_F(expression_analyzer_scalar_test, unary_length_invalid) {
     s::unary expr {
             s::unary_operator::length,
             vref { decl(t::int4 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.operand());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(find(expr.operand(), code::unsupported_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_conditional_not) {
+TEST_F(expression_analyzer_scalar_test, unary_conditional_not) {
     s::unary expr {
             s::unary_operator::conditional_not,
             vref { decl(t::boolean {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_conditional_not_pending) {
+TEST_F(expression_analyzer_scalar_test, unary_conditional_not_pending) {
     s::unary expr {
             s::unary_operator::conditional_not,
             vref { decl(ex::pending {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_conditional_not_error) {
+TEST_F(expression_analyzer_scalar_test, unary_conditional_not_error) {
     s::unary expr {
             s::unary_operator::conditional_not,
             vref { decl(ex::error {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_conditional_not_unknown) {
+TEST_F(expression_analyzer_scalar_test, unary_conditional_not_unknown) {
     s::unary expr {
             s::unary_operator::conditional_not,
             vref { decl(t::unknown()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_conditional_not_invalid) {
+TEST_F(expression_analyzer_scalar_test, unary_conditional_not_invalid) {
     s::unary expr {
             s::unary_operator::conditional_not,
             vref { decl(t::int4 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.operand());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(find(expr.operand(), code::unsupported_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_is_null) {
+TEST_F(expression_analyzer_scalar_test, unary_is_null) {
     s::unary expr {
             s::unary_operator::is_null,
             vref { decl(t::int4 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_is_null_pending) {
+TEST_F(expression_analyzer_scalar_test, unary_is_null_pending) {
     s::unary expr {
             s::unary_operator::is_null,
             vref { decl(ex::pending {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_is_null_error) {
+TEST_F(expression_analyzer_scalar_test, unary_is_null_error) {
     s::unary expr {
             s::unary_operator::is_null,
             vref { decl(ex::error {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_is_null_unknown) {
+TEST_F(expression_analyzer_scalar_test, unary_is_null_unknown) {
     s::unary expr {
             s::unary_operator::is_null,
             vref { decl(t::unknown()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_is_true) {
+TEST_F(expression_analyzer_scalar_test, unary_is_true) {
     s::unary expr {
             s::unary_operator::is_true,
             vref { decl(t::boolean {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_is_true_pending) {
+TEST_F(expression_analyzer_scalar_test, unary_is_true_pending) {
     s::unary expr {
             s::unary_operator::is_true,
             vref { decl(ex::pending {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_is_true_error) {
+TEST_F(expression_analyzer_scalar_test, unary_is_true_error) {
     s::unary expr {
             s::unary_operator::is_true,
             vref { decl(ex::error {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_is_true_unknown) {
+TEST_F(expression_analyzer_scalar_test, unary_is_true_unknown) {
     s::unary expr {
             s::unary_operator::is_true,
             vref { decl(t::unknown()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_is_true_invalid) {
+TEST_F(expression_analyzer_scalar_test, unary_is_true_invalid) {
     s::unary expr {
             s::unary_operator::is_true,
             vref { decl(t::int4 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.operand());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(find(expr.operand(), code::unsupported_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_is_false) {
+TEST_F(expression_analyzer_scalar_test, unary_is_false) {
     s::unary expr {
             s::unary_operator::is_false,
             vref { decl(t::boolean {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_is_false_pending) {
+TEST_F(expression_analyzer_scalar_test, unary_is_false_pending) {
     s::unary expr {
             s::unary_operator::is_false,
             vref { decl(ex::pending {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_is_false_error) {
+TEST_F(expression_analyzer_scalar_test, unary_is_false_error) {
     s::unary expr {
             s::unary_operator::is_false,
             vref { decl(ex::error {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_is_false_unknown) {
+TEST_F(expression_analyzer_scalar_test, unary_is_false_unknown) {
     s::unary expr {
             s::unary_operator::is_false,
             vref { decl(t::unknown()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, unary_is_false_invalid) {
+TEST_F(expression_analyzer_scalar_test, unary_is_false_invalid) {
     s::unary expr {
             s::unary_operator::is_false,
             vref { decl(t::int4 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.operand());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(find(expr.operand(), code::unsupported_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_add_number) {
+TEST_F(expression_analyzer_scalar_test, binary_add_number) {
     s::binary expr {
             s::binary_operator::add,
             vref { decl(t::int4 {}) },
             vref { decl(t::int8 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int8());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_add_decimal) {
+TEST_F(expression_analyzer_scalar_test, binary_add_decimal) {
     s::binary expr {
             s::binary_operator::add,
             vref { decl(t::decimal { 10, 2 }) },
             vref { decl(t::decimal { 20, 0 }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::decimal(23, 2));
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_add_number_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_add_number_invalid) {
     s::binary expr {
             s::binary_operator::add,
             vref { decl(t::int4 {}) },
             vref { decl(t::character { t::varying }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_add_temporal) {
+TEST_F(expression_analyzer_scalar_test, binary_add_temporal) {
     s::binary expr {
             s::binary_operator::add,
             vref { decl(t::time_point {}) },
             vref { decl(t::time_interval {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::time_point());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_add_temporal_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_add_temporal_invalid) {
     s::binary expr {
             s::binary_operator::add,
             vref { decl(t::time_point {}) },
             vref { decl(t::int4 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_add_time_interval) {
+TEST_F(expression_analyzer_scalar_test, binary_add_time_interval) {
     s::binary expr {
             s::binary_operator::add,
             vref { decl(t::time_interval {}) },
             vref { decl(t::time_interval {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::time_interval());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_add_time_interval_time_point) {
+TEST_F(expression_analyzer_scalar_test, binary_add_time_interval_time_point) {
     s::binary expr {
             s::binary_operator::add,
             vref { decl(t::time_interval {}) },
             vref { decl(t::time_point {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::time_point());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_add_time_interval_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_add_time_interval_invalid) {
     s::binary expr {
             s::binary_operator::add,
             vref { decl(t::time_interval {}) },
             vref { decl(t::int4 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_add_unknown) {
+TEST_F(expression_analyzer_scalar_test, binary_add_unknown) {
     s::binary expr {
             s::binary_operator::add,
             vref { decl(t::unknown()) },
             vref { decl(t::unknown()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.left(), code::ambiguous_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_add_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_add_invalid) {
     s::binary expr {
             s::binary_operator::add,
             vref { decl(t::boolean()) },
             vref { decl(t::boolean()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.left(), code::unsupported_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_subtract_number) {
+TEST_F(expression_analyzer_scalar_test, binary_subtract_number) {
     s::binary expr {
             s::binary_operator::subtract,
             vref { decl(t::int4 {}) },
             vref { decl(t::int8 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int8());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_subtract_decimal) {
+TEST_F(expression_analyzer_scalar_test, binary_subtract_decimal) {
     s::binary expr {
             s::binary_operator::subtract,
             vref { decl(t::decimal { 10, 2 }) },
             vref { decl(t::decimal { 20, 0 }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::decimal(23, 2));
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_subtract_number_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_subtract_number_invalid) {
     s::binary expr {
             s::binary_operator::subtract,
             vref { decl(t::int4 {}) },
             vref { decl(t::character { t::varying }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_subtract_temporal) {
+TEST_F(expression_analyzer_scalar_test, binary_subtract_temporal) {
     s::binary expr {
             s::binary_operator::subtract,
             vref { decl(t::time_point {}) },
             vref { decl(t::time_interval {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::time_point());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_subtract_temporal_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_subtract_temporal_invalid) {
     s::binary expr {
             s::binary_operator::subtract,
             vref { decl(t::time_point {}) },
             vref { decl(t::int4 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_subtract_time_interval) {
+TEST_F(expression_analyzer_scalar_test, binary_subtract_time_interval) {
     s::binary expr {
             s::binary_operator::subtract,
             vref { decl(t::time_interval {}) },
             vref { decl(t::time_interval {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::time_interval());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_subtract_time_interval_time_point) {
+TEST_F(expression_analyzer_scalar_test, binary_subtract_time_interval_time_point) {
     s::binary expr {
             s::binary_operator::subtract,
             vref { decl(t::time_interval {}) },
             vref { decl(t::time_point {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_subtract_time_interval_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_subtract_time_interval_invalid) {
     s::binary expr {
             s::binary_operator::subtract,
             vref { decl(t::time_interval {}) },
             vref { decl(t::int4 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_subtract_unknown) {
+TEST_F(expression_analyzer_scalar_test, binary_subtract_unknown) {
     s::binary expr {
             s::binary_operator::subtract,
             vref { decl(t::unknown()) },
             vref { decl(t::unknown()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.left(), code::ambiguous_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_subtract_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_subtract_invalid) {
     s::binary expr {
             s::binary_operator::subtract,
             vref { decl(t::boolean()) },
             vref { decl(t::boolean()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.left(), code::unsupported_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_multiply_number) {
+TEST_F(expression_analyzer_scalar_test, binary_multiply_number) {
     s::binary expr {
             s::binary_operator::multiply,
             vref { decl(t::int4 {}) },
             vref { decl(t::int8 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int8());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_multiply_decimal) {
+TEST_F(expression_analyzer_scalar_test, binary_multiply_decimal) {
     s::binary expr {
             s::binary_operator::multiply,
             vref { decl(t::decimal { 10, 2 }) },
             vref { decl(t::decimal { 20, 5 }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::decimal(30, 7));
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_multiply_number_time_interval) {
+TEST_F(expression_analyzer_scalar_test, binary_multiply_number_time_interval) {
     s::binary expr {
             s::binary_operator::multiply,
             vref { decl(t::int4 {}) },
             vref { decl(t::time_interval {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::time_interval());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_multiply_number_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_multiply_number_invalid) {
     s::binary expr {
             s::binary_operator::multiply,
             vref { decl(t::int4 {}) },
             vref { decl(t::character { t::varying }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_multiply_time_interval) {
+TEST_F(expression_analyzer_scalar_test, binary_multiply_time_interval) {
     s::binary expr {
             s::binary_operator::multiply,
             vref { decl(t::time_interval {}) },
             vref { decl(t::int4 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::time_interval());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_multiply_time_interval_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_multiply_time_interval_invalid) {
     s::binary expr {
             s::binary_operator::multiply,
             vref { decl(t::time_interval {}) },
             vref { decl(t::time_point {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_multiply_unknown) {
+TEST_F(expression_analyzer_scalar_test, binary_multiply_unknown) {
     s::binary expr {
             s::binary_operator::multiply,
             vref { decl(t::unknown()) },
             vref { decl(t::unknown()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.left(), code::ambiguous_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_multiply_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_multiply_invalid) {
     s::binary expr {
             s::binary_operator::multiply,
             vref { decl(t::boolean()) },
             vref { decl(t::boolean()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.left(), code::unsupported_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_divide_number) {
+TEST_F(expression_analyzer_scalar_test, binary_divide_number) {
     s::binary expr {
             s::binary_operator::divide,
             vref { decl(t::int4 {}) },
             vref { decl(t::int8 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int8());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_divide_decimal) {
+TEST_F(expression_analyzer_scalar_test, binary_divide_decimal) {
     s::binary expr {
             s::binary_operator::divide,
             vref { decl(t::decimal { 10, 2 }) },
             vref { decl(t::decimal { 20, 5 }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::decimal(30, 7));
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_divide_number_time_interval) {
+TEST_F(expression_analyzer_scalar_test, binary_divide_number_time_interval) {
     s::binary expr {
             s::binary_operator::divide,
             vref { decl(t::int4 {}) },
             vref { decl(t::time_interval {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_divide_number_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_divide_number_invalid) {
     s::binary expr {
             s::binary_operator::divide,
             vref { decl(t::int4 {}) },
             vref { decl(t::character { t::varying }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_divide_time_interval) {
+TEST_F(expression_analyzer_scalar_test, binary_divide_time_interval) {
     s::binary expr {
             s::binary_operator::divide,
             vref { decl(t::time_interval {}) },
             vref { decl(t::int4 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::time_interval());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_divide_time_interval_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_divide_time_interval_invalid) {
     s::binary expr {
             s::binary_operator::divide,
             vref { decl(t::time_interval {}) },
             vref { decl(t::time_point {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_divide_unknown) {
+TEST_F(expression_analyzer_scalar_test, binary_divide_unknown) {
     s::binary expr {
             s::binary_operator::divide,
             vref { decl(t::unknown()) },
             vref { decl(t::unknown()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.left(), code::ambiguous_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_divide_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_divide_invalid) {
     s::binary expr {
             s::binary_operator::divide,
             vref { decl(t::boolean()) },
             vref { decl(t::boolean()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.left(), code::unsupported_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_remainder_number) {
+TEST_F(expression_analyzer_scalar_test, binary_remainder_number) {
     s::binary expr {
             s::binary_operator::remainder,
             vref { decl(t::int4 {}) },
             vref { decl(t::int8 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int8());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_remainder_decimal) {
+TEST_F(expression_analyzer_scalar_test, binary_remainder_decimal) {
     s::binary expr {
             s::binary_operator::remainder,
             vref { decl(t::decimal { 10, 2 }) },
             vref { decl(t::decimal { 20, 5 }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::decimal(30, 7));
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_remainder_number_time_interval) {
+TEST_F(expression_analyzer_scalar_test, binary_remainder_number_time_interval) {
     s::binary expr {
             s::binary_operator::remainder,
             vref { decl(t::int4 {}) },
             vref { decl(t::time_interval {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_remainder_number_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_remainder_number_invalid) {
     s::binary expr {
             s::binary_operator::remainder,
             vref { decl(t::int4 {}) },
             vref { decl(t::character { t::varying }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_remainder_time_interval) {
+TEST_F(expression_analyzer_scalar_test, binary_remainder_time_interval) {
     s::binary expr {
             s::binary_operator::remainder,
             vref { decl(t::time_interval {}) },
             vref { decl(t::int4 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::time_interval());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_remainder_time_interval_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_remainder_time_interval_invalid) {
     s::binary expr {
             s::binary_operator::remainder,
             vref { decl(t::time_interval {}) },
             vref { decl(t::time_point {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_remainder_unknown) {
+TEST_F(expression_analyzer_scalar_test, binary_remainder_unknown) {
     s::binary expr {
             s::binary_operator::remainder,
             vref { decl(t::unknown()) },
             vref { decl(t::unknown()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.left(), code::ambiguous_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_remainder_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_remainder_invalid) {
     s::binary expr {
             s::binary_operator::remainder,
             vref { decl(t::boolean()) },
             vref { decl(t::boolean()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.left(), code::unsupported_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_concat_character) {
+TEST_F(expression_analyzer_scalar_test, binary_concat_character) {
     s::binary expr {
             s::binary_operator::concat,
             vref { decl(t::character { t::varying, 10 }) },
             vref { decl(t::character { t::varying, 20 }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::character(t::varying, 30));
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_concat_character_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_concat_character_invalid) {
     s::binary expr {
             s::binary_operator::concat,
             vref { decl(t::character { t::varying, 10 }) },
             vref { decl(t::boolean()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_concat_bit) {
+TEST_F(expression_analyzer_scalar_test, binary_concat_bit) {
     s::binary expr {
             s::binary_operator::concat,
             vref { decl(t::bit { t::varying, 10 }) },
             vref { decl(t::bit { t::varying, 20 }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::bit(t::varying, 30));
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_concat_bit_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_concat_bit_invalid) {
     s::binary expr {
             s::binary_operator::concat,
             vref { decl(t::bit { t::varying, 10 }) },
             vref { decl(t::boolean()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_concat_unknown) {
+TEST_F(expression_analyzer_scalar_test, binary_concat_unknown) {
     s::binary expr {
             s::binary_operator::concat,
             vref { decl(t::unknown()) },
             vref { decl(t::unknown()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.left(), code::ambiguous_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_concat_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_concat_invalid) {
     s::binary expr {
             s::binary_operator::concat,
             vref { decl(t::boolean()) },
             vref { decl(t::boolean()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.left(), code::unsupported_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_conditional_and) {
+TEST_F(expression_analyzer_scalar_test, binary_conditional_and) {
     s::binary expr {
             s::binary_operator::conditional_and,
             vref { decl(t::boolean {}) },
             vref { decl(t::boolean {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_conditional_and_boolean_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_conditional_and_boolean_invalid) {
     s::binary expr {
             s::binary_operator::conditional_and,
             vref { decl(t::boolean {}) },
             vref { decl(t::int4 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_conditional_and_unknown) {
+TEST_F(expression_analyzer_scalar_test, binary_conditional_and_unknown) {
     s::binary expr {
             s::binary_operator::conditional_and,
             vref { decl(t::unknown()) },
             vref { decl(t::unknown()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_conditional_and_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_conditional_and_invalid) {
     s::binary expr {
             s::binary_operator::conditional_and,
             vref { decl(t::int4()) },
             vref { decl(t::int4()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(find(expr.left(), code::unsupported_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_conditional_or) {
+TEST_F(expression_analyzer_scalar_test, binary_conditional_or) {
     s::binary expr {
             s::binary_operator::conditional_or,
             vref { decl(t::boolean {}) },
             vref { decl(t::boolean {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_conditional_or_boolean_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_conditional_or_boolean_invalid) {
     s::binary expr {
             s::binary_operator::conditional_or,
             vref { decl(t::boolean {}) },
             vref { decl(t::int4 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_conditional_or_unknown) {
+TEST_F(expression_analyzer_scalar_test, binary_conditional_or_unknown) {
     s::binary expr {
             s::binary_operator::conditional_or,
             vref { decl(t::unknown()) },
             vref { decl(t::unknown()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, binary_conditional_or_invalid) {
+TEST_F(expression_analyzer_scalar_test, binary_conditional_or_invalid) {
     s::binary expr {
             s::binary_operator::conditional_or,
             vref { decl(t::int4()) },
             vref { decl(t::int4()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(find(expr.left(), code::unsupported_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, compare) {
+TEST_F(expression_analyzer_scalar_test, compare) {
     s::compare expr {
             s::comparison_operator::equal,
             vref { decl(t::int4()) },
             vref { decl(t::int8()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, compare_invalid) {
+TEST_F(expression_analyzer_scalar_test, compare_invalid) {
     s::compare expr {
             s::comparison_operator::equal,
             vref { decl(t::int4()) },
             vref { decl(t::boolean()) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.right());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(find(expr.right(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, match) {
+TEST_F(expression_analyzer_scalar_test, match) {
     s::match expr {
             s::match_operator::like,
             vref { decl(t::character { t::varying }) },
             vref { decl(t::character { t::varying }) },
             vref { decl(t::character { t::varying }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, match_input_invalid) {
+TEST_F(expression_analyzer_scalar_test, match_input_invalid) {
     s::match expr {
             s::match_operator::like,
             vref { decl(t::boolean {}) },
             vref { decl(t::character { t::varying }) },
             vref { decl(t::character { t::varying }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.input());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(find(expr.input(), code::unsupported_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, match_pattern_invalid) {
+TEST_F(expression_analyzer_scalar_test, match_pattern_invalid) {
     s::match expr {
             s::match_operator::like,
             vref { decl(t::character { t::varying }) },
             vref { decl(t::boolean {}) },
             vref { decl(t::character { t::varying }) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.pattern());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(find(expr.pattern(), code::unsupported_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, match_escape_invalid) {
+TEST_F(expression_analyzer_scalar_test, match_escape_invalid) {
     s::match expr {
             s::match_operator::like,
             vref { decl(t::character { t::varying }) },
             vref { decl(t::character { t::varying }) },
             vref { decl(t::boolean {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.escape());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_TRUE(find(expr.escape(), code::unsupported_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, conditional) {
+TEST_F(expression_analyzer_scalar_test, conditional) {
     s::conditional expr {
             {
                     s::conditional::alternative {
@@ -1184,12 +1256,12 @@ TEST_F(scalar_expression_analyzer_test, conditional) {
                     },
             },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, conditional_unify) {
+TEST_F(expression_analyzer_scalar_test, conditional_unify) {
     s::conditional expr {
             {
                     s::conditional::alternative {
@@ -1202,12 +1274,12 @@ TEST_F(scalar_expression_analyzer_test, conditional_unify) {
                     },
             },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int8());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, conditional_else) {
+TEST_F(expression_analyzer_scalar_test, conditional_else) {
     s::conditional expr {
             {
                     s::conditional::alternative {
@@ -1217,12 +1289,12 @@ TEST_F(scalar_expression_analyzer_test, conditional_else) {
             },
             vref { decl(t::int8 {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int8());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, conditional_condition_invalid) {
+TEST_F(expression_analyzer_scalar_test, conditional_condition_invalid) {
     s::conditional expr {
             {
                     s::conditional::alternative {
@@ -1231,12 +1303,13 @@ TEST_F(scalar_expression_analyzer_test, conditional_condition_invalid) {
                     },
             },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.alternatives()[0].condition());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(find(expr.alternatives()[0].condition(), code::unsupported_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, conditional_body_invalid) {
+TEST_F(expression_analyzer_scalar_test, conditional_body_invalid) {
     s::conditional expr {
             {
                     s::conditional::alternative {
@@ -1246,23 +1319,24 @@ TEST_F(scalar_expression_analyzer_test, conditional_body_invalid) {
             },
             vref { decl(t::boolean {}) },
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(*expr.default_expression());
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(*expr.default_expression(), code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, coalesce) {
+TEST_F(expression_analyzer_scalar_test, coalesce) {
     s::coalesce expr {
             {
                     vref { decl(t::int4 {}) },
             }
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, coalesce_multiple) {
+TEST_F(expression_analyzer_scalar_test, coalesce_multiple) {
     s::coalesce expr {
             {
                     vref { decl(t::int4 {}) },
@@ -1270,12 +1344,12 @@ TEST_F(scalar_expression_analyzer_test, coalesce_multiple) {
                     vref { decl(t::int8 {}) },
             }
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int8());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, coalesce_unresolved) {
+TEST_F(expression_analyzer_scalar_test, coalesce_unresolved) {
     s::coalesce expr {
             {
                     vref { decl(t::int4 {}) },
@@ -1283,12 +1357,12 @@ TEST_F(scalar_expression_analyzer_test, coalesce_unresolved) {
                     vref { decl(t::int8 {}) },
             }
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::pending());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, coalesce_invalid) {
+TEST_F(expression_analyzer_scalar_test, coalesce_invalid) {
     s::coalesce expr {
             {
                     vref { decl(t::int4 {}) },
@@ -1296,12 +1370,13 @@ TEST_F(scalar_expression_analyzer_test, coalesce_invalid) {
                     vref { decl(t::int8 {}) },
             }
     };
-    auto r = analyzer.resolve(expr, repo);
+    bless(expr.alternatives()[1]);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.alternatives()[1], code::inconsistent_type));
 }
 
-TEST_F(scalar_expression_analyzer_test, let) {
+TEST_F(expression_analyzer_scalar_test, let) {
     auto v = bindings.local_variable();
     s::let expr {
             s::let::declarator {
@@ -1310,12 +1385,12 @@ TEST_F(scalar_expression_analyzer_test, let) {
             },
             vref { v },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, let_multiple) {
+TEST_F(expression_analyzer_scalar_test, let_multiple) {
     auto v1 = bindings.local_variable();
     auto v2 = bindings.local_variable();
     auto v3 = bindings.local_variable();
@@ -1342,12 +1417,12 @@ TEST_F(scalar_expression_analyzer_test, let_multiple) {
                     },
             },
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int8());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, function_call) {
+TEST_F(expression_analyzer_scalar_test, function_call) {
     auto f = bindings.function({
             function::declaration::minimum_user_function_id + 100,
             "testing",
@@ -1358,12 +1433,12 @@ TEST_F(scalar_expression_analyzer_test, function_call) {
             f,
             {},
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(ok());
 }
 
-TEST_F(scalar_expression_analyzer_test, function_call_unresolved) {
+TEST_F(expression_analyzer_scalar_test, function_call_unresolved) {
     auto f = bindings.function({
             function::declaration::unresolved_definition_id,
             "testing",
@@ -1374,7 +1449,7 @@ TEST_F(scalar_expression_analyzer_test, function_call_unresolved) {
             f,
             {},
     };
-    auto r = analyzer.resolve(expr, repo);
+    auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(ok());
 }

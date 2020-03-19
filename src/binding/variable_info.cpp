@@ -21,7 +21,11 @@ bool variable_info::equals(takatori::util::object const& other) const noexcept {
     return false;
 }
 
-variable_info& extract(variable_info::descriptor_type const& descriptor) {
+variable_info::descriptor_type wrap(std::shared_ptr<variable_info> info) noexcept {
+    return variable_info::descriptor_type { std::move(info) };
+}
+
+variable_info& unwrap(variable_info::descriptor_type const& descriptor) {
     return *std::dynamic_pointer_cast<variable_info>(descriptor.shared_entity());
 }
 

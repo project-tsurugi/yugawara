@@ -2,50 +2,47 @@
 
 #include <gtest/gtest.h>
 
+#include <takatori/document/basic_document.h>
+#include <takatori/document/region.h>
+
 #include <takatori/type/type_kind.h>
 #include <takatori/type/character.h>
-#include <takatori/value/int.h>
-#include <takatori/scalar/immediate.h>
-
-#include <yugawara/type/repository.h>
 
 namespace yugawara::analyzer {
 
-class type_diagnostic_test : public ::testing::Test {};
+class type_diagnostic_test : public ::testing::Test {
+public:
+    ::takatori::document::basic_document doc {
+            "testing.sql",
+            "0123456789",
+    };
+};
 
-namespace s = ::takatori::scalar;
 namespace t = ::takatori::type;
-namespace v = ::takatori::value;
 using code = type_diagnostic::code_type;
-using cat = type::category;
+using type::category;
+using region = ::takatori::document::region;
+
 
 TEST_F(type_diagnostic_test, simple) {
-    s::immediate expr {
-            v::int4(100),
-            t::character(t::varying),
-    };
     type_diagnostic d {
             code::unsupported_type,
-            expr,
+            region { doc, 0, 1 },
             t::character(t::varying),
-            { cat::number },
+            { category::number },
     };
     EXPECT_EQ(d.code(), code::unsupported_type);
-    EXPECT_EQ(std::addressof(d.location()), std::addressof(expr));
+    EXPECT_EQ(d.region(), region(doc, 0, 1));
     EXPECT_EQ(d.actual_type(), t::character(t::varying));
-    EXPECT_EQ(d.expected_categories(), type_diagnostic::category_set({ cat::number }));
+    EXPECT_EQ(d.expected_categories(), type_diagnostic::category_set({ category::number }));
 }
 
 TEST_F(type_diagnostic_test, output) {
-    s::immediate expr {
-            v::int4(100),
-            t::character(t::varying),
-    };
     type_diagnostic d {
             code::unsupported_type,
-            expr,
+            region { doc, 0, 1 },
             t::character(t::varying),
-            { cat::number, cat::character_string },
+            { category::number, category::character_string },
     };
     std::cout << d << std::endl;
 }

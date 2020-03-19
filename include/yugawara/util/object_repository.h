@@ -47,6 +47,17 @@ public:
     {}
 
     /**
+     * @brief creates a new instance.
+     * @param creator the object creator
+     * @param enable_cache whether or not cache mechanism is enabled
+     */
+    explicit object_repository(takatori::util::object_creator creator, bool enable_cache)
+        : cache_(enable_cache
+                ? creator.template create_unique<cache_type>()
+                : ::takatori::util::unique_object_ptr<cache_type> {})
+    {}
+
+    /**
      * @brief creates a new instance with using the given cache table.
      * @param cache the cache table
      */

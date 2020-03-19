@@ -23,7 +23,11 @@ bool relation_info::equals(takatori::util::object const& other) const noexcept {
     return false;
 }
 
-relation_info& extract(relation_info::descriptor_type const& descriptor) {
+relation_info::descriptor_type wrap(std::shared_ptr<relation_info> info) noexcept {
+    return relation_info::descriptor_type { std::move(info) };
+}
+
+relation_info& unwrap(relation_info::descriptor_type const& descriptor) {
     return *std::dynamic_pointer_cast<relation_info>(descriptor.shared_entity());
 }
 

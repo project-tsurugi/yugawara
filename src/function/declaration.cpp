@@ -42,6 +42,14 @@ declaration& declaration::definition_id(declaration::definition_id_type definiti
     return *this;
 }
 
+bool declaration::is_defined() const noexcept {
+    return definition_id_ != unresolved_definition_id;
+}
+
+declaration::operator bool() const noexcept {
+    return is_defined();
+}
+
 std::string_view declaration::name() const noexcept {
     return name_;
 }

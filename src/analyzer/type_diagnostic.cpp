@@ -6,23 +6,23 @@ namespace yugawara::analyzer {
 
 type_diagnostic::type_diagnostic(
         code_type code,
-        ::takatori::scalar::expression const& location,
+        ::takatori::document::region region,
         std::shared_ptr<::takatori::type::data const> actual_type,
         type_diagnostic::category_set expected_categories) noexcept
     : code_(code)
-    , location_(std::addressof(location))
+    , region_(region)
     , actual_type_(std::move(actual_type))
     , expected_categories_(expected_categories)
 {}
 
 type_diagnostic::type_diagnostic(
         type_diagnostic::code_type code,
-        ::takatori::scalar::expression const& location,
+        ::takatori::document::region region,
         ::takatori::type::data&& actual_type,
         type_diagnostic::category_set expected_categories)
     : type_diagnostic(
             code,
-            location,
+            region,
             ::takatori::util::clone_shared(std::move(actual_type)),
             expected_categories)
 {}
@@ -31,8 +31,8 @@ type_diagnostic::code_type type_diagnostic::code() const noexcept {
     return code_;
 }
 
-::takatori::scalar::expression const& type_diagnostic::location() const noexcept {
-    return *location_;
+::takatori::document::region const& type_diagnostic::region() const noexcept {
+    return region_;
 }
 
 ::takatori::type::data const& type_diagnostic::actual_type() const noexcept {
@@ -50,7 +50,7 @@ type_diagnostic::category_set const& type_diagnostic::expected_categories() cons
 std::ostream& operator<<(std::ostream& out, type_diagnostic const& value) {
     return out << "type_diagnostic("
                << "code=" << value.code() << ", "
-               << "location=" << value.location() << ", "
+               << "region=" << value.region() << ", "
                << "actual_type=" << value.actual_type() << ", "
                << "expected_categories=" << value.expected_categories() << ")";
 }

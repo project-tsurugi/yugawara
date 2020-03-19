@@ -35,7 +35,7 @@ public:
      */
     explicit exchange_info(exchange_info&& other, ::takatori::util::object_creator creator);
 
-    relation_info_kind kind() const noexcept override;
+    kind_type kind() const noexcept override;
     exchange_info* clone(takatori::util::object_creator creator) const& override;
     exchange_info* clone(takatori::util::object_creator creator) && override;
 

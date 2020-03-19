@@ -4,6 +4,7 @@
 #include <memory>
 #include <utility>
 
+#include <takatori/document/region.h>
 #include <takatori/type/data.h>
 #include <takatori/scalar/expression.h>
 #include <takatori/util/enum_set.h>
@@ -28,26 +29,26 @@ public:
     /**
      * @brief creates a new instance.
      * @param code the diagnostic code
-     * @param location the location where this diagnostic occurred
+     * @param region the region where this diagnostic occurred
      * @param actual_type the actual type
      * @param expected_categories the expected type categories
      */
     type_diagnostic(
             code_type code,
-            ::takatori::scalar::expression const& location,
+            ::takatori::document::region region,
             std::shared_ptr<::takatori::type::data const> actual_type,
             category_set expected_categories) noexcept;
 
     /**
      * @brief creates a new instance.
      * @param code the diagnostic code
-     * @param location the location where this diagnostic occurred
+     * @param region the region where this diagnostic occurred
      * @param actual_type the actual type
      * @param expected_categories the expected type categories
      */
     type_diagnostic(
             code_type code,
-            ::takatori::scalar::expression const& location,
+            ::takatori::document::region region,
             ::takatori::type::data&& actual_type,
             category_set expected_categories);
     
@@ -58,10 +59,10 @@ public:
     code_type code() const noexcept;
 
     /**
-     * @brief returns the location where this diagnostic occurred.
-     * @return the diagnostic location
+     * @brief returns the region where this diagnostic occurred.
+     * @return the diagnostic region
      */
-    ::takatori::scalar::expression const& location() const noexcept;
+    ::takatori::document::region const& region() const noexcept;
 
     /**
      * @brief returns the actual expression type.
@@ -91,7 +92,7 @@ public:
     
 private:
     code_type code_;
-    ::takatori::scalar::expression const* location_;
+    ::takatori::document::region region_;
     std::shared_ptr<::takatori::type::data const> actual_type_;
     category_set expected_categories_;
 };

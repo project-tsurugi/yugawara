@@ -13,21 +13,15 @@ factory::factory(::takatori::util::object_creator creator) noexcept
 {}
 
 ::takatori::descriptor::relation factory::index(storage::index const& declaration) {
-    return ::takatori::descriptor::relation {
-            creator_.create_shared<index_info>(declaration),
-    };
+    return wrap(creator_.create_shared<index_info>(declaration));
 }
 
 ::takatori::descriptor::relation factory::exchange(::takatori::plan::exchange const& declaration) {
-    return ::takatori::descriptor::relation {
-            creator_.create_shared<exchange_info>(declaration),
-    };
+    return wrap(creator_.create_shared<exchange_info>(declaration));
 }
 
 ::takatori::descriptor::variable factory::table_column(storage::column const& column) {
-    return ::takatori::descriptor::variable {
-            creator_.create_shared<table_column_info>(column)
-    };
+    return wrap(creator_.create_shared<table_column_info>(column));
 }
 
 factory::variable_vector factory::table_columns(storage::column_list_view const& columns) {
@@ -42,9 +36,7 @@ factory::variable_vector factory::table_columns(storage::column_list_view const&
 template<variable_info_kind Kind>
 static takatori::descriptor::variable create(::takatori::util::object_creator creator, std::size_t id) {
     using info = variable_info_impl<Kind>;
-    return ::takatori::descriptor::variable {
-            creator.create_shared<info>(id)
-    };
+    return wrap(creator.create_shared<info>(id));
 }
 
 takatori::descriptor::variable factory::exchange_column() {
@@ -61,9 +53,7 @@ factory::variable_vector factory::exchange_columns(std::size_t count) {
 }
 
 ::takatori::descriptor::variable factory::external_variable(variable::declaration const& declaration) {
-    return ::takatori::descriptor::variable {
-            creator_.create_shared<external_variable_info>(std::move(declaration)),
-    };
+    return wrap(creator_.create_shared<external_variable_info>(std::move(declaration)));
 }
 
 ::takatori::descriptor::variable factory::stream_variable() {
@@ -84,9 +74,7 @@ factory::variable_vector factory::stream_variables(std::size_t count) {
 }
 
 ::takatori::descriptor::function factory::function(std::shared_ptr<function::declaration const> declaration) {
-    return ::takatori::descriptor::function {
-            creator_.create_shared<function_info>(std::move(declaration)),
-    };
+    return wrap(creator_.create_shared<function_info>(std::move(declaration)));
 }
 
 ::takatori::descriptor::function factory::function(function::declaration&& declaration) {
@@ -95,9 +83,7 @@ factory::variable_vector factory::stream_variables(std::size_t count) {
 
 ::takatori::descriptor::aggregate_function factory::aggregate_function(
         std::shared_ptr<aggregate::declaration const> declaration) {
-    return ::takatori::descriptor::aggregate_function {
-            creator_.create_shared<aggregate_function_info>(std::move(declaration)),
-    };
+    return wrap(creator_.create_shared<aggregate_function_info>(std::move(declaration)));
 }
 
 ::takatori::descriptor::aggregate_function factory::aggregate_function(aggregate::declaration&& declaration) {

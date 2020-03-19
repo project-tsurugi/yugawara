@@ -48,7 +48,11 @@ std::ostream& aggregate_function_info::print_to(std::ostream& out) const {
     return out << *this;
 }
 
-aggregate_function_info& extract(aggregate_function_info::descriptor_type const& descriptor) {
+aggregate_function_info::descriptor_type wrap(std::shared_ptr<aggregate_function_info> info) noexcept {
+    return aggregate_function_info::descriptor_type { std::move(info) };
+}
+
+aggregate_function_info& unwrap(aggregate_function_info::descriptor_type const& descriptor) {
     return *std::dynamic_pointer_cast<aggregate_function_info>(descriptor.shared_entity());
 }
 

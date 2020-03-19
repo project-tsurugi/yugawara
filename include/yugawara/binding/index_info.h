@@ -35,7 +35,7 @@ public:
      */
     explicit index_info(index_info&& other, ::takatori::util::object_creator creator);
 
-    relation_info_kind kind() const noexcept override;
+    kind_type kind() const noexcept override;
     index_info* clone(takatori::util::object_creator creator) const& override;
     index_info* clone(takatori::util::object_creator creator) && override;
 

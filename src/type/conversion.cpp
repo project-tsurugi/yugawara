@@ -49,12 +49,12 @@ static std::shared_ptr<extensions::pending> shared_pending() {
     return result;
 }
 
-std::shared_ptr<model::data> identity_conversion(model::data const& type, repository& repo) {
+std::shared_ptr<model::data const> identity_conversion(model::data const& type, repository& repo) {
     if (is_conversion_stop_type(type)) return shared_pending();
     return repo.get(type);
 }
 
-std::shared_ptr<model::data> unary_boolean_promotion(model::data const& type, repository& repo) {
+std::shared_ptr<model::data const> unary_boolean_promotion(model::data const& type, repository& repo) {
     if (is_conversion_stop_type(type)) return shared_pending();
     switch (type.kind()) {
         case kind::boolean:
@@ -66,7 +66,7 @@ std::shared_ptr<model::data> unary_boolean_promotion(model::data const& type, re
     }
 }
 
-std::shared_ptr<model::data>
+std::shared_ptr<model::data const>
 binary_boolean_promotion(model::data const& type, model::data const& with, repository& repo) {
     if (is_conversion_stop_type(type) || is_conversion_stop_type(with)) return shared_pending();
     switch (npair(type.kind(), with.kind())) {
@@ -80,7 +80,7 @@ binary_boolean_promotion(model::data const& type, model::data const& with, repos
     }
 }
 
-std::shared_ptr<model::data> unary_numeric_promotion(model::data const& type, repository& repo) {
+std::shared_ptr<model::data const> unary_numeric_promotion(model::data const& type, repository& repo) {
     if (is_conversion_stop_type(type)) return shared_pending();
     switch (type.kind()) {
         case kind::int1:
@@ -98,7 +98,7 @@ std::shared_ptr<model::data> unary_numeric_promotion(model::data const& type, re
     }
 }
 
-std::shared_ptr<model::data> unary_decimal_promotion(model::data const& type, repository& repo) {
+std::shared_ptr<model::data const> unary_decimal_promotion(model::data const& type, repository& repo) {
     if (is_conversion_stop_type(type)) return shared_pending();
     switch (type.kind()) {
         case kind::unknown:
@@ -117,7 +117,7 @@ std::shared_ptr<model::data> unary_decimal_promotion(model::data const& type, re
     }
 }
 
-std::shared_ptr<model::data>
+std::shared_ptr<model::data const>
 binary_numeric_promotion(model::data const& type, model::data const& with, repository& repo) {
     if (is_conversion_stop_type(type) || is_conversion_stop_type(with)) return shared_pending();
     switch (npair(type.kind(), with.kind())) {
@@ -227,7 +227,7 @@ binary_numeric_promotion(model::data const& type, model::data const& with, repos
     }
 }
 
-std::shared_ptr<model::data>
+std::shared_ptr<model::data const>
 unary_character_string_promotion(model::data const& type, repository& repo) {
     if (is_conversion_stop_type(type)) return shared_pending();
     switch (type.kind()) {
@@ -248,7 +248,7 @@ unary_character_string_promotion(model::data const& type, repository& repo) {
     }
 }
 
-std::shared_ptr<model::data> binary_character_string_promotion(
+std::shared_ptr<model::data const> binary_character_string_promotion(
         model::data const& type,
         model::data const& with,
         repository& repo) {
@@ -266,7 +266,7 @@ std::shared_ptr<model::data> binary_character_string_promotion(
     }
 }
 
-std::shared_ptr<model::data> unary_bit_string_promotion(model::data const& type, repository& repo) {
+std::shared_ptr<model::data const> unary_bit_string_promotion(model::data const& type, repository& repo) {
     if (is_conversion_stop_type(type)) return shared_pending();
     switch (type.kind()) {
         case kind::bit:
@@ -286,7 +286,7 @@ std::shared_ptr<model::data> unary_bit_string_promotion(model::data const& type,
     }
 }
 
-std::shared_ptr<model::data> binary_bit_string_promotion(
+std::shared_ptr<model::data const> binary_bit_string_promotion(
         model::data const& type,
         model::data const& with,
         repository& repo) {
@@ -304,7 +304,7 @@ std::shared_ptr<model::data> binary_bit_string_promotion(
     }
 }
 
-std::shared_ptr<model::data> unary_temporal_promotion(model::data const& type, repository& repo) {
+std::shared_ptr<model::data const> unary_temporal_promotion(model::data const& type, repository& repo) {
     if (is_conversion_stop_type(type)) return shared_pending();
     switch (type.kind()) {
         case kind::date:
@@ -346,7 +346,7 @@ promote_time_zone(model::data const& a, model::data const& b) {
     return takatori::datetime::time_zone::UTC;
 }
 
-std::shared_ptr<model::data> binary_temporal_promotion(
+std::shared_ptr<model::data const> binary_temporal_promotion(
         model::data const& type,
         model::data const& with,
         repository& repo) {
@@ -388,7 +388,7 @@ std::shared_ptr<model::data> binary_temporal_promotion(
     }
 }
 
-std::shared_ptr<model::data> unary_time_interval_promotion(model::data const& type, repository& repo) {
+std::shared_ptr<model::data const> unary_time_interval_promotion(model::data const& type, repository& repo) {
     if (is_conversion_stop_type(type)) return shared_pending();
     switch (type.kind()) {
         case kind::time_interval:
@@ -400,7 +400,7 @@ std::shared_ptr<model::data> unary_time_interval_promotion(model::data const& ty
     }
 }
 
-std::shared_ptr<model::data> binary_time_interval_promotion(
+std::shared_ptr<model::data const> binary_time_interval_promotion(
         model::data const& type,
         model::data const& with,
         repository& repo) {
@@ -419,7 +419,7 @@ std::shared_ptr<model::data> binary_time_interval_promotion(
     }
 }
 
-static std::shared_ptr<model::data> unary_external_promotion(
+static std::shared_ptr<model::data const> unary_external_promotion(
         model::data const& type,
         repository& repo) {
     if (is_conversion_stop_type(type)) return shared_pending();
@@ -433,7 +433,7 @@ static std::shared_ptr<model::data> unary_external_promotion(
     }
 }
 
-static std::shared_ptr<model::data> binary_external_promotion(
+static std::shared_ptr<model::data const> binary_external_promotion(
         model::data const& type,
         model::data const& with,
         repository& repo) {
@@ -451,7 +451,7 @@ static std::shared_ptr<model::data> binary_external_promotion(
     }
 }
 
-std::shared_ptr<model::data> unifying_conversion(model::data const& type, repository& repo) {
+std::shared_ptr<model::data const> unifying_conversion(model::data const& type, repository& repo) {
     auto cat = category_of(type);
     switch (cat) {
         case category::boolean:
@@ -515,7 +515,7 @@ static std::optional<category> unify_category(category a, category b) {
     return {};
 }
 
-std::shared_ptr<model::data> unifying_conversion(
+std::shared_ptr<model::data const> unifying_conversion(
         model::data const& type,
         model::data const& with,
         repository& repo) {

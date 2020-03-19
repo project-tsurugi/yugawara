@@ -17,6 +17,9 @@ public:
     /// @brief the corresponded descriptor type.
     using descriptor_type = ::takatori::descriptor::relation;
 
+    /// @brief the kind type.
+    using kind_type = relation_info_kind;
+
     /**
      * @brief creates a new instance.
      */
@@ -31,7 +34,7 @@ public:
      * @brief returns the kind of this relation.
      * @return the relation kind
      */
-    virtual relation_info_kind kind() const noexcept = 0;
+    virtual kind_type kind() const noexcept = 0;
 
     /**
      * @brief returns a clone of this object.
@@ -101,12 +104,19 @@ protected:
 };
 
 /**
+ * @brief wraps information as a descriptor.
+ * @param info the source information
+ * @return the wrapped descriptor
+ */
+relation_info::descriptor_type wrap(std::shared_ptr<relation_info> info) noexcept;
+
+/**
  * @brief extracts information from the descriptor.
  * @param descriptor the target descriptor
  * @return the corresponded object information
  * @warning undefined behavior if the descriptor was broken
  */
-relation_info& extract(relation_info::descriptor_type const& descriptor);
+relation_info& unwrap(relation_info::descriptor_type const& descriptor);
 
 } // namespace yugawara::binding
 

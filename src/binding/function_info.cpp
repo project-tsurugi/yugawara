@@ -48,7 +48,11 @@ std::ostream& function_info::print_to(std::ostream& out) const {
     return out << *this;
 }
 
-function_info& extract(function_info::descriptor_type const& descriptor) {
+function_info::descriptor_type wrap(std::shared_ptr<function_info> info) noexcept {
+    return function_info::descriptor_type { std::move(info) };
+}
+
+function_info& unwrap(function_info::descriptor_type const& descriptor) {
     return *std::dynamic_pointer_cast<function_info>(descriptor.shared_entity());
 }
 

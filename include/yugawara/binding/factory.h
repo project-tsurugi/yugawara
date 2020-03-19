@@ -19,6 +19,7 @@ namespace yugawara::binding {
 /**
  * @brief provides binding descriptor.
  * @details Developers can create this class's objects directly.
+ * @note To extract binding information from descriptors, please use ::yugawara::binding::unwrap() to them.
  */
 class factory {
 public:
@@ -123,7 +124,8 @@ public:
 
 private:
     ::takatori::util::object_creator creator_;
-    std::atomic_size_t next_id_ { 0 };
+
+    inline static std::atomic_size_t next_id_ { 0 };
 };
 
 } // namespace yugawara::binding

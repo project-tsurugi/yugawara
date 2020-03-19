@@ -103,12 +103,19 @@ private:
 };
 
 /**
+ * @brief wraps information as a descriptor.
+ * @param info the source information
+ * @return the wrapped descriptor
+ */
+aggregate_function_info::descriptor_type wrap(std::shared_ptr<aggregate_function_info> info) noexcept;
+
+/**
  * @brief extracts information from the descriptor.
  * @param descriptor the target descriptor
  * @return the corresponded object information
  * @warning undefined behavior if the descriptor was broken
  */
-aggregate_function_info& extract(aggregate_function_info::descriptor_type const& descriptor);
+aggregate_function_info& unwrap(aggregate_function_info::descriptor_type const& descriptor);
 
 } // namespace yugawara::binding
 

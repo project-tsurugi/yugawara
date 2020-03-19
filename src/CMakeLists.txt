@@ -39,8 +39,13 @@ add_library(yugawara
     variable/quantification.cpp
 
     # analyzer
-    analyzer/scalar_expression_analyzer.cpp
+    analyzer/variable_mapping.cpp
+    analyzer/expression_mapping.cpp
+    analyzer/expression_analyzer.cpp
     analyzer/type_diagnostic.cpp
+    analyzer/variable_resolution.cpp
+    analyzer/block.cpp
+    analyzer/details/block_expression_util.cpp
 )
 
 add_executable(yugawara-exec

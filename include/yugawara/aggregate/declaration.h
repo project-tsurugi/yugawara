@@ -93,6 +93,16 @@ public:
     declaration& definition_id(definition_id_type definition_id) noexcept;
 
     /**
+     * @brief returns whether or not this function is well defined.
+     * @return true if it is defined
+     * @return false otherwise
+     */
+    bool is_defined() const noexcept;
+
+    /// @copydoc is_defined()
+    explicit operator bool() const noexcept;
+
+    /**
      * @brief returns the function name.
      * @return the function name
      */
