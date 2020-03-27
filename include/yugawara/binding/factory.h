@@ -1,6 +1,6 @@
 #pragma once
 
-#include <atomic>
+#include <string>
 #include <vector>
 
 #include <takatori/util/object_creator.h>
@@ -60,16 +60,10 @@ public:
 
     /**
      * @brief returns a variable descriptor for a new exchange column.
+     * @param label the variable label (for debugging)
      * @return the created variable descriptor
      */
-    ::takatori::descriptor::variable exchange_column();
-
-    /**
-     * @brief returns a vector of variable descriptors for new exchange columns.
-     * @param count the number of descriptors to create
-     * @return the created variable descriptors
-     */
-    variable_vector exchange_columns(std::size_t count);
+    ::takatori::descriptor::variable exchange_column(std::string label = {});
 
     /**
      * @brief creates a new external variable descriptor.
@@ -79,22 +73,17 @@ public:
 
     /**
      * @brief returns a variable descriptor for a new stream column.
+     * @param label the variable label (for debugging)
      * @return the created variable descriptor
      */
-    ::takatori::descriptor::variable stream_variable();
-
-    /**
-     * @brief returns a vector of variable descriptors for new stream columns.
-     * @param count the number of descriptors to create
-     * @return the created variable descriptors
-     */
-    variable_vector stream_variables(std::size_t count);
+    ::takatori::descriptor::variable stream_variable(std::string label = {});
 
     /**
      * @brief returns a variable descriptor for a local variable declared in the scalar expression.
+     * @param label the variable label (for debugging)
      * @return the created variable descriptor
      */
-    ::takatori::descriptor::variable local_variable();
+    ::takatori::descriptor::variable local_variable(std::string label = {});
 
     /**
      * @brief creates a new function descriptor.
@@ -124,8 +113,6 @@ public:
 
 private:
     ::takatori::util::object_creator creator_;
-
-    inline static std::atomic_size_t next_id_ { 0 };
 };
 
 } // namespace yugawara::binding

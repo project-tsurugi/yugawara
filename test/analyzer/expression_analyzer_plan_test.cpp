@@ -3,21 +3,14 @@
 #include <gtest/gtest.h>
 
 #include <takatori/document/basic_document.h>
-#include <takatori/document/region.h>
 
-#include <takatori/type/boolean.h>
 #include <takatori/type/int.h>
 #include <takatori/type/decimal.h>
-#include <takatori/type/character.h>
 #include <takatori/util/optional_ptr.h>
 
 #include <takatori/scalar/variable_reference.h>
 
 #include <takatori/relation/intermediate/dispatch.h>
-#include <takatori/relation/step/dispatch.h>
-#include <takatori/relation/emit.h>
-#include <takatori/relation/step/take_flat.h>
-#include <takatori/relation/step/take_group.h>
 #include <takatori/relation/step/offer.h>
 
 #include <takatori/plan/process.h>
@@ -32,7 +25,6 @@
 
 #include <yugawara/storage/table.h>
 #include <yugawara/storage/index.h>
-#include <yugawara/storage/column.h>
 #include <yugawara/storage/configurable_provider.h>
 
 #include <yugawara/aggregate/configurable_provider.h>

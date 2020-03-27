@@ -8,7 +8,7 @@ type_diagnostic::type_diagnostic(
         code_type code,
         ::takatori::document::region region,
         std::shared_ptr<::takatori::type::data const> actual_type,
-        type_diagnostic::category_set expected_categories) noexcept
+        type::category_set expected_categories) noexcept
     : code_(code)
     , region_(region)
     , actual_type_(std::move(actual_type))
@@ -19,7 +19,7 @@ type_diagnostic::type_diagnostic(
         type_diagnostic::code_type code,
         ::takatori::document::region region,
         ::takatori::type::data&& actual_type,
-        type_diagnostic::category_set expected_categories)
+        type::category_set expected_categories)
     : type_diagnostic(
             code,
             region,
@@ -43,7 +43,7 @@ std::shared_ptr<::takatori::type::data const> type_diagnostic::shared_actual_typ
     return actual_type_;
 }
 
-type_diagnostic::category_set const& type_diagnostic::expected_categories() const noexcept {
+type::category_set const& type_diagnostic::expected_categories() const noexcept {
     return expected_categories_;
 }
 

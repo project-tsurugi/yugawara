@@ -6,6 +6,8 @@
 
 #include <cstdlib>
 
+#include <takatori/util/enum_set.h>
+
 namespace yugawara::binding {
 
 /**
@@ -59,6 +61,12 @@ enum class variable_info_kind {
      */
     external_variable,
 };
+
+/// @brief an enum set of variable_info_kind.
+using variable_info_kind_set = ::takatori::util::enum_set<
+        variable_info_kind,
+        variable_info_kind::table_column,
+        variable_info_kind::external_variable>;
 
 /**
  * @brief returns string representation of the value.

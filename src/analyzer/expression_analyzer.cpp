@@ -1267,7 +1267,7 @@ private:
     type::repository& repo_;
     bool validate_;
 
-    ::takatori::document::region const& extract_region(scalar::expression const& expr) const noexcept {
+    static ::takatori::document::region const& extract_region(scalar::expression const& expr) noexcept {
         return expr.region();
     }
 
@@ -1502,11 +1502,10 @@ private:
             return true;
         }
         auto type = ana_.inspect(resolution);
-        return !type
-            || is_error(*type);
+        return is_unresolved_or_error(type);
     }
 
-    bool is_unresolved_or_error(std::shared_ptr<::takatori::type::data const> const& t) const {
+    static bool is_unresolved_or_error(std::shared_ptr<::takatori::type::data const> const& t) {
         if (!t) {
             return true;
         }

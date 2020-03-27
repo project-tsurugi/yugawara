@@ -45,6 +45,10 @@ add_library(yugawara
     analyzer/type_diagnostic.cpp
     analyzer/variable_resolution.cpp
     analyzer/block.cpp
+    analyzer/block_algorithm.cpp
+    analyzer/block_builder.cpp
+    analyzer/variable_liveness_info.cpp
+    analyzer/variable_liveness_analyzer.cpp
     analyzer/details/block_expression_util.cpp
 )
 

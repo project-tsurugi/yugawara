@@ -58,6 +58,8 @@ add_test_executable(analyzer/expression_analyzer_scalar_test.cpp)
 add_test_executable(analyzer/expression_analyzer_relation_test.cpp)
 add_test_executable(analyzer/expression_analyzer_plan_test.cpp)
 add_test_executable(analyzer/block_test.cpp)
+add_test_executable(analyzer/block_builder_test.cpp)
+add_test_executable(analyzer/variable_liveness_analyzer_test.cpp)
 
 # utilities
 add_test_executable(util/either_test.cpp)

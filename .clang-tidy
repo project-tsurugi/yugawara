@@ -3,12 +3,16 @@ Checks: "-*,\
 abseil-*,\
 boost-*,\
 bugprone-*,\
+-bugprone-branch-clone,\
 cert-*,\
+-cert-oop54-cpp,\
 cppcoreguidelines-*,\
 -cppcoreguidelines-pro-type-const-cast,\
 -cppcoreguidelines-avoid-magic-numbers,\
 fuchsia-*,\
 -fuchsia-default-arguments,\
+-fuchsia-default-arguments-calls,\
+-fuchsia-default-arguments-declarations,\
 -fuchsia-overloaded-operator,\
 -fuchsia-trailing-return,\
 google-*,\
@@ -27,6 +31,7 @@ misc-*,\
 -misc-unused-parameters,\
 modernize-*,\
 -modernize-use-nodiscard,\
+-modernize-use-trailing-return-type,\
 performance-*,\
 readability-*,\
 -readability-braces-around-statements,\

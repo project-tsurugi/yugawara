@@ -13,6 +13,8 @@ namespace yugawara::analyzer {
 
 /**
  * @brief represents a block of relational expressions.
+ * @details To build a graph of blocks, use block_builder instead.
+ * @see block_builder
  */
 class block {
 public:

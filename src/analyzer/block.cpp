@@ -4,7 +4,11 @@
 
 #include <cassert>
 
+#include <takatori/util/string_builder.h>
+
 namespace yugawara::analyzer {
+
+using ::takatori::util::string_builder;
 
 block::block(block::value_type& front, block::value_type& back, ::takatori::util::object_creator creator) noexcept
     : front_(std::addressof(front))
@@ -101,12 +105,12 @@ block::list_view<block const> block::upstreams() const {
 
 block::list_view<block> block::downstreams() {
     validate_outputs();
-    return list_view<block> { downstreams_.data(), front_->output_ports().size() };
+    return list_view<block> { downstreams_.data(), back_->output_ports().size() };
 }
 
 block::list_view<block const> block::downstreams() const {
     validate_outputs();
-    return list_view<block const> { downstreams_.data(), front_->output_ports().size() };
+    return list_view<block const> { downstreams_.data(), back_->output_ports().size() };
 }
 
 void block::on_join(block::graph_type* graph) noexcept {
@@ -122,10 +126,16 @@ void block::on_leave() noexcept {
 
 block& block::find(::takatori::relation::expression::input_port_type const& port) const {
     if (std::addressof(port.owner()) != front_) {
-        throw std::invalid_argument("invalid port");
+        throw std::invalid_argument(string_builder {}
+                << "invalid port (must be a port of the front operator): "
+                << port
+                << string_builder::to_string);
     }
     if (!port.opposite()) {
-        throw std::invalid_argument("no opposites");
+        throw std::invalid_argument(string_builder {}
+                << "no opposites: "
+                << port
+                << string_builder::to_string);
     }
     if (port.index() < upstreams_.size()) {
         if (auto* opposite_block = upstreams_[port.index()];
@@ -143,10 +153,16 @@ block& block::find(::takatori::relation::expression::input_port_type const& port
 
 block& block::find(::takatori::relation::expression::output_port_type const& port) const {
     if (std::addressof(port.owner()) != back_) {
-        throw std::invalid_argument("invalid port");
+        throw std::invalid_argument(string_builder {}
+                << "invalid port (must be a port of the back operator): "
+                << port
+                << string_builder::to_string);
     }
     if (!port.opposite()) {
-        throw std::invalid_argument("no opposites");
+        throw std::invalid_argument(string_builder {}
+                << "no opposites: "
+                << port
+                << string_builder::to_string);
     }
     if (port.index() < downstreams_.size()) {
         if (auto* opposite_block = downstreams_[port.index()];
@@ -169,7 +185,7 @@ void block::validate_inputs() const {
 }
 
 void block::validate_outputs() const {
-    for (auto&& port : front_->output_ports()) {
+    for (auto&& port : back_->output_ports()) {
         find(port);
     }
 }

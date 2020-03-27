@@ -34,43 +34,25 @@ factory::variable_vector factory::table_columns(storage::column_list_view const&
 }
 
 template<variable_info_kind Kind>
-static takatori::descriptor::variable create(::takatori::util::object_creator creator, std::size_t id) {
+static takatori::descriptor::variable create(::takatori::util::object_creator creator, std::string label) {
     using info = variable_info_impl<Kind>;
-    return wrap(creator.create_shared<info>(id));
+    return wrap(creator.create_shared<info>(std::move(label)));
 }
 
-takatori::descriptor::variable factory::exchange_column() {
-    return create<variable_info_kind::exchange_column>(creator_, next_id_++);
-}
-
-factory::variable_vector factory::exchange_columns(std::size_t count) {
-    variable_vector vars { creator_.allocator<takatori::descriptor::variable>() };
-    vars.reserve(count);
-    for (std::size_t i = 0; i < count; ++i) {
-        vars.emplace_back(exchange_column());
-    }
-    return vars;
+takatori::descriptor::variable factory::exchange_column(std::string label) {
+    return create<variable_info_kind::exchange_column>(creator_, std::move(label));
 }
 
 ::takatori::descriptor::variable factory::external_variable(variable::declaration const& declaration) {
     return wrap(creator_.create_shared<external_variable_info>(std::move(declaration)));
 }
 
-::takatori::descriptor::variable factory::stream_variable() {
-    return create<variable_info_kind::stream_variable>(creator_, next_id_++);
+::takatori::descriptor::variable factory::stream_variable(std::string label) {
+    return create<variable_info_kind::stream_variable>(creator_, std::move(label));
 }
 
-factory::variable_vector factory::stream_variables(std::size_t count) {
-    variable_vector vars { creator_.allocator<::takatori::descriptor::variable>() };
-    vars.reserve(count);
-    for (std::size_t i = 0; i < count; ++i) {
-        vars.emplace_back(stream_variable());
-    }
-    return vars;
-}
-
-::takatori::descriptor::variable factory::local_variable() {
-    return create<variable_info_kind::local_variable>(creator_, next_id_++);
+::takatori::descriptor::variable factory::local_variable(std::string label) {
+    return create<variable_info_kind::local_variable>(creator_, std::move(label));
 }
 
 ::takatori::descriptor::function factory::function(std::shared_ptr<function::declaration const> declaration) {

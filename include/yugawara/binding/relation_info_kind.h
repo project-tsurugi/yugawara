@@ -6,6 +6,8 @@
 
 #include <cstdlib>
 
+#include <takatori/util/enum_set.h>
+
 namespace yugawara::binding {
 
 /**
@@ -18,6 +20,12 @@ enum class relation_info_kind {
     /// @brief an upstream exchange.
     exchange,
 };
+
+/// @brief an enum set of relation_info_kind.
+using relation_info_kind_set = ::takatori::util::enum_set<
+        relation_info_kind,
+        relation_info_kind::index,
+        relation_info_kind::exchange>;
 
 /**
  * @brief returns string representation of the value.

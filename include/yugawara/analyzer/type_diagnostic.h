@@ -22,9 +22,6 @@ class type_diagnostic {
 public:
     /// @brief the error code.
     using code_type = type_diagnostic_code;
-    
-    /// @brief the type category set.
-    using category_set = ::takatori::util::enum_set<type::category, type::category::boolean, type::category::unresolved>;
 
     /**
      * @brief creates a new instance.
@@ -37,7 +34,7 @@ public:
             code_type code,
             ::takatori::document::region region,
             std::shared_ptr<::takatori::type::data const> actual_type,
-            category_set expected_categories) noexcept;
+            type::category_set expected_categories) noexcept;
 
     /**
      * @brief creates a new instance.
@@ -50,7 +47,7 @@ public:
             code_type code,
             ::takatori::document::region region,
             ::takatori::type::data&& actual_type,
-            category_set expected_categories);
+            type::category_set expected_categories);
     
     /**
      * @brief returns the diagnostic code.
@@ -80,7 +77,7 @@ public:
      * @brief returns the expected expression type categories.
      * @return the expected categories
      */
-    category_set const& expected_categories() const noexcept;
+    type::category_set const& expected_categories() const noexcept;
 
     /**
      * @brief appends string representation of the given value.
@@ -94,7 +91,7 @@ private:
     code_type code_;
     ::takatori::document::region region_;
     std::shared_ptr<::takatori::type::data const> actual_type_;
-    category_set expected_categories_;
+    type::category_set expected_categories_;
 };
 
 } // namespace yugawara::analyzer

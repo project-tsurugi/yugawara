@@ -59,6 +59,12 @@ enum class category {
     unresolved,
 };
 
+/// @brief a set of category.
+using category_set = ::takatori::util::enum_set<
+        type::category,
+        type::category::boolean,
+        type::category::unresolved>;
+
 /**
  * @brief returns string representation of the value.
  * @param value the target value

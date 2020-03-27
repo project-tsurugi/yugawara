@@ -15,16 +15,20 @@ class variable_info_impl : public variable_info {
 public:
     static constexpr variable_info_kind tag = Kind;
 
-    constexpr explicit variable_info_impl(std::size_t id) noexcept
-        : id_(id)
+    explicit variable_info_impl(std::string label = {}) noexcept
+        : label_(std::move(label))
     {}
 
     variable_info_kind kind() const noexcept override {
         return tag;
     }
 
+    std::string_view label() const noexcept {
+        return label_;
+    }
+
     friend constexpr bool operator==(variable_info_impl const& a, variable_info_impl const& b) noexcept {
-        return a.id_ == b.id_;
+        return std::addressof(a) == std::addressof(b);
     }
 
     friend constexpr bool operator!=(variable_info_impl const& a, variable_info_impl const& b) noexcept {
@@ -32,7 +36,10 @@ public:
     }
 
     friend std::ostream& operator<<(std::ostream& out, variable_info_impl const& value) {
-        return out << tag << "(" << value.id_ << ")";
+        if (value.label().empty()) {
+            return out << tag << "(" << std::addressof(value) << ")";
+        }
+        return out << tag << "(" << value.label() << ")";
     }
 
 protected:
@@ -41,7 +48,7 @@ protected:
     }
 
     std::size_t hash() const noexcept override {
-        return takatori::util::hash(tag, id_);
+        return takatori::util::hash(this);
     }
 
     std::ostream& print_to(std::ostream& out) const override {
@@ -49,7 +56,7 @@ protected:
     }
 
 private:
-    std::size_t id_;
+    std::string label_;
 };
 
 } // namespace yugawara::binding

@@ -34,7 +34,7 @@ TEST_F(type_diagnostic_test, simple) {
     EXPECT_EQ(d.code(), code::unsupported_type);
     EXPECT_EQ(d.region(), region(doc, 0, 1));
     EXPECT_EQ(d.actual_type(), t::character(t::varying));
-    EXPECT_EQ(d.expected_categories(), type_diagnostic::category_set({ category::number }));
+    EXPECT_EQ(d.expected_categories(), type::category_set({ category::number }));
 }
 
 TEST_F(type_diagnostic_test, output) {
