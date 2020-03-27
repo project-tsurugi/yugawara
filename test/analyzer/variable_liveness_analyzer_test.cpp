@@ -103,6 +103,8 @@ TEST_F(variable_liveness_analyzer_test, simple) {
             bindings.exchange(f2),
             {
                     { c1, f2.columns()[0] },
+                    { c1, f2.columns()[1] },
+                    { c1, f2.columns()[2] },
             },
     });
     r1.output() >> r2.input();
@@ -111,7 +113,7 @@ TEST_F(variable_liveness_analyzer_test, simple) {
     variable_liveness_analyzer analyzer { bg };
 
     ASSERT_EQ(bg.size(), 1);
-    auto&& b0 = *find_unique_head(bg);
+    auto&& b0 = *find_unique_head(bg); // r1 .. r2
     auto&& n0 = analyzer.inspect(b0);
 
     EXPECT_EQ(eq(n0.define(), {
@@ -152,6 +154,8 @@ TEST_F(variable_liveness_analyzer_test, filter) {
             bindings.exchange(f2),
             {
                     { c1, f2.columns()[0] },
+                    { c1, f2.columns()[1] },
+                    { c1, f2.columns()[2] },
             },
     });
     r1.output() >> r2.input();
@@ -161,7 +165,7 @@ TEST_F(variable_liveness_analyzer_test, filter) {
     variable_liveness_analyzer analyzer { bg };
 
     ASSERT_EQ(bg.size(), 1);
-    auto&& b0 = *find_unique_head(bg);
+    auto&& b0 = *find_unique_head(bg); // r1 .. r3
     auto&& n0 = analyzer.inspect(b0);
 
     EXPECT_EQ(eq(n0.define(), {
@@ -201,8 +205,8 @@ TEST_F(variable_liveness_analyzer_test, let) {
     auto&& r2 = rg.insert(relation::filter {
             scalar::let {
                     scalar::let::declarator {
-                            l1,
                             scalar::variable_reference { c2 },
+                            l1,
                     },
                     scalar::variable_reference { l1 },
             },
@@ -211,6 +215,8 @@ TEST_F(variable_liveness_analyzer_test, let) {
             bindings.exchange(f2),
             {
                     { c1, f2.columns()[0] },
+                    { c1, f2.columns()[1] },
+                    { c1, f2.columns()[2] },
             },
     });
     r1.output() >> r2.input();
@@ -220,7 +226,7 @@ TEST_F(variable_liveness_analyzer_test, let) {
     variable_liveness_analyzer analyzer { bg };
 
     ASSERT_EQ(bg.size(), 1);
-    auto&& b0 = *find_unique_head(bg);
+    auto&& b0 = *find_unique_head(bg); // r1 .. r3
     auto&& n0 = analyzer.inspect(b0);
 
     EXPECT_EQ(eq(n0.define(), {
@@ -260,13 +266,17 @@ TEST_F(variable_liveness_analyzer_test, project) {
     });
     auto&& p1 = bindings.stream_variable("p1");
     auto&& r2 = rg.insert(relation::project {
-            relation::project::column { p1, scalar::variable_reference { c2 }, },
+            relation::project::column {
+                    scalar::variable_reference { c2 },
+                    p1,
+            },
     });
     auto&& r3 = rg.insert(offer {
             bindings.exchange(f2),
             {
                     { c1, f2.columns()[0] },
                     { p1, f2.columns()[1] },
+                    { c1, f2.columns()[2] },
             },
     });
     r1.output() >> r2.input();
@@ -276,7 +286,7 @@ TEST_F(variable_liveness_analyzer_test, project) {
     variable_liveness_analyzer analyzer { bg };
 
     ASSERT_EQ(bg.size(), 1);
-    auto&& b0 = *find_unique_head(bg);
+    auto&& b0 = *find_unique_head(bg); // r1 .. r3
     auto&& n0 = analyzer.inspect(b0);
 
     EXPECT_EQ(eq(n0.define(), {
@@ -319,12 +329,16 @@ TEST_F(variable_liveness_analyzer_test, buffer) {
             bindings.exchange(f2),
             {
                     { c1, f2.columns()[0] },
+                    { c1, f2.columns()[1] },
+                    { c1, f2.columns()[2] },
             },
     });
     auto&& r4 = rg.insert(offer {
             bindings.exchange(f3),
             {
                     { c2, f3.columns()[0] },
+                    { c2, f3.columns()[1] },
+                    { c2, f3.columns()[2] },
             },
     });
     r1.output() >> r2.input();
@@ -335,9 +349,9 @@ TEST_F(variable_liveness_analyzer_test, buffer) {
     variable_liveness_analyzer analyzer { bg };
 
     ASSERT_EQ(bg.size(), 3);
-    auto&& b0 = *find_unique_head(bg);
-    auto&& b1 = b0.downstream(r2.output_ports()[0]);
-    auto&& b2 = b0.downstream(r2.output_ports()[1]);
+    auto&& b0 = *find_unique_head(bg); // r1 .. r2
+    auto&& b1 = b0.downstream(r2.output_ports()[0]); // r3
+    auto&& b2 = b0.downstream(r2.output_ports()[1]); // r4
 
     auto&& n0 = analyzer.inspect(b0);
     EXPECT_EQ(eq(n0.define(), {
