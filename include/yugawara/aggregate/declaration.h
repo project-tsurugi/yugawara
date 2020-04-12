@@ -9,12 +9,11 @@
 #include <cstddef>
 
 #include <takatori/type/data.h>
+#include <takatori/relation/set_quantifier.h>
 #include <takatori/util/object_creator.h>
 #include <takatori/util/reference_list_view.h>
 #include <takatori/util/rvalue_reference_wrapper.h>
 #include <takatori/util/smart_pointer_extractor.h>
-
-#include "set_quantifier.h"
 
 namespace yugawara::aggregate {
 
@@ -41,6 +40,9 @@ public:
     /// @brief the declaration name type.
     using name_type = std::basic_string<char, std::char_traits<char>, takatori::util::object_allocator<char>>;
 
+    /// @brief the set quantifier type.
+    using quantifier_type = ::takatori::relation::set_quantifier;
+
     /// @brief the smart pointer of parameter/result type.
     using type_pointer = std::shared_ptr<takatori::type::data const>;
 
@@ -54,13 +56,16 @@ public:
      * @param quantifier the set quantifier
      * @param return_type the return type
      * @param parameter_types the parameter types
+     * @param incremental whether or not incremental aggregation is enabled, that is,
+     *      this function is commutative and associative
      */
     explicit declaration(
             definition_id_type definition_id,
             name_type name,
-            set_quantifier quantifier,
+            quantifier_type quantifier,
             type_pointer return_type,
-            std::vector<type_pointer, takatori::util::object_allocator<type_pointer>> parameter_types) noexcept;
+            std::vector<type_pointer, takatori::util::object_allocator<type_pointer>> parameter_types,
+            bool incremental) noexcept;
 
     /**
      * @brief creates a new object.
@@ -70,13 +75,16 @@ public:
      * @param return_type the return type
      * @param parameter_types the parameter types
      * @attention this may take copy of arguments
+     * @param incremental whether or not incremental aggregation is enabled, that is,
+     *      this function is commutative and associative
      */
     declaration(
             definition_id_type definition_id,
             std::string_view name,
-            set_quantifier quantifier,
+            quantifier_type quantifier,
             takatori::type::data&& return_type,
-            std::initializer_list<takatori::util::rvalue_reference_wrapper<takatori::type::data>> parameter_types);
+            std::initializer_list<takatori::util::rvalue_reference_wrapper<takatori::type::data>> parameter_types,
+            bool incremental = false);
 
     /**
      * @brief returns the function definition ID.
@@ -119,14 +127,14 @@ public:
      * @brief returns the set quantifier.
      * @return the set quantifier
      */
-    set_quantifier quantifier() const noexcept;
+    quantifier_type quantifier() const noexcept;
 
     /**
      * @brief sets the set quantifier.
      * @param quantifier the set quantifier
      * @return this
      */
-    declaration& quantifier(set_quantifier quantifier) noexcept;
+    declaration& quantifier(quantifier_type quantifier) noexcept;
 
     /**
      * @brief returns the return type of the function.
@@ -163,6 +171,20 @@ public:
     std::vector<type_pointer, takatori::util::object_allocator<type_pointer>> const& shared_parameter_types() const noexcept;
 
     /**
+     * @brief returns whether or not this supports incremental aggregation.
+     * @return true if the this function supports incremental aggregation
+     * @return false otherwise
+     */
+    bool incremental() const noexcept;
+
+    /**
+     * @brief sets whether or not this supports incremental aggregation.
+     * @param enabled whether or not incremental aggregation is enabled
+     * @return this
+     */
+    declaration& incremental(bool enabled) noexcept;
+
+    /**
      * @brief appends string representation of the given value.
      * @param out the target output
      * @param value the target value
@@ -173,9 +195,10 @@ public:
 private:
     definition_id_type definition_id_;
     name_type name_;
-    set_quantifier quantifier_;
+    quantifier_type quantifier_;
     type_pointer return_type_;
     std::vector<type_pointer, takatori::util::object_allocator<type_pointer>> parameter_types_;
+    bool incremental_;
 };
 
 } // namespace yugawara::aggregate

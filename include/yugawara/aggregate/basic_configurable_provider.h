@@ -55,7 +55,7 @@ public:
 
     void each(
             std::string_view name,
-            set_quantifier quantifier,
+            ::takatori::relation::set_quantifier quantifier,
             std::size_t parameter_count,
             std::function<void(std::shared_ptr<declaration const> const&)> consumer) const override {
         internal_each(name, quantifier, parameter_count, consumer);
@@ -136,7 +136,7 @@ private:
 
     void internal_each(
             std::string_view name,
-            set_quantifier quantifier,
+            ::takatori::relation::set_quantifier quantifier,
             std::size_t parameter_count,
             std::function<void(std::shared_ptr<declaration const> const&)> const& consumer) const {
         std::lock_guard lock { mutex_ };

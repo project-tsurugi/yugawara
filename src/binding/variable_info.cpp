@@ -1,5 +1,7 @@
 #include <yugawara/binding/variable_info.h>
 
+#include <takatori/util/downcast.h>
+
 namespace yugawara::binding {
 
 bool operator==(variable_info const& a, variable_info const& b) noexcept {
@@ -15,7 +17,7 @@ std::ostream& operator<<(std::ostream& out, variable_info const& value) {
 }
 
 bool variable_info::equals(takatori::util::object const& other) const noexcept {
-    if (auto* that = dynamic_cast<variable_info const*>(std::addressof(other)); that != nullptr) {
+    if (auto* that = ::takatori::util::downcast<variable_info>(std::addressof(other)); that != nullptr) {
         return equals(*that);
     }
     return false;
@@ -26,7 +28,7 @@ variable_info::descriptor_type wrap(std::shared_ptr<variable_info> info) noexcep
 }
 
 variable_info& unwrap(variable_info::descriptor_type const& descriptor) {
-    return *std::dynamic_pointer_cast<variable_info>(descriptor.shared_entity());
+    return ::takatori::util::unsafe_downcast<variable_info>(descriptor.entity());
 }
 
 } // namespace yugawara::binding

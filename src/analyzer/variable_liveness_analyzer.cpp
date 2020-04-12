@@ -141,9 +141,6 @@ public:
         for (auto&& column : expr.columns()) {
             use(column.source(), info);
         }
-        for (auto&& key : expr.keys()) {
-            use(key.variable(), info);
-        }
     }
 
     void operator()(relation::write const& expr, block_info& info) {
@@ -170,14 +167,6 @@ public:
             }
             define(column.destination(), info);
         }
-    }
-
-    void operator()(relation::step::distinct const&, block_info&) {
-        // no definitions or uses
-    }
-
-    void operator()(relation::step::limit const&, block_info&) {
-        // no definitions or uses
     }
 
     void operator()(relation::step::intersection const&, block_info&) {

@@ -1,5 +1,6 @@
 #include <yugawara/binding/aggregate_function_info.h>
 
+#include <takatori/util/downcast.h>
 #include <takatori/util/hash.h>
 
 namespace yugawara::binding {
@@ -34,7 +35,7 @@ std::ostream& operator<<(std::ostream& out, aggregate_function_info const& value
 }
 
 bool aggregate_function_info::equals(takatori::util::object const& other) const noexcept {
-    if (auto* that = dynamic_cast<aggregate_function_info const*>(std::addressof(other)); that != nullptr) {
+    if (auto* that = ::takatori::util::downcast<aggregate_function_info>(std::addressof(other)); that != nullptr) {
         return *this == *that;
     }
     return false;
@@ -53,7 +54,7 @@ aggregate_function_info::descriptor_type wrap(std::shared_ptr<aggregate_function
 }
 
 aggregate_function_info& unwrap(aggregate_function_info::descriptor_type const& descriptor) {
-    return *std::dynamic_pointer_cast<aggregate_function_info>(descriptor.shared_entity());
+    return ::takatori::util::unsafe_downcast<aggregate_function_info>(descriptor.entity());
 }
 
 } // namespace yugawara::binding

@@ -20,7 +20,7 @@ public:
             ::takatori::descriptor::variable,
             std::hash<::takatori::descriptor::variable>,
             std::equal_to<>,
-            ::takatori::util::pmr::polymorphic_allocator<::takatori::descriptor::variable>>;
+            ::takatori::util::object_allocator<::takatori::descriptor::variable>>;
 
     /**
      * @brief creates a new instance.

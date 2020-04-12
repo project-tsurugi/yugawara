@@ -8,28 +8,32 @@ namespace yugawara::aggregate {
 declaration::declaration(
         definition_id_type definition_id,
         name_type name,
-        set_quantifier quantifier,
+        quantifier_type quantifier,
         type_pointer return_type,
-        std::vector<type_pointer, takatori::util::object_allocator<type_pointer>> parameter_types) noexcept
+        std::vector<type_pointer, takatori::util::object_allocator<type_pointer>> parameter_types,
+        bool incremental) noexcept
     : definition_id_(definition_id)
     , name_(std::move(name))
     , quantifier_(quantifier)
     , return_type_(std::move(return_type))
     , parameter_types_(std::move(parameter_types))
+    , incremental_(incremental)
 {}
 
 declaration::declaration(
         definition_id_type definition_id,
         std::string_view name,
-        set_quantifier quantifier,
+        quantifier_type quantifier,
         takatori::type::data&& return_type,
-        std::initializer_list<takatori::util::rvalue_reference_wrapper<takatori::type::data>> parameter_types)
+        std::initializer_list<takatori::util::rvalue_reference_wrapper<takatori::type::data>> parameter_types,
+        bool incremental)
     : declaration(
             definition_id,
             decltype(name_) { name },
             quantifier,
             takatori::util::clone_shared(std::move(return_type)),
-            decltype(parameter_types_) {})
+            decltype(parameter_types_) {},
+            incremental)
 {
     parameter_types_.reserve(parameter_types.size());
     for (auto&& rvref : parameter_types) {
@@ -63,11 +67,11 @@ declaration& declaration::name(declaration::name_type name) noexcept {
     return *this;
 }
 
-set_quantifier declaration::quantifier() const noexcept {
+declaration::quantifier_type declaration::quantifier() const noexcept {
     return quantifier_;
 }
 
-declaration& declaration::quantifier(set_quantifier quantifier) noexcept {
+declaration& declaration::quantifier(quantifier_type quantifier) noexcept {
     quantifier_ = quantifier;
     return *this;
 }
@@ -97,13 +101,23 @@ std::vector<declaration::type_pointer, takatori::util::object_allocator<declarat
     return parameter_types_;
 }
 
+bool declaration::incremental() const noexcept {
+    return incremental_;
+}
+
+declaration& declaration::incremental(bool enabled) noexcept {
+    incremental_ = enabled;
+    return *this;
+}
+
 std::ostream& operator<<(std::ostream& out, declaration const& value) {
-    return out << "function("
+    return out << "aggregate_function("
                << "definition_id=" << value.definition_id() << ", "
                << "name=" << value.name() << ", "
                << "quantifier=" << value.quantifier() << ", "
                << "return_type=" << takatori::util::print_support { value.shared_return_type() } << ", "
-               << "parameter_types=" << takatori::util::print_support { value.shared_parameter_types() } << ")";
+               << "parameter_types=" << takatori::util::print_support { value.shared_parameter_types() } << ", "
+               << "incremental=" << takatori::util::print_support { value.incremental() } << ")";
 }
 
 } // namespace yugawara::aggregate

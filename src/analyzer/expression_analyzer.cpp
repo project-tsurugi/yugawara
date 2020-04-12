@@ -950,12 +950,8 @@ public:
 
     bool operator()(relation::intermediate::aggregate const& expr) {
         if (validate_) {
-            for (auto&& key : expr.keys()) {
-                auto&& resolution = resolve_stream_column(key);
-                auto t = ana_.inspect(resolution);
-                if (is_error(*t)) {
-                    return false;
-                }
+            if (!validate_group_keys(expr, expr.group_keys())) {
+                return false;
             }
         }
         return resolve_aggregate_columns(expr.columns());
@@ -963,12 +959,8 @@ public:
 
     bool operator()(relation::intermediate::distinct const& expr) {
         if (validate_) {
-            for (auto&& key : expr.keys()) {
-                auto&& resolution = resolve_stream_column(key);
-                auto t = ana_.inspect(resolution);
-                if (is_error(*t)) {
-                    return false;
-                }
+            if (!validate_group_keys(expr, expr.group_keys())) {
+                return false;
             }
         }
         return true;
@@ -976,12 +968,11 @@ public:
 
     bool operator()(relation::intermediate::limit const& expr) {
         if (validate_) {
-            for (auto&& key : expr.keys()) {
-                auto&& resolution = resolve_stream_column(key);
-                auto t = ana_.inspect(resolution);
-                if (is_error(*t)) {
-                    return false;
-                }
+            if (!validate_group_keys(expr, expr.group_keys())) {
+                return false;
+            }
+            if (!validate_sort_keys(expr, expr.sort_keys())) {
+                return false;
             }
         }
         return true;
@@ -1024,7 +1015,7 @@ public:
 
     bool operator()(relation::intermediate::intersection const& expr) {
         if (validate_) {
-            for (auto&& key_pair : expr.key_pairs()) {
+            for (auto&& key_pair : expr.group_key_pairs()) {
                 auto&& left_var = resolve_stream_column(key_pair.left());
                 auto&& right_var = resolve_stream_column(key_pair.right());
                 auto left = ana_.inspect(left_var);
@@ -1049,7 +1040,7 @@ public:
 
     bool operator()(relation::intermediate::difference const& expr) {
         if (validate_) {
-            for (auto&& key_pair : expr.key_pairs()) {
+            for (auto&& key_pair : expr.group_key_pairs()) {
                 auto&& left_var = resolve_stream_column(key_pair.left());
                 auto&& right_var = resolve_stream_column(key_pair.right());
                 auto left = ana_.inspect(left_var);
@@ -1076,19 +1067,7 @@ public:
         if (validate_) {
             for (auto&& column : expr.columns()) {
                 auto&& r = resolve_stream_column(column.source());
-                auto t = ana_.inspect(r);
-                if (is_error(*t)) {
-                    return false;
-                }
-            }
-            for (auto&& key : expr.keys()) {
-                if (auto&& resolution = ana_.variables().find(key.variable()); !resolution) {
-                    report({
-                            code::unresolved_variable,
-                            extract_region(key.variable()),
-                            repo_.get(::takatori::type::unknown {}),
-                            {},
-                    });
+                if (is_unresolved_or_error(r)) {
                     return false;
                 }
             }
@@ -1126,14 +1105,6 @@ public:
 
     bool operator()(relation::step::aggregate const& expr) {
         return resolve_aggregate_columns(expr.columns());
-    }
-
-    bool operator()(relation::step::distinct const&) {
-        return true;
-    }
-
-    bool operator()(relation::step::limit const&) {
-        return true;
     }
 
     bool operator()(relation::step::intersection const&) {
@@ -1332,6 +1303,28 @@ private:
                             { category::boolean },
                     });
                     return false;
+            }
+        }
+        return true;
+    }
+
+    template<class Expr, class Keys>
+    bool validate_group_keys(Expr const&, Keys const& keys) {
+        for (auto&& key : keys) {
+            auto&& r = resolve_stream_column(key);
+            if (is_unresolved_or_error(r)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    template<class Expr, class Keys>
+    bool validate_sort_keys(Expr const&, Keys const& keys) {
+        for (auto&& key : keys) {
+            auto&& r = resolve_stream_column(key.variable());
+            if (is_unresolved_or_error(r)) {
+                return false;
             }
         }
         return true;

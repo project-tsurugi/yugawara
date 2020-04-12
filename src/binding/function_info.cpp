@@ -1,5 +1,6 @@
 #include <yugawara/binding/function_info.h>
 
+#include <takatori/util/downcast.h>
 #include <takatori/util/hash.h>
 
 namespace yugawara::binding {
@@ -34,7 +35,7 @@ std::ostream& operator<<(std::ostream& out, function_info const& value) {
 }
 
 bool function_info::equals(takatori::util::object const& other) const noexcept {
-    if (auto* that = dynamic_cast<function_info const*>(std::addressof(other)); that != nullptr) {
+    if (auto* that = ::takatori::util::downcast<function_info>(std::addressof(other)); that != nullptr) {
         return *this == *that;
     }
     return false;
@@ -53,7 +54,7 @@ function_info::descriptor_type wrap(std::shared_ptr<function_info> info) noexcep
 }
 
 function_info& unwrap(function_info::descriptor_type const& descriptor) {
-    return *std::dynamic_pointer_cast<function_info>(descriptor.shared_entity());
+    return ::takatori::util::unsafe_downcast<function_info>(descriptor.entity());
 }
 
 } // namespace yugawara::binding

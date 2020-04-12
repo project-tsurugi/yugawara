@@ -20,8 +20,8 @@ factory::factory(::takatori::util::object_creator creator) noexcept
     return wrap(creator_.create_shared<exchange_info>(declaration));
 }
 
-::takatori::descriptor::variable factory::table_column(storage::column const& column) {
-    return wrap(creator_.create_shared<table_column_info>(column));
+::takatori::descriptor::variable factory::table_column(storage::column const& declaration) {
+    return wrap(creator_.create_shared<table_column_info>(declaration));
 }
 
 factory::variable_vector factory::table_columns(storage::column_list_view const& columns) {
@@ -34,25 +34,25 @@ factory::variable_vector factory::table_columns(storage::column_list_view const&
 }
 
 template<variable_info_kind Kind>
-static takatori::descriptor::variable create(::takatori::util::object_creator creator, std::string label) {
+static takatori::descriptor::variable create(::takatori::util::object_creator creator, std::string_view label) {
     using info = variable_info_impl<Kind>;
-    return wrap(creator.create_shared<info>(std::move(label)));
+    return wrap(creator.create_shared<info>(std::string { label }));
 }
 
-takatori::descriptor::variable factory::exchange_column(std::string label) {
-    return create<variable_info_kind::exchange_column>(creator_, std::move(label));
+takatori::descriptor::variable factory::exchange_column(std::string_view label) {
+    return create<variable_info_kind::exchange_column>(creator_, label);
 }
 
 ::takatori::descriptor::variable factory::external_variable(variable::declaration const& declaration) {
     return wrap(creator_.create_shared<external_variable_info>(std::move(declaration)));
 }
 
-::takatori::descriptor::variable factory::stream_variable(std::string label) {
-    return create<variable_info_kind::stream_variable>(creator_, std::move(label));
+::takatori::descriptor::variable factory::stream_variable(std::string_view label) {
+    return create<variable_info_kind::stream_variable>(creator_, label);
 }
 
-::takatori::descriptor::variable factory::local_variable(std::string label) {
-    return create<variable_info_kind::local_variable>(creator_, std::move(label));
+::takatori::descriptor::variable factory::local_variable(std::string_view label) {
+    return create<variable_info_kind::local_variable>(creator_, label);
 }
 
 ::takatori::descriptor::function factory::function(std::shared_ptr<function::declaration const> declaration) {
@@ -70,6 +70,39 @@ takatori::descriptor::variable factory::exchange_column(std::string label) {
 
 ::takatori::descriptor::aggregate_function factory::aggregate_function(aggregate::declaration&& declaration) {
     return aggregate_function(creator_.create_shared<aggregate::declaration>(std::move(declaration)));
+}
+
+::takatori::descriptor::relation factory::operator()(storage::index const& declaration) {
+    return index(declaration);
+}
+
+::takatori::descriptor::relation factory::operator()(::takatori::plan::exchange const& declaration) {
+    return exchange(declaration);
+}
+
+::takatori::descriptor::variable factory::operator()(storage::column const& declaration) {
+    return table_column(declaration);
+}
+
+::takatori::descriptor::variable factory::operator()(variable::declaration const& declaration) {
+    return external_variable(declaration);
+}
+
+::takatori::descriptor::function factory::operator()(std::shared_ptr<function::declaration const> declaration) {
+    return function(std::move(declaration));
+}
+
+::takatori::descriptor::function factory::operator()(function::declaration&& declaration) {
+    return function(std::move(declaration));
+}
+
+::takatori::descriptor::aggregate_function factory::operator()(
+        std::shared_ptr<aggregate::declaration const> declaration) {
+    return aggregate_function(std::move(declaration));
+}
+
+::takatori::descriptor::aggregate_function factory::operator()(aggregate::declaration&& declaration) {
+    return aggregate_function(std::move(declaration));
 }
 
 } // namespace yugawara::binding

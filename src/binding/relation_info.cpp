@@ -17,7 +17,7 @@ std::ostream& operator<<(std::ostream& out, relation_info const& value) {
 }
 
 bool relation_info::equals(takatori::util::object const& other) const noexcept {
-    if (auto* that = dynamic_cast<relation_info const*>(std::addressof(other)); that != nullptr) {
+    if (auto* that = ::takatori::util::downcast<relation_info>(std::addressof(other)); that != nullptr) {
         return equals(*that);
     }
     return false;
@@ -28,7 +28,7 @@ relation_info::descriptor_type wrap(std::shared_ptr<relation_info> info) noexcep
 }
 
 relation_info& unwrap(relation_info::descriptor_type const& descriptor) {
-    return *std::dynamic_pointer_cast<relation_info>(descriptor.shared_entity());
+    return ::takatori::util::unsafe_downcast<relation_info>(descriptor.entity());
 }
 
 } // namespace yugawara::binding

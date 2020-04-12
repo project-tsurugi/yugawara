@@ -30,8 +30,6 @@
 #include <takatori/relation/write.h>
 #include <takatori/relation/step/join.h>
 #include <takatori/relation/step/aggregate.h>
-#include <takatori/relation/step/distinct.h>
-#include <takatori/relation/step/limit.h>
 #include <takatori/relation/step/intersection.h>
 #include <takatori/relation/step/difference.h>
 #include <takatori/relation/step/flatten.h>
@@ -148,10 +146,10 @@ TEST_F(expression_analyzer_relation_test, scan) {
     auto cols = t1->columns();
     auto c1 = bindings.stream_variable();
     r::scan expr {
-            bindings.index(*i1),
+            bindings(*i1),
             {
                     r::scan::column {
-                            bindings.table_column(cols[0]),
+                            bindings(cols[0]),
                             c1,
                     }
             },
@@ -190,16 +188,16 @@ TEST_F(expression_analyzer_relation_test, join_find) {
     auto c1 = bindings.stream_variable();
     r::join_find expr {
             r::join_find::operator_kind_type::inner,
-            bindings.index(*i1),
+            bindings(*i1),
             {
                     r::join_find::column {
-                            bindings.table_column(cols[0]),
+                            bindings(cols[0]),
                             c1,
                     }
             },
             {
                     r::join_find::key {
-                            bindings.table_column(cols[0]),
+                            bindings(cols[0]),
                             vref { decl(t::int4 {}) },
                     }
             },
@@ -225,17 +223,17 @@ TEST_F(expression_analyzer_relation_test, join_scan) {
     auto c1 = bindings.stream_variable();
     r::join_scan expr {
             r::join_scan::operator_kind_type::inner,
-            bindings.index(*i1),
+            bindings(*i1),
             {
                     r::join_scan::column {
-                            bindings.table_column(cols[0]),
+                            bindings(cols[0]),
                             c1,
                     }
             },
             {
                     {
                             r::join_scan::key {
-                                    bindings.table_column(cols[0]),
+                                    bindings(cols[0]),
                                     vref { decl(t::int4 {}) },
                             },
                     },
@@ -244,7 +242,7 @@ TEST_F(expression_analyzer_relation_test, join_scan) {
             {
                     {
                             r::join_scan::key {
-                                    bindings.table_column(cols[0]),
+                                    bindings(cols[0]),
                                     vref { decl(t::int4 {}) },
                             },
                     },
@@ -294,7 +292,7 @@ TEST_F(expression_analyzer_relation_test, aggregate) {
     auto f = p.add({
             aggregate::declaration::minimum_system_function_id + 1,
             "count",
-            aggregate::set_quantifier::all,
+            r::set_quantifier::all,
             t::int8 {},
             {
                     t::character { t::varying },
@@ -431,9 +429,6 @@ TEST_F(expression_analyzer_relation_test, emit) {
                     decl(t::int4 {}),
                     decl(t::int4 {}),
             },
-            {
-                    decl(t::int4 {}),
-            },
     };
     auto b = analyzer.resolve(expr, true, false, repo);
     ASSERT_TRUE(b) << *this;
@@ -453,17 +448,17 @@ TEST_F(expression_analyzer_relation_test, write) {
     });
     r::write expr {
             r::write::operator_kind_type::insert,
-            bindings.index(*i1),
+            bindings(*i1),
             {
                     {
                             decl(t::int4 {}),
-                            bindings.table_column(t1->columns()[0]),
+                            bindings(t1->columns()[0]),
                     },
             },
             {
                     {
                             decl(t::int4 {}),
-                            bindings.table_column(t1->columns()[0]),
+                            bindings(t1->columns()[0]),
                     },
             },
     };
@@ -487,7 +482,7 @@ TEST_F(expression_analyzer_relation_test, aggregate_group) {
     auto f = p.add({
             aggregate::declaration::minimum_system_function_id + 1,
             "count",
-            aggregate::set_quantifier::all,
+            r::set_quantifier::all,
             t::int8 {},
             {
                     t::character { t::varying },
@@ -511,24 +506,6 @@ TEST_F(expression_analyzer_relation_test, aggregate_group) {
     ASSERT_TRUE(b) << *this;
     EXPECT_TRUE(ok());
     EXPECT_EQ(type(c1), t::int8());
-}
-
-TEST_F(expression_analyzer_relation_test, distinct_group) {
-    rs::distinct expr {};
-
-    auto b = analyzer.resolve(expr, true, false, repo);
-    ASSERT_TRUE(b) << *this;
-    EXPECT_TRUE(ok());
-}
-
-TEST_F(expression_analyzer_relation_test, limit_group) {
-    rs::limit expr {
-            1,
-    };
-
-    auto b = analyzer.resolve(expr, true, false, repo);
-    ASSERT_TRUE(b) << *this;
-    EXPECT_TRUE(ok());
 }
 
 TEST_F(expression_analyzer_relation_test, intersection_group) {
@@ -563,7 +540,7 @@ TEST_F(expression_analyzer_relation_test, take_flat) {
     };
     auto v1 = bindings.stream_variable();
     rs::take_flat expr {
-            bindings.exchange(exchange),
+            bindings(exchange),
             {
                     { c1, v1, },
             }
@@ -588,7 +565,7 @@ TEST_F(expression_analyzer_relation_test, take_group) {
     };
     auto v1 = bindings.stream_variable();
     rs::take_group expr {
-            bindings.exchange(exchange),
+            bindings(exchange),
             {
                     { c1, v1, },
             }
@@ -624,13 +601,13 @@ TEST_F(expression_analyzer_relation_test, take_cogroup) {
     auto v2 = bindings.stream_variable();
     rs::take_cogroup expr {
             {
-                    bindings.exchange(ex1),
+                    bindings(ex1),
                     {
                             { c1, v1, },
                     }
             },
             {
-                    bindings.exchange(ex2),
+                    bindings(ex2),
                     {
                             { c2, v2, },
                     }
@@ -651,7 +628,7 @@ TEST_F(expression_analyzer_relation_test, offer) {
             c1,
     };
     rs::offer expr {
-            bindings.exchange(exchange),
+            bindings(exchange),
             {
                     { decl(t::int4 {}), c1, },
             }

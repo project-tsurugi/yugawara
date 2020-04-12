@@ -50,10 +50,7 @@ bool exchange_info::equals(relation_info const& other) const noexcept {
 }
 
 std::size_t exchange_info::hash() const noexcept {
-    return takatori::util::hash(
-            takatori::descriptor::descriptor_kind::relation,
-            relation_info_kind::exchange,
-            declaration_);
+    return takatori::util::hash(descriptor_type::tag, tag, declaration_);
 }
 
 std::ostream& exchange_info::print_to(std::ostream& out) const {

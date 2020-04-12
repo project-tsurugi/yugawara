@@ -167,7 +167,7 @@ TEST_F(expression_analyzer_plan_test, aggregate) {
     auto f = p.add({
             aggregate::declaration::minimum_system_function_id + 1,
             "count",
-            aggregate::set_quantifier::all,
+            r::set_quantifier::all,
             t::int8 {},
             {
                     t::int4 {},

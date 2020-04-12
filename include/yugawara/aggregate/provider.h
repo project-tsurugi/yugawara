@@ -5,7 +5,8 @@
 #include <string_view>
 
 #include "declaration.h"
-#include "set_quantifier.h"
+
+#include <takatori/relation/set_quantifier.h>
 
 namespace yugawara::aggregate {
 
@@ -44,7 +45,7 @@ public:
      */
     virtual void each(
             std::string_view name,
-            set_quantifier quantifier,
+            ::takatori::relation::set_quantifier quantifier,
             std::size_t parameter_count,
             std::function<void(std::shared_ptr<declaration const> const&)> consumer) const = 0;
 };

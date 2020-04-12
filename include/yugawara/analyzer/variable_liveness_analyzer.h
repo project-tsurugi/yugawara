@@ -40,7 +40,7 @@ public:
             info,
             ::std::hash<block const*>,
             ::std::equal_to<>,
-            ::takatori::util::pmr::polymorphic_allocator<std::pair<block const* const, info>>>;
+            ::takatori::util::object_allocator<std::pair<block const* const, info>>>;
 
     /**
      * @brief creates a new instance.

@@ -10,6 +10,7 @@ namespace yugawara::aggregate {
 class aggregate_configurable_provider_test : public ::testing::Test {};
 
 namespace t = ::takatori::type;
+using ::takatori::relation::set_quantifier;
 
 TEST_F(aggregate_configurable_provider_test, add) {
     auto p1 = std::make_shared<configurable_provider>();

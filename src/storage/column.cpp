@@ -108,7 +108,13 @@ takatori::util::optional_ptr<relation const> column::optional_owner() const noex
 }
 
 std::ostream& operator<<(std::ostream& out, column const& value) {
+    std::string_view parent { "(N/A)" };
+    if (auto owner = value.optional_owner()) {
+        parent = owner->simple_name();
+    }
     return out << "column("
+               << "owner=" << parent << ", "
+               << "simple_name=" << value.simple_name() << ", "
                << "type=" << value.type() << ", "
                << "default_value=" << value.default_value() << ", "
                << "criteria=" << value.criteria() << ")";

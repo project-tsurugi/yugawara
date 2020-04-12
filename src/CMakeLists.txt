@@ -49,7 +49,20 @@ add_library(yugawara
     analyzer/block_builder.cpp
     analyzer/variable_liveness_info.cpp
     analyzer/variable_liveness_analyzer.cpp
+    analyzer/step_plan_builder.cpp
+    analyzer/join_info.cpp
+    analyzer/aggregate_info.cpp
     analyzer/details/block_expression_util.cpp
+    analyzer/details/step_planning_info.cpp
+    analyzer/details/process_step_collector.cpp
+    analyzer/details/exchange_step_collector.cpp
+    analyzer/details/step_relation_collector.cpp
+    analyzer/details/stream_variable_rewriter_context.cpp
+    analyzer/details/exchange_column_info.cpp
+    analyzer/details/exchange_column_info_map.cpp
+    analyzer/details/exchange_column_collector.cpp
+    analyzer/details/scalar_expression_variable_rewriter.cpp
+    analyzer/details/stream_variable_rewriter.cpp
 )
 
 add_executable(yugawara-exec
