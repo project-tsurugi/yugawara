@@ -1,11 +1,11 @@
 #pragma once
 
-#include <yugawara/analyzer/details/step_planning_info.h>
-
 #include <takatori/relation/graph.h>
 #include <takatori/plan/graph.h>
 
 #include <takatori/plan/graph.h>
+
+#include <yugawara/analyzer/details/step_plan_builder_options.h>
 
 namespace yugawara::analyzer::details {
 
@@ -21,7 +21,7 @@ namespace yugawara::analyzer::details {
  *
  * @param source the source intermediate plan
  * @param destination the destination incomplete step plan
- * @param info the planning information
+ * @param options the planning options
  * @see collect_process_steps()
  * @see collect_exchange_columns()
  * @note This rewrites intermediate plan operators by only simple rules.
@@ -32,6 +32,6 @@ namespace yugawara::analyzer::details {
 void collect_exchange_steps(
         ::takatori::relation::graph_type& source,
         ::takatori::plan::graph_type& destination,
-        step_planning_info const& info);
+        step_plan_builder_options const& options);
 
 } // namespace yugawara::analyzer::details

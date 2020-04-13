@@ -15,7 +15,7 @@ namespace yugawara::analyzer::details {
 /**
  * @brief represents step execution planning information.
  */
-class step_planning_info {
+class step_plan_builder_options {
 public:
     /// @brief the join hint map type.
     using join_hint_map = std::unordered_map<
@@ -41,7 +41,7 @@ public:
      * @brief creates a new instance.
      * @param creator the object creator
      */
-    explicit step_planning_info(::takatori::util::object_creator creator = {}) noexcept;
+    explicit step_plan_builder_options(::takatori::util::object_creator creator = {}) noexcept;
 
     /**
      * @brief registers hint for the given join operation.

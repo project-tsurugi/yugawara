@@ -1,10 +1,10 @@
 #pragma once
 
-#include <yugawara/analyzer/details/step_planning_info.h>
-
 #include <takatori/relation/graph.h>
 
 #include <takatori/plan/graph.h>
+
+#include <yugawara/analyzer/details/step_plan_builder_options.h>
 
 namespace yugawara::analyzer::details {
 

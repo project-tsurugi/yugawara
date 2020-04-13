@@ -92,7 +92,7 @@ protected:
 
     static plan::graph_type apply(relation::graph_type&& r) {
         plan::graph_type result;
-        details::step_planning_info info;
+        details::step_plan_builder_options info;
         details::collect_exchange_steps(r, result, info);
         details::collect_process_steps(std::move(r), result, info.get_object_creator());
         return result;

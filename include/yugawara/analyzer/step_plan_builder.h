@@ -8,7 +8,7 @@
 #include <takatori/graph/graph.h>
 
 #include "join_info.h"
-#include "details/step_planning_info.h"
+#include "details/step_plan_builder_options.h"
 
 namespace yugawara::analyzer {
 
@@ -19,8 +19,8 @@ namespace yugawara::analyzer {
  */
 class step_plan_builder {
 public:
-    /// @brief planning information type.
-    using planning_info = details::step_planning_info;
+    /// @brief options type.
+    using options_type = details::step_plan_builder_options;
 
     /**
      * @brief creates a new instance.
@@ -35,18 +35,18 @@ public:
 
     /**
      * @brief creates a new instance.
-     * @param info planning information
+     * @param options planning options
      */
-    explicit step_plan_builder(planning_info info) noexcept;
+    explicit step_plan_builder(options_type options) noexcept;
 
     /**
-     * @brief returns the underlying planning information.
-     * @return the underlying planning information
+     * @brief returns the underlying planning options.
+     * @return the underlying planning options
      */
-    [[nodiscard]] planning_info& info() noexcept;
+    [[nodiscard]] options_type& options() noexcept;
 
-    /// @copydoc info()
-    [[nodiscard]] planning_info const& info() const noexcept;
+    /// @copydoc options()
+    [[nodiscard]] options_type const& options() const noexcept;
 
     /**
      * @brief registers hint for the given join operation.
@@ -77,7 +77,7 @@ public:
     [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept;
 
 private:
-    planning_info info_;
+    options_type options_;
 };
 
 } // namespace yugawara::analyzer

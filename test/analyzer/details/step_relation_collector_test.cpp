@@ -119,7 +119,7 @@ TEST_F(step_relation_collector_test, simple) {
     });
     r0.output() >> r1.input();
 
-    details::step_planning_info info;
+    details::step_plan_builder_options info;
     plan::graph_type p;
 
     /*
@@ -157,7 +157,7 @@ TEST_F(step_relation_collector_test, straight) {
     r0.output() >> r1.input();
     r1.output() >> r2.input();
 
-    details::step_planning_info info;
+    details::step_plan_builder_options info;
     plan::graph_type p;
 
     /*
@@ -215,7 +215,7 @@ TEST_F(step_relation_collector_test, gather) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_planning_info info;
+    details::step_plan_builder_options info;
     plan::graph_type p;
 
     /*

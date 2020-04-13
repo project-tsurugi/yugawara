@@ -49,7 +49,7 @@ public:
     explicit engine(
             relation::graph_type& source,
             plan::graph_type& destination,
-            step_planning_info const& info) noexcept
+            step_plan_builder_options const& info) noexcept
         : source_(source)
         , destination_(destination)
         , info_(info)
@@ -165,7 +165,7 @@ public:
 private:
     relation::graph_type& source_;
     plan::graph_type& destination_;
-    step_planning_info const& info_;
+    step_plan_builder_options const& info_;
 
     relation::graph_type::iterator cursor_;
     std::vector<
@@ -694,8 +694,8 @@ private:
 } // namespace
 
 void collect_exchange_steps(relation::graph_type& source, plan::graph_type& destination,
-        step_planning_info const& info) {
-    engine e { source, destination, info };
+        step_plan_builder_options const& options) {
+    engine e { source, destination, options };
     e();
 }
 

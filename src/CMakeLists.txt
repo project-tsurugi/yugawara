@@ -53,7 +53,7 @@ add_library(yugawara
     analyzer/join_info.cpp
     analyzer/aggregate_info.cpp
     analyzer/details/block_expression_util.cpp
-    analyzer/details/step_planning_info.cpp
+    analyzer/details/step_plan_builder_options.cpp
     analyzer/details/process_step_collector.cpp
     analyzer/details/exchange_step_collector.cpp
     analyzer/details/step_relation_collector.cpp

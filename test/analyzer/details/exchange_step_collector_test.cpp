@@ -122,7 +122,7 @@ TEST_F(exchange_step_collector_test, simple) {
     });
     r0.output() >> r1.input();
 
-    details::step_planning_info info;
+    details::step_plan_builder_options info;
     plan::graph_type p;
 
     /*
@@ -169,7 +169,7 @@ TEST_F(exchange_step_collector_test, join_default) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_planning_info info;
+    details::step_plan_builder_options info;
     plan::graph_type p;
 
     /*
@@ -245,7 +245,7 @@ TEST_F(exchange_step_collector_test, join_cogroup) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_planning_info info;
+    details::step_plan_builder_options info;
     info.add(r2, join_strategy::cogroup);
     plan::graph_type p;
 
@@ -324,7 +324,7 @@ TEST_F(exchange_step_collector_test, join_broadcast_find) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_planning_info info;
+    details::step_plan_builder_options info;
     info.add(r2, join_strategy::broadcast);
     plan::graph_type p;
 
@@ -407,7 +407,7 @@ TEST_F(exchange_step_collector_test, join_broadcast_scan) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_planning_info info;
+    details::step_plan_builder_options info;
     info.add(r2, join_strategy::broadcast);
     plan::graph_type p;
 
@@ -471,7 +471,7 @@ TEST_F(exchange_step_collector_test, aggregate_default) {
     r0.output() >> r1.input();
     r1.output() >> r2.input();
 
-    details::step_planning_info info;
+    details::step_plan_builder_options info;
     plan::graph_type p;
 
     /*
@@ -529,7 +529,7 @@ TEST_F(exchange_step_collector_test, distinct) {
     r0.output() >> r1.input();
     r1.output() >> r2.input();
 
-    details::step_planning_info info;
+    details::step_plan_builder_options info;
     plan::graph_type p;
 
     /*
@@ -578,7 +578,7 @@ TEST_F(exchange_step_collector_test, limit_flat) {
     r0.output() >> r1.input();
     r1.output() >> r2.input();
 
-    details::step_planning_info info;
+    details::step_plan_builder_options info;
     plan::graph_type p;
 
     /*
@@ -630,7 +630,7 @@ TEST_F(exchange_step_collector_test, limit_group) {
     r0.output() >> r1.input();
     r1.output() >> r2.input();
 
-    details::step_planning_info info;
+    details::step_plan_builder_options info;
     plan::graph_type p;
 
     /*
@@ -703,7 +703,7 @@ TEST_F(exchange_step_collector_test, union_all) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_planning_info info;
+    details::step_plan_builder_options info;
     plan::graph_type p;
 
     /*
@@ -791,7 +791,7 @@ TEST_F(exchange_step_collector_test, union_distinct) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_planning_info info;
+    details::step_plan_builder_options info;
     plan::graph_type p;
 
     /*
@@ -879,7 +879,7 @@ TEST_F(exchange_step_collector_test, binary_all) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_planning_info info;
+    details::step_plan_builder_options info;
     plan::graph_type p;
 
     /*
@@ -960,7 +960,7 @@ TEST_F(exchange_step_collector_test, binary_distinct) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_planning_info info;
+    details::step_plan_builder_options info;
     plan::graph_type p;
 
     /*
