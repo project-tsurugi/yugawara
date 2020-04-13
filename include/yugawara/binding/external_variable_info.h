@@ -21,13 +21,13 @@ public:
      */
     explicit external_variable_info(variable::declaration const& declaration) noexcept;
 
-    variable_info_kind kind() const noexcept override;
+    [[nodiscard]] variable_info_kind kind() const noexcept override;
 
     /**
      * @brief returns the original declaration.
      * @return the original declaration
      */
-    variable::declaration const& declaration() const noexcept;
+    [[nodiscard]] variable::declaration const& declaration() const noexcept;
 
     /**
      * @brief returns whether or not the two relations are equivalent.
@@ -56,8 +56,8 @@ public:
     friend std::ostream& operator<<(std::ostream& out, external_variable_info const& value);
 
 protected:
-    bool equals(variable_info const& other) const noexcept override;
-    std::size_t hash() const noexcept override;
+    [[nodiscard]] bool equals(variable_info const& other) const noexcept override;
+    [[nodiscard]] std::size_t hash() const noexcept override;
     std::ostream& print_to(std::ostream& out) const override;
 
 private:

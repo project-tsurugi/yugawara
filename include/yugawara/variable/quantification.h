@@ -74,15 +74,15 @@ public:
      */
     explicit quantification(quantification&& other, takatori::util::object_creator creator) noexcept;
 
-    predicate_kind kind() const noexcept override;
-    quantification* clone(takatori::util::object_creator creator) const& override;
-    quantification* clone(takatori::util::object_creator creator) && override;
+    [[nodiscard]] predicate_kind kind() const noexcept override;
+    [[nodiscard]] quantification* clone(takatori::util::object_creator creator) const& override;
+    [[nodiscard]] quantification* clone(takatori::util::object_creator creator) && override;
 
     /**
      * @brief returns the operator kind.
      * @return operator kind
      */
-    operator_kind_type operator_kind() const noexcept;
+    [[nodiscard]] operator_kind_type operator_kind() const noexcept;
 
     /**
      * @brief sets operator kind.
@@ -95,10 +95,10 @@ public:
      * @brief returns the operands.
      * @return the operands
      */
-    takatori::util::reference_vector<predicate>& operands() noexcept;
+    [[nodiscard]] takatori::util::reference_vector<predicate>& operands() noexcept;
 
     /// @copydoc operands()
-    takatori::util::reference_vector<predicate> const& operands() const noexcept;
+    [[nodiscard]] takatori::util::reference_vector<predicate> const& operands() const noexcept;
 
     /**
      * @brief returns whether or not the two elements are equivalent.
@@ -133,7 +133,7 @@ public:
     friend std::ostream& operator<<(std::ostream& out, quantification const& value);
 
 protected:
-    bool equals(predicate const& other) const noexcept override;
+    [[nodiscard]] bool equals(predicate const& other) const noexcept override;
     std::ostream& print_to(std::ostream& out) const override;
 
 private:

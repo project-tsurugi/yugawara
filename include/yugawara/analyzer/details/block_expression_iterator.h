@@ -75,7 +75,7 @@ public:
      * @brief returns the value reference where this iterator pointing.
      * @return reference of the current value
      */
-    constexpr reference operator*() const noexcept {
+    [[nodiscard]] constexpr reference operator*() const noexcept {
         return *cursor_;
     }
 
@@ -83,7 +83,7 @@ public:
      * @brief returns pointer to the value where this iterator pointing.
      * @return pointer to the current value
      */
-    constexpr pointer operator->() const noexcept {
+    [[nodiscard]] constexpr pointer operator->() const noexcept {
         return cursor_;
     }
 

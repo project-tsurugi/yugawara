@@ -149,10 +149,10 @@ public:
      * @return true if this object holds a normal value
      * @return false otherwise
      */
-    constexpr bool has_value() const noexcept { return alternatives_.index() == value_index; }
+    [[nodiscard]] constexpr bool has_value() const noexcept { return alternatives_.index() == value_index; }
 
     /// @copydoc has_value()
-    explicit constexpr operator bool() const noexcept { return has_value(); }
+    [[nodiscard]] explicit constexpr operator bool() const noexcept { return has_value(); }
 
     /**
      * @brief returns the holding normal value.
@@ -160,42 +160,42 @@ public:
      * @see has_value()
      * @warning undefined behavior if this object does not hold a normal value
      */
-    reference value() { return std::get<value_index>(alternatives_); }
+    [[nodiscard]] reference value() { return std::get<value_index>(alternatives_); }
 
     /// @copydoc value()
-    const_reference value() const { return std::get<value_index>(alternatives_); }
+    [[nodiscard]] const_reference value() const { return std::get<value_index>(alternatives_); }
 
     /**
      * @brief returns a pointer to the holding normal value only if it exists.
      * @return pointer to the normal value
      * @return nullptr if this does not have normal value
      */
-    pointer get() noexcept { return std::get_if<value_index>(&alternatives_); }
+    [[nodiscard]] pointer get() noexcept { return std::get_if<value_index>(&alternatives_); }
 
     /// @copydoc get()
-    const_pointer get() const noexcept { return std::get_if<value_index>(&alternatives_); }
+    [[nodiscard]] const_pointer get() const noexcept { return std::get_if<value_index>(&alternatives_); }
 
     /// @copydoc value()
-    reference operator*() { return value(); }
+    [[nodiscard]] reference operator*() { return value(); }
 
     /// @copydoc value()
-    const_reference operator*() const { return value(); }
+    [[nodiscard]] const_reference operator*() const { return value(); }
 
     /// @copydoc get()
-    pointer operator->() noexcept { return get(); }
+    [[nodiscard]] pointer operator->() noexcept { return get(); }
 
     /// @copydoc get()
-    const_pointer operator->() const noexcept { return get(); }
+    [[nodiscard]] const_pointer operator->() const noexcept { return get(); }
 
     /**
      * @brief returns whether or not this object holds an erroneous information.
      * @return true if this object holds an erroneous information
      * @return false otherwise
      */
-    constexpr bool has_error() const noexcept { return alternatives_.index() == error_index; }
+    [[nodiscard]] constexpr bool has_error() const noexcept { return alternatives_.index() == error_index; }
 
     /// @copydoc has_error()
-    constexpr bool is_error() const noexcept { return has_error(); }
+    [[nodiscard]] constexpr bool is_error() const noexcept { return has_error(); }
 
     /**
      * @brief returns the holding erroneous information.
@@ -203,10 +203,10 @@ public:
      * @see has_error()
      * @warning undefined behavior if this object does not hold erroneous information
      */
-    error_reference error() { return std::get<error_index>(alternatives_); }
+    [[nodiscard]] error_reference error() { return std::get<error_index>(alternatives_); }
 
     /// @copydoc error()
-    error_const_reference error() const { return std::get<error_index>(alternatives_); }
+    [[nodiscard]] error_const_reference error() const { return std::get<error_index>(alternatives_); }
 
 private:
     std::variant<error_type, value_type> alternatives_ { std::in_place_index<error_index> };

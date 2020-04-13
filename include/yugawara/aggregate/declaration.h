@@ -91,7 +91,7 @@ public:
      * @details The ID must be unique in the system for individual functions.
      * @return the function definition ID
      */
-    definition_id_type definition_id() const noexcept;
+    [[nodiscard]] definition_id_type definition_id() const noexcept;
 
     /**
      * @brief sets the function definition ID.
@@ -105,16 +105,16 @@ public:
      * @return true if it is defined
      * @return false otherwise
      */
-    bool is_defined() const noexcept;
+    [[nodiscard]] bool is_defined() const noexcept;
 
     /// @copydoc is_defined()
-    explicit operator bool() const noexcept;
+    [[nodiscard]] explicit operator bool() const noexcept;
 
     /**
      * @brief returns the function name.
      * @return the function name
      */
-    std::string_view name() const noexcept;
+    [[nodiscard]] std::string_view name() const noexcept;
 
     /**
      * @brief sets the function name.
@@ -127,7 +127,7 @@ public:
      * @brief returns the set quantifier.
      * @return the set quantifier
      */
-    quantifier_type quantifier() const noexcept;
+    [[nodiscard]] quantifier_type quantifier() const noexcept;
 
     /**
      * @brief sets the set quantifier.
@@ -140,13 +140,13 @@ public:
      * @brief returns the return type of the function.
      * @return the return type
      */
-    takatori::type::data const& return_type() const noexcept;
+    [[nodiscard]] ::takatori::type::data const& return_type() const noexcept;
 
     /**
      * @brief returns the return type of the function as its shared pointer.
      * @return the return type
      */
-    type_pointer const& shared_return_type() const noexcept;
+    [[nodiscard]] type_pointer const& shared_return_type() const noexcept;
 
     /**
      * @brief sets the return type of the function.
@@ -159,23 +159,23 @@ public:
      * @brief returns the parameter types of the function.
      * @return the parameter types
      */
-    type_list_view parameter_types() const noexcept;
+    [[nodiscard]] type_list_view parameter_types() const noexcept;
 
     /**
      * @brief returns the parameter types of the function as individual shared pointers.
      * @return the parameter types
      */
-    std::vector<type_pointer, takatori::util::object_allocator<type_pointer>>& shared_parameter_types() noexcept;
+    [[nodiscard]] std::vector<type_pointer, takatori::util::object_allocator<type_pointer>>& shared_parameter_types() noexcept;
 
     /// @copydoc parameter_types()
-    std::vector<type_pointer, takatori::util::object_allocator<type_pointer>> const& shared_parameter_types() const noexcept;
+    [[nodiscard]] std::vector<type_pointer, takatori::util::object_allocator<type_pointer>> const& shared_parameter_types() const noexcept;
 
     /**
      * @brief returns whether or not this supports incremental aggregation.
      * @return true if the this function supports incremental aggregation
      * @return false otherwise
      */
-    bool incremental() const noexcept;
+    [[nodiscard]] bool incremental() const noexcept;
 
     /**
      * @brief sets whether or not this supports incremental aggregation.

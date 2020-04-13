@@ -36,30 +36,30 @@ public:
      * @brief returns the kind of this relation.
      * @return the relation kind
      */
-    virtual relation_kind kind() const noexcept = 0;
+    [[nodiscard]] virtual relation_kind kind() const noexcept = 0;
 
     /**
      * @brief returns the simple name of this relation.
      * @return the simple name
      * @return empty if the relation does not have its explicit name
      */
-    virtual std::string_view simple_name() const noexcept = 0;
+    [[nodiscard]] virtual std::string_view simple_name() const noexcept = 0;
 
     /**
      * @brief returns the view of columns in this relation.
      * @return the columns
      */
-    virtual column_list_view columns() const noexcept = 0;
+    [[nodiscard]] virtual column_list_view columns() const noexcept = 0;
 
     /**
      * @brief returns a clone of this object.
      * @param creator the object creator
      * @return the created clone
      */
-    virtual relation* clone(takatori::util::object_creator creator) const& = 0;
+    [[nodiscard]] virtual relation* clone(takatori::util::object_creator creator) const& = 0;
 
     /// @copydoc clone()
-    virtual relation* clone(takatori::util::object_creator creator) && = 0;
+    [[nodiscard]] virtual relation* clone(takatori::util::object_creator creator) && = 0;
 
     /**
      * @brief appends string representation of the given value.

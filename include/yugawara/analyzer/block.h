@@ -80,10 +80,10 @@ public:
      * @param creator the object creator
      * @return the created clone
      */
-    block* clone(::takatori::util::object_creator creator) const&;
+    [[nodiscard]] block* clone(::takatori::util::object_creator creator) const&;
 
     /// @copydoc clone()
-    block* clone(::takatori::util::object_creator creator) &&;
+    [[nodiscard]] block* clone(::takatori::util::object_creator creator) &&;
 
     /**
      * @brief returns the graph which owns this vertex.
@@ -92,46 +92,46 @@ public:
      * @see is_orphaned()
      * @see optional_owner()
      */
-    graph_type& owner();
+    [[nodiscard]] graph_type& owner();
 
     /// @copydoc owner()
-    graph_type const& owner() const;
+    [[nodiscard]] graph_type const& owner() const;
 
     /**
      * @brief returns the first relational expression of this block.
      * @return the first relational expression
      */
-    reference front() noexcept;
+    [[nodiscard]] reference front() noexcept;
 
     /// @copydoc front()
-    const_reference front() const noexcept;
+    [[nodiscard]] const_reference front() const noexcept;
 
     /**
      * @brief returns the last relational expression of this block.
      * @return the last relational expression
      */
-    reference back() noexcept;
+    [[nodiscard]] reference back() noexcept;
 
     /// @copydoc back()
-    const_reference back() const noexcept;
+    [[nodiscard]] const_reference back() const noexcept;
 
     /**
      * @brief returns a forward iterator which points the beginning of this container.
      * @return the iterator of beginning (inclusive)
      */
-    iterator begin() noexcept;
+    [[nodiscard]] iterator begin() noexcept;
 
     /// @copydoc begin()
-    const_iterator begin() const noexcept;
+    [[nodiscard]] const_iterator begin() const noexcept;
 
     /**
      * @brief returns a forward iterator which points the ending of this container.
      * @return the iterator of ending (exclusive)
      */
-    iterator end() noexcept;
+    [[nodiscard]] iterator end() noexcept;
 
     /// @copydoc end()
-    const_iterator end() const noexcept;
+    [[nodiscard]] const_iterator end() const noexcept;
 
     /**
      * @brief returns the incoming block of the given input.
@@ -140,10 +140,10 @@ public:
      * @see add_upstream()
      * @warning undefined behavior if the upstream is not registered
      */
-    block& upstream(::takatori::relation::expression::input_port_type const& port);
+    [[nodiscard]] block& upstream(::takatori::relation::expression::input_port_type const& port);
     
     /// @copydoc upstream()
-    block const& upstream(::takatori::relation::expression::input_port_type const& port) const;
+    [[nodiscard]] block const& upstream(::takatori::relation::expression::input_port_type const& port) const;
 
     /**
      * @brief returns the outgoing block of the given output.
@@ -152,30 +152,30 @@ public:
      * @see add_downstream()
      * @warning undefined behavior if the downstream is not registered
      */
-    block& downstream(::takatori::relation::expression::output_port_type const& port);
+    [[nodiscard]] block& downstream(::takatori::relation::expression::output_port_type const& port);
 
     /// @copydoc downstream()
-    block const& downstream(::takatori::relation::expression::output_port_type const& port) const;
+    [[nodiscard]] block const& downstream(::takatori::relation::expression::output_port_type const& port) const;
 
     /**
      * @brief returns the view of incoming blocks.
      * @return the view of upstream blocks
      * @warning undefined behavior if any upstreams are not registered
      */
-    list_view<block> upstreams();
+    [[nodiscard]] list_view<block> upstreams();
 
     /// @copydoc upstreams()
-    list_view<block const> upstreams() const;
+    [[nodiscard]] list_view<block const> upstreams() const;
 
     /**
      * @brief returns the view of outgoing blocks.
      * @return the view of downstream blocks
      * @warning undefined behavior if any downstreams are not registered
      */
-    list_view<block> downstreams();
+    [[nodiscard]] list_view<block> downstreams();
 
     /// @copydoc downstreams()
-    list_view<block const> downstreams() const;
+    [[nodiscard]] list_view<block const> downstreams() const;
 
     /**
      * @brief handles when this step is joined into the given graph.

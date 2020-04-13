@@ -41,7 +41,7 @@ using ::takatori::util::string_builder;
 class engine {
 private:
     template<class T>
-    auto to_descriptor(T&& decl) const noexcept {
+    [[nodiscard]] auto to_descriptor(T&& decl) const noexcept {
         return binding::factory { get_object_creator() }(std::forward<T>(decl));
     }
 
@@ -158,7 +158,7 @@ public:
         ++cursor_;
     }
 
-    ::takatori::util::object_creator get_object_creator() const noexcept {
+    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept {
         return info_.get_object_creator();
     }
 
@@ -173,7 +173,7 @@ private:
             ::takatori::util::object_allocator<::takatori::util::unique_object_ptr<relation::expression>>> added_;
 
     template<class T>
-    std::vector<T, ::takatori::util::object_allocator<T>> empty() const noexcept {
+    [[nodiscard]] std::vector<T, ::takatori::util::object_allocator<T>> empty() const noexcept {
         std::vector<T, ::takatori::util::object_allocator<T>> result { get_object_creator().allocator<T>() };
         return result;
     }
@@ -463,7 +463,7 @@ private:
         cursor_ = source_.erase(cursor_);
     }
 
-    bool is_incremental(relation::intermediate::aggregate const& expr) const {
+    [[nodiscard]] bool is_incremental(relation::intermediate::aggregate const& expr) const {
         if (auto info = info_.find(expr)) {
             return info->incremental();
         }

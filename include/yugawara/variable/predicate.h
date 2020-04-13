@@ -22,17 +22,17 @@ public:
      * @brief returns the kind of this value.
      * @return the value kind
      */
-    virtual predicate_kind kind() const noexcept = 0;
+    [[nodiscard]] virtual predicate_kind kind() const noexcept = 0;
 
     /**
      * @brief returns a clone of this object.
      * @param creator the object creator
      * @return the created clone
      */
-    virtual predicate* clone(takatori::util::object_creator creator) const& = 0;
+    [[nodiscard]] virtual predicate* clone(takatori::util::object_creator creator) const& = 0;
 
     /// @copydoc clone()
-    virtual predicate* clone(takatori::util::object_creator creator) && = 0;
+    [[nodiscard]] virtual predicate* clone(takatori::util::object_creator creator) && = 0;
 
     /**
      * @brief returns whether or not the two elements are equivalent.
@@ -104,7 +104,7 @@ protected:
      * @return true if the both are equivalent
      * @return false otherwise
      */
-    virtual bool equals(predicate const& other) const noexcept = 0;
+    [[nodiscard]] virtual bool equals(predicate const& other) const noexcept = 0;
 
     /**
      * @brief appends string representation of this object into the given output.

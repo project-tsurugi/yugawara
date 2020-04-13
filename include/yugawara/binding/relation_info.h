@@ -34,17 +34,17 @@ public:
      * @brief returns the kind of this relation.
      * @return the relation kind
      */
-    virtual kind_type kind() const noexcept = 0;
+    [[nodiscard]] virtual kind_type kind() const noexcept = 0;
 
     /**
      * @brief returns a clone of this object.
      * @param creator the object creator
      * @return the created clone
      */
-    virtual relation_info* clone(takatori::util::object_creator creator) const& = 0;
+    [[nodiscard]] virtual relation_info* clone(takatori::util::object_creator creator) const& = 0;
 
     /// @copydoc clone()
-    virtual relation_info* clone(takatori::util::object_creator creator) && = 0;
+    [[nodiscard]] virtual relation_info* clone(takatori::util::object_creator creator) && = 0;
 
     /**
      * @brief returns whether or not the two relations are equivalent.
@@ -79,7 +79,7 @@ protected:
      * @return true if the both are equivalent
      * @return false otherwise
      */
-    bool equals(object const& other) const noexcept override;
+    [[nodiscard]] bool equals(object const& other) const noexcept override;
 
     /**
      * @brief returns whether or not this object is equivalent to the target one.
@@ -87,13 +87,13 @@ protected:
      * @return true if the both are equivalent
      * @return false otherwise
      */
-    virtual bool equals(relation_info const& other) const noexcept = 0;
+    [[nodiscard]] virtual bool equals(relation_info const& other) const noexcept = 0;
 
     /**
      * @brief returns a hash code of this object.
      * @return the computed hash code
      */
-    std::size_t hash() const noexcept override = 0;
+    [[nodiscard]] std::size_t hash() const noexcept override = 0;
 
     /**
      * @brief appends string representation of this object into the given output.

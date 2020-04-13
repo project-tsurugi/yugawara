@@ -35,7 +35,7 @@ public:
      * @brief returns the target function declaration.
      * @return the function declaration
      */
-    aggregate::declaration const& declaration() const noexcept;
+    [[nodiscard]] aggregate::declaration const& declaration() const noexcept;
 
     /**
      * @brief sets the target function declaration.
@@ -48,7 +48,7 @@ public:
      * @brief returns the target function declaration as shared pointer.
      * @return the function declaration as shared pointer
      */
-    declaration_pointer const& shared_declaration() const noexcept;
+    [[nodiscard]] declaration_pointer const& shared_declaration() const noexcept;
 
     /**
      * @brief returns whether or not the two functions are equivalent.
@@ -83,13 +83,13 @@ protected:
      * @return true if the both are equivalent
      * @return false otherwise
      */
-    bool equals(object const& other) const noexcept override;
+    [[nodiscard]] bool equals(object const& other) const noexcept override;
 
     /**
      * @brief returns a hash code of this object.
      * @return the computed hash code
      */
-    std::size_t hash() const noexcept override;
+    [[nodiscard]] std::size_t hash() const noexcept override;
 
     /**
      * @brief appends string representation of this object into the given output.

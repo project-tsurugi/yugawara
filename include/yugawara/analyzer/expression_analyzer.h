@@ -48,25 +48,25 @@ public:
      * @brief returns the underlying expression mapping.
      * @return the underlying expression mapping.
      */
-    expression_mapping& expressions() noexcept;
+    [[nodiscard]] expression_mapping& expressions() noexcept;
 
     /// @copydoc expressions()
-    expression_mapping const& expressions() const noexcept;
+    [[nodiscard]] expression_mapping const& expressions() const noexcept;
 
     /// @copydoc expressions()
-    std::shared_ptr<expression_mapping> shared_expressions() noexcept;
+    [[nodiscard]] std::shared_ptr<expression_mapping> shared_expressions() noexcept;
 
     /**
      * @brief returns the underlying variable mapping.
      * @return the underlying variable mapping.
      */
-    variable_mapping& variables() noexcept;
+    [[nodiscard]] variable_mapping& variables() noexcept;
 
     /// @copydoc variables()
-    variable_mapping const& variables() const noexcept;
+    [[nodiscard]] variable_mapping const& variables() const noexcept;
 
     /// @copydoc variables()
-    std::shared_ptr<variable_mapping> shared_variables() noexcept;
+    [[nodiscard]] std::shared_ptr<variable_mapping> shared_variables() noexcept;
 
     /**
      * @brief extracts the type of the given resolution.
@@ -74,7 +74,7 @@ public:
      * @return the resolved type, may be an erroneous or pending type
      * @return empty if it includes unresolved elements
      */
-    std::shared_ptr<::takatori::type::data const> inspect(variable_resolution const& resolution) const;
+    [[nodiscard]] std::shared_ptr<::takatori::type::data const> inspect(variable_resolution const& resolution) const;
 
     /**
      * @brief returns the type of the given variable.
@@ -82,7 +82,7 @@ public:
      * @return the resolved type, may be an erroneous or pending type
      * @return empty if it is not yet resolved
      */
-    std::shared_ptr<::takatori::type::data const> inspect(::takatori::descriptor::variable const& variable) const;
+    [[nodiscard]] std::shared_ptr<::takatori::type::data const> inspect(::takatori::descriptor::variable const& variable) const;
 
     /**
      * @brief computes the type of the given scalar expression.
@@ -148,13 +148,13 @@ public:
      * @return true if there are any diagnostics
      * @return false otherwise
      */
-    bool has_diagnostics() const noexcept;
+    [[nodiscard]] bool has_diagnostics() const noexcept;
 
     /**
      * @brief returns diagnostics while analyzing scalar expressions.
      * @return the diagnostics
      */
-    ::takatori::util::sequence_view<type_diagnostic const> diagnostics() const noexcept;
+    [[nodiscard]] ::takatori::util::sequence_view<type_diagnostic const> diagnostics() const noexcept;
 
     /**
      * @brief remove all diagnostics while analyzing scalar expression.

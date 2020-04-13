@@ -35,16 +35,16 @@ public:
      */
     explicit index_info(index_info&& other, ::takatori::util::object_creator creator);
 
-    kind_type kind() const noexcept override;
-    index_info* clone(takatori::util::object_creator creator) const& override;
-    index_info* clone(takatori::util::object_creator creator) && override;
+    [[nodiscard]] kind_type kind() const noexcept override;
+    [[nodiscard]] index_info* clone(takatori::util::object_creator creator) const& override;
+    [[nodiscard]] index_info* clone(takatori::util::object_creator creator) && override;
 
     /**
      * @brief returns the origin of the index.
      * @details If the target index step was disposed, this object will become invalid.
      * @return the index
      */
-    storage::index const& declaration() const noexcept;
+    [[nodiscard]] storage::index const& declaration() const noexcept;
 
     /// FIXME: columns
 
@@ -75,8 +75,8 @@ public:
     friend std::ostream& operator<<(std::ostream& out, index_info const& value);
 
 protected:
-    bool equals(relation_info const& other) const noexcept override;
-    std::size_t hash() const noexcept override;
+    [[nodiscard]] bool equals(relation_info const& other) const noexcept override;
+    [[nodiscard]] std::size_t hash() const noexcept override;
     std::ostream& print_to(std::ostream& out) const override;
 
 private:

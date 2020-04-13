@@ -21,13 +21,13 @@ public:
      */
     explicit table_column_info(storage::column const& column) noexcept;
 
-    variable_info_kind kind() const noexcept override;
+    [[nodiscard]] variable_info_kind kind() const noexcept override;
 
     /**
      * @brief returns the target column.
      * @return the target column
      */
-    storage::column const& column() const noexcept;
+    [[nodiscard]] storage::column const& column() const noexcept;
 
     /**
      * @brief returns whether or not the two relations are equivalent.
@@ -56,8 +56,8 @@ public:
     friend std::ostream& operator<<(std::ostream& out, table_column_info const& value);
 
 protected:
-    bool equals(variable_info const& other) const noexcept override;
-    std::size_t hash() const noexcept override;
+    [[nodiscard]] bool equals(variable_info const& other) const noexcept override;
+    [[nodiscard]] std::size_t hash() const noexcept override;
     std::ostream& print_to(std::ostream& out) const override;
 
 private:

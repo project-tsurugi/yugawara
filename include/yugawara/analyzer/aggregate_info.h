@@ -29,7 +29,7 @@ public:
      * @return true if the target operation enables incremental aggregation
      * @return false otherwise
      */
-    bool incremental() const noexcept;
+    [[nodiscard]] bool incremental() const noexcept;
 
     /**
      * @brief sets whether or not incremental aggregation is enabled.

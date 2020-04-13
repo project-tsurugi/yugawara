@@ -58,16 +58,16 @@ public:
      * @return true if this is resolved
      * @return false otherwise
      */
-    bool is_resolved() const noexcept;
+    [[nodiscard]] bool is_resolved() const noexcept;
 
     /// @copydoc is_resolved()
-    explicit operator bool() const noexcept;
+    [[nodiscard]] explicit operator bool() const noexcept;
 
     /**
      * @brief returns the variable name.
      * @return the variable name
      */
-    std::string_view name() const noexcept;
+    [[nodiscard]] std::string_view name() const noexcept;
 
     /**
      * @brief sets the variable name.
@@ -81,14 +81,14 @@ public:
      * @return the type
      * @return unresolved type if the variable is not yet resolved
      */
-    takatori::type::data const& type() const noexcept;
+    [[nodiscard]] takatori::type::data const& type() const noexcept;
 
     /**
      * @brief returns the variable type as its shared pointer.
      * @return the type
      * @return unresolved type if the variable is not yet resolved
      */
-    type_pointer const& shared_type() const noexcept;
+    [[nodiscard]] type_pointer const& shared_type() const noexcept;
 
     /**
      * @brief sets the variable type.
@@ -102,10 +102,10 @@ public:
      * @details this includes nullity, etc.
      * @return the criteria
      */
-    class criteria& criteria() noexcept;
+    [[nodiscard]] class criteria& criteria() noexcept;
 
     /// @copydoc criteria()
-    class criteria const& criteria() const noexcept;
+    [[nodiscard]] class criteria const& criteria() const noexcept;
 
     /**
      * @brief appends string representation of the given value.

@@ -37,7 +37,7 @@ public:
      * @brief returns the index key column.
      * @return the key column
      */
-    constexpr class column const& column() const noexcept {
+    [[nodiscard]] constexpr class column const& column() const noexcept {
         return *column_;
     }
 
@@ -45,7 +45,7 @@ public:
      * @brief returns the sort direction of this key element.
      * @return the sort direction
      */
-    constexpr sort_direction direction() const noexcept {
+    [[nodiscard]] constexpr sort_direction direction() const noexcept {
         return direction_;
     }
 

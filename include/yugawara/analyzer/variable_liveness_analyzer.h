@@ -67,7 +67,7 @@ public:
      * @throws std::invalid_argument if the specified block is out of the scope of this analyzer,
      *      or some block contains semantic error
      */
-    info& inspect(
+    [[nodiscard]] info& inspect(
             block const& target,
             kind_set require = {
                     kind_type::define,

@@ -58,7 +58,7 @@ public:
      * @attention the returned std::weak_ptr will be expired after cache entries were disposed,
      *      please invoke std::weak_ptr::lock() before use it
      */
-    std::weak_ptr<value_type> find(const_reference value) {
+    [[nodiscard]] std::weak_ptr<value_type> find(const_reference value) {
         if (auto iter = entries_.find(value); iter != entries_.end()) {
             return iter->second;
         }
@@ -118,7 +118,7 @@ public:
      * @brief returns the object creator.
      * @return the object creator
      */
-    takatori::util::object_creator get_object_creator() const noexcept {
+    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept {
         return entries_.get_allocator();
     }
 

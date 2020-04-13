@@ -170,7 +170,7 @@ public:
      * @brief returns the element kind.
      * @return the element kind
      */
-    constexpr kind_type kind() const noexcept {
+    [[nodiscard]] constexpr kind_type kind() const noexcept {
         auto index = entity_.index();
         if (index == std::variant_npos) {
             return kind_type::unresolved;
@@ -183,7 +183,7 @@ public:
      * @return true if this represents resolved information
      * @return false if this is unresolved information
      */
-    explicit constexpr operator bool() const noexcept {
+    [[nodiscard]] explicit constexpr operator bool() const noexcept {
         return kind() != kind_type::unresolved;
     }
 
@@ -194,7 +194,7 @@ public:
      * @throws std::bad_variant_access if the holding element kind is inconsistent
      */
     template<kind_type Kind>
-    std::add_lvalue_reference_t<std::add_const_t<element_type<Kind>>> element() const {
+    [[nodiscard]] std::add_lvalue_reference_t<std::add_const_t<element_type<Kind>>> element() const {
         if constexpr (Kind == kind_type::unresolved) { // NOLINT
             if (entity_.index() == std::variant_npos) {
                 static std::monostate unresolved;
@@ -211,7 +211,7 @@ public:
      * @return empty if the holding element kind is inconsistent
      */
     template<kind_type Kind>
-    ::takatori::util::optional_ptr<std::add_const_t<element_type<Kind>>> element_if() const {
+    [[nodiscard]] ::takatori::util::optional_ptr<std::add_const_t<element_type<Kind>>> element_if() const {
         if constexpr (Kind == kind_type::unresolved) { // NOLINT
             return { element<Kind>() };
         }

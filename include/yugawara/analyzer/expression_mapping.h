@@ -32,7 +32,8 @@ public:
      * @return the resolved type
      * @return empty if the target expression has not been resolved yet
      */
-    std::shared_ptr<::takatori::type::data const> find(::takatori::scalar::expression const& expression) const;
+    [[nodiscard]] std::shared_ptr<::takatori::type::data const> find(
+            ::takatori::scalar::expression const& expression) const;
 
     /**
      * @brief sets the resolved type for the expression.
@@ -66,7 +67,7 @@ public:
      * @brief returns the object creator.
      * @return the object creator
      */
-    takatori::util::object_creator get_object_creator() const;
+    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const;
 
 private:
     std::unordered_map<

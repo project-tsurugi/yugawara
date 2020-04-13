@@ -46,33 +46,33 @@ public:
      */
     explicit negation(negation&& other, takatori::util::object_creator creator) noexcept;
 
-    predicate_kind kind() const noexcept override;
-    negation* clone(takatori::util::object_creator creator) const& override;
-    negation* clone(takatori::util::object_creator creator) && override;
+    [[nodiscard]] predicate_kind kind() const noexcept override;
+    [[nodiscard]] negation* clone(takatori::util::object_creator creator) const& override;
+    [[nodiscard]] negation* clone(takatori::util::object_creator creator) && override;
 
     /**
      * @brief returns the negation target.
      * @return the negation target
      * @warning undefined behavior if the operand is absent
      */
-    predicate& operand() noexcept;
+    [[nodiscard]] predicate& operand() noexcept;
 
     /**
      * @brief returns the negation target.
      * @return the negation target
      * @warning undefined behavior if the operand is absent
      */
-    predicate const& operand() const noexcept;
+    [[nodiscard]] predicate const& operand() const noexcept;
 
     /**
      * @brief returns the negation target.
      * @return the negation target
      * @return empty if the operand is absent
      */
-    takatori::util::optional_ptr<predicate> optional_operand() noexcept;
+    [[nodiscard]] takatori::util::optional_ptr<predicate> optional_operand() noexcept;
 
     /// @copydoc optional_operand()
-    takatori::util::optional_ptr<predicate const> optional_operand() const noexcept;
+    [[nodiscard]] takatori::util::optional_ptr<predicate const> optional_operand() const noexcept;
 
     /**
      * @brief releases the negation target.
@@ -121,7 +121,7 @@ public:
     friend std::ostream& operator<<(std::ostream& out, negation const& value);
 
 protected:
-    bool equals(predicate const& other) const noexcept override;
+    [[nodiscard]] bool equals(predicate const& other) const noexcept override;
     std::ostream& print_to(std::ostream& out) const override;
 
 private:

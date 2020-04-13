@@ -53,31 +53,31 @@ public:
      * @brief returns the diagnostic code.
      * @return the diagnostic code
      */
-    code_type code() const noexcept;
+    [[nodiscard]] code_type code() const noexcept;
 
     /**
      * @brief returns the region where this diagnostic occurred.
      * @return the diagnostic region
      */
-    ::takatori::document::region const& region() const noexcept;
+    [[nodiscard]] ::takatori::document::region const& region() const noexcept;
 
     /**
      * @brief returns the actual expression type.
      * @return the actual expression type
      */
-    ::takatori::type::data const& actual_type() const noexcept;
+    [[nodiscard]] ::takatori::type::data const& actual_type() const noexcept;
 
     /**
      * @brief returns the actual expression type as a shared pointer.
      * @return the actual expression type
      */
-    std::shared_ptr<::takatori::type::data const> shared_actual_type() const noexcept;
+    [[nodiscard]] std::shared_ptr<::takatori::type::data const> shared_actual_type() const noexcept;
 
     /**
      * @brief returns the expected expression type categories.
      * @return the expected categories
      */
-    type::category_set const& expected_categories() const noexcept;
+    [[nodiscard]] type::category_set const& expected_categories() const noexcept;
 
     /**
      * @brief appends string representation of the given value.

@@ -35,16 +35,16 @@ public:
      */
     explicit exchange_info(exchange_info&& other, ::takatori::util::object_creator creator);
 
-    kind_type kind() const noexcept override;
-    exchange_info* clone(takatori::util::object_creator creator) const& override;
-    exchange_info* clone(takatori::util::object_creator creator) && override;
+    [[nodiscard]] kind_type kind() const noexcept override;
+    [[nodiscard]] exchange_info* clone(takatori::util::object_creator creator) const& override;
+    [[nodiscard]] exchange_info* clone(takatori::util::object_creator creator) && override;
 
     /**
      * @brief returns the origin of the exchange step.
      * @details If the target exchange step was disposed, this object will become invalid.
      * @return the exchange step
      */
-    ::takatori::plan::exchange const& declaration() const noexcept;
+    [[nodiscard]] ::takatori::plan::exchange const& declaration() const noexcept;
 
     /// FIXME: transform view
 
@@ -75,8 +75,8 @@ public:
     friend std::ostream& operator<<(std::ostream& out, exchange_info const& value);
 
 protected:
-    bool equals(relation_info const& other) const noexcept override;
-    std::size_t hash() const noexcept override;
+    [[nodiscard]] bool equals(relation_info const& other) const noexcept override;
+    [[nodiscard]] std::size_t hash() const noexcept override;
     std::ostream& print_to(std::ostream& out) const override;
 
 private:

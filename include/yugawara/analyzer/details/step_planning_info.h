@@ -79,7 +79,7 @@ public:
      * @brief returns the object creator.
      * @return the object creator
      */
-    ::takatori::util::object_creator get_object_creator() const noexcept;
+    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept;
 
 private:
     join_hint_map join_hints_;

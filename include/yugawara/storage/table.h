@@ -60,12 +60,12 @@ public:
      */
     explicit table(table&& other, takatori::util::object_creator creator);
 
-    table* clone(takatori::util::object_creator creator) const& override;
-    table* clone(takatori::util::object_creator creator) && override;
+    [[nodiscard]] table* clone(takatori::util::object_creator creator) const& override;
+    [[nodiscard]] table* clone(takatori::util::object_creator creator) && override;
 
-    relation_kind kind() const noexcept override;
+    [[nodiscard]] relation_kind kind() const noexcept override;
 
-    std::string_view simple_name() const noexcept override;
+    [[nodiscard]] std::string_view simple_name() const noexcept override;
 
     /**
      * @brief sets the simple name of this table.
@@ -74,10 +74,10 @@ public:
      */
     table& simple_name(simple_name_type simple_name) noexcept;
 
-    column_list_view columns() const noexcept override;
-
     /// @copydoc relation::columns()
-    column_vector_type& columns() noexcept;
+    [[nodiscard]] column_vector_type& columns() noexcept;
+
+    [[nodiscard]] column_list_view columns() const noexcept override;
 
     /**
      * @brief appends string representation of the given value.

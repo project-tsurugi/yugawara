@@ -80,16 +80,16 @@ public:
      * @param creator the object creator
      * @return the created clone
      */
-    column* clone(takatori::util::object_creator creator) const&;
+    [[nodiscard]] column* clone(takatori::util::object_creator creator) const&;
 
     /// @copydoc clone()
-    column* clone(takatori::util::object_creator creator) &&;
+    [[nodiscard]] column* clone(takatori::util::object_creator creator) &&;
 
     /**
      * @brief returns the column name.
      * @return the column name
      */
-    std::string_view simple_name() const noexcept;
+    [[nodiscard]] std::string_view simple_name() const noexcept;
 
     /**
      * @brief sets the simple name of this column.
@@ -102,21 +102,21 @@ public:
      * @brief returns the column type.
      * @return the column type
      */
-    takatori::type::data const& type() const noexcept;
+    [[nodiscard]] takatori::type::data const& type() const noexcept;
 
     /**
      * @brief returns the column type.
      * @return the column type
      * @return empty if the type is absent
      */
-    takatori::util::optional_ptr<takatori::type::data const> optional_type() const noexcept;
+    [[nodiscard]] takatori::util::optional_ptr<takatori::type::data const> optional_type() const noexcept;
 
     /**
      * @brief returns the column type for share its object.
      * @return the column type for sharing
      * @return empty if the type is absent
      */
-    std::shared_ptr<takatori::type::data const> shared_type() const noexcept;
+    [[nodiscard]] std::shared_ptr<takatori::type::data const> shared_type() const noexcept;
 
     /**
      * @brief sets a column type.
@@ -130,24 +130,24 @@ public:
      * @details this includes nullity, etc.
      * @return the criteria
      */
-    variable::criteria& criteria() noexcept;
+    [[nodiscard]] variable::criteria& criteria() noexcept;
 
     /// @copydoc criteria()
-    variable::criteria const& criteria() const noexcept;
+    [[nodiscard]] variable::criteria const& criteria() const noexcept;
 
     /**
      * @brief returns the default value.
      * @return the default value
      * @return empty if the default value is not defined
      */
-    takatori::util::optional_ptr<takatori::value::data const> default_value() const noexcept;
+    [[nodiscard]] takatori::util::optional_ptr<takatori::value::data const> default_value() const noexcept;
 
     /**
      * @brief returns the default value for share its object.
      * @return the default value for sharing
      * @return empty if the value is not defined
      */
-    std::shared_ptr<takatori::value::data const> shared_default_value() const noexcept;
+    [[nodiscard]] std::shared_ptr<takatori::value::data const> shared_default_value() const noexcept;
 
     /**
      * @brief sets a default value.
@@ -162,14 +162,14 @@ public:
      * @attention undefined behavior if this column is orphaned from the owner relations
      * @see optional_owner()
      */
-    relation const& owner() const noexcept;
+    [[nodiscard]] relation const& owner() const noexcept;
 
     /**
      * @brief returns what declares this column.
      * @return the column declarator
      * @return empty if this column is orphaned from the owner relations
      */
-    takatori::util::optional_ptr<relation const> optional_owner() const noexcept;
+    [[nodiscard]] takatori::util::optional_ptr<relation const> optional_owner() const noexcept;
 
     /**
      * @brief appends string representation of the given value.

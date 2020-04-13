@@ -36,7 +36,7 @@ public:
      * @return the corresponded external relation
      * @return empty if it is absent
      */
-    virtual std::shared_ptr<relation const> find_relation(std::string_view id) const = 0;
+    [[nodiscard]] virtual std::shared_ptr<relation const> find_relation(std::string_view id) const = 0;
 
     /**
      * @brief returns a table.
@@ -44,7 +44,7 @@ public:
      * @return the corresponded table
      * @return empty if it is absent
      */
-    std::shared_ptr<class table const> find_table(std::string_view id) const;
+    [[nodiscard]] std::shared_ptr<class table const> find_table(std::string_view id) const;
 
     /**
      * @brief returns an index.
@@ -52,7 +52,7 @@ public:
      * @return the corresponded index
      * @return empty if it is absent
      */
-    virtual std::shared_ptr<index const> find_index(std::string_view id) const = 0;
+    [[nodiscard]] virtual std::shared_ptr<index const> find_index(std::string_view id) const = 0;
 
     /**
      * @brief provides all relations in this provider.

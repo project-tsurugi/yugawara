@@ -40,7 +40,7 @@ public:
      * @return the corresponded variable declaration
      * @return empty if there is no such a variable
      */
-    virtual std::shared_ptr<declaration const> find(std::string_view name) const = 0;
+    [[nodiscard]] virtual std::shared_ptr<declaration const> find(std::string_view name) const = 0;
 };
 
 } // namespace yugawara::variable

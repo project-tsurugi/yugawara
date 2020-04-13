@@ -82,7 +82,7 @@ public:
      * @return the equivalent value in this repository
      */
     template<class U>
-    std::shared_ptr<std::remove_const_t<std::remove_reference_t<U>>> get(U&& value) {
+    [[nodiscard]] std::shared_ptr<std::remove_const_t<std::remove_reference_t<U>>> get(U&& value) {
         auto&& result = internal_get(std::forward<U>(value));
         return std::static_pointer_cast<std::remove_const_t<std::remove_reference_t<U>>>(std::move(result));
     }
@@ -100,7 +100,7 @@ public:
      * @brief returns the object creator.
      * @return the object creator
      */
-    takatori::util::object_creator get_object_creator() const noexcept {
+    [[nodiscard]] takatori::util::object_creator get_object_creator() const noexcept {
         return cache_.get_deleter().creator();
     }
 

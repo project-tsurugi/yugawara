@@ -36,7 +36,7 @@ public:
      */
     explicit basic_configurable_provider(
             std::shared_ptr<provider const> parent = {},
-            takatori::util::object_creator creator = {},
+            ::takatori::util::object_creator creator = {},
             compare_type const& compare = compare_type{}) noexcept
         : parent_(std::move(parent))
         , declarations_(
@@ -107,7 +107,7 @@ public:
      * @brief returns the object creator.
      * @return the object creator
      */
-    takatori::util::object_creator get_object_creator() const {
+    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const {
         return declarations_.get_allocator();
     }
 

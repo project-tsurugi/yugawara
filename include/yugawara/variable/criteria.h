@@ -78,7 +78,7 @@ public:
      * @brief returns the nullity of the target variable.
      * @return the nullity
      */
-    class nullity nullity() const noexcept;
+    [[nodiscard]] class nullity nullity() const noexcept;
 
     /**
      * @brief sets the nullity of the target variable.
@@ -92,7 +92,7 @@ public:
      * @return the structured predicate
      * @return empty if it is absent, which represents there are no special invariants
      */
-    takatori::util::optional_ptr<class predicate const> predicate() const noexcept;
+    [[nodiscard]] takatori::util::optional_ptr<class predicate const> predicate() const noexcept;
 
     /**
      * @brief sets the structured predicate of the target variable invariant.
@@ -106,14 +106,14 @@ public:
      * @return the constant value
      * @return empty if the variable is not decided as a constant
      */
-    takatori::util::optional_ptr<takatori::value::data const> constant() const noexcept;
+    [[nodiscard]] takatori::util::optional_ptr<takatori::value::data const> constant() const noexcept;
 
     /**
      * @brief returns the constant value of the variable as its shared pointer.
      * @return the constant value as its shared pointer
      * @return empty if the variable is not decided as a constant
      */
-    std::shared_ptr<takatori::value::data const> const& shared_constant() const noexcept;
+    [[nodiscard]] std::shared_ptr<takatori::value::data const> const& shared_constant() const noexcept;
 
     /**
      * @brief appends string representation of the given value.

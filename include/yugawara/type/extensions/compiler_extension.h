@@ -29,12 +29,12 @@ public:
      * @param creator the object creator
      * @return the created clone
      */
-    compiler_extension* clone(takatori::util::object_creator creator) const& override {
+    [[nodiscard]] compiler_extension* clone(takatori::util::object_creator creator) const& override {
         return creator.create_object<compiler_extension>();
     }
 
     /// @copydoc clone()
-    compiler_extension* clone(takatori::util::object_creator creator) && override {
+    [[nodiscard]] compiler_extension* clone(takatori::util::object_creator creator) && override {
         return creator.create_object<compiler_extension>();
     }
 
@@ -42,7 +42,7 @@ public:
      * @brief returns the extension ID of this type.
      * @return the extension ID
      */
-    extension_id_type extension_id() const noexcept override {
+    [[nodiscard]] extension_id_type extension_id() const noexcept override {
         return extension_tag;
     }
 
@@ -51,7 +51,7 @@ public:
      * @param type the target type model
      * @return true if the model is an instance of this class
      */
-    static bool is_instance(takatori::type::data const& type) noexcept {
+    [[nodiscard]] static bool is_instance(takatori::type::data const& type) noexcept {
         if (type.kind() == takatori::type::type_kind::extension) {
             return is_instance(takatori::util::downcast<takatori::type::extension>(type));
         }
@@ -59,7 +59,7 @@ public:
     }
 
     /// @copydoc is_instance(takatori::type::data const&)
-    static bool is_instance(takatori::type::extension const& type) noexcept {
+    [[nodiscard]] static bool is_instance(takatori::type::extension const& type) noexcept {
         return type.extension_id() == extension_tag;
     }
 
@@ -107,7 +107,7 @@ protected:
      * @return true if the both are equivalent
      * @return false otherwise
      */
-    bool equals(extension const& other) const noexcept override {
+    [[nodiscard]] bool equals(extension const& other) const noexcept override {
         return extension_tag == other.extension_id();
     }
 
@@ -116,7 +116,7 @@ protected:
      * @details The returned digest value should compute from only type specific information.
      * @return the computed hash code
      */
-    std::size_t hash() const noexcept override {
+    [[nodiscard]] std::size_t hash() const noexcept override {
         return static_cast<std::size_t>(extension_tag);
     }
 

@@ -19,11 +19,11 @@ public:
         : label_(std::move(label))
     {}
 
-    variable_info_kind kind() const noexcept override {
+    [[nodiscard]] [[nodiscard]] variable_info_kind kind() const noexcept override {
         return tag;
     }
 
-    std::string_view label() const noexcept {
+    [[nodiscard]] [[nodiscard]] std::string_view label() const noexcept {
         return label_;
     }
 
@@ -43,11 +43,11 @@ public:
     }
 
 protected:
-    bool equals(variable_info const& other) const noexcept override {
+    [[nodiscard]] [[nodiscard]] bool equals(variable_info const& other) const noexcept override {
         return other.kind() == tag && *this == takatori::util::unsafe_downcast<variable_info_impl>(other);
     }
 
-    std::size_t hash() const noexcept override {
+    [[nodiscard]] [[nodiscard]] std::size_t hash() const noexcept override {
         return takatori::util::hash(this);
     }
 

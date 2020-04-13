@@ -40,10 +40,10 @@ public:
      * @brief returns the built graph.
      * @return the built graph
      */
-    ::takatori::graph::graph<block>& graph() noexcept;
+    [[nodiscard]] ::takatori::graph::graph<block>& graph() noexcept;
 
     /// @copydoc graph()
-    ::takatori::graph::graph<block> const& graph() const noexcept;
+    [[nodiscard]] ::takatori::graph::graph<block> const& graph() const noexcept;
 
     /**
      * @brief releases the built graph.
@@ -55,7 +55,7 @@ public:
      * @brief returns the object creator.
      * @return the object creator
      */
-    ::takatori::util::object_creator get_object_creator() const noexcept;
+    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept;
 
     /**
      * @brief builds a basic block graph from the given relational expression graph.

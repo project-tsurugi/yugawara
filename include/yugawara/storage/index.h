@@ -65,13 +65,13 @@ public:
      * @brief returns the origin table of this index.
      * @return the origin table
      */
-    class table const& table() const noexcept;
+    [[nodiscard]] class table const& table() const noexcept;
 
     /**
      * @brief returns the origin table of this index for sharing.
      * @return the origin table for sharing
      */
-    std::shared_ptr<class table const> const& shared_table() const noexcept;
+    [[nodiscard]] std::shared_ptr<class table const> const& shared_table() const noexcept;
 
     /**
      * @brief sets origin table.
@@ -85,7 +85,7 @@ public:
      * @return the simple name
      * @return empty string if it is not defined
      */
-    std::string_view simple_name() const noexcept;
+    [[nodiscard]] std::string_view simple_name() const noexcept;
 
     /**
      * @brief sets the simple name of this table.
@@ -98,28 +98,28 @@ public:
      * @brief returns the index key elements.
      * @return the index key elements
      */
-    std::vector<key, takatori::util::object_allocator<key>>& keys() noexcept;
+    [[nodiscard]] std::vector<key, takatori::util::object_allocator<key>>& keys() noexcept;
 
     /// @copydoc keys()
-    std::vector<key, takatori::util::object_allocator<key>> const& keys() const noexcept;
+    [[nodiscard]] std::vector<key, takatori::util::object_allocator<key>> const& keys() const noexcept;
 
     /**
      * @brief returns the extra columns.
      * @return the extra columns
      */
-    std::vector<column_ref, takatori::util::object_allocator<column_ref>>& values() noexcept;
+    [[nodiscard]] std::vector<column_ref, takatori::util::object_allocator<column_ref>>& values() noexcept;
 
     /// @copydoc values()
-    std::vector<column_ref, takatori::util::object_allocator<column_ref>> const& values() const noexcept;
+    [[nodiscard]] std::vector<column_ref, takatori::util::object_allocator<column_ref>> const& values() const noexcept;
 
     /**
      * @brief returns the available features of this index.
      * @return the available features
      */
-    index_feature_set& features() noexcept;
+    [[nodiscard]] index_feature_set& features() noexcept;
 
     /// @copydoc features()
-    index_feature_set const& features() const noexcept;
+    [[nodiscard]] index_feature_set const& features() const noexcept;
 
     /**
      * @brief appends string representation of the given value.

@@ -43,10 +43,10 @@ public:
      * @brief returns the underlying planning information.
      * @return the underlying planning information
      */
-    planning_info& info() noexcept;
+    [[nodiscard]] planning_info& info() noexcept;
 
     /// @copydoc info()
-    planning_info const& info() const noexcept;
+    [[nodiscard]] planning_info const& info() const noexcept;
 
     /**
      * @brief registers hint for the given join operation.
@@ -67,14 +67,14 @@ public:
      * @return the built step plan
      * @attention variable descriptors in the given plan will be replaced other ones
      */
-    ::takatori::graph::graph<::takatori::plan::step> build(
+    [[nodiscard]] ::takatori::graph::graph<::takatori::plan::step> build(
             ::takatori::graph::graph<::takatori::relation::expression>&& graph) noexcept;
 
     /**
      * @brief returns the object creator.
      * @return the object creator
      */
-    ::takatori::util::object_creator get_object_creator() const noexcept;
+    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept;
 
 private:
     planning_info info_;

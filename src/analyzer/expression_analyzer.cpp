@@ -1242,7 +1242,7 @@ private:
         return expr.region();
     }
 
-    ::takatori::document::region const& extract_region(::takatori::descriptor::variable const& variable) const noexcept {
+    [[nodiscard]] ::takatori::document::region const& extract_region(::takatori::descriptor::variable const& variable) const noexcept {
         if (auto&& r = variable.region()) {
             return r;
         }
@@ -1490,7 +1490,7 @@ private:
         return true;
     }
 
-    bool is_unresolved_or_error(variable_resolution const& resolution) const {
+    [[nodiscard]] bool is_unresolved_or_error(variable_resolution const& resolution) const {
         if (!resolution) {
             return true;
         }

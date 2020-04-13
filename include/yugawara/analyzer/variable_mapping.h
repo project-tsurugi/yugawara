@@ -54,7 +54,7 @@ public:
      * @brief returns the object creator.
      * @return the object creator
      */
-    takatori::util::object_creator get_object_creator() const;
+    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const;
 
 private:
     std::unordered_map<

@@ -21,7 +21,7 @@ public:
      * @return true if it is nullable
      * @return false otherwise
      */
-    constexpr bool nullable() const noexcept;
+    [[nodiscard]] constexpr bool nullable() const noexcept;
 
     /**
      * @brief returns the negation of this nullity.

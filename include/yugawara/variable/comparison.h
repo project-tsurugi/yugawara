@@ -62,15 +62,15 @@ public:
      */
     explicit comparison(comparison&& other, takatori::util::object_creator creator) noexcept;
 
-    predicate_kind kind() const noexcept override;
-    comparison* clone(takatori::util::object_creator creator) const& override;
-    comparison* clone(takatori::util::object_creator creator) && override;
+    [[nodiscard]] predicate_kind kind() const noexcept override;
+    [[nodiscard]] comparison* clone(takatori::util::object_creator creator) const& override;
+    [[nodiscard]] comparison* clone(takatori::util::object_creator creator) && override;
 
     /**
      * @brief returns the operator kind.
      * @return operator kind
      */
-    operator_kind_type operator_kind() const noexcept;
+    [[nodiscard]] operator_kind_type operator_kind() const noexcept;
 
     /**
      * @brief sets operator kind.
@@ -84,28 +84,28 @@ public:
      * @return the comparative value
      * @warning undefined behavior if the value is absent
      */
-    takatori::value::data const& value() const noexcept;
+    [[nodiscard]] takatori::value::data const& value() const noexcept;
 
     /**
      * @brief returns the comparative value.
      * @return the comparative value
      * @return empty if the value is absent
      */
-    takatori::util::optional_ptr<takatori::value::data const> optional_value() const noexcept;
+    [[nodiscard]] takatori::util::optional_ptr<takatori::value::data const> optional_value() const noexcept;
 
     /**
      * @brief returns the comparative value for share its value.
      * @return the comparative value for sharing
      * @return empty if the value is absent
      */
-    std::shared_ptr<takatori::value::data const> const& shared_value() const noexcept;
+    [[nodiscard]] std::shared_ptr<takatori::value::data const> const& shared_value() const noexcept;
 
     /**
      * @brief sets a comparative value.
      * @param value the comparative value
      * @return this
      */
-    comparison& value(std::shared_ptr<takatori::value::data const> value) noexcept;
+    [[nodiscard]] comparison& value(std::shared_ptr<takatori::value::data const> value) noexcept;
 
     /**
      * @brief returns whether or not the two elements are equivalent.
@@ -134,7 +134,7 @@ public:
     friend std::ostream& operator<<(std::ostream& out, comparison const& value);
 
 protected:
-    bool equals(predicate const& other) const noexcept override;
+    [[nodiscard]] bool equals(predicate const& other) const noexcept override;
     std::ostream& print_to(std::ostream& out) const override;
 
 private:

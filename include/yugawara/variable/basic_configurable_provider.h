@@ -68,7 +68,7 @@ public:
         }
     }
 
-    std::shared_ptr<declaration const> find(std::string_view name) const override {
+    [[nodiscard]] std::shared_ptr<declaration const> find(std::string_view name) const override {
         if (auto& found = internal_find(name)) {
             return found;
         }
@@ -133,7 +133,7 @@ public:
      * @brief returns the object creator.
      * @return the object creator
      */
-    takatori::util::object_creator get_object_creator() const {
+    [[nodiscard]] takatori::util::object_creator get_object_creator() const {
         return declarations_.get_allocator();
     }
 

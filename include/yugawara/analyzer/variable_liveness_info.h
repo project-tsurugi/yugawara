@@ -42,10 +42,10 @@ public:
      * @return the defined variables
      * @return empty if this kind of variables have not been computed yet
      */
-    variables& define() noexcept;
+    [[nodiscard]] variables& define() noexcept;
 
     /// @copydoc define()
-    variables const& define() const noexcept;
+    [[nodiscard]] variables const& define() const noexcept;
 
     /**
      * @brief returns the variables referred in this block.
@@ -64,10 +64,10 @@ public:
      * @return the referred variables
      * @return empty if this kind of variables have not been computed yet
      */
-    variables& use() noexcept;
+    [[nodiscard]] variables& use() noexcept;
 
     /// @copydoc use()
-    variables const& use() const noexcept;
+    [[nodiscard]] variables const& use() const noexcept;
 
     /**
      * @brief returns the variables which will not be refer after this block (including this block).
@@ -82,10 +82,10 @@ public:
      * @return variables to be killed
      * @return empty if this kind of variables have not been computed yet
      */
-    variables& kill() noexcept;
+    [[nodiscard]] variables& kill() noexcept;
 
     /// @copydoc kill()
-    variables const& kill() const noexcept;
+    [[nodiscard]] variables const& kill() const noexcept;
 
 private:
     variables define_ {};

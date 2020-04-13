@@ -82,7 +82,7 @@ public:
         return internal_remove(relations_, id);
     }
 
-    std::shared_ptr<class index const> find_index(std::string_view id) const override {
+    [[nodiscard]] std::shared_ptr<class index const> find_index(std::string_view id) const override {
         return internal_find<&provider::find_index>(indices_, id);
     }
 
@@ -129,7 +129,7 @@ public:
      * @return the parent provider
      * @return empty if there are no parents
      */
-    takatori::util::optional_ptr<provider const> parent() const noexcept {
+    [[nodiscard]] ::takatori::util::optional_ptr<provider const> parent() const noexcept {
         return takatori::util::optional_ptr<provider const> { parent_.get() };
     }
 
@@ -137,7 +137,7 @@ public:
      * @brief returns the object creator.
      * @return the object creator
      */
-    takatori::util::object_creator get_object_creator() const {
+    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const {
         return relations_.get_allocator();
     }
 
@@ -166,7 +166,7 @@ private:
     using element_type = typename Container::value_type::second_type::element_type;
 
     template<auto Find, class Container>
-    std::shared_ptr<element_type<Container> const> internal_find(
+    [[nodiscard]] std::shared_ptr<element_type<Container> const> internal_find(
             Container& container,
             std::string_view id) const {
         std::lock_guard lock { mutex_ };
