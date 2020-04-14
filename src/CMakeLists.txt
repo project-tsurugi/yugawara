@@ -70,7 +70,6 @@ add_library(yugawara
     analyzer/intermediate_plan_optimizer.cpp
     analyzer/details/intermediate_plan_optimizer_options.cpp
     analyzer/details/projection_decomposer.cpp
-    analyzer/details/redundant_stream_variable_remover.cpp
 )
 
 add_executable(yugawara-exec
