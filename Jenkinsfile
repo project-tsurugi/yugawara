@@ -61,6 +61,21 @@ pipeline {
                 '''
             }
         }
+        stage ('Install hopscotch-map') {
+            steps {
+                sh '''
+                    cd third_party/hopscotch-map
+                    git log -n 1 --format=%H
+                    # git clean -dfx
+                    mkdir -p ../../build-hopscotch-map
+                    cd ../../build-hopscotch-map
+                    # clean up cache variables from previous build
+                    rm -f CMakeCache.txt
+                    cmake -DCMAKE_INSTALL_PREFIX=${WORKSPACE}/.local ../../third_party/hopscotch-map
+                    make all install -j${BUILD_PARALLEL_NUM}
+                '''
+            }
+        }
         stage ('Build') {
             steps {
                 sh '''

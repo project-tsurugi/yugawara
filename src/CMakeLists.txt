@@ -70,6 +70,7 @@ add_library(yugawara
     analyzer/intermediate_plan_optimizer.cpp
     analyzer/details/intermediate_plan_optimizer_options.cpp
     analyzer/details/projection_decomposer.cpp
+    analyzer/details/redundant_stream_variable_remover.cpp
 )
 
 add_executable(yugawara-exec
@@ -87,6 +88,7 @@ target_include_directories(yugawara-exec
 target_link_libraries(yugawara
     PUBLIC yugawara-api
     PUBLIC takatori
+    PRIVATE tsl::hopscotch_map
 )
 
 target_link_libraries(yugawara-exec

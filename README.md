@@ -31,6 +31,17 @@ optional packages:
 
 see [README](third_party/takatori/README.md).
 
+#### hopscotch-map
+
+```sh
+mkdir -p build-third_party/hopscotch-map
+cd build-third_party/hopscotch-map
+cmake -G Ninja -DCMAKE_INSTALL_PREFIX=[/path/to/install-prefix] ../../third_party/hopscotch-map
+ninja install
+```
+
+see https://github.com/Tessil/hopscotch-map
+
 ## How to build
 
 ```sh
