@@ -71,6 +71,8 @@ add_library(yugawara
     analyzer/details/intermediate_plan_optimizer_options.cpp
     analyzer/details/projection_decomposer.cpp
     analyzer/details/redundant_stream_variable_remover.cpp
+    analyzer/details/stream_variable_flow_info.cpp
+    analyzer/details/stream_variable_flow_info_entry.cpp
 )
 
 add_executable(yugawara-exec
@@ -159,4 +161,9 @@ add_library(yugawara-impl INTERFACE)
 
 target_include_directories(yugawara-impl
     INTERFACE .
+)
+
+target_link_libraries(yugawara-impl
+    INTERFACE yugawara
+    INTERFACE tsl::hopscotch_map
 )

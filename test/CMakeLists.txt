@@ -7,7 +7,6 @@ function (add_test_executable source_file)
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
     )
     target_link_libraries(${test_name}
-        PRIVATE yugawara
         PRIVATE yugawara-impl
         PRIVATE yugawara-test-main
     )
@@ -73,6 +72,7 @@ add_test_executable(analyzer/details/stream_variable_rewriter_test.cpp)
 # optimizer
 add_test_executable(analyzer/details/projection_decomposer_test.cpp)
 add_test_executable(analyzer/details/redundant_stream_variable_remover_test.cpp)
+add_test_executable(analyzer/details/stream_variable_flow_info_test.cpp)
 
 # utilities
 add_test_executable(util/either_test.cpp)
