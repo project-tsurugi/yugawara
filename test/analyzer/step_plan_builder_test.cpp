@@ -136,7 +136,7 @@ TEST_F(step_plan_builder_test, simple) {
     r0.output() >> ro.input();
 
     step_plan_builder builder;
-    auto p = builder.build(std::move(r));
+    auto p = builder(std::move(r));
 
     ASSERT_EQ(p.size(), 1);
     auto&& p0 = find(p, r0);
@@ -189,7 +189,7 @@ TEST_F(step_plan_builder_test, escape) {
     r1.output() >> ro.input();
 
     step_plan_builder builder;
-    auto p = builder.build(std::move(r));
+    auto p = builder(std::move(r));
 
     ASSERT_EQ(p.size(), 1);
     auto&& p0 = find(p, r0);
@@ -257,7 +257,7 @@ TEST_F(step_plan_builder_test, join) {
     r2.output() >> r3.input();
 
     step_plan_builder builder;
-    auto p = builder.build(std::move(r));
+    auto p = builder(std::move(r));
 
     ASSERT_EQ(p.size(), 5);
 

@@ -39,7 +39,7 @@ step_plan_builder& step_plan_builder::add(::takatori::relation::intermediate::jo
     return *this;
 }
 
-plan::graph_type step_plan_builder::build(relation::graph_type&& graph) noexcept {
+plan::graph_type step_plan_builder::operator()(relation::graph_type&& graph) const {
     ::takatori::plan::graph_type result { options_.get_object_creator() };
 
     // collect exchange steps and rewrite to step plan operators

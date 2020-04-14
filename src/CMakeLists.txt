@@ -49,6 +49,8 @@ add_library(yugawara
     analyzer/block_builder.cpp
     analyzer/variable_liveness_info.cpp
     analyzer/variable_liveness_analyzer.cpp
+
+    # planner
     analyzer/step_plan_builder.cpp
     analyzer/join_info.cpp
     analyzer/aggregate_info.cpp
@@ -63,6 +65,11 @@ add_library(yugawara
     analyzer/details/exchange_column_collector.cpp
     analyzer/details/scalar_expression_variable_rewriter.cpp
     analyzer/details/stream_variable_rewriter.cpp
+
+    # optimizer
+    analyzer/intermediate_plan_optimizer.cpp
+    analyzer/details/intermediate_plan_optimizer_options.cpp
+    analyzer/details/projection_decomposer.cpp
 )
 
 add_executable(yugawara-exec

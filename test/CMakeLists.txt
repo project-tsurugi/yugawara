@@ -62,13 +62,16 @@ add_test_executable(analyzer/block_builder_test.cpp)
 add_test_executable(analyzer/variable_liveness_analyzer_test.cpp)
 add_test_executable(analyzer/step_plan_builder_test.cpp)
 
+# planner
 add_test_executable(analyzer/details/exchange_step_collector_test.cpp)
 add_test_executable(analyzer/details/process_step_collector_test.cpp)
 add_test_executable(analyzer/details/step_relation_collector_test.cpp)
-
 add_test_executable(analyzer/details/scalar_expression_variable_rewriter_test.cpp)
 add_test_executable(analyzer/details/exchange_column_collector_test.cpp)
 add_test_executable(analyzer/details/stream_variable_rewriter_test.cpp)
+
+# optimizer
+add_test_executable(analyzer/details/projection_decomposer_test.cpp)
 
 # utilities
 add_test_executable(util/either_test.cpp)

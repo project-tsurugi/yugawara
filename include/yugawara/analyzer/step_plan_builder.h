@@ -67,8 +67,8 @@ public:
      * @return the built step plan
      * @attention variable descriptors in the given plan will be replaced other ones
      */
-    [[nodiscard]] ::takatori::graph::graph<::takatori::plan::step> build(
-            ::takatori::graph::graph<::takatori::relation::expression>&& graph) noexcept;
+    [[nodiscard]] ::takatori::graph::graph<::takatori::plan::step> operator()(
+            ::takatori::graph::graph<::takatori::relation::expression>&& graph) const;
 
     /**
      * @brief returns the object creator.
