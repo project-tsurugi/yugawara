@@ -71,7 +71,7 @@ pipeline {
                     cd ../../build-hopscotch-map
                     # clean up cache variables from previous build
                     rm -f CMakeCache.txt
-                    cmake -DCMAKE_INSTALL_PREFIX=${WORKSPACE}/.local ../../third_party/hopscotch-map
+                    cmake -DCMAKE_INSTALL_PREFIX=${WORKSPACE}/.local ../third_party/hopscotch-map
                     make all install -j${BUILD_PARALLEL_NUM}
                 '''
             }
