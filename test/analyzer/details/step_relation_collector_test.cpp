@@ -1,4 +1,4 @@
-#include <analyzer/details/step_relation_collector.h>
+#include <analyzer/details/collect_step_relations.h>
 
 #include <gtest/gtest.h>
 
@@ -21,8 +21,8 @@
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/aggregate/configurable_provider.h>
 
-#include <analyzer/details/exchange_step_collector.h>
-#include <analyzer/details/process_step_collector.h>
+#include <analyzer/details/collect_exchange_steps.h>
+#include <analyzer/details/collect_process_steps.h>
 
 #include "utils.h"
 

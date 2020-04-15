@@ -56,25 +56,25 @@ add_library(yugawara
     analyzer/aggregate_info.cpp
     analyzer/details/block_expression_util.cpp
     analyzer/details/step_plan_builder_options.cpp
-    analyzer/details/process_step_collector.cpp
-    analyzer/details/exchange_step_collector.cpp
-    analyzer/details/step_relation_collector.cpp
+    analyzer/details/collect_process_steps.cpp
+    analyzer/details/collect_exchange_steps.cpp
+    analyzer/details/collect_step_relations.cpp
     analyzer/details/stream_variable_rewriter_context.cpp
     analyzer/details/exchange_column_info.cpp
     analyzer/details/exchange_column_info_map.cpp
-    analyzer/details/exchange_column_collector.cpp
+    analyzer/details/collect_exchange_columns.cpp
     analyzer/details/scalar_expression_variable_rewriter.cpp
-    analyzer/details/stream_variable_rewriter.cpp
+    analyzer/details/rewrite_stream_variables.cpp
 
     # optimizer
     analyzer/intermediate_plan_optimizer.cpp
     analyzer/details/intermediate_plan_optimizer_options.cpp
-    analyzer/details/projection_decomposer.cpp
-    analyzer/details/redundant_stream_variable_remover.cpp
+    analyzer/details/decompose_projections.cpp
+    analyzer/details/remove_redundant_stream_variables.cpp
     analyzer/details/stream_variable_flow_info.cpp
     analyzer/details/stream_variable_flow_info_entry.cpp
-    analyzer/details/predicate_decomposer.cpp
-    analyzer/details/stream_variable_collector.cpp
+    analyzer/details/decompose_predicate.cpp
+    analyzer/details/collect_stream_variables.cpp
 )
 
 add_executable(yugawara-exec

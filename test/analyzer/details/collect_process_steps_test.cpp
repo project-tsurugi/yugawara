@@ -1,4 +1,4 @@
-#include <analyzer/details/process_step_collector.h>
+#include <analyzer/details/collect_process_steps.h>
 
 #include <gtest/gtest.h>
 
@@ -22,13 +22,13 @@
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/aggregate/configurable_provider.h>
 
-#include <analyzer/details/exchange_step_collector.h>
+#include <analyzer/details/collect_exchange_steps.h>
 
 #include "utils.h"
 
 namespace yugawara::analyzer::details {
 
-class process_step_collector_test : public ::testing::Test {
+class collect_process_steps_test : public ::testing::Test {
 
 protected:
     type::repository types;
@@ -99,7 +99,7 @@ protected:
     }
 };
 
-TEST_F(process_step_collector_test, simple) {
+TEST_F(collect_process_steps_test, simple) {
     /*
      * scan:r0 - emit:r1
      */
@@ -130,7 +130,7 @@ TEST_F(process_step_collector_test, simple) {
     EXPECT_LT(r1.input(), r0.output());
 }
 
-TEST_F(process_step_collector_test, straight) {
+TEST_F(collect_process_steps_test, straight) {
     /*
      * scan:r0 - limit_relation:r1 - emit:r2
      */
@@ -174,7 +174,7 @@ TEST_F(process_step_collector_test, straight) {
     EXPECT_TRUE(p1.operators().contains(r2));
 }
 
-TEST_F(process_step_collector_test, gather) {
+TEST_F(collect_process_steps_test, gather) {
     /*
      * scan:r0 -\
      *           join_relation:r2 - emit:r3

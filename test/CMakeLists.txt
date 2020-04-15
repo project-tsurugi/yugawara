@@ -62,19 +62,19 @@ add_test_executable(analyzer/variable_liveness_analyzer_test.cpp)
 add_test_executable(analyzer/step_plan_builder_test.cpp)
 
 # planner
-add_test_executable(analyzer/details/exchange_step_collector_test.cpp)
-add_test_executable(analyzer/details/process_step_collector_test.cpp)
+add_test_executable(analyzer/details/collect_exchange_steps_test.cpp)
+add_test_executable(analyzer/details/collect_process_steps_test.cpp)
 add_test_executable(analyzer/details/step_relation_collector_test.cpp)
 add_test_executable(analyzer/details/scalar_expression_variable_rewriter_test.cpp)
-add_test_executable(analyzer/details/exchange_column_collector_test.cpp)
-add_test_executable(analyzer/details/stream_variable_rewriter_test.cpp)
+add_test_executable(analyzer/details/collect_exchange_columns_test.cpp)
+add_test_executable(analyzer/details/rewrite_stream_variables_test.cpp)
 
 # optimizer
-add_test_executable(analyzer/details/projection_decomposer_test.cpp)
-add_test_executable(analyzer/details/redundant_stream_variable_remover_test.cpp)
+add_test_executable(analyzer/details/decompose_predicate_test.cpp)
+add_test_executable(analyzer/details/remove_redundant_stream_variables_test.cpp)
 add_test_executable(analyzer/details/stream_variable_flow_info_test.cpp)
 add_test_executable(analyzer/details/predicate_decomposer_test.cpp)
-add_test_executable(analyzer/details/stream_variable_collector_test.cpp)
+add_test_executable(analyzer/details/collect_stream_variables_test.cpp)
 
 # utilities
 add_test_executable(util/either_test.cpp)

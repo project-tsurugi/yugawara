@@ -1,4 +1,4 @@
-#include <analyzer/details/stream_variable_rewriter.h>
+#include <analyzer/details/rewrite_stream_variables.h>
 
 #include <gtest/gtest.h>
 
@@ -38,14 +38,14 @@
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/aggregate/configurable_provider.h>
 
-#include <analyzer/details/step_relation_collector.h>
-#include <analyzer/details/exchange_column_collector.h>
+#include <analyzer/details/collect_step_relations.h>
+#include <analyzer/details/collect_exchange_columns.h>
 
 #include "utils.h"
 
 namespace yugawara::analyzer::details {
 
-class stream_variable_rewriter_test : public ::testing::Test {
+class rewrite_stream_variables_test : public ::testing::Test {
 protected:
     ::takatori::util::object_creator creator;
     type::repository types;
@@ -128,7 +128,7 @@ protected:
     }
 };
 
-TEST_F(stream_variable_rewriter_test, find) {
+TEST_F(rewrite_stream_variables_test, find) {
     /*
      * [scan:r0 - emit:ro]:p0
      */
@@ -163,7 +163,7 @@ TEST_F(stream_variable_rewriter_test, find) {
     EXPECT_EQ(r0.columns()[0].destination(), c1m);
 }
 
-TEST_F(stream_variable_rewriter_test, scan) {
+TEST_F(rewrite_stream_variables_test, scan) {
     /*
      * [scan:r0 - emit:ro]:p0
      */
@@ -195,7 +195,7 @@ TEST_F(stream_variable_rewriter_test, scan) {
     EXPECT_EQ(r0.columns()[0].destination(), c1m);
 }
 
-TEST_F(stream_variable_rewriter_test, join_find_index) {
+TEST_F(rewrite_stream_variables_test, join_find_index) {
     /*
      * [scan:r0 - join_find:r1 - emit:ro]:p0
      */
@@ -265,7 +265,7 @@ TEST_F(stream_variable_rewriter_test, join_find_index) {
     EXPECT_EQ(ro.columns()[0].source(), j2m);
 }
 
-TEST_F(stream_variable_rewriter_test, join_find_broadcast) {
+TEST_F(rewrite_stream_variables_test, join_find_broadcast) {
     /*
      *                                 [scan:r0 - join_find:r1 - emit:ro]:p0
      *                                            /
@@ -372,7 +372,7 @@ TEST_F(stream_variable_rewriter_test, join_find_broadcast) {
     EXPECT_EQ(r3.columns()[2].destination(), j2e0);
 }
 
-TEST_F(stream_variable_rewriter_test, join_scan_index) {
+TEST_F(rewrite_stream_variables_test, join_scan_index) {
     /*
      * [scan:r0 - join_scan:r1 - emit:ro]:p0
      */
@@ -444,7 +444,7 @@ TEST_F(stream_variable_rewriter_test, join_scan_index) {
     EXPECT_EQ(ro.columns()[0].source(), j2m);
 }
 
-TEST_F(stream_variable_rewriter_test, join_scan_broadcast) {
+TEST_F(rewrite_stream_variables_test, join_scan_broadcast) {
     /*
      *                                 [scan:r0 - join_scan:r1 - emit:ro]:p0
      *                                            /
@@ -553,7 +553,7 @@ TEST_F(stream_variable_rewriter_test, join_scan_broadcast) {
     EXPECT_EQ(r3.columns()[2].destination(), j2e0);
 }
 
-TEST_F(stream_variable_rewriter_test, project) {
+TEST_F(rewrite_stream_variables_test, project) {
     /*
      * [scan:r0 - project:r1 - emit:ro]:p0
      */
@@ -644,7 +644,7 @@ TEST_F(stream_variable_rewriter_test, project) {
     EXPECT_EQ(ro.columns()[1].source(), x3p0);
 }
 
-TEST_F(stream_variable_rewriter_test, filter) {
+TEST_F(rewrite_stream_variables_test, filter) {
     /*
      * [scan:r0 - filter:r1 - emit:ro]:p0
      */
@@ -696,7 +696,7 @@ TEST_F(stream_variable_rewriter_test, filter) {
     EXPECT_EQ(ro.columns()[0].source(), c2p0);
 }
 
-TEST_F(stream_variable_rewriter_test, buffer) {
+TEST_F(rewrite_stream_variables_test, buffer) {
     /*
      * [scan:r0 - buffer:r1 - emit:ro0]:p0
      *                  \
@@ -745,7 +745,7 @@ TEST_F(stream_variable_rewriter_test, buffer) {
     EXPECT_EQ(ro1.columns()[0].source(), c2p0);
 }
 
-TEST_F(stream_variable_rewriter_test, emit) {
+TEST_F(rewrite_stream_variables_test, emit) {
     /*
      * [scan:r0 - emit:ro]:p0
      */
@@ -779,7 +779,7 @@ TEST_F(stream_variable_rewriter_test, emit) {
     EXPECT_EQ(r1.columns()[0].source(), c1p0);
 }
 
-TEST_F(stream_variable_rewriter_test, write) {
+TEST_F(rewrite_stream_variables_test, write) {
     /*
      * [scan:r0 - write:r1]:p0
      */
@@ -827,7 +827,7 @@ TEST_F(stream_variable_rewriter_test, write) {
     EXPECT_EQ(r1.columns()[0].destination(), t1c2);
 }
 
-TEST_F(stream_variable_rewriter_test, escape) {
+TEST_F(rewrite_stream_variables_test, escape) {
     /*
      * [scan:r0 - escape:r1 - emit:ro]:p0
      */
@@ -877,7 +877,7 @@ TEST_F(stream_variable_rewriter_test, escape) {
     EXPECT_EQ(ro.columns()[0].source(), c1p0);
 }
 
-TEST_F(stream_variable_rewriter_test, escape_chain) {
+TEST_F(rewrite_stream_variables_test, escape_chain) {
     /*
      * [scan:r0 - escape:r1 - escape:r2 - escape:r3 - emit:ro]:p0
      */
@@ -947,7 +947,7 @@ TEST_F(stream_variable_rewriter_test, escape_chain) {
     EXPECT_EQ(ro.columns()[0].source(), c1p0);
 }
 
-TEST_F(stream_variable_rewriter_test, join_group) {
+TEST_F(rewrite_stream_variables_test, join_group) {
     /*
      * [scan:rl0 - offer:rl1]:pl - [group]:el -\
      *                                         [take_cogroup:rj0 - join_group:rj1 - emit:rjo]:pj
@@ -1080,7 +1080,7 @@ TEST_F(stream_variable_rewriter_test, join_group) {
     EXPECT_EQ(rjo.columns()[0].source(), cr2pj);
 }
 
-TEST_F(stream_variable_rewriter_test, aggregate_group) {
+TEST_F(rewrite_stream_variables_test, aggregate_group) {
     /*
      * [scan:r0 - offer:r1]:p0 - [group]:e0 - [take_group:r2 - aggregate:r3 - emit:ro]:p1
      */
@@ -1173,7 +1173,7 @@ TEST_F(stream_variable_rewriter_test, aggregate_group) {
     EXPECT_EQ(ro.columns()[1].source(), x2p1);
 }
 
-TEST_F(stream_variable_rewriter_test, intersection_group) {
+TEST_F(rewrite_stream_variables_test, intersection_group) {
     /*
      * [scan:rl0 - offer:rl1]:pl - [group]:el -\
      *                                         [take_cogroup:rj0 - intersection:rj1 - emit:rjo]:pj
@@ -1288,7 +1288,7 @@ TEST_F(stream_variable_rewriter_test, intersection_group) {
     EXPECT_EQ(rjo.columns()[0].source(), cl2pj);
 }
 
-TEST_F(stream_variable_rewriter_test, difference_group) {
+TEST_F(rewrite_stream_variables_test, difference_group) {
     /*
      * [scan:rl0 - offer:rl1]:pl - [group]:el -\
      *                                         [take_cogroup:rj0 - difference:rj1 - emit:rjo]:pj
@@ -1403,7 +1403,7 @@ TEST_F(stream_variable_rewriter_test, difference_group) {
     EXPECT_EQ(rjo.columns()[0].source(), cl2pj);
 }
 
-TEST_F(stream_variable_rewriter_test, flatten_group) {
+TEST_F(rewrite_stream_variables_test, flatten_group) {
     /*
      * [scan:r0 - offer:r1]:p0 - [group]:e0 - [take_group:r2 - flatten:r3 - emit:ro]:p1
      */
@@ -1474,7 +1474,7 @@ TEST_F(stream_variable_rewriter_test, flatten_group) {
     EXPECT_EQ(ro.columns()[0].source(), c2p1);
 }
 
-TEST_F(stream_variable_rewriter_test, forward) {
+TEST_F(rewrite_stream_variables_test, forward) {
     /*
      * [scan:r0 - offer:r1]:p0 - [forward]:e0 - [take_flat:r2 - emit:r3]:p1
      */
@@ -1530,7 +1530,7 @@ TEST_F(stream_variable_rewriter_test, forward) {
     EXPECT_EQ(r3.columns()[0].source(), p1c1);
 }
 
-TEST_F(stream_variable_rewriter_test, group) {
+TEST_F(rewrite_stream_variables_test, group) {
     /*
      * [scan:r0 - offer:r1]:p0 - [group]:e0 - [take_group:r2 - flatten:r3 - emit:r4]:p1
      */
@@ -1602,7 +1602,7 @@ TEST_F(stream_variable_rewriter_test, group) {
     EXPECT_EQ(r4.columns()[0].source(), p1c2);
 }
 
-TEST_F(stream_variable_rewriter_test, aggregate) {
+TEST_F(rewrite_stream_variables_test, aggregate) {
     /*
      * [scan:r0 - offer:r1]:p0 - [aggregate]:e0 - [take_group:r2 - flatten:r3 - emit:r4]:p1
      */
@@ -1692,7 +1692,7 @@ TEST_F(stream_variable_rewriter_test, aggregate) {
     EXPECT_EQ(r4.columns()[0].source(), p1c2);
 }
 
-TEST_F(stream_variable_rewriter_test, broadcast) {
+TEST_F(rewrite_stream_variables_test, broadcast) {
     /*
      * [scan:r0 - offer:r1]:p0 - [broadcast]:e0 -
      *                                           \

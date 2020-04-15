@@ -1,4 +1,4 @@
-#include <analyzer/details/predicate_decomposer.h>
+#include <analyzer/details/decompose_predicate.h>
 
 #include <gtest/gtest.h>
 

@@ -1,4 +1,4 @@
-#include <analyzer/details/exchange_column_collector.h>
+#include <analyzer/details/collect_exchange_columns.h>
 
 #include <gtest/gtest.h>
 
@@ -35,13 +35,13 @@
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/aggregate/configurable_provider.h>
 
-#include <analyzer/details/step_relation_collector.h>
+#include <analyzer/details/collect_step_relations.h>
 
 #include "utils.h"
 
 namespace yugawara::analyzer::details {
 
-class exchange_column_collector_test : public ::testing::Test {
+class collect_exchange_columns_test : public ::testing::Test {
 protected:
     ::takatori::util::object_creator creator;
     type::repository types;
@@ -155,7 +155,7 @@ inline bool is_exchange(descriptor::variable const& v) {
     return binding::unwrap(v).kind() == binding::variable_info_kind::exchange_column;
 }
 
-TEST_F(exchange_column_collector_test, simple) {
+TEST_F(collect_exchange_columns_test, simple) {
     /*
      * [scan:r0 - emit:r1]:p0
      */
@@ -181,7 +181,7 @@ TEST_F(exchange_column_collector_test, simple) {
     EXPECT_EQ(r1.columns()[0].source(), c0);
 }
 
-TEST_F(exchange_column_collector_test, find) {
+TEST_F(collect_exchange_columns_test, find) {
     /*
      * [find:r0 - offer:ro]:p0 - ...
      */
@@ -216,7 +216,7 @@ TEST_F(exchange_column_collector_test, find) {
     EXPECT_EQ(ro.columns()[2].source(), c2);
 }
 
-TEST_F(exchange_column_collector_test, scan) {
+TEST_F(collect_exchange_columns_test, scan) {
     /*
      * [scan:r0 - offer:ro]:p0 - ...
      */
@@ -248,7 +248,7 @@ TEST_F(exchange_column_collector_test, scan) {
     EXPECT_EQ(ro.columns()[2].source(), c2);
 }
 
-TEST_F(exchange_column_collector_test, join_find_index) {
+TEST_F(collect_exchange_columns_test, join_find_index) {
     /*
      * [scan:r0 - join_find:r1]:p0 - ...
      */
@@ -293,7 +293,7 @@ TEST_F(exchange_column_collector_test, join_find_index) {
     EXPECT_EQ(ro.columns()[3].source(), c3);
 }
 
-TEST_F(exchange_column_collector_test, join_find_broadcast) {
+TEST_F(collect_exchange_columns_test, join_find_broadcast) {
     /*
      *        ...
      *           \
@@ -338,7 +338,7 @@ TEST_F(exchange_column_collector_test, join_find_broadcast) {
     EXPECT_EQ(ro.columns()[3].source(), c3);
 }
 
-TEST_F(exchange_column_collector_test, join_find_semi) {
+TEST_F(collect_exchange_columns_test, join_find_semi) {
     /*
      * [scan:r0 - join_find:r1]:p0 - ...
      */
@@ -381,7 +381,7 @@ TEST_F(exchange_column_collector_test, join_find_semi) {
     EXPECT_EQ(ro.columns()[1].source(), c1);
 }
 
-TEST_F(exchange_column_collector_test, join_scan_index) {
+TEST_F(collect_exchange_columns_test, join_scan_index) {
     /*
      * [scan:r0 - join_scan:r1]:p0 - ...
      */
@@ -425,7 +425,7 @@ TEST_F(exchange_column_collector_test, join_scan_index) {
     EXPECT_EQ(ro.columns()[3].source(), c3);
 }
 
-TEST_F(exchange_column_collector_test, join_scan_broadcast) {
+TEST_F(collect_exchange_columns_test, join_scan_broadcast) {
     /*
      *        ...
      *           \
@@ -469,7 +469,7 @@ TEST_F(exchange_column_collector_test, join_scan_broadcast) {
     EXPECT_EQ(ro.columns()[3].source(), c3);
 }
 
-TEST_F(exchange_column_collector_test, join_scan_anti) {
+TEST_F(collect_exchange_columns_test, join_scan_anti) {
     /*
      * [scan:r0 - join_scan:r1]:p0 - ...
      */
@@ -511,7 +511,7 @@ TEST_F(exchange_column_collector_test, join_scan_anti) {
     EXPECT_EQ(ro.columns()[1].source(), c1);
 }
 
-TEST_F(exchange_column_collector_test, project) {
+TEST_F(collect_exchange_columns_test, project) {
     /*
      * [scan:r0 - project:r1 - offer:ro]:p0 - ...
      */
@@ -553,7 +553,7 @@ TEST_F(exchange_column_collector_test, project) {
     EXPECT_EQ(ro.columns()[3].source(), c3);
 }
 
-TEST_F(exchange_column_collector_test, filter) {
+TEST_F(collect_exchange_columns_test, filter) {
     /*
      * [scan:r0 - filter:r1 - offer:ro]:p0 - ...
      */
@@ -589,7 +589,7 @@ TEST_F(exchange_column_collector_test, filter) {
     EXPECT_EQ(ro.columns()[2].source(), c2);
 }
 
-TEST_F(exchange_column_collector_test, buffer) {
+TEST_F(collect_exchange_columns_test, buffer) {
     /*
      * [scan:r0 - buffer:r1 - project:r2 - offer:ro0]:p0 - ...
      *                  \
@@ -646,7 +646,7 @@ TEST_F(exchange_column_collector_test, buffer) {
     EXPECT_EQ(ro1.columns()[2].source(), c3);
 }
 
-TEST_F(exchange_column_collector_test, emit) {
+TEST_F(collect_exchange_columns_test, emit) {
     /*
      * [scan:r0 - emit:r1]:p0
      */
@@ -673,7 +673,7 @@ TEST_F(exchange_column_collector_test, emit) {
     // ok.
 }
 
-TEST_F(exchange_column_collector_test, write) {
+TEST_F(collect_exchange_columns_test, write) {
     /*
      * [scan:r0 - emit:r1]:p0
      */
@@ -706,7 +706,7 @@ TEST_F(exchange_column_collector_test, write) {
     // ok.
 }
 
-TEST_F(exchange_column_collector_test, escape) {
+TEST_F(collect_exchange_columns_test, escape) {
     /*
      * [scan:r0 - escape:r1 - offer:ro]:p0 - ...
      */
@@ -742,7 +742,7 @@ TEST_F(exchange_column_collector_test, escape) {
     EXPECT_EQ(ro.columns()[1].source(), c3);
 }
 
-TEST_F(exchange_column_collector_test, join_group) {
+TEST_F(collect_exchange_columns_test, join_group) {
     /*
      * e0 -\
      *     [take_cogroup:r0 - join_group:r1 - offer:ro]:p0 - ...
@@ -786,7 +786,7 @@ TEST_F(exchange_column_collector_test, join_group) {
     EXPECT_EQ(ro.columns()[3].source(), e1c1);
 }
 
-TEST_F(exchange_column_collector_test, join_group_semi) {
+TEST_F(collect_exchange_columns_test, join_group_semi) {
     /*
      * e0 -\
      *     [take_cogroup:r0 - join_group:r1 - offer:ro]:p0 - ...
@@ -828,7 +828,7 @@ TEST_F(exchange_column_collector_test, join_group_semi) {
     EXPECT_EQ(ro.columns()[1].source(), e0c1);
 }
 
-TEST_F(exchange_column_collector_test, aggregate_group) {
+TEST_F(collect_exchange_columns_test, aggregate_group) {
     /*
      * ... - [take_group:r0 - aggregate:r1 - offer:ro]:p0 - ...
      */
@@ -867,7 +867,7 @@ TEST_F(exchange_column_collector_test, aggregate_group) {
     EXPECT_EQ(ro.columns()[1].source(), c3);
 }
 
-TEST_F(exchange_column_collector_test, intersection_group) {
+TEST_F(collect_exchange_columns_test, intersection_group) {
     /*
      * e0 -\
      *     [take_cogroup:r0 - intersection:r1 - offer:ro]:p0 - ...
@@ -907,7 +907,7 @@ TEST_F(exchange_column_collector_test, intersection_group) {
     EXPECT_EQ(ro.columns()[1].source(), e0c1);
 }
 
-TEST_F(exchange_column_collector_test, difference_group) {
+TEST_F(collect_exchange_columns_test, difference_group) {
     /*
      * e0 -\
      *     [take_cogroup:r0 - difference:r1 - offer:ro]:p0 - ...
@@ -947,7 +947,7 @@ TEST_F(exchange_column_collector_test, difference_group) {
     EXPECT_EQ(ro.columns()[1].source(), e0c1);
 }
 
-TEST_F(exchange_column_collector_test, flatten_group) {
+TEST_F(collect_exchange_columns_test, flatten_group) {
     /*
      * ... - [take_group:r0 - flatten:r1 - offer:ro]:p0 - ...
      */
@@ -980,7 +980,7 @@ TEST_F(exchange_column_collector_test, flatten_group) {
     EXPECT_EQ(ro.columns()[2].source(), c2);
 }
 
-TEST_F(exchange_column_collector_test, take_flat) {
+TEST_F(collect_exchange_columns_test, take_flat) {
     /*
      * ... - [take_flat:r0 - offer:ro]:p0 - ...
      */
@@ -1017,7 +1017,7 @@ TEST_F(exchange_column_collector_test, take_flat) {
 }
 
 
-TEST_F(exchange_column_collector_test, take_group) {
+TEST_F(collect_exchange_columns_test, take_group) {
     /*
      * ... - [take_group:r0 - flatten:r1 - offer:ro]:p0 - ...
      */
@@ -1053,7 +1053,7 @@ TEST_F(exchange_column_collector_test, take_group) {
     EXPECT_EQ(r0.columns()[2].destination(), c2);
 }
 
-TEST_F(exchange_column_collector_test, take_cogroup) {
+TEST_F(collect_exchange_columns_test, take_cogroup) {
     /*
      * e0 -\
      *     [take_cogroup:r0 - join_group:r1 - offer:ro]:p0 - ...
@@ -1107,7 +1107,7 @@ TEST_F(exchange_column_collector_test, take_cogroup) {
     EXPECT_EQ(g1.columns()[1].destination(), e1c1);
 }
 
-TEST_F(exchange_column_collector_test, offer) {
+TEST_F(collect_exchange_columns_test, offer) {
     /*
      * [scan:r0 - offer:r1]:p0 - ..
      */
@@ -1142,7 +1142,7 @@ TEST_F(exchange_column_collector_test, offer) {
     EXPECT_EQ(r1.columns()[2].destination(), e0.columns()[2]);
 }
 
-TEST_F(exchange_column_collector_test, union) {
+TEST_F(collect_exchange_columns_test, union) {
     /*
      * [scan:r0 - offer:r1]:p0
      *                    \
@@ -1244,7 +1244,7 @@ TEST_F(exchange_column_collector_test, union) {
     EXPECT_EQ(r4.columns()[2].destination(), e0c2);
 }
 
-TEST_F(exchange_column_collector_test, forward) {
+TEST_F(collect_exchange_columns_test, forward) {
     /*
      * [scan:r0 - offer:r1]:p0 - [forward]:e0 - [take_flat:r2 - emit:r3]:p1
      */
@@ -1305,7 +1305,7 @@ TEST_F(exchange_column_collector_test, forward) {
     EXPECT_EQ(r2.columns()[2].destination(), c2);
 }
 
-TEST_F(exchange_column_collector_test, group) {
+TEST_F(collect_exchange_columns_test, group) {
     /*
      * [scan:r0 - offer:r1]:p0 - [group]:e0 - [take_group:r2 - flatten:r3 - emit:r4]:p1
      */
@@ -1375,7 +1375,7 @@ TEST_F(exchange_column_collector_test, group) {
     EXPECT_EQ(r2.columns()[2].destination(), c2);
 }
 
-TEST_F(exchange_column_collector_test, aggregate) {
+TEST_F(collect_exchange_columns_test, aggregate) {
     /*
      * [scan:r0 - offer:r1]:p0 - [aggregate]:e0 - [take_group:r2 - flatten:r3 - emit:r4]:p1
      */
@@ -1468,7 +1468,7 @@ TEST_F(exchange_column_collector_test, aggregate) {
     EXPECT_EQ(r2.columns()[1].destination(), a0);
 }
 
-TEST_F(exchange_column_collector_test, broadcast) {
+TEST_F(collect_exchange_columns_test, broadcast) {
     /*
      * [scan:r0 - offer:r1]:p0 - [broadcast]:e0 -
      *                                           \

@@ -1,7 +1,7 @@
 #include <yugawara/analyzer/intermediate_plan_optimizer.h>
 
-#include "details/projection_decomposer.h"
-#include "details/redundant_stream_variable_remover.h"
+#include "details/decompose_projections.h"
+#include "details/remove_redundant_stream_variables.h"
 
 namespace yugawara::analyzer {
 

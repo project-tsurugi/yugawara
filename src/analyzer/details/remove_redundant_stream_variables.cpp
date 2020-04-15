@@ -1,4 +1,4 @@
-#include "redundant_stream_variable_remover.h"
+#include "remove_redundant_stream_variables.h"
 
 #include <tsl/hopscotch_set.h>
 

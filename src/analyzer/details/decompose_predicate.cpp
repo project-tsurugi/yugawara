@@ -1,4 +1,4 @@
-#include "predicate_decomposer.h"
+#include "decompose_predicate.h"
 
 #include <takatori/scalar/binary.h>
 #include <takatori/util/downcast.h>

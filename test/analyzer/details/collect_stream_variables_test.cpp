@@ -1,4 +1,4 @@
-#include <analyzer/details/stream_variable_collector.h>
+#include <analyzer/details/collect_stream_variables.h>
 
 #include <gtest/gtest.h>
 
@@ -14,7 +14,7 @@ namespace yugawara::analyzer::details {
 
 using details::collect_stream_variables;
 
-class stream_variable_collector_test : public ::testing::Test {
+class collect_stream_variables_test : public ::testing::Test {
 protected:
     binding::factory bindings;
 
@@ -47,13 +47,13 @@ protected:
     }
 };
 
-TEST_F(stream_variable_collector_test, simple) {
+TEST_F(collect_stream_variables_test, simple) {
     collect_stream_variables(constant(100), consumer);
 
     EXPECT_TRUE(eq({}));
 }
 
-TEST_F(stream_variable_collector_test, variable_reference) {
+TEST_F(collect_stream_variables_test, variable_reference) {
     auto c0 = bindings.stream_variable("c0");
     scalar::variable_reference expr { c0 };
     collect_stream_variables(expr, consumer);
@@ -61,7 +61,7 @@ TEST_F(stream_variable_collector_test, variable_reference) {
     EXPECT_TRUE(eq({ c0 }));
 }
 
-TEST_F(stream_variable_collector_test, variable_reference_local) {
+TEST_F(collect_stream_variables_test, variable_reference_local) {
     auto c0 = bindings.local_variable("c0");
     scalar::variable_reference expr { c0 };
     collect_stream_variables(expr, consumer);
@@ -69,7 +69,7 @@ TEST_F(stream_variable_collector_test, variable_reference_local) {
     EXPECT_TRUE(eq({}));
 }
 
-TEST_F(stream_variable_collector_test, nested) {
+TEST_F(collect_stream_variables_test, nested) {
     auto c0 = bindings.stream_variable("c0");
     scalar::unary expr {
             scalar::unary_operator::conditional_not,
@@ -80,7 +80,7 @@ TEST_F(stream_variable_collector_test, nested) {
     EXPECT_TRUE(eq({ c0 }));
 }
 
-TEST_F(stream_variable_collector_test, multiple) {
+TEST_F(collect_stream_variables_test, multiple) {
     auto c0 = bindings.stream_variable("c0");
     auto c1 = bindings.stream_variable("c0");
     auto c2 = bindings.stream_variable("c0");

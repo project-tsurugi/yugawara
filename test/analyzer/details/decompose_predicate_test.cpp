@@ -1,4 +1,4 @@
-#include <analyzer/details/projection_decomposer.h>
+#include <analyzer/details/decompose_projections.h>
 
 #include <gtest/gtest.h>
 
@@ -13,7 +13,7 @@
 
 namespace yugawara::analyzer::details {
 
-class projection_decomposer_test : public ::testing::Test {
+class decompose_predicate_test : public ::testing::Test {
 
 protected:
     ::takatori::util::object_creator creator;
@@ -49,7 +49,7 @@ protected:
     }
 };
 
-TEST_F(projection_decomposer_test, simple) {
+TEST_F(decompose_predicate_test, simple) {
     /*
      * scan:r0 - project:r2 - emit:ro
      */
@@ -84,7 +84,7 @@ TEST_F(projection_decomposer_test, simple) {
     EXPECT_EQ(p0.columns()[0].value(), varref(c0));
 }
 
-TEST_F(projection_decomposer_test, decompose) {
+TEST_F(decompose_predicate_test, decompose) {
     /*
      * scan:r0 - project:r2 - emit:ro
      */

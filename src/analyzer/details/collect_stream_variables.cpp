@@ -1,4 +1,4 @@
-#include "stream_variable_collector.h"
+#include "collect_stream_variables.h"
 
 #include <takatori/scalar/walk.h>
 

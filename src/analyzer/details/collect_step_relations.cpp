@@ -1,4 +1,4 @@
-#include "step_relation_collector.h"
+#include "collect_step_relations.h"
 
 #include <stdexcept>
 #include <cassert>

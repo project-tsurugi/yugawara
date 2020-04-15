@@ -1,4 +1,4 @@
-#include <analyzer/details/exchange_step_collector.h>
+#include <analyzer/details/collect_exchange_steps.h>
 
 #include <gtest/gtest.h>
 
@@ -38,7 +38,7 @@
 
 namespace yugawara::analyzer::details {
 
-class exchange_step_collector_test : public ::testing::Test {
+class collect_exchange_steps_test : public ::testing::Test {
 
 protected:
     type::repository types;
@@ -105,7 +105,7 @@ protected:
     });
 };
 
-TEST_F(exchange_step_collector_test, simple) {
+TEST_F(collect_exchange_steps_test, simple) {
     /*
      * scan:r0 - emit:r1
      */
@@ -137,7 +137,7 @@ TEST_F(exchange_step_collector_test, simple) {
     ASSERT_EQ(p.size(), 0);
 }
 
-TEST_F(exchange_step_collector_test, join_default) {
+TEST_F(collect_exchange_steps_test, join_default) {
     /*
      * scan:r0 -\
      *           join_relation:r2 - emit:r3
@@ -208,7 +208,7 @@ TEST_F(exchange_step_collector_test, join_default) {
     EXPECT_EQ(r7.condition(), nullptr);
 }
 
-TEST_F(exchange_step_collector_test, join_cogroup) {
+TEST_F(collect_exchange_steps_test, join_cogroup) {
     /*
      * scan:r0 -\
      *           join_relation:r2 - emit:r3
@@ -287,7 +287,7 @@ TEST_F(exchange_step_collector_test, join_cogroup) {
     EXPECT_EQ(r7.condition(), nullptr);
 }
 
-TEST_F(exchange_step_collector_test, join_broadcast_find) {
+TEST_F(collect_exchange_steps_test, join_broadcast_find) {
     /*
      * scan:r0 -\
      *           join_relation:r2 - emit:r3
@@ -353,7 +353,7 @@ TEST_F(exchange_step_collector_test, join_broadcast_find) {
     EXPECT_EQ(r4.keys()[0].value(), varref(c0));
 }
 
-TEST_F(exchange_step_collector_test, join_broadcast_scan) {
+TEST_F(collect_exchange_steps_test, join_broadcast_scan) {
     /*
      * scan:r0 -\
      *           join_relation:r2 - emit:r3
@@ -441,7 +441,7 @@ TEST_F(exchange_step_collector_test, join_broadcast_scan) {
     EXPECT_EQ(r4.upper().kind(), relation::endpoint_kind::prefixed_exclusive);
 }
 
-TEST_F(exchange_step_collector_test, aggregate_default) {
+TEST_F(collect_exchange_steps_test, aggregate_default) {
     /*
      * scan:r0 - aggregate_relation:r1 - emit:r2
      */
@@ -504,7 +504,7 @@ TEST_F(exchange_step_collector_test, aggregate_default) {
     EXPECT_EQ(r5.columns()[0].destination(), c2);
 }
 
-TEST_F(exchange_step_collector_test, distinct) {
+TEST_F(collect_exchange_steps_test, distinct) {
     /*
      * scan:r0 - distinct_relation:r1 - emit:r2
      */
@@ -557,7 +557,7 @@ TEST_F(exchange_step_collector_test, distinct) {
     ASSERT_EQ(e0.limit(), 1);
 }
 
-TEST_F(exchange_step_collector_test, limit_flat) {
+TEST_F(collect_exchange_steps_test, limit_flat) {
     /*
      * scan:r0 - limit_relation:r1 - emit:r2
      */
@@ -602,7 +602,7 @@ TEST_F(exchange_step_collector_test, limit_flat) {
     ASSERT_EQ(e0.limit(), 10);
 }
 
-TEST_F(exchange_step_collector_test, limit_group) {
+TEST_F(collect_exchange_steps_test, limit_group) {
     /*
      * scan:r0 - distinct_relation:r1 - emit:r2
      */
@@ -658,7 +658,7 @@ TEST_F(exchange_step_collector_test, limit_group) {
     ASSERT_EQ(e0.limit(), 10);
 }
 
-TEST_F(exchange_step_collector_test, union_all) {
+TEST_F(collect_exchange_steps_test, union_all) {
     /*
      * scan:r0 -\
      *           union:r2 - emit:r3
@@ -749,7 +749,7 @@ TEST_F(exchange_step_collector_test, union_all) {
     ASSERT_EQ(r6.columns().size(), 0);
 }
 
-TEST_F(exchange_step_collector_test, union_distinct) {
+TEST_F(collect_exchange_steps_test, union_distinct) {
     /*
      * scan:r0 -\
      *           union:r2 - emit:r3
@@ -839,7 +839,7 @@ TEST_F(exchange_step_collector_test, union_distinct) {
     ASSERT_EQ(r6.columns().size(), 0);
 }
 
-TEST_F(exchange_step_collector_test, binary_all) {
+TEST_F(collect_exchange_steps_test, binary_all) {
     /*
      * scan:r0 -\
      *           intersection_relation:r2 - emit:r3
@@ -920,7 +920,7 @@ TEST_F(exchange_step_collector_test, binary_all) {
     EXPECT_EQ(e1.limit(), std::nullopt);
 }
 
-TEST_F(exchange_step_collector_test, binary_distinct) {
+TEST_F(collect_exchange_steps_test, binary_distinct) {
     /*
      * scan:r0 -\
      *           difference_relation:r2 - emit:r3

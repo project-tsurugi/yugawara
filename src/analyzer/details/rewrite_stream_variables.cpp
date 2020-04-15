@@ -1,4 +1,4 @@
-#include "stream_variable_rewriter.h"
+#include "rewrite_stream_variables.h"
 
 #include <stdexcept>
 #include <cassert>

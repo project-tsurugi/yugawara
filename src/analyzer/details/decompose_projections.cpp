@@ -1,4 +1,4 @@
-#include "projection_decomposer.h"
+#include "decompose_projections.h"
 
 #include <vector>
 #include <stdexcept>

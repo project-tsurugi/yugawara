@@ -6,12 +6,12 @@
 
 #include <takatori/plan/graph.h>
 
-#include "details/process_step_collector.h"
-#include "details/exchange_step_collector.h"
-#include "details/step_relation_collector.h"
+#include "details/collect_process_steps.h"
+#include "details/collect_exchange_steps.h"
+#include "details/collect_step_relations.h"
 
-#include "details/exchange_column_collector.h"
-#include "details/stream_variable_rewriter.h"
+#include "details/collect_exchange_columns.h"
+#include "details/rewrite_stream_variables.h"
 
 namespace yugawara::analyzer {
 
