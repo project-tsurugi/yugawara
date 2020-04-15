@@ -1,11 +1,16 @@
 #pragma once
 
 #include <takatori/type/int.h>
+#include <takatori/type/boolean.h>
+#include <takatori/type/unknown.h>
 
 #include <takatori/value/int.h>
+#include <takatori/value/boolean.h>
+#include <takatori/value/unknown.h>
 
 #include <takatori/scalar/immediate.h>
 #include <takatori/scalar/variable_reference.h>
+#include <takatori/scalar/binary.h>
 #include <takatori/scalar/compare.h>
 
 #include <takatori/relation/expression.h>
@@ -48,6 +53,41 @@ inline scalar::immediate constant(v::int4::entity_type value = 0) {
     return scalar::immediate {
             v::int4 { value },
             t::int4  {},
+    };
+}
+
+inline scalar::immediate boolean(v::boolean::entity_type value) {
+    return scalar::immediate {
+            v::boolean { value },
+            t::boolean {},
+    };
+}
+
+inline scalar::immediate unknown(v::unknown_kind value = v::unknown_kind::null) {
+    return scalar::immediate {
+            v::unknown { value },
+            t::unknown {},
+    };
+}
+
+inline scalar::binary land(
+        scalar::expression&& a,
+        scalar::expression&& b) {
+    return scalar::binary {
+            scalar::binary_operator::conditional_and,
+            std::move(a),
+            std::move(b),
+    };
+}
+
+inline scalar::compare compare(
+        scalar::expression&& a,
+        scalar::expression&& b,
+        scalar::comparison_operator op = scalar::comparison_operator::equal) {
+    return scalar::compare {
+            op,
+            std::move(a),
+            std::move(b),
     };
 }
 
