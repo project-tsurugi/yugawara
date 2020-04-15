@@ -74,6 +74,7 @@ add_library(yugawara
     analyzer/details/stream_variable_flow_info.cpp
     analyzer/details/stream_variable_flow_info_entry.cpp
     analyzer/details/predicate_decomposer.cpp
+    analyzer/details/stream_variable_collector.cpp
 )
 
 add_executable(yugawara-exec
