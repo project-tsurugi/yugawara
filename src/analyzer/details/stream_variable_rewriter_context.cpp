@@ -16,7 +16,7 @@ using ::takatori::util::string_builder;
 using ::takatori::util::unsafe_downcast;
 
 stream_variable_rewriter_context::stream_variable_rewriter_context(::takatori::util::object_creator creator) noexcept
-    : mappings_(creator.allocator<decltype(mappings_)::value_type>())
+    : mappings_(creator.allocator())
 {}
 
 ::takatori::util::optional_ptr<::takatori::descriptor::variable const>

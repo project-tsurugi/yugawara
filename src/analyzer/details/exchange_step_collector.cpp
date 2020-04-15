@@ -174,7 +174,7 @@ private:
 
     template<class T>
     [[nodiscard]] std::vector<T, ::takatori::util::object_allocator<T>> empty() const noexcept {
-        std::vector<T, ::takatori::util::object_allocator<T>> result { get_object_creator().allocator<T>() };
+        std::vector<T, ::takatori::util::object_allocator<T>> result { get_object_creator().allocator() };
         return result;
     }
 

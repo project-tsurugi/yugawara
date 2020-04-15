@@ -20,13 +20,13 @@ table::table(
 
 table::table(table const& other, takatori::util::object_creator creator)
     : table(
-            decltype(simple_name_) { other.simple_name_, creator.allocator<char>() },
+            decltype(simple_name_) { other.simple_name_, creator.allocator() },
             takatori::tree::forward(creator, other.columns_))
 {}
 
 table::table(table&& other, takatori::util::object_creator creator)
     : table(
-            decltype(simple_name_) { std::move(other.simple_name_), creator.allocator<char>() },
+            decltype(simple_name_) { std::move(other.simple_name_), creator.allocator() },
             takatori::tree::forward(creator, std::move(other.columns_)))
 {}
 

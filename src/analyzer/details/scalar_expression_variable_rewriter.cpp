@@ -86,8 +86,8 @@ private:
 
 scalar_expression_variable_rewriter::scalar_expression_variable_rewriter(
         ::takatori::util::object_creator creator) noexcept
-    : locals_(creator.allocator<decltype(locals_)::value_type>())
-    , stack_(creator.allocator<decltype(stack_)::value_type>())
+    : locals_(creator.allocator())
+    , stack_(creator.allocator())
 {}
 
 void scalar_expression_variable_rewriter::operator()(context_type& context, scalar::expression& expr) {

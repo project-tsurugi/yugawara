@@ -25,7 +25,7 @@ factory::factory(::takatori::util::object_creator creator) noexcept
 }
 
 factory::variable_vector factory::table_columns(storage::column_list_view const& columns) {
-    variable_vector vars { creator_.allocator<takatori::descriptor::variable>() };
+    variable_vector vars { creator_.allocator() };
     vars.reserve(columns.size());
     for (auto&& c : columns) {
         vars.emplace_back(table_column(c));

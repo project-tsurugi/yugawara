@@ -499,7 +499,7 @@ exchange_column_info_map collect_exchange_columns(
         ::takatori::plan::graph_type& graph,
         ::takatori::util::object_creator creator) {
     exchange_column_info_map exchange_map { creator };
-    buffer_pool_type buffer_pool { creator.allocator<typename buffer_pool_type::allocator_type::value_type>() };
+    buffer_pool_type buffer_pool { creator.allocator() };
     engine e { exchange_map, buffer_pool };
     plan::sort_from_upstream(
             graph,

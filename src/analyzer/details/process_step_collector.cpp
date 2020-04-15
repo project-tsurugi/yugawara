@@ -25,7 +25,7 @@ class engine {
 public:
     explicit engine(relation::graph_type& source, ::takatori::util::object_creator creator) noexcept
         : source_(source)
-        , work_(creator.allocator<decltype(work_)::value_type>())
+        , work_(creator.allocator())
     {}
 
     static bool is_entry(relation::expression const& expr) noexcept {

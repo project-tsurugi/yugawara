@@ -5,7 +5,7 @@
 namespace yugawara::analyzer::details {
 
 step_plan_builder_options::step_plan_builder_options(::takatori::util::object_creator creator) noexcept
-    : join_hints_(creator.allocator<decltype(join_hints_)::value_type>())
+    : join_hints_(creator.allocator())
 {}
 
 template<class T>

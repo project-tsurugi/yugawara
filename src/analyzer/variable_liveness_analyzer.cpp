@@ -409,7 +409,7 @@ variable_liveness_analyzer::variable_liveness_analyzer(::takatori::graph::graph<
 variable_liveness_analyzer::variable_liveness_analyzer(
         ::takatori::graph::graph<block> const& blocks,
         ::takatori::util::object_creator creator)
-    : blocks_(creator.allocator<typename info_map::value_type>())
+    : blocks_(creator.allocator())
 {
     blocks_.reserve(blocks.size());
     for (auto&& block : blocks) {

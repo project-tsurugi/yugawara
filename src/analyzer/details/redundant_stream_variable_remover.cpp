@@ -21,7 +21,7 @@ namespace {
 class engine {
 public:
     explicit engine(::takatori::util::object_creator creator)
-        : used_(creator.allocator<descriptor::variable>())
+        : used_(creator.allocator())
     {}
 
     void process(relation::graph_type& graph) {
@@ -135,47 +135,6 @@ public:
         touch_mappings(expr.mappings());
     }
 
-    template<class Variables>
-    void touch_variables(Variables& variables) {
-        used_.reserve(used_.size() + variables.size());
-        for (auto&& variable : variables) {
-            use(variable);
-        }
-    }
-
-    template<class Mappings>
-    void touch_mappings(Mappings& mappings) {
-        used_.reserve(used_.size() + mappings.size());
-        for (auto&& mapping : mappings) {
-            use(mapping.source());
-        }
-    }
-
-    template<class Keys>
-    void touch_search_keys(Keys& keys) {
-        used_.reserve(used_.size() + keys.size());
-        for (auto&& key : keys) {
-            use(key.variable());
-        }
-    }
-
-    template<class Keys>
-    void touch_sort_keys(Keys& keys) {
-        used_.reserve(used_.size() + keys.size());
-        for (auto&& key : keys) {
-            use(key.variable());
-        }
-    }
-
-    template<class Pairs>
-    void touch_key_pairs(Pairs& pairs) {
-        used_.reserve(used_.size() + pairs.size() * 2);
-        for (auto&& pair : pairs) {
-            use(pair.left());
-            use(pair.right());
-        }
-    }
-
     // scalar expressions
 
     constexpr void operator()(scalar::expression const&) noexcept {}
@@ -251,6 +210,47 @@ private:
             } else {
                 declarators.erase(declarators.begin() + i);
             }
+        }
+    }
+
+    template<class Variables>
+    void touch_variables(Variables& variables) {
+        used_.reserve(used_.size() + variables.size());
+        for (auto&& variable : variables) {
+            use(variable);
+        }
+    }
+
+    template<class Mappings>
+    void touch_mappings(Mappings& mappings) {
+        used_.reserve(used_.size() + mappings.size());
+        for (auto&& mapping : mappings) {
+            use(mapping.source());
+        }
+    }
+
+    template<class Keys>
+    void touch_search_keys(Keys& keys) {
+        used_.reserve(used_.size() + keys.size());
+        for (auto&& key : keys) {
+            use(key.variable());
+        }
+    }
+
+    template<class Keys>
+    void touch_sort_keys(Keys& keys) {
+        used_.reserve(used_.size() + keys.size());
+        for (auto&& key : keys) {
+            use(key.variable());
+        }
+    }
+
+    template<class Pairs>
+    void touch_key_pairs(Pairs& pairs) {
+        used_.reserve(used_.size() + pairs.size() * 2);
+        for (auto&& pair : pairs) {
+            use(pair.left());
+            use(pair.right());
         }
     }
 };

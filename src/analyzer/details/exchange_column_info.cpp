@@ -30,9 +30,9 @@ static binding::variable_info_impl<Kind> const& check_variable(descriptor::varia
 }
 
 exchange_column_info::exchange_column_info(::takatori::util::object_creator creator) noexcept
-    : entries_(creator.allocator<decltype(entries_)::value_type>())
-    , index_(creator.allocator<decltype(index_)::value_type>())
-    , touched_(creator.allocator<decltype(touched_)::value_type>())
+    : entries_(creator.allocator())
+    , index_(creator.allocator())
+    , touched_(creator.allocator())
 {}
 
 exchange_column_info::size_type exchange_column_info::count() const noexcept {

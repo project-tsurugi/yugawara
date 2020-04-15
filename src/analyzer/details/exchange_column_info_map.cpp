@@ -14,7 +14,7 @@ using ::takatori::util::string_builder;
 
 exchange_column_info_map::exchange_column_info_map(
         ::takatori::util::object_creator creator) noexcept
-    : mappings_(creator.allocator<decltype(mappings_)::value_type>())
+    : mappings_(creator.allocator())
 {}
 
 bool exchange_column_info_map::empty() const noexcept {

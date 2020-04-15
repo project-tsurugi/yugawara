@@ -5,7 +5,7 @@
 namespace yugawara::analyzer {
 
 variable_mapping::variable_mapping(::takatori::util::object_creator creator) noexcept
-    : mapping_(creator.allocator<decltype(mapping_)::value_type>())
+    : mapping_(creator.allocator())
 {}
 
 variable_resolution const& variable_mapping::find(::takatori::descriptor::variable const& variable) const {

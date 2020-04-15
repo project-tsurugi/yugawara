@@ -19,7 +19,7 @@ using ::takatori::util::unsafe_downcast;
 void decompose_projections(relation::graph_type& graph, ::takatori::util::object_creator creator) {
     std::vector<::takatori::util::unique_object_ptr<relation::project>,
             ::takatori::util::object_allocator<::takatori::util::unique_object_ptr<relation::project>>> added_ {
-        creator.allocator<::takatori::util::unique_object_ptr<relation::project>>(),
+        creator.allocator(),
     };
 
     for (auto&& expr : graph) {
@@ -41,9 +41,7 @@ void decompose_projections(relation::graph_type& graph, ::takatori::util::object
             while (columns.size() >= 2) {
                 std::vector<
                         relation::project::column,
-                        ::takatori::util::object_allocator<relation::project::column>> new_columns {
-                        creator.allocator<relation::project::column>(),
-                };
+                        ::takatori::util::object_allocator<relation::project::column>> new_columns { creator.allocator() };
                 new_columns.reserve(1);
 
                 auto&& last_column = columns.back();

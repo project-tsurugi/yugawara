@@ -5,7 +5,7 @@
 namespace yugawara::analyzer {
 
 expression_mapping::expression_mapping(::takatori::util::object_creator creator) noexcept
-    : mapping_(creator.allocator<decltype(mapping_)::value_type>())
+    : mapping_(creator.allocator())
 {}
 
 std::shared_ptr<::takatori::type::data const> expression_mapping::find(

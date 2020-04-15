@@ -47,7 +47,7 @@ public:
      * @param creator the object creator
      */
     explicit object_cache(takatori::util::object_creator creator) noexcept
-        : entries_(creator.allocator<decltype(entries_)::value_type>())
+        : entries_(creator.allocator())
     {}
 
     /**

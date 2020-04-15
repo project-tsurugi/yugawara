@@ -30,7 +30,7 @@ column::column(
 
 column::column(column const& other, takatori::util::object_creator creator)
     : column(
-            decltype(simple_name_) { other.simple_name_, creator.allocator<char>() },
+            decltype(simple_name_) { other.simple_name_, creator.allocator() },
             other.type_,
             decltype(criteria_) { other.criteria_, creator },
             other.default_value_)
@@ -38,7 +38,7 @@ column::column(column const& other, takatori::util::object_creator creator)
 
 column::column(column&& other, takatori::util::object_creator creator)
     : column(
-            decltype(simple_name_) { std::move(other.simple_name_), creator.allocator<char>() },
+            decltype(simple_name_) { std::move(other.simple_name_), creator.allocator() },
             std::move(other.type_),
             std::move(other.criteria_),
             std::move(other.default_value_))
