@@ -1,7 +1,5 @@
 #include <yugawara/analyzer/variable_mapping.h>
 
-#include <takatori/util/clonable.h>
-
 namespace yugawara::analyzer {
 
 variable_mapping::variable_mapping(::takatori::util::object_creator creator) noexcept

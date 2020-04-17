@@ -14,8 +14,6 @@
 #include <takatori/scalar/binary.h>
 #include <takatori/relation/intermediate/dispatch.h>
 
-#include <takatori/util/clonable.h>
-#include <takatori/util/optional_ptr.h>
 #include <takatori/util/string_builder.h>
 
 #include "decompose_predicate.h"

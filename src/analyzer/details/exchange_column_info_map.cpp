@@ -1,9 +1,7 @@
 #include "exchange_column_info_map.h"
 
 #include <stdexcept>
-#include <cassert>
 
-#include <takatori/util/downcast.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/factory.h>

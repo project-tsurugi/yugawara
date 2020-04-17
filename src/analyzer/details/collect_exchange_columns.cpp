@@ -1,22 +1,18 @@
 #include "collect_exchange_columns.h"
 
-#include <algorithm>
 #include <numeric>
 #include <stdexcept>
 #include <cassert>
 
-#include <takatori/descriptor/variable.h>
 #include <takatori/relation/intermediate/escape.h>
 #include <takatori/relation/step/dispatch.h>
 #include <takatori/plan/dispatch.h>
 
-#include <takatori/util/downcast.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/exchange_info.h>
 
 #include "container_pool.h"
-#include "exchange_column_info_map.h"
 
 namespace yugawara::analyzer::details {
 

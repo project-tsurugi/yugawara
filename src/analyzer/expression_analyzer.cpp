@@ -1,13 +1,13 @@
 #include <yugawara/analyzer/expression_analyzer.h>
 
-#include <deque>
 #include <functional>
 #include <stdexcept>
 #include <utility>
-#include <unordered_set>
 #include <vector>
 
 #include <boost/container/static_vector.hpp>
+
+#include <tsl/hopscotch_set.h>
 
 #include <takatori/scalar/dispatch.h>
 #include <takatori/relation/intermediate/dispatch.h>
@@ -20,7 +20,6 @@
 #include <takatori/type/decimal.h>
 #include <takatori/type/character.h>
 #include <takatori/type/bit.h>
-#include <takatori/util/clonable.h>
 #include <takatori/util/downcast.h>
 
 #include <yugawara/type/category.h>
@@ -87,6 +86,11 @@ class engine {
 public:
     using type_ptr = std::shared_ptr<::takatori::type::data const>;
 
+    using saw_set = ::tsl::hopscotch_set<
+            relation::expression const*,
+            std::hash<relation::expression const*>,
+            std::equal_to<>>;
+
     explicit engine(
             expression_analyzer& ana,
             bool validate,
@@ -109,7 +113,7 @@ public:
 
     bool resolve(relation::expression const& expression, bool recursive) {
         if (recursive) {
-            std::unordered_set<relation::expression const*> saw {};
+            saw_set saw {};
             return resolve_recursive(expression, saw);
         }
         return resolve_flat(expression);
@@ -117,7 +121,7 @@ public:
 
     bool resolve_recursive(
             relation::expression const& expression,
-            std::unordered_set<relation::expression const*>& saw) {
+            saw_set& saw) {
         if (saw.find(std::addressof(expression)) != saw.end()) {
             // already visited
             return true;

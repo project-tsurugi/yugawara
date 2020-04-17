@@ -9,8 +9,6 @@
 #include <takatori/plan/process.h>
 #include <takatori/plan/exchange.h>
 
-#include <takatori/util/downcast.h>
-#include <takatori/util/optional_ptr.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/relation_info.h>

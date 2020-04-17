@@ -12,8 +12,6 @@
 #include <takatori/util/downcast.h>
 #include <takatori/util/string_builder.h>
 
-#include <yugawara/binding/exchange_info.h>
-
 #include "stream_variable_rewriter_context.h"
 #include "scalar_expression_variable_rewriter.h"
 

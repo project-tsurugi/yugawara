@@ -22,8 +22,6 @@
 #include <takatori/plan/aggregate.h>
 #include <takatori/plan/broadcast.h>
 
-#include <takatori/util/downcast.h>
-#include <takatori/util/enum_tag.h>
 #include <takatori/util/string_builder.h>
 #include <yugawara/binding/factory.h>
 
