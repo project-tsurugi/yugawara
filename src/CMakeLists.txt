@@ -76,6 +76,8 @@ add_library(yugawara
     analyzer/details/decompose_predicate.cpp
     analyzer/details/collect_stream_variables.cpp
     analyzer/details/push_down_filters.cpp
+    analyzer/details/simplify_predicate.cpp
+    analyzer/details/remove_redundant_conditions.cpp
 
     # serializer
     serializer/object_scanner.cpp

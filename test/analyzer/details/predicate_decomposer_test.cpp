@@ -34,13 +34,11 @@ protected:
         // NOTE: no duplicates in as
         for (auto&& a : as) {
             bool found = false;
-            for (auto it = results.begin(); it != results.end();) {
+            for (auto it = results.begin(); it != results.end(); ++it) {
                 if (a.get() == **it) {
                     found = true;
-                    it = results.erase(it);
+                    results.erase(it);
                     break;
-                } else {
-                    ++it;
                 }
             }
             if (!found) {

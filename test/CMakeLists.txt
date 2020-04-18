@@ -76,6 +76,8 @@ add_test_executable(analyzer/details/stream_variable_flow_info_test.cpp)
 add_test_executable(analyzer/details/predicate_decomposer_test.cpp)
 add_test_executable(analyzer/details/collect_stream_variables_test.cpp)
 add_test_executable(analyzer/details/push_down_filters_test.cpp)
+add_test_executable(analyzer/details/simplify_predicate_test.cpp)
+add_test_executable(analyzer/details/remove_redundant_conditions_test.cpp)
 
 # serializer
 add_test_executable(serializer/object_scanner_test.cpp)
