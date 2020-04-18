@@ -502,6 +502,57 @@ TEST_F(expression_analyzer_scalar_test, unary_is_false_invalid) {
     EXPECT_TRUE(find(expr.operand(), code::unsupported_type));
 }
 
+TEST_F(expression_analyzer_scalar_test, unary_is_unknown) {
+    s::unary expr {
+            s::unary_operator::is_unknown,
+            vref { decl(t::boolean {}) },
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::boolean());
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, unary_is_unknown_pending) {
+    s::unary expr {
+            s::unary_operator::is_unknown,
+            vref { decl(ex::pending {}) },
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::boolean());
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, unary_is_unknown_error) {
+    s::unary expr {
+            s::unary_operator::is_unknown,
+            vref { decl(ex::error {}) },
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::boolean());
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, unary_is_unknown_unknown) {
+    s::unary expr {
+            s::unary_operator::is_unknown,
+            vref { decl(t::unknown()) },
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::boolean());
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, unary_is_unknown_invalid) {
+    s::unary expr {
+            s::unary_operator::is_unknown,
+            vref { decl(t::int4 {}) },
+    };
+    bless(expr.operand());
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::boolean());
+    EXPECT_TRUE(find(expr.operand(), code::unsupported_type));
+}
+
 TEST_F(expression_analyzer_scalar_test, binary_add_number) {
     s::binary expr {
             s::binary_operator::add,

@@ -521,6 +521,10 @@ public:
         return operator()(enum_tag<scalar::unary_operator::is_true>, expr, std::move(operand));
     }
 
+    type_ptr operator()(enum_tag_t<scalar::unary_operator::is_unknown>, scalar::unary const& expr, type_ptr operand) {
+        return operator()(enum_tag<scalar::unary_operator::is_true>, expr, std::move(operand));
+    }
+
     static std::pair<category, category> category_pair(type_ptr const& left, type_ptr const& right) noexcept {
         auto lcat = type::category_of(*left);
         auto rcat = type::category_of(*right);
