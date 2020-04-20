@@ -55,6 +55,10 @@ takatori::type::data const& declaration::type() const noexcept {
     return *type_;
 }
 
+::takatori::util::optional_ptr<::takatori::type::data const> declaration::optional_type() const noexcept {
+    return takatori::util::optional_ptr { type_.get() };
+}
+
 declaration::type_pointer const& declaration::shared_type() const noexcept {
     return type_;
 }
@@ -75,7 +79,7 @@ class criteria const& declaration::criteria() const noexcept {
 std::ostream& operator<<(std::ostream& out, declaration const& value) {
     return out << "variable("
                << "name=" << value.name() << ", "
-               << "type=" << value.type() << ", "
+               << "type=" << value.optional_type() << ", "
                << "criteria=" << value.criteria() << ")";
 }
 

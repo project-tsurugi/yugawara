@@ -76,6 +76,12 @@ add_library(yugawara
     analyzer/details/decompose_predicate.cpp
     analyzer/details/collect_stream_variables.cpp
     analyzer/details/push_down_filters.cpp
+
+    # serializer
+    serializer/object_scanner.cpp
+    serializer/details/binding_scanner.cpp
+    serializer/details/variable_resolution_scanner.cpp
+    serializer/details/predicate_scanner.cpp
 )
 
 add_executable(yugawara-exec

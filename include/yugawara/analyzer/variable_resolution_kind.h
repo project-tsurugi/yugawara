@@ -4,6 +4,8 @@
 #include <string_view>
 #include <utility>
 
+#include <takatori/util/enum_tag.h>
+
 namespace yugawara::analyzer {
 
 /**
@@ -60,6 +62,31 @@ constexpr std::string_view to_string_view(variable_resolution_kind value) noexce
  */
 inline std::ostream& operator<<(std::ostream& out, variable_resolution_kind value) noexcept {
     return out << to_string_view(value);
+}
+
+/**
+ * @brief invoke callback function for individual variable resolution kinds.
+ * @tparam Callback the callback object type
+ * @tparam Args the callback argument types
+ * @param tag_value the join_kind value
+ * @param callback the callback object
+ * @param args the callback arguments
+ * @return the callback result
+ */
+template<class Callback, class... Args>
+inline auto dispatch(Callback&& callback, variable_resolution_kind tag_value, Args&&... args) {
+    using kind = variable_resolution_kind;
+    using ::takatori::util::enum_tag_callback;
+    switch (tag_value) {
+        case kind::unresolved: return enum_tag_callback<kind::unresolved>(std::forward<Callback>(callback), std::forward<Args>(args)...);;
+        case kind::unknown: return enum_tag_callback<kind::unknown>(std::forward<Callback>(callback), std::forward<Args>(args)...);;
+        case kind::scalar_expression: return enum_tag_callback<kind::scalar_expression>(std::forward<Callback>(callback), std::forward<Args>(args)...);;
+        case kind::table_column: return enum_tag_callback<kind::table_column>(std::forward<Callback>(callback), std::forward<Args>(args)...);;
+        case kind::external: return enum_tag_callback<kind::external>(std::forward<Callback>(callback), std::forward<Args>(args)...);;
+        case kind::function_call: return enum_tag_callback<kind::function_call>(std::forward<Callback>(callback), std::forward<Args>(args)...);;
+        case kind::aggregation: return enum_tag_callback<kind::aggregation>(std::forward<Callback>(callback), std::forward<Args>(args)...);;
+    }
+    std::abort();
 }
 
 } // namespace yugawara::analyzer

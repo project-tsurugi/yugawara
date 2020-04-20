@@ -10,6 +10,7 @@
 
 #include <takatori/type/data.h>
 #include <takatori/util/object_creator.h>
+#include <takatori/util/optional_ptr.h>
 #include <takatori/util/reference_list_view.h>
 #include <takatori/util/rvalue_reference_wrapper.h>
 #include <takatori/util/smart_pointer_extractor.h>
@@ -114,6 +115,9 @@ public:
      * @return the return type
      */
     [[nodiscard]] takatori::type::data const& return_type() const noexcept;
+
+    /// @copydoc return_type()
+    [[nodiscard]] ::takatori::util::optional_ptr<takatori::type::data const> optional_return_type() const noexcept;
 
     /**
      * @brief returns the return type of the function as its shared pointer.

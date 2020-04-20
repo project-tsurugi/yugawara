@@ -8,10 +8,6 @@
 
 namespace yugawara::binding {
 
-factory::factory(::takatori::util::object_creator creator) noexcept
-    : creator_(creator)
-{}
-
 ::takatori::descriptor::relation factory::index(storage::index const& declaration) {
     return wrap(creator_.create_shared<index_info>(declaration));
 }
@@ -45,6 +41,10 @@ takatori::descriptor::variable factory::exchange_column(std::string_view label) 
 
 ::takatori::descriptor::variable factory::external_variable(variable::declaration const& declaration) {
     return wrap(creator_.create_shared<external_variable_info>(std::move(declaration)));
+}
+
+::takatori::descriptor::variable factory::frame_variable(std::string_view label) {
+    return create<variable_info_kind::frame_variable>(creator_, label);
 }
 
 ::takatori::descriptor::variable factory::stream_variable(std::string_view label) {

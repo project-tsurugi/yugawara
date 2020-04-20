@@ -83,6 +83,9 @@ public:
      */
     [[nodiscard]] takatori::type::data const& type() const noexcept;
 
+    /// @copydoc type()
+    [[nodiscard]] ::takatori::util::optional_ptr<::takatori::type::data const> optional_type() const noexcept;
+
     /**
      * @brief returns the variable type as its shared pointer.
      * @return the type

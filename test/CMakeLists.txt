@@ -77,6 +77,9 @@ add_test_executable(analyzer/details/predicate_decomposer_test.cpp)
 add_test_executable(analyzer/details/collect_stream_variables_test.cpp)
 add_test_executable(analyzer/details/push_down_filters_test.cpp)
 
+# serializer
+add_test_executable(serializer/object_scanner_test.cpp)
+
 # utilities
 add_test_executable(util/either_test.cpp)
 add_test_executable(util/object_cache_test.cpp)

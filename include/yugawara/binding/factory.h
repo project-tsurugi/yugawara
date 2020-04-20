@@ -31,7 +31,9 @@ public:
      * @brief creates a new object.
      * @param creator the object creator
      */
-    explicit factory(::takatori::util::object_creator creator = {}) noexcept;
+    explicit constexpr factory(::takatori::util::object_creator creator = {}) noexcept
+        : creator_(creator)
+    {}
 
     /**
      * @brief creates a new index descriptor.
@@ -71,6 +73,13 @@ public:
      * @param declaration the original declaration
      */
     [[nodiscard]] ::takatori::descriptor::variable external_variable(variable::declaration const& declaration);
+
+    /**
+     * @brief returns a variable descriptor for a new frame variable.
+     * @param label the variable label (for debugging)
+     * @return the created variable descriptor
+     */
+    [[nodiscard]] ::takatori::descriptor::variable frame_variable(std::string_view label = {});
 
     /**
      * @brief returns a variable descriptor for a new stream column.

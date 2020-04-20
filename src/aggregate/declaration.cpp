@@ -80,6 +80,10 @@ takatori::type::data const& declaration::return_type() const noexcept {
     return *return_type_;
 }
 
+::takatori::util::optional_ptr<takatori::type::data const> declaration::optional_return_type() const noexcept {
+    return ::takatori::util::optional_ptr { return_type_.get() };
+}
+
 declaration::type_pointer const& declaration::shared_return_type() const noexcept {
     return return_type_;
 }
@@ -115,7 +119,7 @@ std::ostream& operator<<(std::ostream& out, declaration const& value) {
                << "definition_id=" << value.definition_id() << ", "
                << "name=" << value.name() << ", "
                << "quantifier=" << value.quantifier() << ", "
-               << "return_type=" << takatori::util::print_support { value.shared_return_type() } << ", "
+               << "return_type=" << value.optional_return_type() << ", "
                << "parameter_types=" << takatori::util::print_support { value.shared_parameter_types() } << ", "
                << "incremental=" << takatori::util::print_support { value.incremental() } << ")";
 }

@@ -11,6 +11,7 @@
 #include <takatori/type/data.h>
 #include <takatori/relation/set_quantifier.h>
 #include <takatori/util/object_creator.h>
+#include <takatori/util/optional_ptr.h>
 #include <takatori/util/reference_list_view.h>
 #include <takatori/util/rvalue_reference_wrapper.h>
 #include <takatori/util/smart_pointer_extractor.h>
@@ -154,6 +155,9 @@ public:
      * @return this
      */
     declaration& return_type(type_pointer return_type) noexcept;
+
+    /// @copydoc return_type()
+    [[nodiscard]] ::takatori::util::optional_ptr<takatori::type::data const> optional_return_type() const noexcept;
 
     /**
      * @brief returns the parameter types of the function.
