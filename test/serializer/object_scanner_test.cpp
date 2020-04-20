@@ -21,9 +21,6 @@
 #include <yugawara/variable/negation.h>
 #include <yugawara/variable/quantification.h>
 
-#include <yugawara/analyzer/variable_mapping.h>
-#include <yugawara/analyzer/expression_mapping.h>
-
 namespace yugawara::serializer {
 
 namespace t = ::takatori::type;
@@ -32,19 +29,15 @@ namespace scalar = ::takatori::scalar;
 
 class object_scanner_test : public ::testing::Test {
 public:
-    void TearDown() override {
-        std::cout << ::testing::UnitTest::GetInstance()->current_test_info()->name()
-                  << ": " << buf_.str() << std::endl;
-    }
-
     template<class T>
     void print(T const& element) {
-        ::takatori::serializer::json_printer printer { buf_ };
-        object_scanner scanner {
-                variables_,
-                expressions_
-        };
+        std::cout << ::testing::UnitTest::GetInstance()->current_test_info()->name() << ": ";
+
+        ::takatori::serializer::json_printer printer { std::cout };
+        ::yugawara::serializer::object_scanner scanner { variables_, expressions_ };
         scanner(element, printer);
+
+        std::cout << std::endl;
         if (printer.depth() != 0) {
             throw std::domain_error("invalid JSON depth");
         }
