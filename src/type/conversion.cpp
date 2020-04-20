@@ -332,8 +332,8 @@ get_time_zone(model::data const& type) {
 
 static std::optional<takatori::datetime::time_zone>
 promote_time_zone(model::data const& a, model::data const& b) {
-    auto& tz1 = get_time_zone(a);
-    auto& tz2 = get_time_zone(b);
+    auto&& tz1 = get_time_zone(a);
+    auto&& tz2 = get_time_zone(b);
     if (tz1 == tz2) {
         return tz1;
     }
@@ -391,10 +391,10 @@ std::shared_ptr<model::data const> binary_temporal_promotion(
 std::shared_ptr<model::data const> unary_time_interval_promotion(model::data const& type, repository& repo) {
     if (is_conversion_stop_type(type)) return shared_pending();
     switch (type.kind()) {
-        case kind::time_interval:
+        case kind::datetime_interval:
             return repo.get(type);
         case kind::unknown:
-            return repo.get(model::time_interval {});
+            return repo.get(model::datetime_interval {});
         default:
             return shared_error();
     }
@@ -406,13 +406,13 @@ std::shared_ptr<model::data const> binary_time_interval_promotion(
         repository& repo) {
     if (is_conversion_stop_type(type) || is_conversion_stop_type(with)) return shared_pending();
     switch (npair(type.kind(), with.kind())) {
-        case npair(kind::time_interval, kind::time_interval):
-        case npair(kind::time_interval, kind::unknown):
-            return repo.get(model::time_interval {});
+        case npair(kind::datetime_interval, kind::datetime_interval):
+        case npair(kind::datetime_interval, kind::unknown):
+            return repo.get(model::datetime_interval {});
 
-        case npair(kind::unknown, kind::time_interval):
+        case npair(kind::unknown, kind::datetime_interval):
         case npair(kind::unknown, kind::unknown):
-            return repo.get(model::time_interval {});
+            return repo.get(model::datetime_interval {});
 
         default:
             return shared_error();
@@ -469,7 +469,7 @@ std::shared_ptr<model::data const> unifying_conversion(model::data const& type, 
         case category::temporal:
             return unary_temporal_promotion(type, repo);
 
-        case category::time_interval:
+        case category::datetime_interval:
             return unary_time_interval_promotion(type, repo);
 
         case category::unknown:
@@ -544,7 +544,7 @@ std::shared_ptr<model::data const> unifying_conversion(
         case category::temporal:
             return binary_temporal_promotion(type, with);
 
-        case category::time_interval:
+        case category::datetime_interval:
             return binary_time_interval_promotion(type, with);
 
         case category::collection:
@@ -640,7 +640,7 @@ ternary is_assignment_convertible(model::data const& type, model::data const& ta
         case npair(kind::time_point, kind::time_of_day):
         case npair(kind::time_point, kind::time_point):
 
-        case npair(kind::time_interval, kind::time_interval):
+        case npair(kind::datetime_interval, kind::datetime_interval):
             return ternary::yes;
 
         case npair(kind::array, kind::array):

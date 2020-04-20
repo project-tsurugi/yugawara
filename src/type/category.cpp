@@ -37,8 +37,8 @@ category category_of(takatori::type::data const& type) noexcept {
         case kind::time_point:
             return category::temporal;
 
-        case kind::time_interval:
-            return category::time_interval;
+        case kind::datetime_interval:
+            return category::datetime_interval;
 
         case kind::array:
             return category::collection;

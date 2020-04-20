@@ -2,17 +2,14 @@
 
 #include <gtest/gtest.h>
 
-#include <takatori/type/unknown.h>
-#include <takatori/type/boolean.h>
-#include <takatori/type/int.h>
+#include <takatori/type/primitive.h>
 #include <takatori/type/decimal.h>
-#include <takatori/type/float.h>
 #include <takatori/type/character.h>
 #include <takatori/type/bit.h>
 #include <takatori/type/date.h>
 #include <takatori/type/time_of_day.h>
 #include <takatori/type/time_point.h>
-#include <takatori/type/time_interval.h>
+#include <takatori/type/datetime_interval.h>
 
 #include <yugawara/type/extensions/error.h>
 #include <yugawara/type/extensions/pending.h>
@@ -52,7 +49,7 @@ TEST_F(type_category_test, basics) {
     EXPECT_EQ(category_of(tt::time_point()), category::temporal);
     EXPECT_EQ(category_of(tt::time_point(time_zone::UTC)), category::temporal);
 
-    EXPECT_EQ(category_of(tt::time_interval()), category::time_interval);
+    EXPECT_EQ(category_of(tt::datetime_interval()), category::datetime_interval);
 }
 
 TEST_F(type_category_test, unknown) {

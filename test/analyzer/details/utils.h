@@ -1,12 +1,8 @@
 #pragma once
 
-#include <takatori/type/int.h>
-#include <takatori/type/boolean.h>
-#include <takatori/type/unknown.h>
+#include <takatori/type/primitive.h>
 
-#include <takatori/value/int.h>
-#include <takatori/value/boolean.h>
-#include <takatori/value/unknown.h>
+#include <takatori/value/primitive.h>
 
 #include <takatori/scalar/immediate.h>
 #include <takatori/scalar/variable_reference.h>

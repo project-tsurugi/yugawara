@@ -2,7 +2,7 @@
 
 #include <gtest/gtest.h>
 
-#include <takatori/type/int.h>
+#include <takatori/type/primitive.h>
 
 #include <takatori/scalar/variable_reference.h>
 #include <takatori/scalar/binary.h>

@@ -2,7 +2,7 @@
 
 #include <gtest/gtest.h>
 
-#include <takatori/value/int.h>
+#include <takatori/value/primitive.h>
 
 namespace yugawara::variable {
 

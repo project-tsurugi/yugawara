@@ -5,16 +5,13 @@
 #include <takatori/document/basic_document.h>
 #include <takatori/document/region.h>
 
-#include <takatori/type/boolean.h>
-#include <takatori/type/int.h>
+#include <takatori/type/primitive.h>
 #include <takatori/type/decimal.h>
 #include <takatori/type/character.h>
 #include <takatori/type/bit.h>
 #include <takatori/type/time_point.h>
-#include <takatori/type/time_interval.h>
-#include <takatori/type/unknown.h>
-#include <takatori/value/int.h>
-#include <takatori/util/optional_ptr.h>
+#include <takatori/type/datetime_interval.h>
+#include <takatori/value/primitive.h>
 
 #include <takatori/scalar/immediate.h>
 #include <takatori/scalar/variable_reference.h>
@@ -26,6 +23,8 @@
 #include <takatori/scalar/coalesce.h>
 #include <takatori/scalar/let.h>
 #include <takatori/scalar/function_call.h>
+
+#include <takatori/util/optional_ptr.h>
 
 #include <yugawara/binding/factory.h>
 #include <yugawara/type/extensions/error.h>
@@ -136,10 +135,10 @@ TEST_F(expression_analyzer_scalar_test, unary_plus_numeric) {
 TEST_F(expression_analyzer_scalar_test, unary_plus_time_interval) {
     s::unary expr {
             s::unary_operator::plus,
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
     };
     auto r = analyzer.resolve(expr, true, repo);
-    EXPECT_EQ(*r, t::time_interval());
+    EXPECT_EQ(*r, t::datetime_interval());
     EXPECT_TRUE(ok());
 }
 
@@ -198,10 +197,10 @@ TEST_F(expression_analyzer_scalar_test, unary_sign_inversion_numeric) {
 TEST_F(expression_analyzer_scalar_test, unary_sign_inversion_time_interval) {
     s::unary expr {
             s::unary_operator::sign_inversion,
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
     };
     auto r = analyzer.resolve(expr, true, repo);
-    EXPECT_EQ(*r, t::time_interval());
+    EXPECT_EQ(*r, t::datetime_interval());
     EXPECT_TRUE(ok());
 }
 
@@ -591,7 +590,7 @@ TEST_F(expression_analyzer_scalar_test, binary_add_temporal) {
     s::binary expr {
             s::binary_operator::add,
             vref { decl(t::time_point {}) },
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
     };
     auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::time_point());
@@ -613,18 +612,18 @@ TEST_F(expression_analyzer_scalar_test, binary_add_temporal_invalid) {
 TEST_F(expression_analyzer_scalar_test, binary_add_time_interval) {
     s::binary expr {
             s::binary_operator::add,
-            vref { decl(t::time_interval {}) },
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
+            vref { decl(t::datetime_interval {}) },
     };
     auto r = analyzer.resolve(expr, true, repo);
-    EXPECT_EQ(*r, t::time_interval());
+    EXPECT_EQ(*r, t::datetime_interval());
     EXPECT_TRUE(ok());
 }
 
 TEST_F(expression_analyzer_scalar_test, binary_add_time_interval_time_point) {
     s::binary expr {
             s::binary_operator::add,
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
             vref { decl(t::time_point {}) },
     };
     auto r = analyzer.resolve(expr, true, repo);
@@ -635,7 +634,7 @@ TEST_F(expression_analyzer_scalar_test, binary_add_time_interval_time_point) {
 TEST_F(expression_analyzer_scalar_test, binary_add_time_interval_invalid) {
     s::binary expr {
             s::binary_operator::add,
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
             vref { decl(t::int4 {}) },
     };
     bless(expr.right());
@@ -706,7 +705,7 @@ TEST_F(expression_analyzer_scalar_test, binary_subtract_temporal) {
     s::binary expr {
             s::binary_operator::subtract,
             vref { decl(t::time_point {}) },
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
     };
     auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::time_point());
@@ -728,18 +727,18 @@ TEST_F(expression_analyzer_scalar_test, binary_subtract_temporal_invalid) {
 TEST_F(expression_analyzer_scalar_test, binary_subtract_time_interval) {
     s::binary expr {
             s::binary_operator::subtract,
-            vref { decl(t::time_interval {}) },
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
+            vref { decl(t::datetime_interval {}) },
     };
     auto r = analyzer.resolve(expr, true, repo);
-    EXPECT_EQ(*r, t::time_interval());
+    EXPECT_EQ(*r, t::datetime_interval());
     EXPECT_TRUE(ok());
 }
 
 TEST_F(expression_analyzer_scalar_test, binary_subtract_time_interval_time_point) {
     s::binary expr {
             s::binary_operator::subtract,
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
             vref { decl(t::time_point {}) },
     };
     bless(expr.right());
@@ -751,7 +750,7 @@ TEST_F(expression_analyzer_scalar_test, binary_subtract_time_interval_time_point
 TEST_F(expression_analyzer_scalar_test, binary_subtract_time_interval_invalid) {
     s::binary expr {
             s::binary_operator::subtract,
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
             vref { decl(t::int4 {}) },
     };
     bless(expr.right());
@@ -810,10 +809,10 @@ TEST_F(expression_analyzer_scalar_test, binary_multiply_number_time_interval) {
     s::binary expr {
             s::binary_operator::multiply,
             vref { decl(t::int4 {}) },
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
     };
     auto r = analyzer.resolve(expr, true, repo);
-    EXPECT_EQ(*r, t::time_interval());
+    EXPECT_EQ(*r, t::datetime_interval());
     EXPECT_TRUE(ok());
 }
 
@@ -832,18 +831,18 @@ TEST_F(expression_analyzer_scalar_test, binary_multiply_number_invalid) {
 TEST_F(expression_analyzer_scalar_test, binary_multiply_time_interval) {
     s::binary expr {
             s::binary_operator::multiply,
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
             vref { decl(t::int4 {}) },
     };
     auto r = analyzer.resolve(expr, true, repo);
-    EXPECT_EQ(*r, t::time_interval());
+    EXPECT_EQ(*r, t::datetime_interval());
     EXPECT_TRUE(ok());
 }
 
 TEST_F(expression_analyzer_scalar_test, binary_multiply_time_interval_invalid) {
     s::binary expr {
             s::binary_operator::multiply,
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
             vref { decl(t::time_point {}) },
     };
     bless(expr.right());
@@ -902,7 +901,7 @@ TEST_F(expression_analyzer_scalar_test, binary_divide_number_time_interval) {
     s::binary expr {
             s::binary_operator::divide,
             vref { decl(t::int4 {}) },
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
     };
     bless(expr.right());
     auto r = analyzer.resolve(expr, true, repo);
@@ -925,18 +924,18 @@ TEST_F(expression_analyzer_scalar_test, binary_divide_number_invalid) {
 TEST_F(expression_analyzer_scalar_test, binary_divide_time_interval) {
     s::binary expr {
             s::binary_operator::divide,
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
             vref { decl(t::int4 {}) },
     };
     auto r = analyzer.resolve(expr, true, repo);
-    EXPECT_EQ(*r, t::time_interval());
+    EXPECT_EQ(*r, t::datetime_interval());
     EXPECT_TRUE(ok());
 }
 
 TEST_F(expression_analyzer_scalar_test, binary_divide_time_interval_invalid) {
     s::binary expr {
             s::binary_operator::divide,
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
             vref { decl(t::time_point {}) },
     };
     bless(expr.right());
@@ -995,7 +994,7 @@ TEST_F(expression_analyzer_scalar_test, binary_remainder_number_time_interval) {
     s::binary expr {
             s::binary_operator::remainder,
             vref { decl(t::int4 {}) },
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
     };
     bless(expr.right());
     auto r = analyzer.resolve(expr, true, repo);
@@ -1018,18 +1017,18 @@ TEST_F(expression_analyzer_scalar_test, binary_remainder_number_invalid) {
 TEST_F(expression_analyzer_scalar_test, binary_remainder_time_interval) {
     s::binary expr {
             s::binary_operator::remainder,
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
             vref { decl(t::int4 {}) },
     };
     auto r = analyzer.resolve(expr, true, repo);
-    EXPECT_EQ(*r, t::time_interval());
+    EXPECT_EQ(*r, t::datetime_interval());
     EXPECT_TRUE(ok());
 }
 
 TEST_F(expression_analyzer_scalar_test, binary_remainder_time_interval_invalid) {
     s::binary expr {
             s::binary_operator::remainder,
-            vref { decl(t::time_interval {}) },
+            vref { decl(t::datetime_interval {}) },
             vref { decl(t::time_point {}) },
     };
     bless(expr.right());

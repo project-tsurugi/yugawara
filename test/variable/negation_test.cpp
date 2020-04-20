@@ -2,7 +2,7 @@
 
 #include <gtest/gtest.h>
 
-#include <takatori/value/int.h>
+#include <takatori/value/primitive.h>
 #include <takatori/util/clonable.h>
 
 #include <yugawara/variable/comparison.h>

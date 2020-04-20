@@ -5,11 +5,9 @@
 #include <takatori/document/basic_document.h>
 #include <takatori/document/region.h>
 
-#include <takatori/type/boolean.h>
-#include <takatori/type/int.h>
+#include <takatori/type/primitive.h>
 #include <takatori/type/decimal.h>
 #include <takatori/type/character.h>
-#include <takatori/util/optional_ptr.h>
 
 #include <takatori/scalar/variable_reference.h>
 
@@ -37,6 +35,8 @@
 #include <takatori/relation/step/take_group.h>
 #include <takatori/relation/step/take_cogroup.h>
 #include <takatori/relation/step/offer.h>
+
+#include <takatori/util/optional_ptr.h>
 
 #include <takatori/plan/forward.h>
 #include <takatori/plan/group.h>

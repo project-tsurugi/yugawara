@@ -14,9 +14,7 @@
 #include <takatori/relation/step/dispatch.h>
 #include <takatori/plan/dispatch.h>
 
-#include <takatori/type/unknown.h>
-#include <takatori/type/boolean.h>
-#include <takatori/type/int.h>
+#include <takatori/type/primitive.h>
 #include <takatori/type/decimal.h>
 #include <takatori/type/character.h>
 #include <takatori/type/bit.h>
@@ -375,11 +373,11 @@ public:
                         code::ambiguous_type,
                         extract_region(expr.operand()),
                         std::move(operand),
-                        { category::number, category::time_interval },
+                        { category::number, category::datetime_interval },
                 });
             case category::number:
                 return type::unary_numeric_promotion(*operand, repo_);
-            case category::time_interval:
+            case category::datetime_interval:
                 return type::unary_time_interval_promotion(*operand, repo_);
             case category::unresolved:
                 return operand;
@@ -388,7 +386,7 @@ public:
                         code::unsupported_type,
                         extract_region(expr.operand()),
                         std::move(operand),
-                        { category::number, category::time_interval },
+                        { category::number, category::datetime_interval },
                 });
         }
     }
@@ -400,11 +398,11 @@ public:
                         code::ambiguous_type,
                         extract_region(expr.operand()),
                         std::move(operand),
-                        { category::number, category::time_interval },
+                        { category::number, category::datetime_interval },
                 });
             case category::number:
                 return type::unary_numeric_promotion(*operand, repo_);
-            case category::time_interval:
+            case category::datetime_interval:
                 return type::unary_time_interval_promotion(*operand, repo_);
             case category::unresolved:
                 return operand;
@@ -413,7 +411,7 @@ public:
                         code::unsupported_type,
                         extract_region(expr.operand()),
                         std::move(operand),
-                        { category::number, category::time_interval },
+                        { category::number, category::datetime_interval },
                 });
         }
     }
@@ -474,7 +472,7 @@ public:
                 case category::character_string:
                 case category::bit_string:
                 case category::temporal:
-                case category::time_interval:
+                case category::datetime_interval:
                 case category::unresolved:
                     break; // ok
                 default:
@@ -488,7 +486,7 @@ public:
                                     category::character_string,
                                     category::bit_string,
                                     category::temporal,
-                                    category::time_interval,
+                                    category::datetime_interval,
                             },
                     });
                     break;
@@ -548,7 +546,7 @@ public:
                         code::ambiguous_type,
                         extract_region(expr.left()),
                         std::move(left),
-                        { category::number, category::temporal, category::time_interval },
+                        { category::number, category::temporal, category::datetime_interval },
                 });
             case category::number:
                 // FIXME: number * unknown
@@ -574,28 +572,28 @@ public:
                         { category::number },
                 });
             case category::temporal:
-                if (rcat == category::time_interval) return type::unary_temporal_promotion(*left, repo_);
+                if (rcat == category::datetime_interval) return type::unary_temporal_promotion(*left, repo_);
                 return raise({
                         code::inconsistent_type,
                         extract_region(expr.right()),
                         std::move(right),
-                        { category::time_interval },
+                        { category::datetime_interval },
                 });
-            case category::time_interval:
+            case category::datetime_interval:
                 if (rcat == category::temporal) return type::unary_temporal_promotion(*right, repo_);
-                if (rcat == category::time_interval) return type::binary_time_interval_promotion(*left, *right, repo_);
+                if (rcat == category::datetime_interval) return type::binary_time_interval_promotion(*left, *right, repo_);
                 return raise({
                         code::inconsistent_type,
                         extract_region(expr.right()),
                         std::move(right),
-                        { category::temporal, category::time_interval },
+                        { category::temporal, category::datetime_interval },
                 });
             default:
                 return raise({
                         code::unsupported_type,
                         extract_region(expr.left()),
                         std::move(left),
-                        { category::number, category::temporal, category::time_interval },
+                        { category::number, category::temporal, category::datetime_interval },
                  });
         }
     }
@@ -610,7 +608,7 @@ public:
                         code::ambiguous_type,
                         extract_region(expr.left()),
                         std::move(left),
-                        { category::number, category::temporal, category::time_interval },
+                        { category::number, category::temporal, category::datetime_interval },
                 });
             case category::number:
                 if (rcat == category::number) {
@@ -633,28 +631,28 @@ public:
                         { category::number },
                 });
             case category::temporal:
-                if (rcat == category::time_interval) return type::unary_temporal_promotion(*left, repo_);
+                if (rcat == category::datetime_interval) return type::unary_temporal_promotion(*left, repo_);
                 return raise({
                         code::inconsistent_type,
                         extract_region(expr.right()),
                         std::move(right),
-                        { category::time_interval },
+                        { category::datetime_interval },
                 });
-            case category::time_interval:
+            case category::datetime_interval:
                 // NOTE: <time_interval> - <temporal> is not defined
-                if (rcat == category::time_interval) return type::binary_time_interval_promotion(*left, *right, repo_);
+                if (rcat == category::datetime_interval) return type::binary_time_interval_promotion(*left, *right, repo_);
                 return raise({
                         code::inconsistent_type,
                         extract_region(expr.right()),
                         std::move(right),
-                        { category::time_interval },
+                        { category::datetime_interval },
                 });
             default:
                 return raise({
                         code::unsupported_type,
                         extract_region(expr.left()),
                         std::move(left),
-                        { category::number, category::temporal, category::time_interval },
+                        { category::number, category::temporal, category::datetime_interval },
                 });
         }
     }
@@ -669,7 +667,7 @@ public:
                         code::ambiguous_type,
                         extract_region(expr.left()),
                         std::move(left),
-                        { category::number, category::time_interval },
+                        { category::number, category::datetime_interval },
                 });
             case category::number:
                 if (rcat == category::number) {
@@ -685,27 +683,27 @@ public:
                     }
                     return result;
                 }
-                if (rcat == category::time_interval) return type::unary_time_interval_promotion(*right, repo_);
+                if (rcat == category::datetime_interval) return type::unary_time_interval_promotion(*right, repo_);
                 return raise({
                         code::inconsistent_type,
                         extract_region(expr.right()),
                         std::move(right),
-                        { category::number, category::time_interval },
+                        { category::number, category::datetime_interval },
                 });
-            case category::time_interval:
+            case category::datetime_interval:
                 if (rcat == category::number) return type::unary_time_interval_promotion(*left, repo_);
                 return raise({
                         code::inconsistent_type,
                         extract_region(expr.right()),
                         std::move(right),
-                        { category::time_interval },
+                        { category::datetime_interval },
                 });
             default:
                 return raise({
                         code::unsupported_type,
                         extract_region(expr.left()),
                         std::move(left),
-                        { category::number, category::time_interval },
+                        { category::number, category::datetime_interval },
                 });
         }
     }
@@ -720,7 +718,7 @@ public:
                         code::ambiguous_type,
                         extract_region(expr.left()),
                         std::move(left),
-                        { category::number, category::time_interval },
+                        { category::number, category::datetime_interval },
                 });
             case category::number:
                 if (rcat == category::number) {
@@ -742,7 +740,7 @@ public:
                         std::move(right),
                         { category::number },
                 });
-            case category::time_interval:
+            case category::datetime_interval:
                 if (rcat == category::number) return type::unary_time_interval_promotion(*left, repo_);
                 return raise({
                         code::inconsistent_type,
@@ -755,7 +753,7 @@ public:
                         code::unsupported_type,
                         extract_region(expr.left()),
                         std::move(left),
-                        { category::number, category::time_interval },
+                        { category::number, category::datetime_interval },
                 });
         }
     }

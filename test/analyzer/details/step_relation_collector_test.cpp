@@ -2,7 +2,7 @@
 
 #include <gtest/gtest.h>
 
-#include <takatori/type/int.h>
+#include <takatori/type/primitive.h>
 
 #include <takatori/relation/scan.h>
 #include <takatori/relation/emit.h>

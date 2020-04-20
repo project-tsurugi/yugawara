@@ -4,7 +4,7 @@
 
 #include <takatori/document/basic_document.h>
 
-#include <takatori/type/int.h>
+#include <takatori/type/primitive.h>
 #include <takatori/type/decimal.h>
 #include <takatori/util/optional_ptr.h>
 

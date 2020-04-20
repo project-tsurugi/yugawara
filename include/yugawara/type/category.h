@@ -25,7 +25,7 @@ enum class category {
     /// @brief the temporal type category.
     temporal,
     /// @brief the time interval type category.
-    time_interval,
+    datetime_interval,
     /// @brief the collection type category.
     collection,
     /// @brief the structure type category.
@@ -80,7 +80,7 @@ inline constexpr std::string_view to_string_view(category value) noexcept {
         case kind::character_string: return "character_string"sv;
         case kind::bit_string: return "bit_string"sv;
         case kind::temporal: return "temporal"sv;
-        case kind::time_interval: return "time_interval"sv;
+        case kind::datetime_interval: return "datetime_interval"sv;
         case kind::collection: return "collection"sv;
         case kind::structure: return "structure"sv;
         case kind::unique: return "unique"sv;

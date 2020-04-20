@@ -2,8 +2,8 @@
 
 #include <gtest/gtest.h>
 
-#include <takatori/type/int.h>
-#include <takatori/value/int.h>
+#include <takatori/type/primitive.h>
+#include <takatori/value/primitive.h>
 
 namespace yugawara::storage {
 

@@ -8,8 +8,8 @@
 
 #include <tsl/hopscotch_set.h>
 
-#include <takatori/type/boolean.h>
-#include <takatori/value/boolean.h>
+#include <takatori/type/primitive.h>
+#include <takatori/value/primitive.h>
 #include <takatori/scalar/immediate.h>
 #include <takatori/scalar/binary.h>
 #include <takatori/relation/intermediate/dispatch.h>

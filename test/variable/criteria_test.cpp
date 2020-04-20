@@ -2,8 +2,7 @@
 
 #include <gtest/gtest.h>
 
-#include <takatori/value/int.h>
-#include <takatori/value/unknown.h>
+#include <takatori/value/primitive.h>
 
 #include <yugawara/variable/comparison.h>
 #include <yugawara/variable/quantification.h>
