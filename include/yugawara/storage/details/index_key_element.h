@@ -62,4 +62,27 @@ private:
     sort_direction direction_;
 };
 
+/**
+ * @brief returns whether or not the two index key elements are same.
+ * @param a the first index
+ * @param b the second index
+ * @return true if the both are same
+ * @return false otherwise
+ */
+constexpr bool operator==(index_key_element const& a, index_key_element const& b) noexcept {
+    return a.column() == b.column()
+        && a.direction() == b.direction();
+}
+
+/**
+ * @brief returns whether or not the two index key elements are different.
+ * @param a the first index
+ * @param b the second index
+ * @return true if the both are different
+ * @return false otherwise
+ */
+constexpr bool operator!=(index_key_element const& a, index_key_element const& b) noexcept {
+    return !(a == b);
+}
+
 } // namespace yugawara::storage::details

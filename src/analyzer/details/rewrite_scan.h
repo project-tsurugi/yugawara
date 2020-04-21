@@ -1,0 +1,28 @@
+#pragma once
+
+#include <takatori/relation/graph.h>
+#include <takatori/util/object_creator.h>
+
+#include <yugawara/storage/provider.h>
+#include <yugawara/storage/index_estimator.h>
+
+namespace yugawara::analyzer::details {
+
+/**
+ * @brief rewrites table scan operations into scan/find with index.
+ * @details This only rewrites `scan` without any scan conditions,
+ *      and will retain `scan` with bounds or `find`.
+ *      This never rewrite `join_relation` into `join_{scan,find}`.
+ *      If you rewrite them, please use choice_index_joins() before this operation.
+ * @param graph
+ * @param storage_provider
+ * @param index_estimator
+ * @param creator
+ */
+void rewrite_scan(
+        ::takatori::relation::graph_type& graph,
+        storage::provider const& storage_provider,
+        storage::index_estimator& index_estimator,
+        ::takatori::util::object_creator creator);
+
+} // namespace yugawara::analyzer::details

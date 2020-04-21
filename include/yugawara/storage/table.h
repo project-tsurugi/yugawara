@@ -95,4 +95,26 @@ private:
     column_vector_type columns_;
 };
 
+/**
+ * @brief returns whether or not the two tables are same.
+ * @param a the first table
+ * @param b the second table
+ * @return true if the both are same
+ * @return false otherwise
+ */
+constexpr bool operator==(table const& a, table const& b) noexcept {
+    return std::addressof(a) == std::addressof(b);
+}
+
+/**
+ * @brief returns whether or not the two tables are different.
+ * @param a the first table
+ * @param b the second table
+ * @return true if the both are different
+ * @return false otherwise
+ */
+constexpr bool operator!=(table const& a, table const& b) noexcept {
+    return !(a == b);
+}
+
 } // namespace yugawara::storage

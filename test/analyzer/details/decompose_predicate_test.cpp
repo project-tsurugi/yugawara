@@ -35,13 +35,6 @@ protected:
     std::shared_ptr<storage::index> i0 = storages.add_index("I0", storage::index {
             std::dynamic_pointer_cast<storage::table const>(t0),
             "I0",
-            {
-                    t0->columns()[0],
-            },
-            {
-                    t0->columns()[1],
-                    t0->columns()[2],
-            }
     });
 
     void apply(relation::graph_type& graph) {

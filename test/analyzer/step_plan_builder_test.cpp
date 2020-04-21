@@ -68,24 +68,10 @@ protected:
     std::shared_ptr<storage::index> i0 = storages.add_index("I0", storage::index {
             std::dynamic_pointer_cast<storage::table const>(t0),
             "I0",
-            {
-                    t0->columns()[0],
-            },
-            {
-                    t0->columns()[1],
-                    t0->columns()[2],
-            }
     });
     std::shared_ptr<storage::index> i1 = storages.add_index("I1", storage::index {
             std::dynamic_pointer_cast<storage::table const>(t1),
             "I1",
-            {
-                    t1->columns()[0],
-            },
-            {
-                    t1->columns()[1],
-                    t1->columns()[2],
-            }
     });
 
     aggregate::configurable_provider aggregates;

@@ -29,7 +29,8 @@ enum class index_feature {
 
     /**
      * @brief enable 1-dimensional key range scan.
-     * @details You can perform full scan even if this feature is disabled.
+     * @details This implies the entries on the index are sorted by their index key.
+     * @note You can perform full scan even if this feature is disabled.
      */
     scan,
 

@@ -16,6 +16,20 @@ namespace yugawara::storage {
 class provider {
 public:
     /**
+     * @brief the relation consumer type, which accepts relation entries.
+     * @param id the relation ID
+     * @param entry the relation entry
+     */
+    using relation_consumer = std::function<void(std::string_view id, std::shared_ptr<relation const> const& entry)>;
+
+    /**
+     * @brief the index consumer type, which accepts index entries.
+     * @param id the index ID
+     * @param entry the index entry
+     */
+    using index_consumer = std::function<void(std::string_view id, std::shared_ptr<index const> const& entry)>;
+
+    /**
      * @brief creates a new instance.
      */
     provider() = default;
@@ -58,23 +72,20 @@ public:
      * @brief provides all relations in this provider.
      * @param consumer the destination consumer, which accepts pairs of element ID and element
      */
-    virtual void each_relation(std::function<void(std::string_view, std::shared_ptr<relation const> const&)> consumer) const = 0;
+    virtual void each_relation(relation_consumer consumer) const = 0;
 
     /**
      * @brief provides all indices in this provider.
      * @param consumer the destination consumer, which accepts pairs of element ID and element
      */
-    virtual void each_index(
-            std::function<void(std::string_view, std::shared_ptr<index const> const&)> consumer) const = 0;
+    virtual void each_index(index_consumer consumer) const = 0;
 
     /**
      * @brief provides all indices of the given table into the consumer.
      * @param table the target table
      * @param consumer the destination consumer
      */
-    virtual void each_table_index(
-            class table const& table,
-            std::function<void(std::string_view, std::shared_ptr<index const> const&)> consumer) const;
+    virtual void each_table_index(class table const& table, index_consumer consumer) const;
 
     /**
      * @brief returns a primary index of the table.

@@ -34,7 +34,7 @@ storage::index const& index_info::declaration() const noexcept {
 }
 
 bool operator==(index_info const& a, index_info const& b) noexcept {
-    return a.declaration_ == b.declaration_;
+    return *a.declaration_ == *b.declaration_;
 }
 
 bool operator!=(index_info const& a, index_info const& b) noexcept {

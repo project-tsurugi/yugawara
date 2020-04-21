@@ -49,7 +49,7 @@ public:
      * @param consumer the destination consumer, which accepts pairs of element ID and element
      * @note The hidden entries in parent provider will not occur in the consumer.
      */
-    void each_relation(std::function<void(std::string_view, std::shared_ptr<relation const> const&)> consumer) const override {
+    void each_relation(relation_consumer consumer) const override {
         internal_each<&provider::each_relation>(relations_, consumer);
     }
 
@@ -73,6 +73,26 @@ public:
     }
 
     /**
+     * @brief adds a table.
+     * @param id the table ID
+     * @param element the table to add
+     * @param overwrite true to overwrite the existing entry
+     * @return the added element
+     * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
+     * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
+     */
+    std::shared_ptr<table> add_table(std::string_view id, std::shared_ptr<table> element, bool overwrite = false) {
+        internal_add<&provider::find_table>(relations_, id, element, overwrite);
+        return element;
+    }
+
+    /// @copydoc add_table()
+    std::shared_ptr<table> add_table(std::string_view id, table&& element, bool overwrite = false) {
+        auto shared = takatori::util::clone_shared(std::move(element));
+        return add_table(id, std::move(shared), overwrite);
+    }
+
+    /**
      * @brief removes the relation in this provider.
      * @param id the relation ID
      * @return true if successfully removed
@@ -91,7 +111,7 @@ public:
      * @param consumer the destination consumer, which accepts pairs of element ID and element
      * @note The hidden entries in parent provider will not occur in the consumer.
      */
-    void each_index(std::function<void(std::string_view id, std::shared_ptr<index const> const&)> consumer) const override {
+    void each_index(index_consumer consumer) const override {
         internal_each<&provider::each_index>(indices_, consumer);
     }
 

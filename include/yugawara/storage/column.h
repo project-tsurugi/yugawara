@@ -194,4 +194,26 @@ private:
     relation* owner_ {};
 };
 
+/**
+ * @brief returns whether or not the two columns are same.
+ * @param a the first column
+ * @param b the second column
+ * @return true if the both are identical
+ * @return false otherwise
+ */
+constexpr bool operator==(column const& a, column const& b) noexcept {
+    return std::addressof(a) == std::addressof(b);
+}
+
+/**
+ * @brief returns whether or not the two columns are different.
+ * @param a the first column
+ * @param b the second column
+ * @return true if the both are different
+ * @return false otherwise
+ */
+constexpr bool operator!=(column const& a, column const& b) noexcept {
+    return !(a == b);
+}
+
 } // namespace yugawara::storage

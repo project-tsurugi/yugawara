@@ -78,6 +78,9 @@ add_test_executable(analyzer/details/collect_stream_variables_test.cpp)
 add_test_executable(analyzer/details/push_down_filters_test.cpp)
 add_test_executable(analyzer/details/simplify_predicate_test.cpp)
 add_test_executable(analyzer/details/remove_redundant_conditions_test.cpp)
+add_test_executable(analyzer/details/search_key_term_builder_test.cpp)
+add_test_executable(analyzer/details/scan_key_collector_test.cpp)
+add_test_executable(analyzer/details/rewrite_scan_test.cpp)
 
 # serializer
 add_test_executable(serializer/object_scanner_test.cpp)

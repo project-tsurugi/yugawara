@@ -3,6 +3,7 @@
 #include <takatori/util/object_creator.h>
 
 #include <yugawara/storage/provider.h>
+#include <yugawara/storage/index_estimator.h>
 
 namespace yugawara::analyzer::details {
 
@@ -30,12 +31,23 @@ public:
 
     /**
      * @brief sets the storage provider.
-     * @details The provider object must not be disposed until this object was disposed.
-     *      If the storage provider was invalidated, index selection becomes disabled.
      * @param provider the storage provider
      * @return this
      */
-    intermediate_plan_optimizer_options& storage_provider(storage::provider const& provider) noexcept;
+    intermediate_plan_optimizer_options& storage_provider(std::shared_ptr<storage::provider const> provider) noexcept;
+
+    /**
+     * @brief returns the index estimator for index selection.
+     * @return the index estimator
+     */
+    [[nodiscard]] storage::index_estimator& index_estimator() const noexcept;
+
+    /**
+     * @brief sets the index estimator for index selection.
+     * @param estimator index estimator
+     * @return this
+     */
+    intermediate_plan_optimizer_options& index_estimator(std::shared_ptr<storage::index_estimator> estimator) noexcept;
 
     /**
      * @brief returns the object creator.
@@ -45,7 +57,8 @@ public:
 
 private:
     ::takatori::util::object_creator creator_ {};
-    storage::provider const* storage_provider_ {};
+    std::shared_ptr<storage::provider const> storage_provider_ {};
+    std::shared_ptr<storage::index_estimator> index_estimator_ {};
 };
 
 } // namespace yugawara::analyzer::details

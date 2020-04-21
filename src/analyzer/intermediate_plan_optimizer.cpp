@@ -1,8 +1,12 @@
 #include <yugawara/analyzer/intermediate_plan_optimizer.h>
 
+
+#include <utility>
+
 #include "details/remove_redundant_stream_variables.h"
 #include "details/remove_redundant_conditions.h"
 #include "details/push_down_filters.h"
+#include "details/rewrite_scan.h"
 
 namespace yugawara::analyzer {
 
@@ -11,7 +15,7 @@ intermediate_plan_optimizer::intermediate_plan_optimizer(::takatori::util::objec
 {}
 
 intermediate_plan_optimizer::intermediate_plan_optimizer(options_type options) noexcept
-    : options_(options)
+    : options_(std::move(options))
 {}
 
 intermediate_plan_optimizer::options_type& intermediate_plan_optimizer::options() noexcept {
@@ -26,6 +30,8 @@ void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& g
     // details::decompose_projections(graph, get_object_creator());
     details::remove_redundant_stream_variables(graph, get_object_creator());
     details::push_down_selections(graph, get_object_creator());
+    // details::rewrite_join
+    details::rewrite_scan(graph, options_.storage_provider(), options_.index_estimator(), get_object_creator());
     details::remove_redundant_conditions(graph);
 
     // FIXME: impl

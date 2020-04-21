@@ -8,14 +8,12 @@
 
 #include <tsl/hopscotch_set.h>
 
-#include <takatori/type/primitive.h>
-#include <takatori/value/primitive.h>
-#include <takatori/scalar/immediate.h>
 #include <takatori/scalar/binary.h>
 #include <takatori/relation/intermediate/dispatch.h>
 
 #include <takatori/util/string_builder.h>
 
+#include "boolean_constants.h"
 #include "decompose_predicate.h"
 #include "collect_stream_variables.h"
 #include "stream_variable_flow_info.h"
@@ -34,12 +32,6 @@ using ::takatori::util::unique_object_ptr;
 using ::takatori::util::string_builder;
 
 namespace {
-
-[[nodiscard]] unique_object_ptr<scalar::expression> true_expression(::takatori::util::object_creator creator) {
-    static auto boolean_type = std::allocate_shared<::takatori::type::boolean>(std::allocator<::takatori::type::boolean> {});
-    static auto boolean_value = std::allocate_shared<::takatori::value::boolean>(std::allocator<::takatori::type::boolean> {}, true);
-    return creator.create_unique<scalar::immediate>(boolean_value, boolean_type);
-}
 
 class predicate_info {
 public:
@@ -92,7 +84,7 @@ public:
         assert(available()); // NOLINT
         if (--reference_count_ == 0) {
             auto result = clone_unique(std::move(*expression_), get_object_creator());
-            expression_ = true_expression(get_object_creator());
+            expression_ = boolean_expression(true, get_object_creator());
             return result;
         }
         uses_.clear();
@@ -412,7 +404,7 @@ private:
         schedule(next, std::move(mask));
     }
 
-    mask_type empty_mask() {
+    mask_type empty_mask() const {
         return mask_type { get_object_creator().allocator() };
     }
 

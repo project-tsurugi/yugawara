@@ -137,4 +137,26 @@ private:
     index_feature_set features_;
 };
 
+/**
+ * @brief returns whether or not the two indices are same.
+ * @param a the first index
+ * @param b the second index
+ * @return true if the both are same
+ * @return false otherwise
+ */
+constexpr bool operator==(index const& a, index const& b) noexcept {
+    return std::addressof(a) == std::addressof(b);
+}
+
+/**
+ * @brief returns whether or not the two indices are different.
+ * @param a the first index
+ * @param b the second index
+ * @return true if the both are different
+ * @return false otherwise
+ */
+constexpr bool operator!=(index const& a, index const& b) noexcept {
+    return !(a == b);
+}
+
 } // namespace yugawara::storage

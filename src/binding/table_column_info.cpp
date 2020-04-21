@@ -18,7 +18,7 @@ yugawara::storage::column const& table_column_info::column() const noexcept {
 }
 
 bool operator==(table_column_info const& a, table_column_info const& b) noexcept {
-    return a.column_ == b.column_;
+    return *a.column_ == *b.column_;
 }
 
 bool operator!=(table_column_info const& a, table_column_info const& b) noexcept {

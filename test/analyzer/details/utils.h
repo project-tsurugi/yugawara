@@ -6,6 +6,7 @@
 
 #include <takatori/scalar/immediate.h>
 #include <takatori/scalar/variable_reference.h>
+#include <takatori/scalar/unary.h>
 #include <takatori/scalar/binary.h>
 #include <takatori/scalar/compare.h>
 
@@ -63,6 +64,13 @@ inline scalar::immediate unknown(v::unknown_kind value = v::unknown_kind::null) 
     return scalar::immediate {
             v::unknown { value },
             t::unknown {},
+    };
+}
+
+inline scalar::unary lnot(scalar::expression&& a) {
+    return scalar::unary {
+            scalar::unary_operator::conditional_not,
+            std::move(a),
     };
 }
 

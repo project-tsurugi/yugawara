@@ -7,6 +7,8 @@ add_library(yugawara
     storage/index.cpp
     storage/provider.cpp
     storage/details/index_key_element.cpp
+    storage/details/search_key_element.cpp
+    storage/details/index_estimator_result.cpp
 
     # type system
     type/category.cpp
@@ -68,6 +70,7 @@ add_library(yugawara
 
     # optimizer
     analyzer/intermediate_plan_optimizer.cpp
+    analyzer/details/boolean_constants.cpp
     analyzer/details/intermediate_plan_optimizer_options.cpp
     analyzer/details/decompose_projections.cpp
     analyzer/details/remove_redundant_stream_variables.cpp
@@ -78,6 +81,11 @@ add_library(yugawara
     analyzer/details/push_down_filters.cpp
     analyzer/details/simplify_predicate.cpp
     analyzer/details/remove_redundant_conditions.cpp
+    analyzer/details/default_index_estimator.cpp
+    analyzer/details/search_key_term.cpp
+    analyzer/details/search_key_term_builder.cpp
+    analyzer/details/scan_key_collector.cpp
+    analyzer/details/rewrite_scan.cpp
 
     # serializer
     serializer/object_scanner.cpp
