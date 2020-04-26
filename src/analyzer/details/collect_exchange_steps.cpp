@@ -385,22 +385,22 @@ private:
     }
 
     static bool is_left_mandatory(relation::join_kind k) noexcept {
-        static relation::join_kind_set const mandatories {
+        static constexpr relation::join_kind_set left_mandatory {
                 relation::join_kind::inner,
                 relation::join_kind::left_outer,
                 relation::join_kind::semi,
                 relation::join_kind::anti,
         };
-        return mandatories.contains(k);
+        return left_mandatory.contains(k);
     }
 
     static bool is_right_mandatory(relation::join_kind k) noexcept {
-        static relation::join_kind_set const mandatories {
+        static constexpr relation::join_kind_set right_mandatory {
                 relation::join_kind::inner,
                 relation::join_kind::semi,
                 relation::join_kind::anti,
         };
-        return mandatories.contains(k);
+        return right_mandatory.contains(k);
     }
 
     void process_aggregate_incremental(relation::intermediate::aggregate& expr) {

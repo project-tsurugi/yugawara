@@ -25,7 +25,7 @@ namespace relation = ::takatori::relation;
 using ::takatori::util::string_builder;
 
 bool is_definable(::takatori::descriptor::variable const& v) {
-    static binding::variable_info_kind_set const definables {
+    static constexpr binding::variable_info_kind_set definables {
             binding::variable_info_kind::stream_variable,
             binding::variable_info_kind::local_variable,
     };

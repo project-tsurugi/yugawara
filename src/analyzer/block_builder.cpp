@@ -17,7 +17,7 @@ using ::takatori::relation::expression_kind_set;
 using ::takatori::util::string_builder;
 
 inline bool is_front(relation::expression const& expr) noexcept {
-    static expression_kind_set const force_front {
+    static constexpr expression_kind_set force_front {
             relation::expression_kind::find,
             relation::expression_kind::scan,
             relation::expression_kind::take_flat,
@@ -35,7 +35,7 @@ inline bool is_front(relation::expression const& expr) noexcept {
 }
 
 inline bool is_back(relation::expression const& expr) noexcept {
-    static expression_kind_set const force_back {
+    static constexpr expression_kind_set force_back {
             relation::expression_kind::buffer,
 
             relation::expression_kind::emit,

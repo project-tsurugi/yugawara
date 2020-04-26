@@ -25,7 +25,7 @@ public:
     {}
 
     static bool is_entry(relation::expression const& expr) noexcept {
-        static relation::expression_kind_set const head_operators {
+        static constexpr relation::expression_kind_set head_operators {
                 relation::expression_kind::find,
                 relation::expression_kind::scan,
                 relation::expression_kind::take_flat,
