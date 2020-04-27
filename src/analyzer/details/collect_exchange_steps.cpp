@@ -22,8 +22,13 @@
 #include <takatori/plan/aggregate.h>
 #include <takatori/plan/broadcast.h>
 
+#include <takatori/util/downcast.h>
+#include <takatori/util/optional_ptr.h>
 #include <takatori/util/string_builder.h>
+
 #include <yugawara/binding/factory.h>
+
+#include "detect_join_endpoint_style.h"
 
 namespace yugawara::analyzer::details {
 
@@ -34,7 +39,16 @@ namespace scalar = ::takatori::scalar;
 namespace relation = ::takatori::relation;
 namespace plan = ::takatori::plan;
 
+using ::takatori::util::optional_ptr;
 using ::takatori::util::string_builder;
+using ::takatori::util::unsafe_downcast;
+
+optional_ptr<descriptor::variable> extract_if_variable_ref(scalar::expression& expr) {
+    if (expr.kind() == scalar::variable_reference::tag) {
+        return unsafe_downcast<scalar::variable_reference>(expr).variable();
+    }
+    return {};
+}
 
 class engine {
 private:
@@ -212,12 +226,15 @@ private:
     }
 
     void process_cogroup_join(relation::intermediate::join& expr) {
-        if (expr.lower() || expr.upper()) {
+        auto style = detect_join_endpoint_style(expr);
+        if (style != join_endpoint_style::nothing && style != join_endpoint_style::key_pairs) {
             throw std::domain_error(string_builder {}
                     << "range information must be absent for co-group based join: "
                     << expr
                     << string_builder::to_string);
         }
+        assert(expr.lower().keys().size() == expr.upper().keys().size()); // NOLINT
+
         /*
          * .. -\
          *      join_relation{k, c} - ..
@@ -227,13 +244,16 @@ private:
          *                           take_cogroup{k} - join_group{c} - ..
          * .. - offer - [group{k}] -/
          */
+        auto&& keys = expr.lower().keys();
         auto left_group_keys = empty<descriptor::variable>();
         auto right_group_keys = empty<descriptor::variable>();
-        left_group_keys.reserve(expr.key_pairs().size());
-        right_group_keys.reserve(expr.key_pairs().size());
-        for (auto&& key_pair : expr.key_pairs()) {
-            left_group_keys.emplace_back(std::move(key_pair.left()));
-            right_group_keys.emplace_back(std::move(key_pair.right()));
+        left_group_keys.reserve(keys.size());
+        right_group_keys.reserve(keys.size());
+        for (auto&& key : keys) {
+            auto&& left = *extract_if_variable_ref(key.value());
+            auto&& right = key.variable();
+            left_group_keys.emplace_back(std::move(left));
+            right_group_keys.emplace_back(std::move(right));
         }
         auto&& left_exchange = destination_.emplace<plan::group>(
                 empty<descriptor::variable>(),
@@ -279,15 +299,16 @@ private:
     }
 
     void process_broadcast_join(relation::intermediate::join& expr) {
-        if (expr.lower() || expr.upper()) {
-            process_broadcast_join_scan(expr);
-        } else {
+        auto style = detect_join_endpoint_style(expr);
+        if (style == join_endpoint_style::key_pairs || style == join_endpoint_style::prefix) {
             process_broadcast_join_find(expr);
+        } else {
+            process_broadcast_join_scan(expr);
         }
     }
 
     void process_broadcast_join_find(relation::intermediate::join& expr) {
-        assert(!expr.lower() && !expr.upper()); // NOLINT
+        assert(expr.lower().keys().size() == expr.upper().keys().size()); // NOLINT
         /*
          *  (left) .. -\
          *              join_relation{k, c} - ..
@@ -298,14 +319,12 @@ private:
          * (right) .. - offer - [broadcast] -/
          */
         auto creator = get_object_creator();
+        auto&& keys = expr.lower().keys();
 
         auto join_key = empty<relation::join_find::key>();
-        join_key.reserve(expr.key_pairs().size());
-        for (auto&& key_pair : expr.key_pairs()) {
-            // NOTE: search_key_element must be a column on the external relation
-            join_key.emplace_back(
-                    creator.create_unique<scalar::variable_reference>(std::move(key_pair.left())),
-                    std::move(key_pair.right()));
+        join_key.reserve(keys.size());
+        for (auto&& key : keys) {
+            join_key.emplace_back(std::move(key.variable()), key.release_value());
         }
 
         auto&& exchange = destination_.emplace<plan::broadcast>();
@@ -327,12 +346,6 @@ private:
     }
 
     void process_broadcast_join_scan(relation::intermediate::join& expr) {
-        if (!expr.key_pairs().empty()) {
-            throw std::domain_error(string_builder {}
-                    << "equi join key pairs must be absent for broadcast based join: "
-                    << expr
-                    << string_builder::to_string);
-        }
         /*
          *  (left) .. -\
          *              join_relation{k, c} - ..

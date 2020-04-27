@@ -234,7 +234,24 @@ TEST_F(step_plan_builder_test, join) {
                     constant(1),
             }
     });
-    r2.key_pairs().emplace_back(cl0, cr0);
+    r2.lower() = relation::intermediate::join::endpoint {
+            {
+                    relation::intermediate::join::key {
+                            cr0,
+                            varref { cl0 },
+                    },
+            },
+            relation::endpoint_kind::prefixed_inclusive,
+    };
+    r2.upper() = relation::intermediate::join::endpoint {
+            {
+                    relation::intermediate::join::key {
+                            cr0,
+                            varref { cl0 },
+                    },
+            },
+            relation::endpoint_kind::prefixed_inclusive,
+    };
     auto& r3 = r.insert(relation::emit {
             cr2,
     });

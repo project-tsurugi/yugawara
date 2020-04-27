@@ -88,6 +88,9 @@ add_library(yugawara
     analyzer/details/rewrite_join.cpp
     analyzer/details/rewrite_scan.cpp
 
+    # analyzer misc.
+    analyzer/details/detect_join_endpoint_style.cpp
+
     # serializer
     serializer/object_scanner.cpp
     serializer/details/binding_scanner.cpp

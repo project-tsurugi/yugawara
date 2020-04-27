@@ -52,7 +52,6 @@ public:
 
     void operator()(relation::intermediate::join& expr) {
         collect(expr.condition());
-        touch_key_pairs(expr.key_pairs());
         collect_keys(expr.lower().keys());
         collect_keys(expr.upper().keys());
     }

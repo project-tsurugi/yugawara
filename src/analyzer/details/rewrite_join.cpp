@@ -398,7 +398,7 @@ void rewrite_join(
         auto&& expr = *it;
         if (expr.kind() == relation::intermediate::join::tag) {
             auto&& join = unsafe_downcast<relation::intermediate::join>(expr);
-            if (join.key_pairs().empty() && !join.lower() && !join.upper()) {
+            if (!join.lower() && !join.upper()) {
                 auto erase = e.process(join);
                 if (erase) {
                     it = graph.erase(it);

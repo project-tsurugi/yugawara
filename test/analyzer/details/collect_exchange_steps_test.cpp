@@ -222,7 +222,24 @@ TEST_F(collect_exchange_steps_test, join_cogroup) {
     auto& r2 = r.insert(relation::intermediate::join {
             relation::join_kind::inner,
     });
-    r2.key_pairs().emplace_back(c0, c2);
+    r2.lower() = relation::intermediate::join::endpoint {
+            {
+                    relation::intermediate::join::key {
+                            c2,
+                            varref { c0 },
+                    },
+            },
+            relation::endpoint_kind::prefixed_inclusive,
+    };
+    r2.upper() = relation::intermediate::join::endpoint {
+            {
+                    relation::intermediate::join::key {
+                            c2,
+                            varref { c0 },
+                    },
+            },
+            relation::endpoint_kind::prefixed_inclusive,
+    };
     auto& r3 = r.insert(relation::emit {
             c1,
             c3,
@@ -282,8 +299,8 @@ TEST_F(collect_exchange_steps_test, join_broadcast_find) {
     relation::graph_type r;
     auto c0 = bindings.stream_variable("c0");
     auto c1 = bindings.stream_variable("c1");
-    auto c2 = bindings.stream_variable("c1");
-    auto c3 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto c3 = bindings.stream_variable("c3");
     auto& r0 = r.insert(relation::scan {
             bindings(*i0),
             {
@@ -301,7 +318,24 @@ TEST_F(collect_exchange_steps_test, join_broadcast_find) {
     auto& r2 = r.insert(relation::intermediate::join {
             relation::join_kind::inner,
     });
-    r2.key_pairs().emplace_back(c0, c2);
+    r2.lower() = relation::intermediate::join::endpoint {
+            {
+                    relation::intermediate::join::key {
+                            c2,
+                            varref { c0 },
+                    },
+            },
+            relation::endpoint_kind::prefixed_inclusive,
+    };
+    r2.upper() = relation::intermediate::join::endpoint {
+            {
+                    relation::intermediate::join::key {
+                            c2,
+                            varref { c0 },
+                    },
+            },
+            relation::endpoint_kind::prefixed_inclusive,
+    };
     auto& r3 = r.insert(relation::emit {
             c1,
             c3,
