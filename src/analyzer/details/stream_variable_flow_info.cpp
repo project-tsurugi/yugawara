@@ -192,4 +192,17 @@ optional_ptr<stream_variable_flow_info::entry_type> stream_variable_flow_info::f
     return {};
 }
 
+void stream_variable_flow_info::each(
+        relation::expression::input_port_type const& port,
+        consumer_type const& consumer) {
+    auto&& e = entry(port);
+    e.each(consumer);
+    assert(e.originator()); // NOLINT
+    if (!e.is_separator() && e.originator()) {
+        for (auto&& p : e.originator()->input_ports()) {
+            each(p, consumer);
+        }
+    }
+}
+
 } // namespace yugawara::analyzer::details

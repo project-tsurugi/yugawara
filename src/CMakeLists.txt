@@ -53,6 +53,7 @@ add_library(yugawara
 
     # planner
     analyzer/step_plan_builder.cpp
+    analyzer/join_strategy.cpp
     analyzer/join_info.cpp
     analyzer/aggregate_info.cpp
     analyzer/details/block_expression_util.cpp
@@ -86,6 +87,7 @@ add_library(yugawara
     analyzer/details/search_key_term_builder.cpp
     analyzer/details/scan_key_collector.cpp
     analyzer/details/rewrite_join.cpp
+    analyzer/details/collect_join_keys.cpp
     analyzer/details/rewrite_scan.cpp
 
     # analyzer misc.

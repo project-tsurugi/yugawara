@@ -2,7 +2,10 @@
 
 #include <stdexcept>
 
+#include <takatori/scalar/variable_reference.h>
+
 #include <takatori/util/clonable.h>
+#include <takatori/util/downcast.h>
 
 #include "boolean_constants.h"
 
@@ -14,6 +17,7 @@ using ::takatori::util::clone_unique;
 using ::takatori::util::object_creator;
 using ::takatori::util::optional_ptr;
 using ::takatori::util::unique_object_ptr;
+using ::takatori::util::unsafe_downcast;
 
 using expression_ref = ::takatori::util::object_ownership_reference<scalar::expression>;
 
@@ -76,6 +80,16 @@ bool search_key_term::equivalent() const noexcept {
 
 bool search_key_term::full_bounded() const {
     return lower_factor_ && upper_factor_;
+}
+
+::takatori::util::optional_ptr<::takatori::descriptor::variable const> search_key_term::equivalent_key() const {
+    if (auto factor = get_if(equivalent_factor_)) {
+        if (factor->kind() == scalar::variable_reference::tag) {
+            auto&& vref = unsafe_downcast<scalar::variable_reference>(*factor);
+            return vref.variable();
+        }
+    }
+    return {};
 }
 
 optional_ptr<scalar::expression const> search_key_term::equivalent_factor() const {

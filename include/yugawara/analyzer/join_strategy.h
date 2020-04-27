@@ -7,6 +7,8 @@
 
 #include <cstdlib>
 
+#include <takatori/relation/intermediate/join.h>
+
 #include <takatori/util/enum_set.h>
 
 namespace yugawara::analyzer {
@@ -19,7 +21,8 @@ enum class join_strategy : std::size_t {
     /**
      * @brief co-group based join.
      * @details This is a hint to build a `join_group` operator from the corresponded `join_relation`.
-     *      This requires both `lower` and `upper` are empty in the source operator.
+     *      This requires keys are equivalent between `lower` and `upper`, and
+     *      the values in each key element must be a simple variable reference of a column in the left input.
      */
     cogroup,
 
@@ -54,13 +57,18 @@ inline constexpr std::string_view to_string_view(join_strategy value) noexcept {
 }
 
 /**
+ * @brief returns a set of available join strategies for the given expression.
+ * @param expression the target expression
+ * @return the available strategies
+ */
+join_strategy_set available_join_strategies(::takatori::relation::intermediate::join const& expression);
+
+/**
  * @brief appends string representation of the given value.
  * @param out the target output
  * @param value the target value
  * @return the output
  */
-inline std::ostream& operator<<(std::ostream& out, join_strategy value) {
-    return out << to_string_view(value);
-}
+std::ostream& operator<<(std::ostream& out, join_strategy value);
 
 } // namespace yugawara::analyzer

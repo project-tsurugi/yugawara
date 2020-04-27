@@ -13,10 +13,10 @@ namespace yugawara::analyzer::details {
  * @details This only rewrites `scan` without any scan conditions,
  *      and will retain `scan` with bounds or `find`.
  *      This never rewrite `join_relation` into `join_{scan,find}`.
- * @param graph
- * @param storage_provider
- * @param index_estimator
- * @param creator
+ * @param graph the target graph
+ * @param storage_provider the index provider
+ * @param index_estimator the index cost estimator
+ * @param creator the object creator
  */
 void rewrite_scan(
         ::takatori::relation::graph_type& graph,

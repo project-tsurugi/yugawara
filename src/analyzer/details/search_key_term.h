@@ -2,7 +2,9 @@
 
 #include <optional>
 
+#include <takatori/descriptor/variable.h>
 #include <takatori/scalar/expression.h>
+#include <takatori/util/optional_ptr.h>
 #include <takatori/util/ownership_reference.h>
 
 #include <yugawara/storage/details/search_key_element.h>
@@ -35,6 +37,7 @@ public:
 
     [[nodiscard]] bool equivalent() const noexcept;
     [[nodiscard]] bool full_bounded() const;
+    [[nodiscard]] ::takatori::util::optional_ptr<::takatori::descriptor::variable const> equivalent_key() const;
     [[nodiscard]] ::takatori::util::optional_ptr<::takatori::scalar::expression const> equivalent_factor() const;
     [[nodiscard]] ::takatori::util::optional_ptr<::takatori::scalar::expression const> lower_factor() const;
     [[nodiscard]] bool lower_inclusive() const;

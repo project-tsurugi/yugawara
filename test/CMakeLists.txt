@@ -81,6 +81,7 @@ add_test_executable(analyzer/details/remove_redundant_conditions_test.cpp)
 add_test_executable(analyzer/details/search_key_term_builder_test.cpp)
 add_test_executable(analyzer/details/scan_key_collector_test.cpp)
 add_test_executable(analyzer/details/rewrite_join_test.cpp)
+add_test_executable(analyzer/details/collect_join_keys_test.cpp)
 add_test_executable(analyzer/details/rewrite_scan_test.cpp)
 
 # serializer

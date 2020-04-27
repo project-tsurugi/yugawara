@@ -38,6 +38,13 @@ optional_ptr<relation::expression const> stream_variable_flow_info_entry::find(d
     return {};
 }
 
+void stream_variable_flow_info_entry::each(consumer_type const& consumer) const {
+    for (auto&& [variable, declarator] : declarations_) {
+        (void) declarator;
+        consumer(variable);
+    }
+}
+
 void stream_variable_flow_info_entry::declare(descriptor::variable variable, relation::expression const& declaration) {
     if (auto [it, success] = declarations_.emplace(std::move(variable), std::addressof(declaration)); !success) {
         throw std::domain_error(string_builder {}

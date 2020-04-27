@@ -26,9 +26,6 @@ using ::takatori::scalar::unary_operator;
 using ::takatori::scalar::binary_operator;
 using ::takatori::scalar::comparison_operator;
 
-using ::takatori::util::object_ownership_reference;
-using ::takatori::util::rvalue_reference_wrapper;
-
 class rewrite_join_test: public ::testing::Test {
 protected:
     ::takatori::util::object_creator creator;
@@ -72,7 +69,8 @@ protected:
 
     void apply(relation::graph_type& graph) {
         default_index_estimator estimator;
-        rewrite_join(graph, storages, estimator, creator);
+        flow_volume_info vinfo { creator };
+        rewrite_join(graph, storages, estimator, vinfo, creator);
     }
 };
 

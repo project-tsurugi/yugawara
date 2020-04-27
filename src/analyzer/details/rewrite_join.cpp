@@ -55,10 +55,12 @@ public:
             relation::graph_type& graph,
             storage::provider const& storage_provider,
             index_estimator& index_estimator,
+            flow_volume_info const& flow_volume,
             object_creator creator)
         : graph_(graph)
         , storage_provider_(storage_provider)
         , index_estimator_(index_estimator)
+        , flow_volume_(flow_volume)
         , collector_(creator)
         , term_buf_(creator.allocator())
         , search_key_buf_(creator.allocator())
@@ -99,9 +101,11 @@ private:
     relation::graph_type& graph_;
     storage::provider const& storage_provider_;
     index_estimator& index_estimator_;
+    flow_volume_info const& flow_volume_;
+
     scan_key_collector collector_;
 
-    object_vector<scan_key_collector::term*> term_buf_;
+    object_vector<search_key_term*> term_buf_;
     object_vector<search_key> search_key_buf_;
     object_vector<relation::filter*> filter_buf_;
 
@@ -109,7 +113,7 @@ private:
     optional_ptr<storage::index const> saved_index_ {};
     bool saved_left_ {};
     std::optional<index_estimator::result> saved_result_ {};
-    object_vector<scan_key_collector::term*> saved_terms_;
+    object_vector<search_key_term*> saved_terms_;
     object_vector<relation::filter*> saved_filters_;
 
     void process_left(relation::intermediate::join& expr) {
@@ -126,7 +130,7 @@ private:
         storage_provider_.each_table_index(
                 collector_.table(),
                 [&](std::string_view, std::shared_ptr<storage::index const> const& entry) {
-                    estimate(*scan, *entry, true);
+                    estimate(expr, *scan, *entry, true);
                 });
         filter_buf_.clear();
     }
@@ -152,7 +156,7 @@ private:
         storage_provider_.each_table_index(
                 collector_.table(),
                 [&](std::string_view, std::shared_ptr<storage::index const> const& entry) {
-                    estimate(*scan, *entry, false);
+                    estimate(expr, *scan, *entry, false);
                 });
         filter_buf_.clear();
     }
@@ -189,7 +193,7 @@ private:
         }
     }
 
-    void estimate(relation::scan& expr, storage::index const& index, bool left) {
+    void estimate(relation::intermediate::join const& expr, relation::scan& scan, storage::index const& index, bool left) {
         build_search_key(index);
         if (search_key_buf_.empty()) {
             // index based join must have at least one term
@@ -202,8 +206,8 @@ private:
                 collector_.referring());
 
         // FIXME: use more statistics of individual join inputs
-        if (is_better(result)) {
-            save_result(expr, index, left, std::move(result), term_buf_, filter_buf_);
+        if (is_better(expr, result, left)) {
+            save_result(scan, index, left, std::move(result), term_buf_, filter_buf_);
         }
         term_buf_.clear();
         search_key_buf_.clear();
@@ -235,7 +239,11 @@ private:
         }
     }
 
-    bool is_better(index_estimator::result const& result) {
+    static relation::expression::input_port_type const& input(relation::intermediate::join const& expr, bool left) {
+        return left ? expr.left() : expr.right();
+    }
+
+    bool is_better(relation::intermediate::join const& expr, index_estimator::result const& result, bool left) {
         if (!saved_result_) {
             return true;
         }
@@ -243,6 +251,13 @@ private:
         if (!saved.attributes().contains(attribute::single_row)
                 && result.attributes().contains(attribute::single_row)) {
             return true;
+        }
+        auto saved_vol = flow_volume_.find(input(expr, saved_left_));
+        auto result_vol = flow_volume_.find(input(expr, left));
+        if (saved_vol && result_vol) {
+            auto saved_score = saved.score() * saved_vol->row_count * saved_vol->column_size;
+            auto result_score = result.score() * result_vol->row_count * result_vol->column_size;
+            return saved_score < result_score;
         }
         return saved.score() < result.score();
     }
@@ -269,13 +284,7 @@ private:
             bool left,
             sequence_view<scan_key_collector::term*> terms) {
         if (left) {
-            // swap left <=> right upstreams
-            auto&& old_left = expr.left().opposite();
-            auto&& old_right = expr.right().opposite();
-            expr.left().disconnect_from(*old_left);
-            expr.right().disconnect_from(*old_right);
-            expr.left().connect_to(*old_right);
-            expr.right().connect_to(*old_left);
+            swap_upstream(expr.left(), expr.right());
         }
         auto&& result = *saved_result_;
         if (result.attributes().contains(attribute::find)) {
@@ -392,8 +401,9 @@ void rewrite_join(
         relation::graph_type& graph,
         storage::provider const& storage_provider,
         class index_estimator& index_estimator,
+        flow_volume_info const& flow_volume,
         object_creator creator) {
-    engine e { graph, storage_provider, index_estimator, creator };
+    engine e { graph, storage_provider, index_estimator, flow_volume, creator };
     for (auto it = graph.begin(); it != graph.end();) {
         auto&& expr = *it;
         if (expr.kind() == relation::intermediate::join::tag) {

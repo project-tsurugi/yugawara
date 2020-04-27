@@ -23,9 +23,6 @@ using ::takatori::scalar::unary_operator;
 using ::takatori::scalar::binary_operator;
 using ::takatori::scalar::comparison_operator;
 
-using ::takatori::util::object_ownership_reference;
-using ::takatori::util::rvalue_reference_wrapper;
-
 class rewrite_scan_test: public ::testing::Test {
 protected:
     ::takatori::util::object_creator creator;
