@@ -13,6 +13,7 @@
 #include <yugawara/binding/factory.h>
 
 #include "scan_key_collector.h"
+#include "rewrite_criteria.h"
 
 namespace yugawara::analyzer::details {
 
@@ -26,6 +27,9 @@ using ::takatori::util::object_creator;
 using ::takatori::util::optional_ptr;
 using ::takatori::util::sequence_view;
 using ::takatori::util::unsafe_downcast;
+
+template<class T>
+using object_vector = std::vector<T, object_allocator<T>>;
 
 namespace {
 
@@ -56,20 +60,17 @@ public:
         if (saved_index_) {
             erase = apply_result(expr, *saved_index_, saved_terms_);
         }
-        clear();
-        return erase;
-    }
 
-    void clear() {
+        // clear the round data
         collector_.clear();
-
         term_buf_.clear();
         search_key_buf_.clear();
-
         saw_best_ = {};
         saved_index_ = {};
         saved_result_ = {};
         saved_terms_.clear();
+
+        return erase;
     }
 
     [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept {
@@ -81,13 +82,13 @@ private:
     storage::index_estimator& index_estimator_;
     scan_key_collector collector_;
 
-    std::vector<scan_key_collector::term*, object_allocator<scan_key_collector::term*>> term_buf_;
-    std::vector<search_key, object_allocator<search_key>> search_key_buf_;
+    object_vector<scan_key_collector::term*> term_buf_;
+    object_vector<search_key> search_key_buf_;
 
     bool saw_best_ { false };
     std::optional<storage::index_estimator::result> saved_result_ {};
     optional_ptr<storage::index const> saved_index_ {};
-    std::vector<scan_key_collector::term*, object_allocator<scan_key_collector::term*>> saved_terms_;
+    object_vector<scan_key_collector::term*> saved_terms_;
 
     void estimate(storage::index const& index) {
         if (saw_best_) {
@@ -176,22 +177,16 @@ private:
             storage::index const& index,
             sequence_view<scan_key_collector::term*> terms) const {
         assert(terms.size() <= index.keys().size()); // NOLINT
-        std::vector<relation::find::key, object_allocator<relation::find::key>> keys {
-                get_object_creator().allocator(),
-        };
-        keys.reserve(terms.size());
+
+        object_vector<relation::find::key> keys { get_object_creator().allocator() };
+        fill_search_key(index, keys, terms, get_object_creator());
 
         binding::factory bindings { get_object_creator() };
-        for (std::size_t i = 0, n = terms.size(); i < n; ++i) {
-            auto&& key = index.keys()[i];
-            auto&& term = *terms[i];
-            keys.emplace_back(bindings(key.column()), term.purge_equivalent_factor());
-        }
-
         auto&& find = expr.owner().emplace<relation::find>(
                 bindings(index),
                 std::move(expr.columns()),
-                std::move(keys));
+                std::move(keys),
+                get_object_creator());
 
         // reconnect
         assert(expr.output().opposite()); // NOLINT
@@ -209,64 +204,7 @@ private:
         binding::factory bindings { get_object_creator() };
         expr.source() = bindings(index);
 
-        auto&& lower_keys = expr.lower().keys();
-        auto&& upper_keys = expr.upper().keys();
-        lower_keys.clear();
-        upper_keys.clear();
-        lower_keys.reserve(terms.size());
-        upper_keys.reserve(terms.size());
-
-        if (terms.empty()) {
-            return;
-        }
-
-        // compute other than the last term
-        for (std::size_t i = 0, n = terms.size() - 1; i < n; ++i) {
-            auto&& key = index.keys()[i];
-            auto&& term = *terms[i];
-
-            // FIXME: more flexible - we assume the scan key elements are "equivalent" style except the last one
-            assert(term.equivalent()); // NOLINT
-
-            lower_keys.emplace_back(bindings(key.column()), term.clone_equivalent_factor());
-            upper_keys.emplace_back(bindings(key.column()), term.purge_equivalent_factor());
-        }
-
-        // process the last term
-        assert(!terms.empty()); // NOLINT
-        auto&& key = index.keys()[terms.size() - 1];
-        auto&& term = *terms.back();
-        if (term.equivalent()) {
-            lower_keys.emplace_back(bindings(key.column()), term.clone_equivalent_factor());
-            upper_keys.emplace_back(bindings(key.column()), term.purge_equivalent_factor());
-            expr.lower().kind(relation::endpoint_kind::prefixed_inclusive);
-            expr.upper().kind(relation::endpoint_kind::prefixed_inclusive);
-        } else {
-            if (term.lower_factor()) {
-                lower_keys.emplace_back(bindings(key.column()), term.purge_lower_factor());
-                if (term.lower_inclusive()) {
-                    expr.lower().kind(relation::endpoint_kind::prefixed_inclusive);
-                } else {
-                    expr.lower().kind(relation::endpoint_kind::prefixed_exclusive);
-                }
-            } else {
-                if (!lower_keys.empty()) {
-                    expr.lower().kind(relation::endpoint_kind::prefixed_inclusive);
-                }
-            }
-            if (term.upper_factor()) {
-                upper_keys.emplace_back(bindings(key.column()), term.purge_upper_factor());
-                if (term.upper_inclusive()) {
-                    expr.upper().kind(relation::endpoint_kind::prefixed_inclusive);
-                } else {
-                    expr.upper().kind(relation::endpoint_kind::prefixed_exclusive);
-                }
-            } else {
-                if (!upper_keys.empty()) {
-                    expr.upper().kind(relation::endpoint_kind::prefixed_inclusive);
-                }
-            }
-        }
+        fill_endpoints(index, expr.lower(), expr.upper(), terms, get_object_creator());
     }
 };
 

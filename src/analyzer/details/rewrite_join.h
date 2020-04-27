@@ -9,8 +9,8 @@
 namespace yugawara::analyzer::details {
 
 /**
- * @brief rewrites `scan` operations into `scan` / `find` with suitable indices.
- * @details This only rewrites `scan` without any scan conditions,
+ * @brief rewrites `join_relation` into `join_{scan,find} with suitable index.
+ * @details This only rewrites `join_relation` without any key pairs nor endpoint conditions,
  *      and will retain `scan` with bounds or `find`.
  *      This never rewrite `join_relation` into `join_{scan,find}`.
  * @param graph
@@ -18,7 +18,7 @@ namespace yugawara::analyzer::details {
  * @param index_estimator
  * @param creator
  */
-void rewrite_scan(
+void rewrite_join(
         ::takatori::relation::graph_type& graph,
         storage::provider const& storage_provider,
         storage::index_estimator& index_estimator,

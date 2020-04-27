@@ -83,14 +83,14 @@ public:
         if (!for_join_) {
             return {};
         }
-        found_join_ = true;
         if (expr.condition()) {
             builder_.add_predicate(expr.ownership_condition());
+            found_join_ = true;
         }
         return {};
     }
 
-    // FIXME: limit
+    // FIXME: limit (ignore if include_join)
 
     [[nodiscard]] bool reach_join() const noexcept {
         return found_join_;
@@ -117,7 +117,7 @@ bool scan_key_collector::operator()(relation::scan& expression, bool include_joi
     clear();
 
     // must not have any endpoint settings
-    if (expression.lower() || expression.upper()) {
+    if (expression.lower() || expression.upper() || expression.limit()) {
         return false;
     }
 

@@ -85,6 +85,7 @@ add_library(yugawara
     analyzer/details/search_key_term.cpp
     analyzer/details/search_key_term_builder.cpp
     analyzer/details/scan_key_collector.cpp
+    analyzer/details/rewrite_join.cpp
     analyzer/details/rewrite_scan.cpp
 
     # serializer
