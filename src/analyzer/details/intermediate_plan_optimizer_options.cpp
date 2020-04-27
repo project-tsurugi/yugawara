@@ -25,7 +25,7 @@ intermediate_plan_optimizer_options& intermediate_plan_optimizer_options::storag
     return *this;
 }
 
-storage::index_estimator& intermediate_plan_optimizer_options::index_estimator() const noexcept {
+class index_estimator& intermediate_plan_optimizer_options::index_estimator() const noexcept {
     if (index_estimator_) {
         return *index_estimator_;
     }
@@ -34,7 +34,7 @@ storage::index_estimator& intermediate_plan_optimizer_options::index_estimator()
 }
 
 intermediate_plan_optimizer_options& intermediate_plan_optimizer_options::index_estimator(
-        std::shared_ptr<storage::index_estimator> estimator) noexcept {
+        std::shared_ptr<class index_estimator> estimator) noexcept {
     index_estimator_ = std::move(estimator);
     return *this;
 }

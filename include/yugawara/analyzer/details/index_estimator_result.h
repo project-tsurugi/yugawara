@@ -8,7 +8,7 @@
 
 #include "index_estimator_result_attribute.h"
 
-namespace yugawara::storage::details {
+namespace yugawara::analyzer::details {
 
 /**
  * @brief estimates cost of scan/find operation for indices.
@@ -76,4 +76,4 @@ private:
  */
 std::ostream& operator<<(std::ostream& out, index_estimator_result const& value);
 
-} // namespace yugawara::storage::details
+} // namespace yugawara::analyzer::details

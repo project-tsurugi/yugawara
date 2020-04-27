@@ -29,7 +29,7 @@ namespace scalar = ::takatori::scalar;
 namespace relation = ::takatori::relation;
 
 using search_key = storage::details::search_key_element;
-using attribute = storage::details::index_estimator_result_attribute;
+using attribute = details::index_estimator_result_attribute;
 
 using ::takatori::relation::join_kind;
 using ::takatori::relation::join_kind_set;
@@ -54,7 +54,7 @@ public:
     explicit engine(
             relation::graph_type& graph,
             storage::provider const& storage_provider,
-            storage::index_estimator& index_estimator,
+            index_estimator& index_estimator,
             object_creator creator)
         : graph_(graph)
         , storage_provider_(storage_provider)
@@ -98,7 +98,7 @@ public:
 private:
     relation::graph_type& graph_;
     storage::provider const& storage_provider_;
-    storage::index_estimator& index_estimator_;
+    index_estimator& index_estimator_;
     scan_key_collector collector_;
 
     object_vector<scan_key_collector::term*> term_buf_;
@@ -108,7 +108,7 @@ private:
     optional_ptr<relation::scan> saved_scan_ {};
     optional_ptr<storage::index const> saved_index_ {};
     bool saved_left_ {};
-    std::optional<storage::index_estimator::result> saved_result_ {};
+    std::optional<index_estimator::result> saved_result_ {};
     object_vector<scan_key_collector::term*> saved_terms_;
     object_vector<relation::filter*> saved_filters_;
 
@@ -235,7 +235,7 @@ private:
         }
     }
 
-    bool is_better(storage::index_estimator::result const& result) {
+    bool is_better(index_estimator::result const& result) {
         if (!saved_result_) {
             return true;
         }
@@ -251,7 +251,7 @@ private:
             relation::scan& expr,
             storage::index const& index,
             bool left,
-            storage::index_estimator::result result,
+            index_estimator::result result,
             sequence_view<scan_key_collector::term*> terms,
             sequence_view<relation::filter*> filters) {
         saved_scan_ = expr;
@@ -391,7 +391,7 @@ private:
 void rewrite_join(
         relation::graph_type& graph,
         storage::provider const& storage_provider,
-        storage::index_estimator& index_estimator,
+        class index_estimator& index_estimator,
         object_creator creator) {
     engine e { graph, storage_provider, index_estimator, creator };
     for (auto it = graph.begin(); it != graph.end();) {

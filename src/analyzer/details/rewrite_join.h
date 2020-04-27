@@ -4,7 +4,7 @@
 #include <takatori/util/object_creator.h>
 
 #include <yugawara/storage/provider.h>
-#include <yugawara/storage/index_estimator.h>
+#include <yugawara/analyzer/index_estimator.h>
 
 namespace yugawara::analyzer::details {
 
@@ -21,7 +21,7 @@ namespace yugawara::analyzer::details {
 void rewrite_join(
         ::takatori::relation::graph_type& graph,
         storage::provider const& storage_provider,
-        storage::index_estimator& index_estimator,
+        class index_estimator& index_estimator,
         ::takatori::util::object_creator creator);
 
 } // namespace yugawara::analyzer::details

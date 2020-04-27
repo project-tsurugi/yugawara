@@ -20,7 +20,7 @@ namespace yugawara::analyzer::details {
 namespace relation = ::takatori::relation;
 
 using search_key = storage::details::search_key_element;
-using attribute = storage::details::index_estimator_result_attribute;
+using attribute = details::index_estimator_result_attribute;
 
 using ::takatori::util::object_allocator;
 using ::takatori::util::object_creator;
@@ -37,7 +37,7 @@ class engine {
 public:
     explicit engine(
             storage::provider const& storage_provider,
-            storage::index_estimator& index_estimator,
+            index_estimator& index_estimator,
             object_creator creator)
         : storage_provider_(storage_provider)
         , index_estimator_(index_estimator)
@@ -79,14 +79,14 @@ public:
 
 private:
     storage::provider const& storage_provider_;
-    storage::index_estimator& index_estimator_;
+    index_estimator& index_estimator_;
     scan_key_collector collector_;
 
     object_vector<scan_key_collector::term*> term_buf_;
     object_vector<search_key> search_key_buf_;
 
     bool saw_best_ { false };
-    std::optional<storage::index_estimator::result> saved_result_ {};
+    std::optional<index_estimator::result> saved_result_ {};
     optional_ptr<storage::index const> saved_index_ {};
     object_vector<scan_key_collector::term*> saved_terms_;
 
@@ -134,7 +134,7 @@ private:
         }
     }
 
-    bool is_better(storage::index_estimator::result const& result) {
+    bool is_better(index_estimator::result const& result) {
         if (!saved_result_) {
             return true;
         }
@@ -148,7 +148,7 @@ private:
 
     void save_result(
             storage::index const& index,
-            storage::index_estimator::result result,
+            index_estimator::result result,
             sequence_view<scan_key_collector::term*> terms) {
         if (result.attributes().contains(attribute::single_row)
                 && result.attributes().contains(attribute::index_only)) {
@@ -213,7 +213,7 @@ private:
 void rewrite_scan(
         ::takatori::relation::graph_type& graph,
         storage::provider const& storage_provider,
-        storage::index_estimator& index_estimator,
+        class index_estimator& index_estimator,
         object_creator creator) {
     engine e { storage_provider, index_estimator, creator };
     for (auto it = graph.begin(); it != graph.end();) {

@@ -4,11 +4,12 @@
 
 #include <takatori/util/sequence_view.h>
 
-#include "index.h"
-#include "details/search_key_element.h"
+#include <yugawara/storage/index.h>
+#include <yugawara/storage/details/search_key_element.h>
+
 #include "details/index_estimator_result.h"
 
-namespace yugawara::storage {
+namespace yugawara::analyzer {
 
 /**
  * @brief estimates cost of scan/find operation for indices.
@@ -17,13 +18,13 @@ namespace yugawara::storage {
 class index_estimator {
 public:
     /// @brief the scan key piece type.
-    using search_key = details::search_key_element;
+    using search_key = storage::details::search_key_element;
 
     /// @brief the sort key piece type.
-    using sort_key = details::index_key_element;
+    using sort_key = storage::details::index_key_element;
 
     /// @brief the column reference type.
-    using column_ref = std::reference_wrapper<column const>;
+    using column_ref = std::reference_wrapper<storage::column const>;
 
     /// @brief the estimation result.
     using result = details::index_estimator_result;
@@ -76,10 +77,10 @@ public:
      * @return the estimation result
      */
     [[nodiscard]] virtual result operator()(
-            class index const& index,
+            storage::index const& index,
             ::takatori::util::sequence_view<search_key const> search_keys,
             ::takatori::util::sequence_view<sort_key const> sort_keys,
             ::takatori::util::sequence_view<column_ref const> values) = 0;
 };
 
-} // namespace yugawara::storage
+} // namespace yugawara::analyzer

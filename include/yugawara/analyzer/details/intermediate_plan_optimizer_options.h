@@ -3,7 +3,7 @@
 #include <takatori/util/object_creator.h>
 
 #include <yugawara/storage/provider.h>
-#include <yugawara/storage/index_estimator.h>
+#include <yugawara/analyzer/index_estimator.h>
 
 namespace yugawara::analyzer::details {
 
@@ -40,14 +40,14 @@ public:
      * @brief returns the index estimator for index selection.
      * @return the index estimator
      */
-    [[nodiscard]] storage::index_estimator& index_estimator() const noexcept;
+    [[nodiscard]] class index_estimator& index_estimator() const noexcept;
 
     /**
      * @brief sets the index estimator for index selection.
      * @param estimator index estimator
      * @return this
      */
-    intermediate_plan_optimizer_options& index_estimator(std::shared_ptr<storage::index_estimator> estimator) noexcept;
+    intermediate_plan_optimizer_options& index_estimator(std::shared_ptr<class index_estimator> estimator) noexcept;
 
     /**
      * @brief returns the object creator.
@@ -58,7 +58,7 @@ public:
 private:
     ::takatori::util::object_creator creator_ {};
     std::shared_ptr<storage::provider const> storage_provider_ {};
-    std::shared_ptr<storage::index_estimator> index_estimator_ {};
+    std::shared_ptr<class index_estimator> index_estimator_ {};
 };
 
 } // namespace yugawara::analyzer::details

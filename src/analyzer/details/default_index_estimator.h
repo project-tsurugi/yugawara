@@ -1,13 +1,13 @@
 #pragma once
 
-#include <yugawara/storage/index_estimator.h>
+#include <yugawara/analyzer/index_estimator.h>
 
 namespace yugawara::analyzer::details {
 
 /**
  * @brief a default implementation of storage::estimator.
  */
-class default_index_estimator final : public storage::index_estimator {
+class default_index_estimator final : public index_estimator {
 public:
     [[nodiscard]] result operator()(
             storage::index const& index,

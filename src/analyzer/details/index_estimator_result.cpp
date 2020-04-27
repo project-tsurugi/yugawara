@@ -1,8 +1,8 @@
-#include <yugawara/storage/details/index_estimator_result.h>
+#include <yugawara/analyzer/details/index_estimator_result.h>
 
 #include <takatori/util/optional_print_support.h>
 
-namespace yugawara::storage::details {
+namespace yugawara::analyzer::details {
 
 index_estimator_result::index_estimator_result(
         score_type score,
@@ -33,4 +33,4 @@ std::ostream& operator<<(std::ostream& out, index_estimator_result const& value)
                << "attributes=" << value.attributes() << ")";
 }
 
-} // namespace yugawara::storage::details
+} // namespace yugawara::analyzer::details

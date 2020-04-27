@@ -9,9 +9,8 @@ using ::yugawara::storage::index_feature;
 using ::takatori::util::sequence_view;
 using ::takatori::util::string_builder;
 
-using storage::index_estimator;
-using attribute = storage::details::index_estimator_result_attribute;
-using attribute_set = storage::details::index_estimator_result_attribute_set;
+using attribute = details::index_estimator_result_attribute;
+using attribute_set = details::index_estimator_result_attribute_set;
 
 namespace {
 
@@ -120,7 +119,7 @@ double key_selectivity(sequence_view<index_estimator::search_key const> search_k
 
 } // namespace
 
-storage::index_estimator::result default_index_estimator::operator()(
+index_estimator::result default_index_estimator::operator()(
         storage::index const& index,
         sequence_view<search_key const> search_keys,
         sequence_view<sort_key const> sort_keys,

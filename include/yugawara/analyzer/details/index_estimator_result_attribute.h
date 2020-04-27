@@ -9,7 +9,7 @@
 
 #include <takatori/util/enum_set.h>
 
-namespace yugawara::storage::details {
+namespace yugawara::analyzer::details {
 
 /**
  * @brief represents features of indices.
@@ -81,4 +81,4 @@ inline std::ostream& operator<<(std::ostream& out, index_estimator_result_attrib
     return out << to_string_view(value);
 }
 
-} // namespace yugawara::storage::details
+} // namespace yugawara::analyzer::details

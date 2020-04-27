@@ -8,7 +8,6 @@ add_library(yugawara
     storage/provider.cpp
     storage/details/index_key_element.cpp
     storage/details/search_key_element.cpp
-    storage/details/index_estimator_result.cpp
 
     # type system
     type/category.cpp
@@ -81,6 +80,7 @@ add_library(yugawara
     analyzer/details/push_down_filters.cpp
     analyzer/details/simplify_predicate.cpp
     analyzer/details/remove_redundant_conditions.cpp
+    analyzer/details/index_estimator_result.cpp
     analyzer/details/default_index_estimator.cpp
     analyzer/details/search_key_term.cpp
     analyzer/details/search_key_term_builder.cpp
