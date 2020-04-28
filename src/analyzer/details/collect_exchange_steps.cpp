@@ -90,8 +90,8 @@ public:
     }
 
     void operator()(relation::intermediate::join& expr) {
+        using kind = join_info::strategy_type;
         if (auto info = info_.find(expr)) {
-            using kind = join_info::strategy_type;
             switch (info->strategy()) {
                 case kind::cogroup:
                     process_cogroup_join(expr);
@@ -102,7 +102,14 @@ public:
             }
             std::abort();
         }
-        process_cogroup_join(expr);
+        auto availables = available_join_strategies(expr);
+        if (availables.contains(kind::cogroup)) {
+            process_cogroup_join(expr);
+        } else if (availables.contains(kind::broadcast)) {
+            process_broadcast_join(expr);
+        } else {
+            process_cogroup_join(expr);
+        }
     }
 
     void operator()(relation::intermediate::aggregate& expr) {

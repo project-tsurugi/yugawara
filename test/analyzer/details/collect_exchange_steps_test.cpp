@@ -290,6 +290,101 @@ TEST_F(collect_exchange_steps_test, join_cogroup) {
     EXPECT_EQ(r7.condition(), nullptr);
 }
 
+TEST_F(collect_exchange_steps_test, join_cogroup_default) {
+    /*
+     * scan:r0 -\
+     *           join_relation:r2 - emit:r3
+     * scan:r1 -/
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c1");
+    auto c3 = bindings.stream_variable("c1");
+    auto& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+            },
+    });
+    auto& r1 = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { t1c0, c2 },
+                    { t1c1, c3 },
+            },
+    });
+    auto& r2 = r.insert(relation::intermediate::join {
+            relation::join_kind::inner,
+    });
+    r2.lower() = relation::intermediate::join::endpoint {
+            {
+                    relation::intermediate::join::key {
+                            c2,
+                            varref { c0 },
+                    },
+            },
+            relation::endpoint_kind::prefixed_inclusive,
+    };
+    r2.upper() = relation::intermediate::join::endpoint {
+            {
+                    relation::intermediate::join::key {
+                            c2,
+                            varref { c0 },
+                    },
+            },
+            relation::endpoint_kind::prefixed_inclusive,
+    };
+    auto& r3 = r.insert(relation::emit {
+            c1,
+            c3,
+    });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r3.input();
+
+    details::step_plan_builder_options info;
+    plan::graph_type p;
+
+    /*
+     * scan:r0 - offer:r4 - [group]:e0 -\
+     *                                   take_cogroup:r6 - join_group:r7 - emit:r3
+     * scan:r1 - offer:r5 - [group]:e1 -/
+     */
+    details::collect_exchange_steps(r, p, info);
+    ASSERT_EQ(r.size(), 7);
+    EXPECT_TRUE(r.contains(r0));
+    EXPECT_TRUE(r.contains(r1));
+    EXPECT_TRUE(r.contains(r3));
+
+    auto&& r4 = next<offer>(r0.output());
+    auto&& r5 = next<offer>(r1.output());
+    auto&& r7 = next<relation::step::join>(r3.input());
+    auto&& r6 = next<take_cogroup>(r7.input());
+
+    auto&& e0 = resolve<plan::group>(r4.destination());
+    auto&& e1 = resolve<plan::group>(r5.destination());
+
+    ASSERT_EQ(p.size(), 2);
+    EXPECT_TRUE(p.contains(e0));
+    EXPECT_TRUE(p.contains(e1));
+
+    ASSERT_EQ(r6.groups().size(), 2);
+    EXPECT_EQ(r6.groups()[0].source(), r4.destination());
+    EXPECT_EQ(r6.groups()[1].source(), r5.destination());
+
+    ASSERT_EQ(e0.group_keys().size(), 1);
+    ASSERT_EQ(e0.group_keys()[0], c0);
+    EXPECT_EQ(e0.limit(), std::nullopt);
+
+    ASSERT_EQ(e1.group_keys().size(), 1);
+    ASSERT_EQ(e1.group_keys()[0], c2);
+    EXPECT_EQ(e1.limit(), std::nullopt);
+
+    EXPECT_EQ(r7.condition(), nullptr);
+}
+
 TEST_F(collect_exchange_steps_test, join_broadcast_find) {
     /*
      * scan:r0 -\
@@ -373,6 +468,88 @@ TEST_F(collect_exchange_steps_test, join_broadcast_find) {
     EXPECT_EQ(r4.keys()[0].value(), varref(c0));
 }
 
+TEST_F(collect_exchange_steps_test, join_broadcast_find_default) {
+    /*
+     * scan:r0 -\
+     *           join_relation:r2 - emit:r3
+     * scan:r1 -/
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto c3 = bindings.stream_variable("c3");
+    auto& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+            },
+    });
+    auto& r1 = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { t1c0, c2 },
+                    { t1c1, c3 },
+            },
+    });
+    auto& r2 = r.insert(relation::intermediate::join {
+            relation::join_kind::inner,
+    });
+    r2.lower() = relation::intermediate::join::endpoint {
+            {
+                    relation::intermediate::join::key {
+                            c2,
+                            constant(100),
+                    },
+            },
+            relation::endpoint_kind::prefixed_inclusive,
+    };
+    r2.upper() = relation::intermediate::join::endpoint {
+            {
+                    relation::intermediate::join::key {
+                            c2,
+                            constant(100),
+                    },
+            },
+            relation::endpoint_kind::prefixed_inclusive,
+    };
+    auto& r3 = r.insert(relation::emit {
+            c1,
+            c3,
+    });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r3.input();
+
+    details::step_plan_builder_options info;
+    plan::graph_type p;
+
+    /*
+     *                              scan:r0 - join_find:r4 - emit:r3
+     *                                       /
+     * scan:r1 - offer:r5 - [broadcast]:e0 -/
+     */
+    details::collect_exchange_steps(r, p, info);
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_TRUE(r.contains(r0));
+    EXPECT_TRUE(r.contains(r1));
+    EXPECT_TRUE(r.contains(r3));
+
+    auto&& r4 = next<relation::join_find>(r0.output());
+    auto&& r5 = next<offer>(r1.output());
+
+    auto&& e0 = resolve<plan::broadcast>(r5.destination());
+
+    ASSERT_EQ(p.size(), 1);
+    EXPECT_TRUE(p.contains(e0));
+
+    EXPECT_EQ(r4.source(), r5.destination());
+    ASSERT_EQ(r4.keys().size(), 1);
+    EXPECT_EQ(r4.keys()[0].variable(), c2);
+    EXPECT_EQ(r4.keys()[0].value(), constant(100));
+}
+
 TEST_F(collect_exchange_steps_test, join_broadcast_scan) {
     /*
      * scan:r0 -\
@@ -429,6 +606,93 @@ TEST_F(collect_exchange_steps_test, join_broadcast_scan) {
 
     details::step_plan_builder_options info;
     info.add(r2, join_strategy::broadcast);
+    plan::graph_type p;
+
+    /*
+     *                              scan:r0 - join_scan:r4 - emit:r3
+     *                                       /
+     * scan:r1 - offer:r5 - [broadcast]:e0 -/
+     */
+    details::collect_exchange_steps(r, p, info);
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_TRUE(r.contains(r0));
+    EXPECT_TRUE(r.contains(r1));
+    EXPECT_TRUE(r.contains(r3));
+
+    auto&& r4 = next<relation::join_scan>(r0.output());
+    auto&& r5 = next<offer>(r1.output());
+
+    auto&& e0 = resolve<plan::broadcast>(r5.destination());
+
+    ASSERT_EQ(p.size(), 1);
+    EXPECT_TRUE(p.contains(e0));
+
+    EXPECT_EQ(r4.source(), r5.destination());
+    ASSERT_EQ(r4.lower().keys().size(), 1);
+    EXPECT_EQ(r4.lower().keys()[0].variable(), c2);
+    EXPECT_EQ(r4.lower().keys()[0].value(), constant(0));
+    EXPECT_EQ(r4.lower().kind(), relation::endpoint_kind::prefixed_inclusive);
+    ASSERT_EQ(r4.upper().keys().size(), 1);
+    EXPECT_EQ(r4.upper().keys()[0].variable(), c2);
+    EXPECT_EQ(r4.upper().keys()[0].value(), varref(c0));
+    EXPECT_EQ(r4.upper().kind(), relation::endpoint_kind::prefixed_exclusive);
+}
+
+TEST_F(collect_exchange_steps_test, join_broadcast_scan_default) {
+    /*
+     * scan:r0 -\
+     *           join_relation:r2 - emit:r3
+     * scan:r1 -/
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c1");
+    auto c3 = bindings.stream_variable("c1");
+    auto& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+            },
+    });
+    auto& r1 = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { t1c0, c2 },
+                    { t1c1, c3 },
+            },
+    });
+    auto& r2 = r.insert(relation::intermediate::join {
+            relation::join_kind::inner,
+    });
+    r2.lower() = relation::intermediate::join::endpoint {
+            {
+                    relation::intermediate::join::key {
+                            c2,
+                            constant(0),
+                    },
+            },
+            relation::endpoint_kind::prefixed_inclusive,
+    };
+    r2.upper() = relation::intermediate::join::endpoint {
+            {
+                    relation::intermediate::join::key {
+                            c2,
+                            varref { c0 },
+                    },
+            },
+            relation::endpoint_kind::prefixed_exclusive,
+    };
+    auto& r3 = r.insert(relation::emit {
+            c1,
+            c3,
+    });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r3.input();
+
+    details::step_plan_builder_options info;
     plan::graph_type p;
 
     /*
