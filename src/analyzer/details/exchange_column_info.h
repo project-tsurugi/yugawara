@@ -1,10 +1,11 @@
 #pragma once
 
 #include <functional>
-#include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
+
+#include <tsl/hopscotch_map.h>
+#include <tsl/hopscotch_set.h>
 
 #include <takatori/descriptor/variable.h>
 #include <takatori/scalar/expression.h>
@@ -31,10 +32,10 @@ public:
 
     explicit exchange_column_info(::takatori::util::object_creator creator) noexcept;
 
-    ::takatori::util::optional_ptr<::takatori::descriptor::variable const> find(
+    [[nodiscard]] ::takatori::util::optional_ptr<::takatori::descriptor::variable const> find(
             ::takatori::descriptor::variable const& variable) const;
 
-    size_type count() const noexcept;
+    [[nodiscard]] size_type count() const noexcept;
 
     /**
      * @brief enumerate mapping pairs.
@@ -50,7 +51,7 @@ public:
      *      If the given stream variable has been already allocated, this operation will return
      *      the previously allocated column.
      */
-    ::takatori::descriptor::variable const& allocate(::takatori::descriptor::variable const& variable);
+    [[nodiscard]] ::takatori::descriptor::variable const& allocate(::takatori::descriptor::variable const& variable);
 
     /**
      * @brief registers stream variable and the corresponded exchange column which is the replacement of former.
@@ -71,7 +72,7 @@ public:
      * @return true if it was called
      * @return false otherwise
      */
-    bool is_touched(::takatori::descriptor::variable const& variable) const;
+    [[nodiscard]] bool is_touched(::takatori::descriptor::variable const& variable) const;
 
     /**
      * @brief makes all columns has not been untouched.
@@ -80,7 +81,7 @@ public:
 
     void clear();
 
-    ::takatori::util::object_creator get_object_creator() const noexcept;
+    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept;
 
 private:
     using mapping_type = std::pair<
@@ -89,20 +90,20 @@ private:
 
     std::vector<mapping_type, ::takatori::util::object_allocator<mapping_type>> entries_;
 
-    std::unordered_map<
+    ::tsl::hopscotch_map<
             ::takatori::descriptor::variable,
             decltype(entries_)::size_type,
             std::hash<::takatori::descriptor::variable>,
             std::equal_to<>,
             ::takatori::util::object_allocator<std::pair<
-                    ::takatori::descriptor::variable const,
+                    ::takatori::descriptor::variable,
                     decltype(entries_)::size_type>>> index_;
 
-    std::unordered_set<
+    ::tsl::hopscotch_set<
             ::takatori::descriptor::variable,
             std::hash<::takatori::descriptor::variable>,
             std::equal_to<>,
-            ::takatori::util::object_allocator<::takatori::descriptor::variable const>> touched_;
+            ::takatori::util::object_allocator<::takatori::descriptor::variable>> touched_;
 };
 
 } // namespace yugawara::analyzer::details

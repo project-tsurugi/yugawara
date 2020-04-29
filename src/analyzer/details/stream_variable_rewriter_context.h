@@ -1,7 +1,8 @@
 #pragma once
 
 #include <functional>
-#include <unordered_map>
+
+#include <tsl/hopscotch_map.h>
 
 #include <takatori/descriptor/variable.h>
 #include <takatori/scalar/expression.h>
@@ -18,7 +19,7 @@ public:
 
     explicit stream_variable_rewriter_context(::takatori::util::object_creator creator) noexcept;
 
-    ::takatori::util::optional_ptr<::takatori::descriptor::variable const> find(
+    [[nodiscard]] ::takatori::util::optional_ptr<::takatori::descriptor::variable const> find(
             ::takatori::descriptor::variable const& variable) const;
 
     /**
@@ -53,9 +54,7 @@ public:
 
     void clear();
 
-    ::takatori::util::object_creator get_object_creator() const noexcept {
-        return mappings_.get_allocator().resource();
-    }
+    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept;
 
 private:
     enum class status_t {
@@ -69,13 +68,13 @@ private:
         status_t status { status_t::undefined };
     };
 
-    std::unordered_map<
+    ::tsl::hopscotch_map<
             ::takatori::descriptor::variable,
             entry,
             std::hash<::takatori::descriptor::variable>,
             std::equal_to<>,
             ::takatori::util::object_allocator<std::pair<
-                    ::takatori::descriptor::variable const,
+                    ::takatori::descriptor::variable,
                     entry>>> mappings_;
 };
 

@@ -79,15 +79,17 @@ constexpr T& unwrap(std::reference_wrapper<T> wrapper) noexcept {
     return wrapper;
 }
 
+// FIXME: use ws allocator
+template<class T>
+using saw_set = ::tsl::hopscotch_set<
+        T const*,
+        std::hash<T const*>,
+        std::equal_to<>>;
+
 // FIXME: impl constant conversions
 class engine {
 public:
     using type_ptr = std::shared_ptr<::takatori::type::data const>;
-
-    using saw_set = ::tsl::hopscotch_set<
-            relation::expression const*,
-            std::hash<relation::expression const*>,
-            std::equal_to<>>;
 
     explicit engine(
             expression_analyzer& ana,
@@ -111,7 +113,7 @@ public:
 
     bool resolve(relation::expression const& expression, bool recursive) {
         if (recursive) {
-            saw_set saw {};
+            saw_set<relation::expression> saw {};
             return resolve_recursive(expression, saw);
         }
         return resolve_flat(expression);
@@ -119,7 +121,7 @@ public:
 
     bool resolve_recursive(
             relation::expression const& expression,
-            saw_set& saw) {
+            saw_set<relation::expression>& saw) {
         if (saw.find(std::addressof(expression)) != saw.end()) {
             // already visited
             return true;
@@ -147,7 +149,7 @@ public:
 
     bool resolve(plan::step const& step, bool recursive) {
         if (recursive) {
-            std::unordered_set<plan::step const*> saw {};
+            saw_set<plan::step> saw {};
             if (step.kind() == plan::step_kind::process) {
                 return resolve_recursive(unsafe_downcast<plan::process>(step), saw);
             }
@@ -157,7 +159,7 @@ public:
     }
 
     template<class Step>
-    bool resolve_recursive(Step const& step, std::unordered_set<plan::step const*> saw) {
+    bool resolve_recursive(Step const& step, saw_set<plan::step> saw) {
         if (saw.find(std::addressof(step)) != saw.end()) {
             // already visited
             return true;

@@ -3,7 +3,6 @@
 #include <functional>
 #include <variant>
 #include <memory>
-#include <unordered_map>
 
 #include "variable_resolution_kind.h"
 

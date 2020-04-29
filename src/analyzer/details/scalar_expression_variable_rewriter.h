@@ -1,7 +1,8 @@
 #pragma once
 
-#include <unordered_map>
 #include <vector>
+
+#include <tsl/hopscotch_map.h>
 
 #include <takatori/scalar/expression.h>
 #include <takatori/util/object_creator.h>
@@ -17,13 +18,13 @@ class scalar_expression_variable_rewriter {
 public:
     using context_type = stream_variable_rewriter_context;
 
-    using local_map_type = std::unordered_map<
+    using local_map_type = ::tsl::hopscotch_map<
             ::takatori::descriptor::variable,
             ::takatori::descriptor::variable,
             std::hash<::takatori::descriptor::variable>,
             std::equal_to<>,
             ::takatori::util::object_allocator<std::pair<
-                    ::takatori::descriptor::variable const,
+                    ::takatori::descriptor::variable,
                     ::takatori::descriptor::variable>>>;
 
     using local_stack_type = std::vector<

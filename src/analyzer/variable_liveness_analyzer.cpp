@@ -235,6 +235,7 @@ struct liveness {
     block const* use {};
 };
 
+// FIXME: using hopscotch_map is prefer, but some compilation errors will occur around polymorphic_allocator
 using liveness_map = std::unordered_map<
         std::reference_wrapper<::takatori::descriptor::variable const>,
         liveness,

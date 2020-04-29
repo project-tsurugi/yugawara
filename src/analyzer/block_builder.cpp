@@ -1,7 +1,8 @@
 #include <yugawara/analyzer/block_builder.h>
 
-#include <unordered_set>
 #include <vector>
+
+#include <tsl/hopscotch_set.h>
 
 #include <cassert>
 
@@ -100,7 +101,7 @@ block_builder::block_builder(::takatori::graph::graph<::takatori::relation::expr
 ::takatori::graph::graph<block> block_builder::build(
         ::takatori::graph::graph<::takatori::relation::expression>& expressions) {
     std::vector<relation::expression*, ::takatori::util::object_allocator<relation::expression*>> heads;
-    std::unordered_set<
+    ::tsl::hopscotch_set<
             relation::expression*,
             std::hash<relation::expression*>,
             std::equal_to<>,

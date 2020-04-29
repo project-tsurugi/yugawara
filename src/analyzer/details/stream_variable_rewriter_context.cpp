@@ -41,7 +41,7 @@ void stream_variable_rewriter_context::each_undefined(consumer_type const& consu
 
 bool stream_variable_rewriter_context::try_rewrite_define(::takatori::descriptor::variable& variable) {
     if (auto it = mappings_.find(variable); it != mappings_.end()) {
-        auto&& e = it->second;
+        auto&& e = it.value();
         if (e.status != status_t::undefined) {
             throw std::domain_error(string_builder {}
                     << "redefine stream variable: "
@@ -123,6 +123,10 @@ void stream_variable_rewriter_context::alias(
 
 void stream_variable_rewriter_context::clear() {
     mappings_.clear();
+}
+
+::takatori::util::object_creator stream_variable_rewriter_context::get_object_creator() const noexcept {
+    return mappings_.get_allocator().resource();
 }
 
 } // namespace yugawara::analyzer::details

@@ -37,7 +37,7 @@ static ::takatori::plan::exchange const* extract(::takatori::descriptor::relatio
 
 exchange_column_info_map::element_type& exchange_column_info_map::get(::takatori::plan::exchange const& declaration) {
     if (auto it = mappings_.find(std::addressof(declaration)); it != mappings_.end()) {
-        return it->second;
+        return it.value();
     }
     throw std::invalid_argument(string_builder {}
             << "unregistered exchange: "
@@ -54,7 +54,7 @@ exchange_column_info_map::element_type& exchange_column_info_map::create_or_get(
         ::takatori::descriptor::relation const& relation) {
     auto [it, success] = mappings_.emplace(extract(relation), get_object_creator());
     (void) success;
-    return it->second;
+    return it.value();
 }
 
 void exchange_column_info_map::erase(::takatori::descriptor::relation const& relation) {
@@ -64,6 +64,10 @@ void exchange_column_info_map::erase(::takatori::descriptor::relation const& rel
 bool exchange_column_info_map::is_target(::takatori::descriptor::relation const& relation) {
     auto&& info = binding::unwrap(relation);
     return info.kind() == binding::exchange_info::tag;
+}
+
+::takatori::util::object_creator exchange_column_info_map::get_object_creator() const {
+    return mappings_.get_allocator().resource();
 }
 
 } // namespace yugawara::analyzer::details
