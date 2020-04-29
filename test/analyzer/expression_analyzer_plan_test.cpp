@@ -88,17 +88,17 @@ protected:
 };
 
 TEST_F(expression_analyzer_plan_test, process) {
-    auto t1 = storages_.add_relation("T1", storage::table {
+    auto t1 = storages_.add_table("T1", storage::table {
             "T1",
             {
                     { "C1", t::int4() },
             },
     });
     auto i1 = storages_.add_index("I1", storage::index {
-            std::dynamic_pointer_cast<storage::table const>(t1),
+            t1,
             "I1",
     });
-    auto cols = t1->columns();
+    auto&& cols = t1->columns();
     auto c1 = bindings.stream_variable();
 
     auto&& x1 = bindings.exchange_column();

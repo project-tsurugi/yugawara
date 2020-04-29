@@ -58,8 +58,6 @@ public:
         collect_keys(expr);
         build(expr);
 
-        (void) flow_volume_;
-
         left_term_builder_.clear();
         right_term_builder_.clear();
         left_key_buf_.clear();

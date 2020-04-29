@@ -29,7 +29,7 @@ public:
 
 TEST_F(storage_configurable_provider_test, find_relation) {
     auto p1 = std::make_shared<configurable_provider>();
-    auto&& element = p1->add_relation("TBL", table {
+    auto&& element = p1->add_table("TBL", table {
             "T1",
             {
                     { "C1", t::int4() },
@@ -42,7 +42,7 @@ TEST_F(storage_configurable_provider_test, find_relation) {
 
 TEST_F(storage_configurable_provider_test, find_relation_in_parent) {
     auto p1 = std::make_shared<configurable_provider>();
-    auto&& element = p1->add_relation("TBL", table {
+    auto&& element = p1->add_table("TBL", table {
             "T1",
             {
                     { "C1", t::int4() },
@@ -56,19 +56,19 @@ TEST_F(storage_configurable_provider_test, find_relation_in_parent) {
 
 TEST_F(storage_configurable_provider_test, each_relation) {
     auto p1 = std::make_shared<configurable_provider>();
-    auto&& e1 = p1->add_relation("T1", table {
+    auto&& e1 = p1->add_table("T1", table {
             "T1",
             {
                     { "C1", t::int4() },
             },
     });
-    auto&& e2 = p1->add_relation("T2", table {
+    auto&& e2 = p1->add_table("T2", table {
             "T2",
             {
                     { "C1", t::int4() },
             },
     });
-    auto&& e3 = p1->add_relation("T3", table {
+    auto&& e3 = p1->add_table("T3", table {
             "T3",
             {
                     { "C1", t::int4() },
@@ -90,13 +90,13 @@ TEST_F(storage_configurable_provider_test, each_relation) {
 
 TEST_F(storage_configurable_provider_test, each_relation_parent) {
     auto p1 = std::make_shared<configurable_provider>();
-    auto&& e1 = p1->add_relation("T1", table {
+    auto&& e1 = p1->add_table("T1", table {
             "T1",
             {
                     { "C1", t::int4() },
             },
     });
-    p1->add_relation("T2", table {
+    p1->add_table("T2", table {
             "T2",
             {
                     { "C1", t::int4() },
@@ -104,13 +104,13 @@ TEST_F(storage_configurable_provider_test, each_relation_parent) {
     });
 
     auto p2 = std::make_shared<configurable_provider>(p1);
-    auto&& e2 = p2->add_relation("T2", table {
+    auto&& e2 = p2->add_table("T2", table {
             "T2",
             {
                     { "C1", t::int4() },
             },
     }, true); // hiding
-    auto&& e3 = p2->add_relation("T3", table {
+    auto&& e3 = p2->add_table("T3", table {
             "T3",
             {
                     { "C1", t::int4() },
@@ -132,19 +132,19 @@ TEST_F(storage_configurable_provider_test, each_relation_parent) {
 
 TEST_F(storage_configurable_provider_test, add_relation_conflict) {
     auto p1 = std::make_shared<configurable_provider>();
-    auto&& element = p1->add_relation("TBL", table {
+    auto&& element = p1->add_table("TBL", table {
             "T1",
             {
                     { "C1", t::int4() },
             },
     });
 
-    EXPECT_THROW(p1->add_relation("TBL", element), std::invalid_argument);
+    EXPECT_THROW(p1->add_table("TBL", element), std::invalid_argument);
 }
 
 TEST_F(storage_configurable_provider_test, add_relation_conflict_in_parent) {
     auto p1 = std::make_shared<configurable_provider>();
-    auto&& element = p1->add_relation("TBL", table {
+    auto&& element = p1->add_table("TBL", table {
             "T1",
             {
                     { "C1", t::int4() },
@@ -157,7 +157,7 @@ TEST_F(storage_configurable_provider_test, add_relation_conflict_in_parent) {
 
 TEST_F(storage_configurable_provider_test, add_relation_hide_in_parent) {
     auto p1 = std::make_shared<configurable_provider>();
-    auto&& e1 = p1->add_relation("TBL", table {
+    auto&& e1 = p1->add_table("TBL", table {
             "T1",
             {
                     { "C1", t::int4() },
@@ -165,7 +165,7 @@ TEST_F(storage_configurable_provider_test, add_relation_hide_in_parent) {
     });
 
     auto p2 = std::make_shared<configurable_provider>(p1);
-    auto&& e2 = p2->add_relation("TBL", table {
+    auto&& e2 = p2->add_table("TBL", table {
             "T2",
             {
                     { "C1", t::int4() },
@@ -178,13 +178,13 @@ TEST_F(storage_configurable_provider_test, add_relation_hide_in_parent) {
 
 TEST_F(storage_configurable_provider_test, add_relation_overwrite) {
     auto p1 = std::make_shared<configurable_provider>();
-    auto e1 = p1->add_relation("TBL", table {
+    auto e1 = p1->add_table("TBL", table {
             "T1",
             {
                     { "C1", t::int4() },
             },
     });
-    auto e2 = p1->add_relation("TBL", table {
+    auto e2 = p1->add_table("TBL", table {
             "T2",
             {
                     { "C1", t::int4() },
@@ -199,7 +199,7 @@ TEST_F(storage_configurable_provider_test, add_relation_overwrite) {
 
 TEST_F(storage_configurable_provider_test, remove_relation) {
     auto p1 = std::make_shared<configurable_provider>();
-    auto&& element = p1->add_relation("TBL", table {
+    auto&& element = p1->add_table("TBL", table {
             "T1",
             {
                     { "C1", t::int4() },

@@ -83,6 +83,7 @@ add_test_executable(analyzer/details/scan_key_collector_test.cpp)
 add_test_executable(analyzer/details/rewrite_join_test.cpp)
 add_test_executable(analyzer/details/collect_join_keys_test.cpp)
 add_test_executable(analyzer/details/rewrite_scan_test.cpp)
+add_test_executable(analyzer/intermediate_plan_optimizer_test.cpp)
 
 # serializer
 add_test_executable(serializer/object_scanner_test.cpp)

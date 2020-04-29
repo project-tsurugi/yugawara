@@ -42,10 +42,7 @@ protected:
     storage::column const& t0c1 = t0->columns()[1];
     storage::column const& t0c2 = t0->columns()[2];
 
-    std::shared_ptr<storage::index> i0 = storages.add_index("I0", storage::index {
-            std::dynamic_pointer_cast<storage::table const>(t0),
-            "I0",
-    });
+    std::shared_ptr<storage::index> i0 = storages.add_index("I0", { t0, "I0", });
 
     void apply(relation::graph_type& graph) {
         default_index_estimator estimator;
@@ -101,7 +98,7 @@ TEST_F(rewrite_scan_test, point) {
     f0.output() >> out.input();
 
     auto x0 = storages.add_index("x0", storage::index {
-            std::dynamic_pointer_cast<storage::table const>(t0),
+            t0,
             "x0",
             {
                     t0->columns()[0],
@@ -145,7 +142,7 @@ TEST_F(rewrite_scan_test, range) {
     f0.output() >> out.input();
 
     auto x0 = storages.add_index("x0", storage::index {
-            std::dynamic_pointer_cast<storage::table const>(t0),
+            t0,
             "x0",
             {
                     t0->columns()[0],
@@ -196,7 +193,7 @@ TEST_F(rewrite_scan_test, mixed) {
     f0.output() >> out.input();
 
     auto x0 = storages.add_index("x0", storage::index {
-            std::dynamic_pointer_cast<storage::table const>(t0),
+            t0,
             "x0",
             {
                     t0->columns()[0],
@@ -204,7 +201,7 @@ TEST_F(rewrite_scan_test, mixed) {
             },
     });
     auto x1 = storages.add_index("x1", storage::index {
-            std::dynamic_pointer_cast<storage::table const>(t0),
+            t0,
             "x1",
             {
                     t0->columns()[1],
@@ -255,7 +252,7 @@ TEST_F(rewrite_scan_test, unique) {
     f0.output() >> out.input();
 
     auto x0 = storages.add_index("x0", storage::index {
-            std::dynamic_pointer_cast<storage::table const>(t0),
+            t0,
             "x0",
             {
                     t0->columns()[0],
@@ -263,7 +260,7 @@ TEST_F(rewrite_scan_test, unique) {
     });
 
     auto x1 = storages.add_index("x1", storage::index {
-            std::dynamic_pointer_cast<storage::table const>(t0),
+            t0,
             "x1",
             {
                     t0->columns()[0],
@@ -310,7 +307,7 @@ TEST_F(rewrite_scan_test, index_only) {
     f0.output() >> out.input();
 
     auto x0 = storages.add_index("x0", storage::index {
-            std::dynamic_pointer_cast<storage::table const>(t0),
+            t0,
             "x0",
             {},
             {

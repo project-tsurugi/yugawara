@@ -83,6 +83,7 @@ public:
         collector_.clear();
         term_buf_.clear();
         search_key_buf_.clear();
+        filter_buf_.clear();
         saved_scan_ = {};
         saved_index_ = {};
         saved_left_ = {};

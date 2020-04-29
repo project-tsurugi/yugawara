@@ -63,11 +63,13 @@ public:
 private:
     template<class T>
     void unset_optional_condition_if_true(T& expr) {
-        auto r = simplify_predicate(expr.ownership_condition());
-        if (r == simplify_predicate_result::constant_true) {
-            expr.condition(nullptr);
+        if (expr.condition()) {
+            auto r = simplify_predicate(expr.ownership_condition());
+            if (r == simplify_predicate_result::constant_true) {
+                expr.condition(nullptr);
+            }
+            // FIXME: more cases
         }
-        // FIXME: more cases
     }
 };
 

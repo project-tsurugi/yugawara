@@ -44,8 +44,6 @@ void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& g
     details::collect_join_keys(graph, flow_volume, collect_join_keys_features, get_object_creator());
     details::rewrite_scan(graph, options_.storage_provider(), options_.index_estimator(), get_object_creator());
     details::remove_redundant_conditions(graph);
-
-    // FIXME: impl
 }
 
 } // namespace yugawara::analyzer

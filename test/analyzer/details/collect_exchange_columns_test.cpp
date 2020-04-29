@@ -49,7 +49,7 @@ protected:
 
     storage::configurable_provider storages;
 
-    std::shared_ptr<storage::relation> t0 = storages.add_relation("T0", storage::table {
+    std::shared_ptr<storage::table> t0 = storages.add_table("t0", {
             "T0",
             {
                     { "C0", t::int4() },
@@ -57,7 +57,7 @@ protected:
                     { "C2", t::int4() },
             },
     });
-    std::shared_ptr<storage::relation> t1 = storages.add_relation("T1", storage::table {
+    std::shared_ptr<storage::table> t1 = storages.add_table("t1", {
             "T1",
             {
                     { "C0", t::int4() },
@@ -72,14 +72,8 @@ protected:
     descriptor::variable t1c1 = bindings(t1->columns()[1]);
     descriptor::variable t1c2 = bindings(t1->columns()[2]);
 
-    std::shared_ptr<storage::index> i0 = storages.add_index("I0", storage::index {
-            std::dynamic_pointer_cast<storage::table const>(t0),
-            "I0",
-    });
-    std::shared_ptr<storage::index> i1 = storages.add_index("I1", storage::index {
-            std::dynamic_pointer_cast<storage::table const>(t1),
-            "I1",
-    });
+    std::shared_ptr<storage::index> i0 = storages.add_index("I0", { t0, "I0", });
+    std::shared_ptr<storage::index> i1 = storages.add_index("I1", { t1, "I1" });
 
     aggregate::configurable_provider aggregates;
     std::shared_ptr<aggregate::declaration> agg0 = aggregates.add(aggregate::declaration {

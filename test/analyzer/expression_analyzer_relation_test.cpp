@@ -133,17 +133,17 @@ protected:
 };
 
 TEST_F(expression_analyzer_relation_test, scan) {
-    auto t1 = storages_.add_relation("T1", storage::table {
+    auto t1 = storages_.add_table("T1", storage::table {
             "T1",
             {
                     { "C1", t::int4() },
             },
     });
     auto i1 = storages_.add_index("I1", storage::index {
-            std::dynamic_pointer_cast<storage::table const>(t1),
+            t1,
             "I1",
     });
-    auto cols = t1->columns();
+    auto&& cols = t1->columns();
     auto c1 = bindings.stream_variable();
     r::scan expr {
             bindings(*i1),
@@ -174,17 +174,17 @@ TEST_F(expression_analyzer_relation_test, join) {
 }
 
 TEST_F(expression_analyzer_relation_test, join_find) {
-    auto t1 = storages_.add_relation("T1", storage::table {
+    auto t1 = storages_.add_table("T1", storage::table {
             "T1",
             {
                     { "C1", t::int4() },
             },
     });
     auto i1 = storages_.add_index("I1", storage::index {
-            std::dynamic_pointer_cast<storage::table const>(t1),
+            t1,
             "I1",
     });
-    auto cols = t1->columns();
+    auto&& cols = t1->columns();
     auto c1 = bindings.stream_variable();
     r::join_find expr {
             r::join_find::operator_kind_type::inner,
@@ -209,17 +209,17 @@ TEST_F(expression_analyzer_relation_test, join_find) {
 }
 
 TEST_F(expression_analyzer_relation_test, join_scan) {
-    auto t1 = storages_.add_relation("T1", storage::table {
+    auto t1 = storages_.add_table("T1", storage::table {
             "T1",
             {
                     { "C1", t::int4() },
             },
     });
     auto i1 = storages_.add_index("I1", storage::index {
-            std::dynamic_pointer_cast<storage::table const>(t1),
+            t1,
             "I1",
     });
-    auto cols = t1->columns();
+    auto&& cols = t1->columns();
     auto c1 = bindings.stream_variable();
     r::join_scan expr {
             r::join_scan::operator_kind_type::inner,
@@ -436,14 +436,14 @@ TEST_F(expression_analyzer_relation_test, emit) {
 }
 
 TEST_F(expression_analyzer_relation_test, write) {
-    auto t1 = storages_.add_relation("T1", storage::table {
+    auto t1 = storages_.add_table("T1", storage::table {
             "T1",
             {
                     { "C1", t::int4() },
             },
     });
     auto i1 = storages_.add_index("I1", storage::index {
-            std::dynamic_pointer_cast<storage::table const>(t1),
+            t1,
             "I1",
     });
     r::write expr {
