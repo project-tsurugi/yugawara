@@ -1,4 +1,4 @@
-#include "variable_resolution_scanner.h"
+#include "resolution_scanner.h"
 
 #include <yugawara/storage/table.h>
 
@@ -8,7 +8,7 @@ using namespace std::string_view_literals;
 
 using ::takatori::util::optional_ptr;
 
-variable_resolution_scanner::variable_resolution_scanner(
+resolution_scanner::resolution_scanner(
         takatori::serializer::object_scanner& scanner,
         takatori::serializer::object_acceptor& acceptor,
         optional_ptr<analyzer::variable_mapping const> variable_mapping,
@@ -19,7 +19,7 @@ variable_resolution_scanner::variable_resolution_scanner(
     , expression_mapping_(std::move(expression_mapping))
 {}
 
-void variable_resolution_scanner::scan(takatori::descriptor::variable const& element) {
+void resolution_scanner::scan(takatori::descriptor::variable const& element) {
     if (variable_mapping_) {
         acceptor_.struct_begin();
 
@@ -35,11 +35,24 @@ void variable_resolution_scanner::scan(takatori::descriptor::variable const& ele
     }
 }
 
-void variable_resolution_scanner::operator()(tag_t<kind::unresolved>, analyzer::variable_resolution const&) {
+void resolution_scanner::scan(takatori::scalar::expression const& element) {
+    if (expression_mapping_) {
+        auto resolution = expression_mapping_->find(element);
+        acceptor_.struct_begin();
+        acceptor_.property_begin("type"sv);
+        if (auto v = resolution.optional_type()) {
+            scanner_(*v, acceptor_);
+        }
+        acceptor_.property_end();
+        acceptor_.struct_end();
+    }
+}
+
+void resolution_scanner::operator()(tag_t<kind::unresolved>, analyzer::variable_resolution const&) {
     // no special elements
 }
 
-void variable_resolution_scanner::operator()(tag_t<kind::unknown>, analyzer::variable_resolution const& element) {
+void resolution_scanner::operator()(tag_t<kind::unknown>, analyzer::variable_resolution const& element) {
     auto&& entity = element.element<kind::unknown>();
 
     acceptor_.property_begin("type"sv);
@@ -49,7 +62,7 @@ void variable_resolution_scanner::operator()(tag_t<kind::unknown>, analyzer::var
     acceptor_.property_end();
 }
 
-void variable_resolution_scanner::operator()(tag_t<kind::scalar_expression>, analyzer::variable_resolution const& element) {
+void resolution_scanner::operator()(tag_t<kind::scalar_expression>, analyzer::variable_resolution const& element) {
     auto&& entity = element.element<kind::scalar_expression>();
 
     acceptor_.property_begin("expression"sv);
@@ -69,13 +82,13 @@ void variable_resolution_scanner::operator()(tag_t<kind::scalar_expression>, ana
     acceptor_.property_begin("type"sv);
     if (expression_mapping_) {
         if (auto v = expression_mapping_->find(entity)) {
-            scanner_(*v, acceptor_);
+            scanner_(v.type(), acceptor_);
         }
     }
     acceptor_.property_end();
 }
 
-void variable_resolution_scanner::operator()(tag_t<kind::table_column>, analyzer::variable_resolution const& element) {
+void resolution_scanner::operator()(tag_t<kind::table_column>, analyzer::variable_resolution const& element) {
     auto&& entity = element.element<kind::table_column>();
 
     acceptor_.property_begin("simple_name"sv);
@@ -95,7 +108,7 @@ void variable_resolution_scanner::operator()(tag_t<kind::table_column>, analyzer
     acceptor_.property_end();
 }
 
-void variable_resolution_scanner::operator()(tag_t<kind::external>, analyzer::variable_resolution const& element) {
+void resolution_scanner::operator()(tag_t<kind::external>, analyzer::variable_resolution const& element) {
     auto&& entity = element.element<kind::external>();
 
     acceptor_.property_begin("name"sv);
@@ -109,7 +122,7 @@ void variable_resolution_scanner::operator()(tag_t<kind::external>, analyzer::va
     acceptor_.property_end();
 }
 
-void variable_resolution_scanner::operator()(tag_t<kind::function_call>, analyzer::variable_resolution const& element) {
+void resolution_scanner::operator()(tag_t<kind::function_call>, analyzer::variable_resolution const& element) {
     auto&& entity = element.element<kind::function_call>();
 
     acceptor_.property_begin("definition_id"sv);
@@ -129,7 +142,7 @@ void variable_resolution_scanner::operator()(tag_t<kind::function_call>, analyze
     acceptor_.property_end();
 }
 
-void variable_resolution_scanner::operator()(tag_t<kind::aggregation>, analyzer::variable_resolution const& element) {
+void resolution_scanner::operator()(tag_t<kind::aggregation>, analyzer::variable_resolution const& element) {
     auto&& entity = element.element<kind::aggregation>();
 
     acceptor_.property_begin("definition_id"sv);

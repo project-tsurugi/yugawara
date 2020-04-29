@@ -182,8 +182,13 @@ public:
      * @return true if this represents resolved information
      * @return false if this is unresolved information
      */
-    [[nodiscard]] explicit constexpr operator bool() const noexcept {
+    [[nodiscard]] constexpr bool is_resolved() const noexcept {
         return kind() != kind_type::unresolved;
+    }
+
+    /// @copydoc is_resolved()
+    [[nodiscard]] explicit constexpr operator bool() const noexcept {
+        return is_resolved();
     }
 
     /**

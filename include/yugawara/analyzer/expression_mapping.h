@@ -1,12 +1,13 @@
 #pragma once
 
-#include <functional>
 #include <memory>
 #include <unordered_map>
 
 #include <takatori/scalar/expression.h>
 #include <takatori/type/data.h>
 #include <takatori/util/object_creator.h>
+
+#include "expression_resolution.h"
 
 namespace yugawara::analyzer {
 
@@ -32,35 +33,20 @@ public:
      * @return the resolved type
      * @return empty if the target expression has not been resolved yet
      */
-    [[nodiscard]] std::shared_ptr<::takatori::type::data const> find(
-            ::takatori::scalar::expression const& expression) const;
+    [[nodiscard]] expression_resolution const& find(::takatori::scalar::expression const& expression) const;
 
     /**
      * @brief sets the resolved type for the expression.
      * @attention this is designed only for testing
      * @param expression the target expression
-     * @param type the expression type
+     * @param resolution the resolved information
      * @param overwrite whether or not the overwrite the existing result if it exists
      * @return the bound type
-     * @throws std::domain_error if the specified variable has been resolved with `overwrite=true`
+     * @throws std::domain_error if the specified expression has been resolved with `overwrite=true`
      */
-    std::shared_ptr<::takatori::type::data const> const& bind(
+    expression_resolution const& bind(
             ::takatori::scalar::expression const& expression,
-            std::shared_ptr<::takatori::type::data const> type,
-            bool overwrite = false);
-
-    /**
-     * @brief sets the resolved type for the expression.
-     * @param expression the target expression
-     * @param type the expression type
-     * @param overwrite whether or not the overwrite the existing result if it exists
-     * @return the bound type
-     * @throws std::domain_error if the specified variable has been resolved with `overwrite=true`
-     * @note this is defined only for testing
-     */
-    std::shared_ptr<::takatori::type::data const> const& bind(
-            ::takatori::scalar::expression const& expression,
-            ::takatori::type::data&& type,
+            expression_resolution resolution,
             bool overwrite = false);
 
     /**
@@ -72,12 +58,12 @@ public:
 private:
     std::unordered_map<
             ::takatori::scalar::expression const*,
-            std::shared_ptr<::takatori::type::data const>,
+            expression_resolution,
             std::hash<::takatori::scalar::expression const*>,
             std::equal_to<>,
             ::takatori::util::object_allocator<std::pair<
                     ::takatori::scalar::expression const* const,
-                    std::shared_ptr<::takatori::type::data>>>> mapping_;
+                    expression_resolution>>> mapping_;
 };
 
 } // namespace yugawara::analyzer

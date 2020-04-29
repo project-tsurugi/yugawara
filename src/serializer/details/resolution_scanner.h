@@ -10,19 +10,20 @@
 
 namespace yugawara::serializer::details {
 
-class variable_resolution_scanner {
+class resolution_scanner {
 public:
     template<auto K>
     using tag_t = ::takatori::util::enum_tag_t<K>;
     using kind = analyzer::variable_resolution_kind;
 
-    explicit variable_resolution_scanner(
+    explicit resolution_scanner(
             ::takatori::serializer::object_scanner& scanner,
             ::takatori::serializer::object_acceptor& acceptor,
             ::takatori::util::optional_ptr<analyzer::variable_mapping const> variable_mapping,
             ::takatori::util::optional_ptr<analyzer::expression_mapping const> expression_mapping) noexcept;
 
     void scan(::takatori::descriptor::variable const& element);
+    void scan(::takatori::scalar::expression const& element);
 
     void operator()(tag_t<kind::unresolved>, analyzer::variable_resolution const& element);
     void operator()(tag_t<kind::unknown>, analyzer::variable_resolution const& element);

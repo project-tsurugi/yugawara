@@ -40,11 +40,12 @@ add_library(yugawara
     variable/quantification.cpp
 
     # analyzer
-    analyzer/variable_mapping.cpp
     analyzer/expression_mapping.cpp
+    analyzer/expression_resolution.cpp
+    analyzer/variable_mapping.cpp
+    analyzer/variable_resolution.cpp
     analyzer/expression_analyzer.cpp
     analyzer/type_diagnostic.cpp
-    analyzer/variable_resolution.cpp
     analyzer/block.cpp
     analyzer/block_algorithm.cpp
     analyzer/block_builder.cpp
@@ -96,7 +97,7 @@ add_library(yugawara
     # serializer
     serializer/object_scanner.cpp
     serializer/details/binding_scanner.cpp
-    serializer/details/variable_resolution_scanner.cpp
+    serializer/details/resolution_scanner.cpp
     serializer/details/predicate_scanner.cpp
 )
 

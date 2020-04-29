@@ -104,7 +104,7 @@ public:
 
     type_ptr resolve(scalar::expression const& expression) {
         if (auto resolved = ana_.expressions().find(expression)) {
-            return resolved;
+            return resolved.shared_type();
         }
         auto resolved = scalar::dispatch(*this, expression);
         ana_.expressions().bind(expression, resolved, true);
@@ -1570,7 +1570,7 @@ std::shared_ptr<::takatori::type::data const> expression_analyzer::inspect(
         }
         case kind::scalar_expression: {
             auto&& expr = resolution.element<kind::scalar_expression>();
-            return expressions_->find(expr);
+            return expressions_->find(expr).shared_type();
         }
         case kind::table_column: {
             auto&& column = resolution.element<kind::table_column>();

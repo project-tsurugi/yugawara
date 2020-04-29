@@ -85,6 +85,9 @@ private:
 
     template<::takatori::descriptor::descriptor_kind Kind>
     void accept_properties(::takatori::descriptor::element<Kind> const& element, ::takatori::serializer::object_acceptor& acceptor);
+
+    template<class T>
+    void accept_resolution(T const& element, ::takatori::serializer::object_acceptor& acceptor);
 };
 
 } // namespace yugawara::serializer

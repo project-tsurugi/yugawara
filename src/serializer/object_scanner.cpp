@@ -12,7 +12,7 @@
 #include <yugawara/type/extensions/extension_kind.h>
 
 #include "details/binding_scanner.h"
-#include "details/variable_resolution_scanner.h"
+#include "details/resolution_scanner.h"
 
 namespace yugawara::serializer {
 
@@ -44,16 +44,7 @@ object_scanner& object_scanner::expression_mapping(std::shared_ptr<analyzer::exp
 
 void object_scanner::properties(descriptor::variable const& element, object_acceptor& acceptor) {
     accept_properties(element, acceptor);
-
-    acceptor.property_begin("resolution"sv);
-    details::variable_resolution_scanner s {
-            *this,
-            acceptor,
-            optional_ptr { variable_mapping_.get() },
-            optional_ptr { expression_mapping_.get() },
-    };
-    s.scan(element);
-    acceptor.property_end();
+    accept_resolution(element, acceptor);
 }
 
 void object_scanner::properties(descriptor::relation const& element, object_acceptor& acceptor) {
@@ -87,18 +78,7 @@ void object_scanner::properties(scalar::expression const& element, object_accept
     acceptor.property_end();
 
     ::takatori::serializer::object_scanner::properties(element, acceptor);
-
-    acceptor.property_begin("resolution"sv);
-    if (expression_mapping_) {
-        acceptor.struct_begin();
-        acceptor.property_begin("type"sv);
-        if (auto type = expression_mapping_->find(element)) {
-            (*this)(*type, acceptor);
-        }
-        acceptor.property_end();
-        acceptor.struct_end();
-    }
-    acceptor.property_end();
+    accept_resolution(element, acceptor);
 }
 
 template<::takatori::descriptor::descriptor_kind Kind>
@@ -112,6 +92,19 @@ void object_scanner::accept_properties(descriptor::element<Kind> const& element,
             optional_ptr { expression_mapping_.get() },
     };
     s.scan(info);
+    acceptor.property_end();
+}
+
+template<class T>
+void object_scanner::accept_resolution(T const& element, object_acceptor& acceptor) {
+    acceptor.property_begin("resolution"sv);
+    details::resolution_scanner s {
+            *this,
+            acceptor,
+            optional_ptr { variable_mapping_.get() },
+            optional_ptr { expression_mapping_.get() },
+    };
+    s.scan(element);
     acceptor.property_end();
 }
 

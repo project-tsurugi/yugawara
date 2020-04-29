@@ -35,12 +35,12 @@ public:
      * @return the resolved type
      * @return empty if the target expression has not been resolved yet
      */
-    variable_resolution const& find(::takatori::descriptor::variable const& variable) const;
+    [[nodiscard]] variable_resolution const& find(::takatori::descriptor::variable const& variable) const;
 
     /**
      * @brief sets the resolved type for the variable.
      * @param variable the target variable
-     * @param resolution the resolved type
+     * @param resolution the resolved information
      * @param overwrite whether or not the overwrite the existing result if it exists
      * @return the stored resolution
      * @throws std::domain_error if the specified variable has been already resolved on `overwrite=false`
