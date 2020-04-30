@@ -108,7 +108,7 @@ private:
     takatori::util::unique_object_ptr<cache_type> cache_;
 
     template<class U>
-    std::shared_ptr<value_type> internal_get(U&& value) {
+    [[nodiscard]] std::shared_ptr<value_type> internal_get(U&& value) {
         if (cache_) {
             return cache_->add(std::forward<U>(value)).lock();
         }

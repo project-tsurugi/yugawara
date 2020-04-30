@@ -8,7 +8,7 @@ std::shared_ptr<class table const> provider::find_table(std::string_view id) con
 
 void provider::each_table_index(
         class table const& table,
-        std::function<void(std::string_view id, std::shared_ptr<index const> const&)> consumer) const {
+        index_consumer_type const& consumer) const {
     each_index([&](std::string_view id, std::shared_ptr<index const> const& idx) {
         if (std::addressof(idx->table()) == std::addressof(table)) {
             consumer(id, idx);

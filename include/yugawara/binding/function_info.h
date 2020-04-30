@@ -107,7 +107,7 @@ private:
  * @param info the source information
  * @return the wrapped descriptor
  */
-function_info::descriptor_type wrap(std::shared_ptr<function_info> info) noexcept;
+[[nodiscard]] function_info::descriptor_type wrap(std::shared_ptr<function_info> info) noexcept;
 
 /**
  * @brief extracts information from the descriptor.
@@ -115,7 +115,7 @@ function_info::descriptor_type wrap(std::shared_ptr<function_info> info) noexcep
  * @return the corresponded object information
  * @warning undefined behavior if the descriptor was broken
  */
-function_info& unwrap(function_info::descriptor_type const& descriptor);
+[[nodiscard]] function_info& unwrap(function_info::descriptor_type const& descriptor);
 
 } // namespace yugawara::binding
 

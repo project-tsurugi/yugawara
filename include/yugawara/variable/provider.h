@@ -13,6 +13,9 @@ namespace yugawara::variable {
  */
 class provider {
 public:
+    /// @brief the declaration consumer type.
+    using consumer_type = std::function<void(std::shared_ptr<declaration const> const&)>;
+
     /**
      * @brief creates a new instance.
      */
@@ -32,7 +35,7 @@ public:
      * @brief provides all external variable declarations into the consumer.
      * @param consumer the destination consumer
      */
-    virtual void each(std::function<void(std::shared_ptr<declaration const> const&)> consumer) const = 0;
+    virtual void each(consumer_type const& consumer) const = 0;
 
     /**
      * @brief returns an external variable declaration.

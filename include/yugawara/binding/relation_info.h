@@ -108,7 +108,7 @@ protected:
  * @param info the source information
  * @return the wrapped descriptor
  */
-relation_info::descriptor_type wrap(std::shared_ptr<relation_info> info) noexcept;
+[[nodiscard]] relation_info::descriptor_type wrap(std::shared_ptr<relation_info> info) noexcept;
 
 /**
  * @brief extracts information from the descriptor.
@@ -116,7 +116,7 @@ relation_info::descriptor_type wrap(std::shared_ptr<relation_info> info) noexcep
  * @return the corresponded object information
  * @warning undefined behavior if the descriptor was broken
  */
-relation_info& unwrap(relation_info::descriptor_type const& descriptor);
+[[nodiscard]] relation_info& unwrap(relation_info::descriptor_type const& descriptor);
 
 } // namespace yugawara::binding
 

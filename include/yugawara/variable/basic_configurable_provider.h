@@ -56,7 +56,7 @@ public:
                 creator.allocator(std::in_place_type<typename decltype(declarations_)::value_type>))
     {}
 
-    void each(std::function<void(std::shared_ptr<declaration const> const&)> consumer) const override {
+    void each(consumer_type const& consumer) const override {
         internal_each(consumer);
         if (parent_) {
             parent_->each([&](auto& d) {
@@ -151,7 +151,7 @@ private:
     mutable mutex_type mutex_ {};
 
 
-    void internal_each(std::function<void(std::shared_ptr<declaration const> const&)> const& consumer) const {
+    void internal_each(consumer_type const& consumer) const {
         std::lock_guard lock { mutex_ };
         for (auto&& [name, declaration] : declarations_) {
             (void) name;

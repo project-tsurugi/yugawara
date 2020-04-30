@@ -46,20 +46,20 @@ public:
 
     using provider::each;
 
-    void each(std::function<void(std::shared_ptr<declaration const> const&)> consumer) const override {
+    void each(consumer_type const& consumer) const override {
         internal_each(consumer);
         if (parent_) {
-            parent_->each(std::move(consumer));
+            parent_->each(consumer);
         }
     }
 
     void each(
             std::string_view name,
             std::size_t parameter_count,
-            std::function<void(std::shared_ptr<declaration const> const&)> consumer) const override {
+            consumer_type const& consumer) const override {
         internal_each(name, parameter_count, consumer);
         if (parent_) {
-            parent_->each(name, parameter_count, std::move(consumer));
+            parent_->each(name, parameter_count, consumer);
         }
     }
 
@@ -125,7 +125,7 @@ private:
     mutable mutex_type mutex_ {};
 
 
-    void internal_each(std::function<void(std::shared_ptr<declaration const> const&)> const& consumer) const {
+    void internal_each(consumer_type const& consumer) const {
         std::lock_guard lock { mutex_ };
         for (auto&& [name, declaration] : declarations_) {
             (void) name;
@@ -136,7 +136,7 @@ private:
     void internal_each(
             std::string_view name,
             std::size_t parameter_count,
-            std::function<void(std::shared_ptr<declaration const> const&)> const& consumer) const {
+            consumer_type const& consumer) const {
         std::lock_guard lock { mutex_ };
         auto first = declarations_.lower_bound(name);
         auto last = declarations_.upper_bound(name);

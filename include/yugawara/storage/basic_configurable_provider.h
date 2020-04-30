@@ -49,7 +49,7 @@ public:
      * @param consumer the destination consumer, which accepts pairs of element ID and element
      * @note The hidden entries in parent provider will not occur in the consumer.
      */
-    void each_relation(relation_consumer consumer) const override {
+    void each_relation(relation_consumer_type consumer) const override {
         internal_each<&provider::each_relation>(relations_, consumer);
     }
 
@@ -111,7 +111,7 @@ public:
      * @param consumer the destination consumer, which accepts pairs of element ID and element
      * @note The hidden entries in parent provider will not occur in the consumer.
      */
-    void each_index(index_consumer consumer) const override {
+    void each_index(index_consumer_type const& consumer) const override {
         internal_each<&provider::each_index>(indices_, consumer);
     }
 
@@ -204,7 +204,7 @@ private:
     template<auto Each, class Container>
     void internal_each(
             Container& container,
-            std::function<void(std::string_view id, std::shared_ptr<element_type<Container> const> const&)>& consumer) const {
+            consumer_type<element_type<Container>> const& consumer) const {
         std::lock_guard lock { mutex_ };
         for (auto&& entry : container) {
             consumer(entry.first, entry.second);

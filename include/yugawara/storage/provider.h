@@ -16,18 +16,23 @@ namespace yugawara::storage {
 class provider {
 public:
     /**
-     * @brief the relation consumer type, which accepts relation entries.
+     * @brief the consumer type.
+     * @tparam the entry type
      * @param id the relation ID
-     * @param entry the relation entry
+     * @param entry the entry
      */
-    using relation_consumer = std::function<void(std::string_view id, std::shared_ptr<relation const> const& entry)>;
+    template<class T>
+    using consumer_type = std::function<void(std::string_view id, std::shared_ptr<T const> const& entry)>;
 
     /**
-     * @brief the index consumer type, which accepts index entries.
-     * @param id the index ID
-     * @param entry the index entry
+     * @brief the relation consumer type.
      */
-    using index_consumer = std::function<void(std::string_view id, std::shared_ptr<index const> const& entry)>;
+    using relation_consumer_type = consumer_type<relation>;
+
+    /**
+     * @brief the index consumer type.
+     */
+    using index_consumer_type = consumer_type<index>;
 
     /**
      * @brief creates a new instance.
@@ -72,20 +77,20 @@ public:
      * @brief provides all relations in this provider.
      * @param consumer the destination consumer, which accepts pairs of element ID and element
      */
-    virtual void each_relation(relation_consumer consumer) const = 0;
+    virtual void each_relation(relation_consumer_type consumer) const = 0;
 
     /**
      * @brief provides all indices in this provider.
      * @param consumer the destination consumer, which accepts pairs of element ID and element
      */
-    virtual void each_index(index_consumer consumer) const = 0;
+    virtual void each_index(index_consumer_type const& consumer) const = 0;
 
     /**
      * @brief provides all indices of the given table into the consumer.
      * @param table the target table
      * @param consumer the destination consumer
      */
-    virtual void each_table_index(class table const& table, index_consumer consumer) const;
+    virtual void each_table_index(class table const& table, index_consumer_type const& consumer) const;
 
     /**
      * @brief returns a primary index of the table.

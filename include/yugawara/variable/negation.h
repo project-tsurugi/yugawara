@@ -79,7 +79,7 @@ public:
      * @return the negation target
      * @return empty if the operand is absent
      */
-    takatori::util::unique_object_ptr<predicate> release_operand() noexcept;
+    [[nodiscard]] takatori::util::unique_object_ptr<predicate> release_operand() noexcept;
 
     /**
      * @brief sets the negation target.
