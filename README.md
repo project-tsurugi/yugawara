@@ -37,7 +37,7 @@ see [README](third_party/takatori/README.md).
 mkdir -p build-third_party/hopscotch-map
 cd build-third_party/hopscotch-map
 cmake -G Ninja -DCMAKE_INSTALL_PREFIX=[/path/to/install-prefix] ../../third_party/hopscotch-map
-ninja install
+cmake --build . --target install
 ```
 
 see https://github.com/Tessil/hopscotch-map
@@ -48,7 +48,7 @@ see https://github.com/Tessil/hopscotch-map
 mkdir -p build
 cd build
 cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
-ninja
+cmake --build .
 ```
 
 available options:
@@ -62,7 +62,7 @@ available options:
 ### install
 
 ```sh
-ninja install
+cmake --build . --target install
 ```
 
 ### run tests
@@ -74,7 +74,7 @@ ctest
 ### generate documents
 
 ```sh
-ninja doxygen
+cmake --build . --target doxygen
 ```
 
 ## License
