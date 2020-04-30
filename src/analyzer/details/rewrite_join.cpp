@@ -13,7 +13,6 @@
 
 #include <takatori/relation/filter.h>
 
-#include <takatori/util/clonable.h>
 #include <takatori/util/downcast.h>
 #include <takatori/util/optional_ptr.h>
 
@@ -33,7 +32,6 @@ using attribute = details::index_estimator_result_attribute;
 
 using ::takatori::relation::join_kind;
 using ::takatori::relation::join_kind_set;
-using ::takatori::util::clone_unique;
 using ::takatori::util::object_allocator;
 using ::takatori::util::object_creator;
 using ::takatori::util::object_ownership_reference;
@@ -374,8 +372,7 @@ private:
         if (auto&& current = condition.find();
                 current
                 && current != boolean_expression(true)) {
-            // FIXME: condition.release()
-            result = clone_unique(std::move(*current), get_object_creator());
+            result = condition.exchange({});
         }
         for (auto* filter : filters) {
             if (filter->condition() != boolean_expression(true)) {

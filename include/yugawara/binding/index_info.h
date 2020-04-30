@@ -46,8 +46,6 @@ public:
      */
     [[nodiscard]] storage::index const& declaration() const noexcept;
 
-    /// FIXME: columns
-
     /**
      * @brief returns whether or not the both indices are identical.
      * @param a the first relation

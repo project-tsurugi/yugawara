@@ -36,9 +36,7 @@ public:
                         << expr.output()
                         << string_builder::to_string);
             }
-            upstream->disconnect_from(expr.input());
-            downstream->disconnect_from(expr.output());
-            upstream->connect_to(*downstream);
+            upstream->reconnect_to(*downstream);
             return true;
         }
         // FIXME: more cases

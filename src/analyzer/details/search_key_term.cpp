@@ -132,10 +132,9 @@ unique_object_ptr<scalar::expression> search_key_term::purge(
         std::optional<expression_ref>& term,
         std::optional<expression_ref>& factor) {
     if (term) {
-        // FIXME: improve performance
-        auto copy = clone_unique(std::move(factor->value()), creator_);
+        auto result = factor->exchange({});
         *term = boolean_expression(true, creator_);
-        return copy;
+        return result;
     }
     throw std::domain_error("cannot purge undefined term");
 }

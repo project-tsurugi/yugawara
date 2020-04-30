@@ -83,9 +83,7 @@ public:
     [[nodiscard]] unique_object_ptr<scalar::expression> release() {
         assert(available()); // NOLINT
         if (--reference_count_ == 0) {
-            auto result = clone_unique(std::move(*expression_), get_object_creator());
-            expression_ = boolean_expression(true, get_object_creator());
-            return result;
+            return expression_.exchange(boolean_expression(true, get_object_creator()));
         }
         uses_.clear();
         return clone_unique(*expression_, get_object_creator());
