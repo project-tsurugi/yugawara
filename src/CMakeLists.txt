@@ -101,15 +101,7 @@ add_library(yugawara
     serializer/details/predicate_scanner.cpp
 )
 
-add_executable(yugawara-exec
-    main.cpp
-)
-
 target_include_directories(yugawara
-    PRIVATE .
-)
-
-target_include_directories(yugawara-exec
     PRIVATE .
 )
 
@@ -117,10 +109,6 @@ target_link_libraries(yugawara
     PUBLIC yugawara-api
     PUBLIC takatori
     PRIVATE tsl::hopscotch_map
-)
-
-target_link_libraries(yugawara-exec
-    PUBLIC yugawara
 )
 
 set_target_properties(yugawara
@@ -160,15 +148,9 @@ if (FORCE_INSTALL_RPATH)
         )
 endif (FORCE_INSTALL_RPATH)
 
-set_target_properties(yugawara-exec
-    PROPERTIES
-        SOVERSION ${PROJECT_VERSION}
-)
-
 install(
     TARGETS
         yugawara
-        yugawara-exec
     EXPORT
         ${export_name}
     LIBRARY
