@@ -2,6 +2,8 @@
 
 #include <stdexcept>
 
+#include <cassert>
+
 #include <takatori/scalar/variable_reference.h>
 
 #include <takatori/relation/intermediate/dispatch.h>

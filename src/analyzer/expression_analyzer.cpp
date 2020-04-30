@@ -5,6 +5,8 @@
 #include <utility>
 #include <vector>
 
+#include <cassert>
+
 #include <boost/container/static_vector.hpp>
 
 #include <tsl/hopscotch_set.h>

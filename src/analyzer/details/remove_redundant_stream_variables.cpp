@@ -1,5 +1,7 @@
 #include "remove_redundant_stream_variables.h"
 
+#include <cassert>
+
 #include <tsl/hopscotch_set.h>
 
 #include <takatori/scalar/walk.h>

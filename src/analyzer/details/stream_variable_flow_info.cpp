@@ -2,6 +2,8 @@
 
 #include <stdexcept>
 
+#include <cassert>
+
 #include <takatori/relation/intermediate/dispatch.h>
 
 #include <takatori/util/optional_ptr.h>
