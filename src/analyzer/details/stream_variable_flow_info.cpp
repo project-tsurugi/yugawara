@@ -2,10 +2,9 @@
 
 #include <stdexcept>
 
-#include <cassert>
-
 #include <takatori/relation/intermediate/dispatch.h>
 
+#include <takatori/util/assertion.h>
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/string_builder.h>
 
@@ -42,7 +41,7 @@ public:
             if (entry_.originator()) {
                 break;
             }
-            assert(expr.input_ports().size() == 1); // NOLINT
+            BOOST_ASSERT(expr.input_ports().size() == 1); // NOLINT
             current = expr.input_ports()[0];
         }
     }
@@ -183,7 +182,7 @@ optional_ptr<stream_variable_flow_info::entry_type> stream_variable_flow_info::f
     if (e.find(variable)) {
         return e;
     }
-    assert(e.originator()); // NOLINT
+    BOOST_ASSERT(e.originator()); // NOLINT
     if (!e.is_separator() && e.originator()) {
         for (auto&& p : e.originator()->input_ports()) {
             if (auto r = find(variable, p)) {
@@ -199,7 +198,7 @@ void stream_variable_flow_info::each(
         consumer_type const& consumer) {
     auto&& e = entry(port);
     e.each(consumer);
-    assert(e.originator()); // NOLINT
+    BOOST_ASSERT(e.originator()); // NOLINT
     if (!e.is_separator() && e.originator()) {
         for (auto&& p : e.originator()->input_ports()) {
             each(p, consumer);

@@ -1,7 +1,6 @@
 #include "collect_step_relations.h"
 
 #include <stdexcept>
-#include <cassert>
 
 #include <takatori/relation/intermediate/escape.h>
 #include <takatori/relation/step/dispatch.h>
@@ -9,6 +8,7 @@
 #include <takatori/plan/process.h>
 #include <takatori/plan/exchange.h>
 
+#include <takatori/util/assertion.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/relation_info.h>
@@ -72,15 +72,15 @@ public:
     }
 
     void operator()(relation::find const& expr) {
-        assert(!extract_exchange(expr.source())); // NOLINT
+        BOOST_ASSERT(!extract_exchange(expr.source())); // NOLINT
     }
 
     void operator()(relation::scan const& expr) {
-        assert(!extract_exchange(expr.source())); // NOLINT
+        BOOST_ASSERT(!extract_exchange(expr.source())); // NOLINT
     }
 
     void operator()(relation::write const& expr) {
-        assert(!extract_exchange(expr.destination())); // NOLINT
+        BOOST_ASSERT(!extract_exchange(expr.destination())); // NOLINT
     }
 
 private:
@@ -121,8 +121,8 @@ void collect_step_relations(::takatori::plan::graph_type& destination) {
     for (auto&& s : destination) {
         if (s.kind() == plan::step_kind::process) {
             auto&& p = ::takatori::util::unsafe_downcast<plan::process>(s);
-            assert(p.upstreams().empty()); // NOLINT
-            assert(p.downstreams().empty()); // NOLINT
+            BOOST_ASSERT(p.upstreams().empty()); // NOLINT
+            BOOST_ASSERT(p.downstreams().empty()); // NOLINT
             engine e { p };
             for (auto&& r : p.operators()) {
                 e.inspect(r);

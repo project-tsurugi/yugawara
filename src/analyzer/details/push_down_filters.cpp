@@ -2,8 +2,6 @@
 
 #include <stdexcept>
 
-#include <cassert>
-
 #include <boost/dynamic_bitset.hpp>
 
 #include <tsl/hopscotch_set.h>
@@ -11,6 +9,7 @@
 #include <takatori/scalar/binary.h>
 #include <takatori/relation/intermediate/dispatch.h>
 
+#include <takatori/util/assertion.h>
 #include <takatori/util/string_builder.h>
 
 #include "boolean_constants.h"
@@ -76,12 +75,12 @@ public:
     }
 
     void leave() {
-        assert(available()); // NOLINT
+        BOOST_ASSERT(available()); // NOLINT
         --reference_count_;
     }
 
     [[nodiscard]] unique_object_ptr<scalar::expression> release() {
-        assert(available()); // NOLINT
+        BOOST_ASSERT(available()); // NOLINT
         if (--reference_count_ == 0) {
             return expression_.exchange(boolean_expression(true, get_object_creator()));
         }
@@ -293,7 +292,7 @@ public:
     }
 
     void operator()(relation::intermediate::aggregate& expr, mask_type&& mask) {
-        assert(work_.empty()); // NOLINT
+        BOOST_ASSERT(work_.empty()); // NOLINT
         work_.reserve(expr.group_keys().size());
         for (auto&& key : expr.group_keys()) {
             work_.emplace(key);
@@ -476,7 +475,7 @@ private:
     template<class Expr>
     void process_distinct_like(Expr& expr, mask_type&& mask) {
         // check if each term only use the distinct group key
-        assert(work_.empty()); // NOLINT
+        BOOST_ASSERT(work_.empty()); // NOLINT
         work_.reserve(expr.group_keys().size());
         for (auto&& key : expr.group_keys()) {
             work_.emplace(key);

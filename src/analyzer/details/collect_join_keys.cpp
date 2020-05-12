@@ -2,10 +2,9 @@
 
 #include <optional>
 
-#include <cassert>
-
 #include <takatori/relation/intermediate/join.h>
 
+#include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
 #include <takatori/util/sequence_view.h>
 

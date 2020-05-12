@@ -1,11 +1,10 @@
 #include "remove_redundant_stream_variables.h"
 
-#include <cassert>
-
 #include <tsl/hopscotch_set.h>
 
 #include <takatori/scalar/walk.h>
 #include <takatori/relation/intermediate/dispatch.h>
+#include <takatori/util/assertion.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/variable_info.h>
@@ -190,7 +189,7 @@ private:
 
     template<class Columns>
     void remove_unused_mappings(Columns& columns) {
-        assert(!columns.empty()); // NOLINT
+        BOOST_ASSERT(!columns.empty()); // NOLINT
         for (auto&& it = columns.begin(); it != columns.end();) {
             if (is_used(it->destination())) {
                 ++it;

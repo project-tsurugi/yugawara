@@ -1,13 +1,12 @@
 #include <yugawara/analyzer/variable_liveness_analyzer.h>
 
-#include <cassert>
-
 #include <takatori/scalar/dispatch.h>
 #include <takatori/scalar/walk.h>
 
 #include <takatori/relation/intermediate/dispatch.h>
 #include <takatori/relation/step/dispatch.h>
 
+#include <takatori/util/assertion.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/variable_info.h>
@@ -381,7 +380,7 @@ private:
         for (auto it = lvs.begin(); it != lvs.end();) {
             auto&& [v, lv] = *it;
             if (lv.define == bp) {
-                assert(lv.use == nullptr); // NOLINT
+                BOOST_ASSERT(lv.use == nullptr); // NOLINT
                 info.kill().emplace(v);
                 it = lvs.erase(it);
             } else {
@@ -441,8 +440,8 @@ variable_liveness_analyzer::info& variable_liveness_analyzer::inspect(block cons
             resolved_[kind_type::use] = true;
         }
         if (require[kind_type::kill]) {
-            assert(resolved_[kind_type::define]); // NOLINT
-            assert(resolved_[kind_type::use]); // NOLINT
+            BOOST_ASSERT(resolved_[kind_type::define]); // NOLINT
+            BOOST_ASSERT(resolved_[kind_type::use]); // NOLINT
 
             kill_analyzer analyzer { blocks_ };
             analyzer();

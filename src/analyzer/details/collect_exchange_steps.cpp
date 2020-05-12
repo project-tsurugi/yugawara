@@ -2,8 +2,6 @@
 
 #include <stdexcept>
 
-#include <cassert>
-
 #include <takatori/scalar/variable_reference.h>
 
 #include <takatori/relation/intermediate/dispatch.h>
@@ -24,6 +22,7 @@
 #include <takatori/plan/aggregate.h>
 #include <takatori/plan/broadcast.h>
 
+#include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/string_builder.h>
@@ -242,7 +241,7 @@ private:
                     << expr
                     << string_builder::to_string);
         }
-        assert(expr.lower().keys().size() == expr.upper().keys().size()); // NOLINT
+        BOOST_ASSERT(expr.lower().keys().size() == expr.upper().keys().size()); // NOLINT
 
         /*
          * .. -\
@@ -317,7 +316,7 @@ private:
     }
 
     void process_broadcast_join_find(relation::intermediate::join& expr) {
-        assert(expr.lower().keys().size() == expr.upper().keys().size()); // NOLINT
+        BOOST_ASSERT(expr.lower().keys().size() == expr.upper().keys().size()); // NOLINT
         /*
          *  (left) .. -\
          *              join_relation{k, c} - ..

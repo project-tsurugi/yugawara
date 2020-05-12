@@ -3,6 +3,7 @@
 #include <takatori/relation/expression.h>
 #include <takatori/relation/details/range_endpoint.h>
 #include <takatori/relation/details/search_key_element.h>
+#include <takatori/util/assertion.h>
 #include <takatori/util/object_creator.h>
 #include <takatori/util/sequence_view.h>
 
@@ -47,7 +48,7 @@ void add_endpoint_term(
 
     if (!last) {
         // FIXME: more flexible - we assume the scan key elements are "equivalent" style except the last one
-        assert(term.equivalent()); // NOLINT
+        BOOST_ASSERT(term.equivalent()); // NOLINT
 
         lower_keys.emplace_back(key, term.clone_equivalent_factor());
         upper_keys.emplace_back(key, term.purge_equivalent_factor());

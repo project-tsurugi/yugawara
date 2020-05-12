@@ -1,8 +1,8 @@
 #include "stream_variable_rewriter_context.h"
 
 #include <stdexcept>
-#include <cassert>
 
+#include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
 #include <takatori/util/string_builder.h>
 
@@ -89,7 +89,7 @@ void stream_variable_rewriter_context::rewrite_use(::takatori::descriptor::varia
                             f.stream_variable(info_impl.label()),
                             status_t::undefined,
                     });
-            assert(success); // NOLINT
+            BOOST_ASSERT(success); // NOLINT
             variable = it->second.variable;
             break;
         }

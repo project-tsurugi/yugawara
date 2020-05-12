@@ -2,11 +2,10 @@
 
 #include <optional>
 
-#include <cassert>
-
 #include <takatori/relation/scan.h>
 #include <takatori/relation/find.h>
 
+#include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
 #include <takatori/util/optional_ptr.h>
 
@@ -109,8 +108,8 @@ private:
     }
 
     void build_search_key(storage::index const& index) {
-        assert(term_buf_.empty()); // NOLINT
-        assert(search_key_buf_.empty()); // NOLINT
+        BOOST_ASSERT(term_buf_.empty()); // NOLINT
+        BOOST_ASSERT(search_key_buf_.empty()); // NOLINT
 
         auto&& keys = index.keys();
         term_buf_.reserve(keys.size());
@@ -118,7 +117,7 @@ private:
 
         for (auto&& key : keys) {
             if (auto term = collector_.find(key.column())) {
-                assert(term); // NOLINT
+                BOOST_ASSERT(term); // NOLINT
 
                 term_buf_.emplace_back(term.get());
                 search_key_buf_.emplace_back(term->build_index_search_key(key.column()));
@@ -176,7 +175,7 @@ private:
             relation::scan& expr,
             storage::index const& index,
             sequence_view<scan_key_collector::term*> terms) const {
-        assert(terms.size() <= index.keys().size()); // NOLINT
+        BOOST_ASSERT(terms.size() <= index.keys().size()); // NOLINT
 
         object_vector<relation::find::key> keys { get_object_creator().allocator() };
         fill_search_key(index, keys, terms, get_object_creator());
@@ -189,7 +188,7 @@ private:
                 get_object_creator());
 
         // reconnect
-        assert(expr.output().opposite()); // NOLINT
+        BOOST_ASSERT(expr.output().opposite()); // NOLINT
         auto&& downstream = *expr.output().opposite();
         expr.output().disconnect_all();
         find.output().connect_to(downstream);
@@ -199,7 +198,7 @@ private:
             relation::scan& expr,
             storage::index const& index,
             sequence_view<scan_key_collector::term*> terms) const {
-        assert(terms.size() <= index.keys().size()); // NOLINT
+        BOOST_ASSERT(terms.size() <= index.keys().size()); // NOLINT
 
         binding::factory bindings { get_object_creator() };
         expr.source() = bindings(index);

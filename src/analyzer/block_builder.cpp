@@ -4,8 +4,7 @@
 
 #include <tsl/hopscotch_set.h>
 
-#include <cassert>
-
+#include <takatori/util/assertion.h>
 #include <takatori/util/string_builder.h>
 
 namespace yugawara::analyzer {
@@ -51,7 +50,7 @@ inline relation::expression& find_back(relation::expression& expr) {
     if (is_back(expr)) {
         return expr;
     }
-    assert(expr.output_ports().size() == 1); // NOLINT
+    BOOST_ASSERT(expr.output_ports().size() == 1); // NOLINT
     auto&& out = expr.output_ports().front();
     if (!out.opposite()) {
         throw std::domain_error(string_builder {}

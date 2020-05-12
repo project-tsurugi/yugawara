@@ -3,9 +3,8 @@
 #include <vector>
 #include <stdexcept>
 
-#include <cassert>
-
 #include <takatori/relation/project.h>
+#include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
 #include <takatori/util/string_builder.h>
 
@@ -54,8 +53,8 @@ void decompose_projections(relation::graph_type& graph, ::takatori::util::object
                 tail->output().connect_to(*last);
                 last = std::addressof(tail->input());
             }
-            assert(last != nullptr); // NOLINT
-            assert(columns.size() <= 1); // NOLINT
+            BOOST_ASSERT(last != nullptr); // NOLINT
+            BOOST_ASSERT(columns.size() <= 1); // NOLINT
             prj.output().connect_to(*last);
         }
     }

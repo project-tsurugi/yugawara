@@ -1,11 +1,11 @@
 #include "collect_process_steps.h"
 
 #include <stdexcept>
-#include <cassert>
 
 #include <takatori/plan/process.h>
 #include <takatori/plan/exchange.h>
 
+#include <takatori/util/assertion.h>
 #include <takatori/util/string_builder.h>
 
 namespace yugawara::analyzer::details {
@@ -36,7 +36,7 @@ public:
     }
 
     relation::graph_type operator()(relation::expression const& head) {
-        assert(head.input_ports().empty()); // NOLINT
+        BOOST_ASSERT(head.input_ports().empty()); // NOLINT
         work_.clear();
         do_collect(head);
         return relation::release(source_, work_);
@@ -103,7 +103,7 @@ void collect_process_steps(
             if (engine::is_entry(e)) {
                 found = true;
                 auto&& p = destination.emplace<plan::process>(collector(e));
-                assert(p.operators().contains(e)); // NOLINT
+                BOOST_ASSERT(p.operators().contains(e)); // NOLINT
                 break;
             }
         }

@@ -1,7 +1,6 @@
 #include "rewrite_stream_variables.h"
 
 #include <stdexcept>
-#include <cassert>
 
 #include <takatori/relation/step/dispatch.h>
 #include <takatori/relation/graph.h>
@@ -9,6 +8,7 @@
 
 #include <takatori/plan/dispatch.h>
 
+#include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
 #include <takatori/util/string_builder.h>
 
@@ -35,8 +35,8 @@ void remove_escape(stream_variable_rewriter_context& context, relation::graph_ty
             auto&& esc = unsafe_downcast<relation::intermediate::escape>(expr);
             auto incoming = esc.input().opposite();
             auto outgoing = esc.output().opposite();
-            assert(incoming); // NOLINT
-            assert(outgoing); // NOLINT
+            BOOST_ASSERT(incoming); // NOLINT
+            BOOST_ASSERT(outgoing); // NOLINT
             esc.input().disconnect_all();
             esc.output().disconnect_all();
             incoming->connect_to(*outgoing);
@@ -88,14 +88,14 @@ public:
     }
 
     void operator()(relation::find& expr) {
-        assert(!exchange_map_type::is_target(expr.source())); // NOLINT
+        BOOST_ASSERT(!exchange_map_type::is_target(expr.source())); // NOLINT
         process_keys(expr.keys());
         define_used_columns(expr.columns());
         raise_undefined();
     }
 
     void operator()(relation::scan& expr) {
-        assert(!exchange_map_type::is_target(expr.source())); // NOLINT
+        BOOST_ASSERT(!exchange_map_type::is_target(expr.source())); // NOLINT
         process_keys(expr.lower().keys());
         process_keys(expr.upper().keys());
         define_used_columns(expr.columns());
@@ -318,7 +318,7 @@ private:
 
     template<class Columns>
     void define_used_columns(Columns& columns) {
-        assert(!columns.empty()); // NOLINT
+        BOOST_ASSERT(!columns.empty()); // NOLINT
         for (auto&& it = columns.begin(); it != columns.end();) {
             auto&& column = *it;
             if (context_.try_rewrite_define(column.destination())) {
@@ -338,7 +338,7 @@ private:
 
     template<class Columns>
     void define_used_columns(exchange_column_info& info, Columns& columns) {
-        assert(!columns.empty()); // NOLINT
+        BOOST_ASSERT(!columns.empty()); // NOLINT
         for (auto&& it = columns.begin(); it != columns.end();) {
             auto&& column = *it;
             if (context_.try_rewrite_define(column.destination())) {

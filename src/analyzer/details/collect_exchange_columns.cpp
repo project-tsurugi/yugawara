@@ -2,12 +2,12 @@
 
 #include <numeric>
 #include <stdexcept>
-#include <cassert>
 
 #include <takatori/relation/intermediate/escape.h>
 #include <takatori/relation/step/dispatch.h>
 #include <takatori/plan/dispatch.h>
 
+#include <takatori/util/assertion.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/exchange_info.h>
@@ -216,17 +216,17 @@ public:
     }
 
     void operator()(relation::step::take_flat& expr, buffer_type& available_columns) {
-        assert(available_columns.empty()); // NOLINT
+        BOOST_ASSERT(available_columns.empty()); // NOLINT
         analyze_take_like(expr, available_columns);
     }
 
     void operator()(relation::step::take_group& expr, buffer_type& available_columns) {
-        assert(available_columns.empty()); // NOLINT
+        BOOST_ASSERT(available_columns.empty()); // NOLINT
         analyze_take_like(expr, available_columns);
     }
 
     void operator()(relation::step::take_cogroup& expr, buffer_type& available_columns) {
-        assert(available_columns.empty()); // NOLINT
+        BOOST_ASSERT(available_columns.empty()); // NOLINT
         expand(available_columns, std::accumulate(
                 expr.groups().begin(),
                 expr.groups().end(),
@@ -252,7 +252,7 @@ public:
         } else {
             // columns already exist, but the destinations are still stream variables
             for (auto&& column : columns) {
-                assert(std::find( // NOLINT
+                BOOST_ASSERT(std::find( // NOLINT
                         available_columns.begin(),
                         available_columns.end(),
                         column.source()) != available_columns.end());
@@ -392,7 +392,7 @@ private:
 
     template<class Columns>
     void fill_exchange_columns(exchange_column_info const& info, Columns& columns) {
-        assert(columns.empty()); // NOLINT
+        BOOST_ASSERT(columns.empty()); // NOLINT
         columns.reserve(info.count());
         info.each_mapping([&](descriptor::variable const&, descriptor::variable const& exchange_column) {
             columns.emplace_back(exchange_column);
@@ -422,7 +422,7 @@ private:
 
     template<class Columns>
     void rebuild_exchange_columns(exchange_column_info& info, Columns& columns) {
-        assert(mapping_buffer_.empty()); // NOLINT
+        BOOST_ASSERT(mapping_buffer_.empty()); // NOLINT
         mapping_buffer_.reserve(columns.size());
         for (auto&& column : columns) {
             auto origin = column;
@@ -440,7 +440,7 @@ private:
 
     template<class Expr>
     void analyze_read_like(Expr const& expr, buffer_type& available_columns) {
-        assert(available_columns.empty()); // NOLINT
+        BOOST_ASSERT(available_columns.empty()); // NOLINT
         append_destination_columns(expr.columns(), available_columns);
     }
 
@@ -454,7 +454,7 @@ private:
 
     template<class Columns>
     void fill_source_exchange_columns(descriptor::relation const& desc, Columns& columns) const {
-        assert(columns.empty()); // NOLINT
+        BOOST_ASSERT(columns.empty()); // NOLINT
         auto&& info = exchange_map_.get(desc);
         info.each_mapping([&](descriptor::variable const& origin, descriptor::variable const& exchange_column) {
             columns.emplace_back(exchange_column, origin);
@@ -466,7 +466,7 @@ private:
         if (is_exchange(expr.source())) {
             fill_source_exchange_columns(expr.source(), expr.columns());
         } else {
-            assert(!expr.columns().empty()); // NOLINT
+            BOOST_ASSERT(!expr.columns().empty()); // NOLINT
         }
         auto kind = expr.operator_kind();
         if (kind != relation::join_kind::semi && kind != relation::join_kind::anti) {
@@ -476,7 +476,7 @@ private:
 
     template<class Channel>
     void analyze_take_like(Channel& channel, buffer_type& available_columns) {
-        assert(is_exchange(channel.source())); // NOLINT
+        BOOST_ASSERT(is_exchange(channel.source())); // NOLINT
         fill_source_exchange_columns(channel.source(), channel.columns());
         append_destination_columns(channel.columns(), available_columns);
     }

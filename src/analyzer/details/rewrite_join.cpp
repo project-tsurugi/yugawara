@@ -2,8 +2,6 @@
 
 #include <optional>
 
-#include <cassert>
-
 #include <takatori/scalar/binary.h>
 
 #include <takatori/relation/scan.h>
@@ -13,6 +11,7 @@
 
 #include <takatori/relation/filter.h>
 
+#include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
 #include <takatori/util/optional_ptr.h>
 
@@ -161,10 +160,10 @@ private:
     }
 
     optional_ptr<relation::scan> find_scan(relation::expression::input_port_type& input, bool direct) {
-        assert(filter_buf_.empty()); // NOLINT
+        BOOST_ASSERT(filter_buf_.empty()); // NOLINT
         auto current = input.opposite();
         while (true) {
-            assert(current); // NOLINT
+            BOOST_ASSERT(current); // NOLINT
             auto&& expr = current->owner();
             using kind = relation::expression_kind;
             switch (expr.kind()) {
@@ -213,8 +212,8 @@ private:
     }
 
     void build_search_key(storage::index const& index) {
-        assert(term_buf_.empty()); // NOLINT
-        assert(search_key_buf_.empty()); // NOLINT
+        BOOST_ASSERT(term_buf_.empty()); // NOLINT
+        BOOST_ASSERT(search_key_buf_.empty()); // NOLINT
 
         auto&& keys = index.keys();
         term_buf_.reserve(keys.size());
@@ -222,7 +221,7 @@ private:
 
         for (auto&& key : keys) {
             if (auto term = collector_.find(key.column())) {
-                assert(term); // NOLINT
+                BOOST_ASSERT(term); // NOLINT
 
                 term_buf_.emplace_back(term.get());
                 search_key_buf_.emplace_back(term->build_index_search_key(key.column()));
@@ -297,7 +296,7 @@ private:
             relation::scan& source,
             storage::index const& index,
             sequence_view<scan_key_collector::term*> terms) {
-        assert(terms.size() <= index.keys().size()); // NOLINT
+        BOOST_ASSERT(terms.size() <= index.keys().size()); // NOLINT
 
         object_vector<relation::join_find::key> keys { get_object_creator().allocator() };
         fill_search_key(index, keys, terms, get_object_creator());
@@ -312,9 +311,9 @@ private:
                 get_object_creator());
 
         // reconnect
-        assert(expr.left().opposite()); // NOLINT
-        assert(expr.right().opposite()); // NOLINT
-        assert(expr.output().opposite()); // NOLINT
+        BOOST_ASSERT(expr.left().opposite()); // NOLINT
+        BOOST_ASSERT(expr.right().opposite()); // NOLINT
+        BOOST_ASSERT(expr.output().opposite()); // NOLINT
         auto&& upstream = *expr.left().opposite();
         auto&& downstream = *expr.output().opposite();
         expr.left().disconnect_all();
@@ -333,7 +332,7 @@ private:
             relation::scan& source,
             storage::index const& index,
             sequence_view<scan_key_collector::term*> terms) {
-        assert(terms.size() <= index.keys().size()); // NOLINT
+        BOOST_ASSERT(terms.size() <= index.keys().size()); // NOLINT
 
         binding::factory bindings { get_object_creator() };
         relation::join_scan::endpoint lower { get_object_creator() };
@@ -351,9 +350,9 @@ private:
                 get_object_creator());
 
         // reconnect
-        assert(expr.left().opposite()); // NOLINT
-        assert(expr.right().opposite()); // NOLINT
-        assert(expr.output().opposite()); // NOLINT
+        BOOST_ASSERT(expr.left().opposite()); // NOLINT
+        BOOST_ASSERT(expr.right().opposite()); // NOLINT
+        BOOST_ASSERT(expr.output().opposite()); // NOLINT
         auto&& upstream = *expr.left().opposite();
         auto&& downstream = *expr.output().opposite();
         expr.left().disconnect_all();

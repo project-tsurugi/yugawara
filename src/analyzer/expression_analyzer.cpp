@@ -5,8 +5,6 @@
 #include <utility>
 #include <vector>
 
-#include <cassert>
-
 #include <boost/container/static_vector.hpp>
 
 #include <tsl/hopscotch_set.h>
@@ -20,6 +18,8 @@
 #include <takatori/type/decimal.h>
 #include <takatori/type/character.h>
 #include <takatori/type/bit.h>
+
+#include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
 
 #include <yugawara/type/category.h>
@@ -145,7 +145,7 @@ public:
         if (relation::is_available_in_step_plan(expression.kind())) {
             return relation::step::dispatch(*this, expression);
         }
-        assert(relation::is_available_in_intermediate_plan(expression.kind())); // NOLINT
+        BOOST_ASSERT(relation::is_available_in_intermediate_plan(expression.kind())); // NOLINT
         return relation::intermediate::dispatch(*this, expression);
     }
 

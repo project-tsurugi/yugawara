@@ -1,8 +1,8 @@
 #include "exchange_column_info.h"
 
 #include <stdexcept>
-#include <cassert>
 
+#include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
 #include <takatori/util/string_builder.h>
 
@@ -62,7 +62,7 @@ descriptor::variable const& exchange_column_info::allocate(descriptor::variable 
     auto&& entry = entries_.emplace_back(variable, f.exchange_column(info.label()));
     auto [it, success] = index_.emplace(variable, entries_.size() - 1);
     (void) it;
-    assert(success); // NOLINT
+    BOOST_ASSERT(success); // NOLINT
     return entry.second;
 }
 
@@ -73,7 +73,7 @@ void exchange_column_info::bind(
     check_variable<binding::variable_info_kind::exchange_column>(replacement);
     entries_.emplace_back(variable, std::move(replacement));
     auto [it, success] = index_.emplace(std::move(variable), entries_.size() - 1);
-    assert(success); // NOLINT
+    BOOST_ASSERT(success); // NOLINT
     (void) it;
 }
 

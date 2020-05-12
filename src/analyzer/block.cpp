@@ -2,8 +2,7 @@
 
 #include <algorithm>
 
-#include <cassert>
-
+#include <takatori/util/assertion.h>
 #include <takatori/util/string_builder.h>
 
 namespace yugawara::analyzer {
@@ -194,8 +193,8 @@ void block::rebuild_connections() const {
     if (owner_ == nullptr) {
         throw std::domain_error("orphaned block");
     }
-    assert(upstreams_.size() <= front_->input_ports().size()); // NOLINT
-    assert(downstreams_.size() <= back_->output_ports().size()); // NOLINT
+    BOOST_ASSERT(upstreams_.size() <= front_->input_ports().size()); // NOLINT
+    BOOST_ASSERT(downstreams_.size() <= back_->output_ports().size()); // NOLINT
     upstreams_.resize(front_->input_ports().size());
     downstreams_.resize(back_->output_ports().size());
 
@@ -232,12 +231,12 @@ void block::cleanup_connections() const noexcept {
 void block::connect(
         block const& upstream, ::takatori::relation::expression::output_port_type const& upstream_port,
         block const& downstream, ::takatori::relation::expression::input_port_type const& downstream_port) {
-    assert(upstream_port.opposite().get() == std::addressof(downstream_port)); // NOLINT
+    BOOST_ASSERT(upstream_port.opposite().get() == std::addressof(downstream_port)); // NOLINT
 
     auto&& upstream_expr = upstream.back();
     auto&& downstream_expr = downstream.front();
-    assert(std::addressof(upstream_expr) == std::addressof(upstream_port.owner())); // NOLINT
-    assert(std::addressof(downstream_expr) == std::addressof(downstream_port.owner())); // NOLINT
+    BOOST_ASSERT(std::addressof(upstream_expr) == std::addressof(upstream_port.owner())); // NOLINT
+    BOOST_ASSERT(std::addressof(downstream_expr) == std::addressof(downstream_port.owner())); // NOLINT
 
     if (auto sz = upstream_expr.output_ports().size(); upstream.downstreams_.size() < sz) {
         upstream.downstreams_.resize(sz);
@@ -258,12 +257,12 @@ void block::connect(
 }
 
 void block::disconnect(::takatori::relation::expression::input_port_type const& port) const noexcept {
-    assert(std::addressof(port.owner()) == front_); // NOLINT
+    BOOST_ASSERT(std::addressof(port.owner()) == front_); // NOLINT
     if (port.index() < upstreams_.size() && !port.opposite()) {
         auto&& entry = upstreams_[port.index()];
         if (entry != nullptr) {
             auto&& opposite_entry = entry->downstreams_[port.opposite()->index()];
-            assert(opposite_entry == this); // NOLINT
+            BOOST_ASSERT(opposite_entry == this); // NOLINT
             entry = nullptr;
             opposite_entry = nullptr;
         }
@@ -271,12 +270,12 @@ void block::disconnect(::takatori::relation::expression::input_port_type const& 
 }
 
 void block::disconnect(::takatori::relation::expression::output_port_type const& port) const noexcept {
-    assert(std::addressof(port.owner()) == back_); // NOLINT
+    BOOST_ASSERT(std::addressof(port.owner()) == back_); // NOLINT
     if (port.index() < downstreams_.size() && !port.opposite()) {
         auto&& entry = downstreams_[port.index()];
         if (entry != nullptr) {
             auto&& opposite_entry = entry->upstreams_[port.opposite()->index()];
-            assert(opposite_entry == this); // NOLINT
+            BOOST_ASSERT(opposite_entry == this); // NOLINT
             entry = nullptr;
             opposite_entry = nullptr;
         }
