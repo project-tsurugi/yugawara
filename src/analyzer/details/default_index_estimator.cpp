@@ -1,5 +1,6 @@
 #include "default_index_estimator.h"
 
+#include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 namespace yugawara::analyzer::details {
@@ -8,6 +9,7 @@ using ::yugawara::storage::index_feature;
 
 using ::takatori::util::sequence_view;
 using ::takatori::util::string_builder;
+using ::takatori::util::throw_exception;
 
 using attribute = details::index_estimator_result_attribute;
 using attribute_set = details::index_estimator_result_attribute_set;
@@ -22,19 +24,19 @@ attribute_set check_keys(
         return {};
     }
     if (index.keys().size() < search_keys.size()) {
-        throw std::domain_error(string_builder {}
+        throw_exception(std::domain_error(string_builder {}
                 << "inconsistent index key: "
                 << search_keys
-                << string_builder::to_string);
+                << string_builder::to_string));
     }
     bool saw_proper = false;
     bool saw_half = false;
     for (std::size_t i = 0, n = search_keys.size(); i < n; ++i) {
         if (index.keys()[i].column() != search_keys[i].column()) {
-            throw std::domain_error(string_builder {}
+            throw_exception(std::domain_error(string_builder {}
                     << "inconsistent index key: "
                     << search_keys
-                    << string_builder::to_string);
+                    << string_builder::to_string));
         }
         if (saw_half && search_keys[i].bounded()) {
             // key must be < 1-dimensional range

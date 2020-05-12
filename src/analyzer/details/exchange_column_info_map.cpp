@@ -1,7 +1,6 @@
 #include "exchange_column_info_map.h"
 
-#include <stdexcept>
-
+#include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/factory.h>
@@ -9,6 +8,7 @@
 namespace yugawara::analyzer::details {
 
 using ::takatori::util::string_builder;
+using ::takatori::util::throw_exception;
 
 exchange_column_info_map::exchange_column_info_map(
         ::takatori::util::object_creator creator) noexcept
@@ -29,20 +29,20 @@ static ::takatori::plan::exchange const* extract(::takatori::descriptor::relatio
         auto&& decl = ::takatori::util::unsafe_downcast<binding::exchange_info>(info).declaration();
         return std::addressof(decl);
     }
-    throw std::invalid_argument(string_builder {}
+    throw_exception(std::invalid_argument(string_builder {}
             << "invalid exchange descriptor: "
             << relation
-            << string_builder::to_string);
+            << string_builder::to_string));
 }
 
 exchange_column_info_map::element_type& exchange_column_info_map::get(::takatori::plan::exchange const& declaration) {
     if (auto it = mappings_.find(std::addressof(declaration)); it != mappings_.end()) {
         return it.value();
     }
-    throw std::invalid_argument(string_builder {}
+    throw_exception(std::invalid_argument(string_builder {}
             << "unregistered exchange: "
             << declaration
-            << string_builder::to_string);
+            << string_builder::to_string));
 }
 
 exchange_column_info_map::element_type& exchange_column_info_map::get(

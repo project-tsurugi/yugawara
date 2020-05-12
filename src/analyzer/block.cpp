@@ -3,11 +3,13 @@
 #include <algorithm>
 
 #include <takatori/util/assertion.h>
+#include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 namespace yugawara::analyzer {
 
 using ::takatori::util::string_builder;
+using ::takatori::util::throw_exception;
 
 block::block(block::value_type& front, block::value_type& back, ::takatori::util::object_creator creator) noexcept
     : front_(std::addressof(front))
@@ -125,16 +127,16 @@ void block::on_leave() noexcept {
 
 block& block::find(::takatori::relation::expression::input_port_type const& port) const {
     if (std::addressof(port.owner()) != front_) {
-        throw std::invalid_argument(string_builder {}
+        throw_exception(std::invalid_argument(string_builder {}
                 << "invalid port (must be a port of the front operator): "
                 << port
-                << string_builder::to_string);
+                << string_builder::to_string));
     }
     if (!port.opposite()) {
-        throw std::invalid_argument(string_builder {}
+        throw_exception(std::invalid_argument(string_builder {}
                 << "no opposites: "
                 << port
-                << string_builder::to_string);
+                << string_builder::to_string));
     }
     if (port.index() < upstreams_.size()) {
         if (auto* opposite_block = upstreams_[port.index()];
@@ -147,21 +149,21 @@ block& block::find(::takatori::relation::expression::input_port_type const& port
     if (auto* opposite_block = upstreams_[port.index()]; opposite_block != nullptr) {
         return *opposite_block;
     }
-    throw std::invalid_argument("unregistered port");
+    throw_exception(std::invalid_argument("unregistered port"));
 }
 
 block& block::find(::takatori::relation::expression::output_port_type const& port) const {
     if (std::addressof(port.owner()) != back_) {
-        throw std::invalid_argument(string_builder {}
+        throw_exception(std::invalid_argument(string_builder {}
                 << "invalid port (must be a port of the back operator): "
                 << port
-                << string_builder::to_string);
+                << string_builder::to_string));
     }
     if (!port.opposite()) {
-        throw std::invalid_argument(string_builder {}
+        throw_exception(std::invalid_argument(string_builder {}
                 << "no opposites: "
                 << port
-                << string_builder::to_string);
+                << string_builder::to_string));
     }
     if (port.index() < downstreams_.size()) {
         if (auto* opposite_block = downstreams_[port.index()];
@@ -174,7 +176,7 @@ block& block::find(::takatori::relation::expression::output_port_type const& por
     if (auto* opposite_block = downstreams_[port.index()]; opposite_block != nullptr) {
         return *opposite_block;
     }
-    throw std::invalid_argument("unregistered port");
+    throw_exception(std::invalid_argument("unregistered port"));
 }
 
 void block::validate_inputs() const {
@@ -191,7 +193,7 @@ void block::validate_outputs() const {
 
 void block::rebuild_connections() const {
     if (owner_ == nullptr) {
-        throw std::domain_error("orphaned block");
+        throw_exception(std::domain_error("orphaned block"));
     }
     BOOST_ASSERT(upstreams_.size() <= front_->input_ports().size()); // NOLINT
     BOOST_ASSERT(downstreams_.size() <= back_->output_ports().size()); // NOLINT

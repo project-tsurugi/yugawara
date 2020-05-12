@@ -7,13 +7,12 @@
 #include <takatori/relation/step/dispatch.h>
 
 #include <takatori/util/assertion.h>
+#include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/variable_info.h>
 
 namespace yugawara::analyzer {
-
-namespace {
 
 using block_info = variable_liveness_info;
 using block_info_map = variable_liveness_analyzer::info_map;
@@ -22,6 +21,9 @@ namespace scalar = ::takatori::scalar;
 namespace relation = ::takatori::relation;
 
 using ::takatori::util::string_builder;
+using ::takatori::util::throw_exception;
+
+namespace {
 
 bool is_definable(::takatori::descriptor::variable const& v) {
     static constexpr binding::variable_info_kind_set definables {
@@ -47,10 +49,10 @@ public:
         for (auto&& [block_ptr, info] : blocks_) {
             for (auto&& r : *block_ptr) {
                 if (!relation::is_available_in_step_plan(r.kind())) {
-                    throw std::domain_error(string_builder {}
+                    throw_exception(std::domain_error(string_builder {}
                             << "unsupported relational operator (only step plan): "
                             << r.kind()
-                            << string_builder::to_string);
+                            << string_builder::to_string));
                 }
                 relation::step::dispatch(*this, r, info);
             }
@@ -259,13 +261,13 @@ public:
                 if (first == nullptr) {
                     first = bp;
                 } else {
-                    throw std::domain_error("multiple entries");
+                    throw_exception(std::domain_error("multiple entries"));
                 }
             }
         }
         process(first, lvs);
         if (!lvs.empty()) {
-            throw std::domain_error("unhandled variable");
+            throw_exception(std::domain_error("unhandled variable"));
         }
     }
 
@@ -285,10 +287,10 @@ private:
             auto [it, success] = lvs.try_emplace(v, liveness { bp }); // define here
             (void) it;
             if (!success) {
-                throw std::domain_error(string_builder {}
+                throw_exception(std::domain_error(string_builder {}
                         << "multiple definition: " << v
                         << " in block " << bp->front()
-                        << string_builder::to_string);
+                        << string_builder::to_string));
             }
         }
 
@@ -299,10 +301,10 @@ private:
                     auto&& lv = it->second;
                     lv.use = bp;
                 } else {
-                    throw std::domain_error(string_builder {}
+                    throw_exception(std::domain_error(string_builder {}
                             << "undefined variable: " << v
                             << " in block " << bp->front()
-                            << string_builder::to_string);
+                            << string_builder::to_string));
                 }
             }
         }
@@ -392,9 +394,9 @@ private:
     block_info& get_info(block const* bp) {
         auto it = blocks_.find(bp);
         if (it == blocks_.end()) {
-            throw std::domain_error(string_builder {}
+            throw_exception(std::domain_error(string_builder {}
                     << "unregistered block: " << bp->front()
-                    << string_builder::to_string);
+                    << string_builder::to_string));
         }
         return it->second;
     }
@@ -420,7 +422,7 @@ variable_liveness_analyzer::variable_liveness_analyzer(
 variable_liveness_analyzer::info& variable_liveness_analyzer::inspect(block const& target, kind_set require) {
     auto it = blocks_.find(std::addressof(target));
     if (it == blocks_.end()) {
-        throw std::invalid_argument("block is out of scope");
+        throw_exception(std::invalid_argument("block is out of scope"));
     }
     auto&& r = it->second;
 

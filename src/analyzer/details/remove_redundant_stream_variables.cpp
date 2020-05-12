@@ -4,7 +4,9 @@
 
 #include <takatori/scalar/walk.h>
 #include <takatori/relation/intermediate/dispatch.h>
+
 #include <takatori/util/assertion.h>
+#include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/variable_info.h>
@@ -16,6 +18,7 @@ namespace scalar = ::takatori::scalar;
 namespace relation = ::takatori::relation;
 
 using ::takatori::util::string_builder;
+using ::takatori::util::throw_exception;
 
 namespace {
 
@@ -35,10 +38,10 @@ public:
     }
 
     void operator()(relation::expression const& expr) {
-        throw std::domain_error(string_builder {}
+        throw_exception(std::domain_error(string_builder {}
                 << "unsupported relation expression: "
                 << expr
-                << string_builder::to_string);
+                << string_builder::to_string));
     }
 
     void operator()(relation::find& expr) {

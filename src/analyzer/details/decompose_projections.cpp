@@ -1,11 +1,11 @@
 #include "decompose_projections.h"
 
 #include <vector>
-#include <stdexcept>
 
 #include <takatori/relation/project.h>
 #include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
+#include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 namespace yugawara::analyzer::details {
@@ -13,6 +13,7 @@ namespace yugawara::analyzer::details {
 namespace relation = ::takatori::relation;
 
 using ::takatori::util::string_builder;
+using ::takatori::util::throw_exception;
 using ::takatori::util::unsafe_downcast;
 
 void decompose_projections(relation::graph_type& graph, ::takatori::util::object_creator creator) {
@@ -31,10 +32,10 @@ void decompose_projections(relation::graph_type& graph, ::takatori::util::object
             added_.reserve(added_.size() + columns.size() - 1);
             auto* last = prj.output().opposite().get();
             if (last == nullptr) {
-                throw std::domain_error(string_builder {}
+                throw_exception(std::domain_error(string_builder {}
                         << "invalid connection: "
                         << prj.output()
-                        << string_builder::to_string);
+                        << string_builder::to_string));
             }
             last->disconnect_all();
             while (columns.size() >= 2) {

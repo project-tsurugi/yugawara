@@ -1,10 +1,9 @@
 #include "scan_key_collector.h"
 
-#include <stdexcept>
-
 #include <takatori/relation/intermediate/dispatch.h>
 
 #include <takatori/util/downcast.h>
+#include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/index_info.h>
@@ -22,6 +21,7 @@ using ::takatori::util::object_ownership_reference;
 using ::takatori::util::optional_ptr;
 using ::takatori::util::sequence_view;
 using ::takatori::util::string_builder;
+using ::takatori::util::throw_exception;
 using ::takatori::util::unsafe_downcast;
 
 using expression_ref = object_ownership_reference<scalar::expression>;
@@ -32,10 +32,10 @@ storage::column const* extract_column(descriptor::variable const& variable, bool
     auto&& info = binding::unwrap(variable);
     if (info.kind() != binding::table_column_info::tag) {
         if (mandatory) {
-            throw std::domain_error(string_builder {}
+            throw_exception(std::domain_error(string_builder {}
                     << "must be table columns: "
                     << variable
-                    << string_builder::to_string);
+                    << string_builder::to_string));
         }
         return nullptr;
     }
@@ -60,10 +60,10 @@ public:
         optional_ptr current { output };
         while (current) {
             if (!current->opposite()) {
-                throw std::domain_error(string_builder {}
+                throw_exception(std::domain_error(string_builder {}
                         << "disconnected output: "
                         << *current
-                        << string_builder::to_string);
+                        << string_builder::to_string));
             }
             auto&& opposite = *current->opposite();
             current = relation::intermediate::dispatch(*this, opposite.owner());
@@ -145,10 +145,10 @@ bool scan_key_collector::operator()(relation::scan& expression, bool include_joi
     // set table info
     auto&& info = binding::unwrap(expression.source());
     if (info.kind() != binding::index_info::tag) {
-        throw std::domain_error(string_builder {}
+        throw_exception(std::domain_error(string_builder {}
                 << "invalid scan source: "
                 << info
-                << string_builder::to_string);
+                << string_builder::to_string));
     }
     auto&& index = unsafe_downcast<binding::index_info>(info).declaration();
     table_.reset(index.table());

@@ -1,8 +1,11 @@
 #include <yugawara/analyzer/expression_mapping.h>
 
 #include <takatori/util/clonable.h>
+#include <takatori/util/exception.h>
 
 namespace yugawara::analyzer {
+
+using ::takatori::util::throw_exception;
 
 expression_mapping::expression_mapping(::takatori::util::object_creator creator) noexcept
     : mapping_(creator.allocator())
@@ -28,7 +31,7 @@ expression_resolution const& expression_mapping::bind(
     }
     auto [iter, success] = mapping_.try_emplace(std::addressof(expression), std::move(resolution));
     if (!success && resolution != iter->second) { // NOLINT: try_emplace does not actually move if not success
-        throw std::domain_error("rebind different type for the expression");
+        throw_exception(std::domain_error("rebind different type for the expression"));
     }
     return iter->second;
 }

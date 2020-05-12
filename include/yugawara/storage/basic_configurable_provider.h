@@ -4,11 +4,11 @@
 #include <map>
 #include <memory>
 #include <mutex>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 
 #include <takatori/util/clonable.h>
+#include <takatori/util/exception.h>
 #include <takatori/util/object_creator.h>
 #include <takatori/util/optional_ptr.h>
 
@@ -225,6 +225,7 @@ private:
             std::string_view id,
             std::shared_ptr<element_type<Container>> element,
             bool overwrite) {
+        using ::takatori::util::throw_exception;
         key_type key { id, get_object_creator().allocator(std::in_place_type<char>) };
 
         std::lock_guard lock { mutex_ };
@@ -234,12 +235,12 @@ private:
             return iter->second;
         }
         if (parent_ && ((*parent_).*Find)(id)) {
-            throw std::invalid_argument(std::string("already exists in parent provider: ") += id);
+            throw_exception(std::invalid_argument(std::string("already exists in parent provider: ") += id));
         }
         if (auto [iter, success] = container.try_emplace(std::move(key), std::move(element)); success) {
             return iter->second;
         }
-        throw std::invalid_argument(std::string("already exists: ") += id);
+        throw_exception(std::invalid_argument(std::string("already exists: ") += id));
     }
 
     template<class Container>

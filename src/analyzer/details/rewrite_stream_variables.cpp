@@ -1,7 +1,5 @@
 #include "rewrite_stream_variables.h"
 
-#include <stdexcept>
-
 #include <takatori/relation/step/dispatch.h>
 #include <takatori/relation/graph.h>
 #include <takatori/relation/intermediate/escape.h>
@@ -10,6 +8,7 @@
 
 #include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
+#include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 #include "stream_variable_rewriter_context.h"
@@ -22,6 +21,7 @@ namespace relation = ::takatori::relation;
 namespace plan = ::takatori::plan;
 
 using ::takatori::util::string_builder;
+using ::takatori::util::throw_exception;
 using ::takatori::util::unsafe_downcast;
 
 namespace {
@@ -69,10 +69,10 @@ public:
                 step.operators(),
                 [&](relation::expression& expr) {
                     if (!relation::is_available_in_step_plan(expr.kind())) {
-                        throw std::invalid_argument(string_builder {}
+                        throw_exception(std::invalid_argument(string_builder {}
                                 << "must be a step plan operator: "
                                 << expr
-                                << string_builder::to_string);
+                                << string_builder::to_string));
                     }
                     relation::step::dispatch(*this, expr);
                 },
@@ -81,10 +81,10 @@ public:
     }
 
     void operator()(relation::expression& expr) {
-        throw std::domain_error(string_builder {}
+        throw_exception(std::domain_error(string_builder {}
                 << "unsupported relation expression: "
                 << expr
-                << string_builder::to_string);
+                << string_builder::to_string));
     }
 
     void operator()(relation::find& expr) {
@@ -309,10 +309,10 @@ private:
 
     void raise_undefined() {
         context_.each_undefined([&](descriptor::variable const& variable) {
-            throw std::domain_error(string_builder {}
+            throw_exception(std::domain_error(string_builder {}
                     << "undefined variable: "
                     << variable
-                    << string_builder::to_string);
+                    << string_builder::to_string));
         });
     }
 

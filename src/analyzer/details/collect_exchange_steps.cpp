@@ -1,7 +1,5 @@
 #include "collect_exchange_steps.h"
 
-#include <stdexcept>
-
 #include <takatori/scalar/variable_reference.h>
 
 #include <takatori/relation/intermediate/dispatch.h>
@@ -24,6 +22,7 @@
 
 #include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
+#include <takatori/util/exception.h>
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/string_builder.h>
 
@@ -42,6 +41,7 @@ namespace plan = ::takatori::plan;
 
 using ::takatori::util::optional_ptr;
 using ::takatori::util::string_builder;
+using ::takatori::util::throw_exception;
 using ::takatori::util::unsafe_downcast;
 
 optional_ptr<descriptor::variable> extract_if_variable_ref(scalar::expression& expr) {
@@ -82,10 +82,10 @@ public:
 
     void operator()(relation::expression& expr) {
         if (!relation::is_available_in_step_plan(expr.kind())) {
-            throw std::domain_error(string_builder {}
+            throw_exception(std::domain_error(string_builder {}
                     << "other than step plan operator will remain: "
                     << expr
-                    << string_builder::to_string);
+                    << string_builder::to_string));
         }
         ++cursor_;
     }
@@ -217,16 +217,16 @@ private:
     template<class Port>
     static void migrate(Port& source, Port& destination) {
         if (!source.opposite()) {
-            throw std::domain_error(string_builder {}
+            throw_exception(std::domain_error(string_builder {}
                     << "source port must have opposite: "
                     << source
-                    << string_builder::to_string);
+                    << string_builder::to_string));
         }
         if (destination.opposite()) {
-            throw std::domain_error(string_builder {}
+            throw_exception(std::domain_error(string_builder {}
                     << "destination port must be orphaned: "
                     << destination
-                    << string_builder::to_string);
+                    << string_builder::to_string));
         }
         auto&& opposite = *source.opposite();
         source.disconnect_from(opposite);
@@ -236,10 +236,10 @@ private:
     void process_cogroup_join(relation::intermediate::join& expr) {
         auto style = detect_join_endpoint_style(expr);
         if (style != join_endpoint_style::nothing && style != join_endpoint_style::key_pairs) {
-            throw std::domain_error(string_builder {}
+            throw_exception(std::domain_error(string_builder {}
                     << "range information must be absent for co-group based join: "
                     << expr
-                    << string_builder::to_string);
+                    << string_builder::to_string));
         }
         BOOST_ASSERT(expr.lower().keys().size() == expr.upper().keys().size()); // NOLINT
 
@@ -606,10 +606,10 @@ private:
         outputs.reserve(expr.mappings().size());
         for (auto&& mapping : expr.mappings()) {
             if (!mapping.left() || !mapping.right()) {
-                throw std::domain_error(string_builder {}
+                throw_exception(std::domain_error(string_builder {}
                         << "union_relation with distinct must not have any empty input columns: "
                         << expr
-                        << string_builder::to_string);
+                        << string_builder::to_string));
             }
             left_columns.emplace_back(mapping.left().value(), mapping.destination());
             right_columns.emplace_back(mapping.right().value(), mapping.destination());

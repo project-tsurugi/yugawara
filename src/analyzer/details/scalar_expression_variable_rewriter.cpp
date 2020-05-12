@@ -1,8 +1,8 @@
 #include "scalar_expression_variable_rewriter.h"
 
-#include <stdexcept>
-
 #include <takatori/scalar/walk.h>
+
+#include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/factory.h>
@@ -12,6 +12,7 @@ namespace yugawara::analyzer::details {
 namespace scalar = ::takatori::scalar;
 
 using ::takatori::util::string_builder;
+using ::takatori::util::throw_exception;
 
 namespace {
 
@@ -43,12 +44,12 @@ public:
                 // push declaration to stack
                 stack_.emplace_back(it->first);
             } else {
-                throw std::domain_error(string_builder {}
+                throw_exception(std::domain_error(string_builder {}
                         << "duplicate variable: "
                         << decl.variable()
                         << " is already bound to "
                         << it->second
-                        << string_builder::to_string);
+                        << string_builder::to_string));
             }
         }
         scalar::walk(*this, expr.body());

@@ -1,11 +1,10 @@
 #include "collect_process_steps.h"
 
-#include <stdexcept>
-
 #include <takatori/plan/process.h>
 #include <takatori/plan/exchange.h>
 
 #include <takatori/util/assertion.h>
+#include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 namespace yugawara::analyzer::details {
@@ -14,6 +13,7 @@ namespace relation = ::takatori::relation;
 namespace plan = ::takatori::plan;
 
 using ::takatori::util::string_builder;
+using ::takatori::util::throw_exception;
 
 namespace {
 
@@ -55,10 +55,10 @@ private:
         relation::expression const* current = std::addressof(first);
         while (true) {
             if (current->input_ports().size() >= 2) {
-                throw std::domain_error(string_builder {}
+                throw_exception(std::domain_error(string_builder {}
                         << "invalid input: "
                         << *current
-                        << string_builder::to_string);
+                        << string_builder::to_string));
             }
             work_.emplace_back(current);
             auto outputs = current->output_ports();
@@ -81,10 +81,10 @@ private:
 
     static relation::expression const& next(relation::expression::output_port_type const& output) {
         if (!output.opposite()) {
-            throw std::domain_error(string_builder {}
+            throw_exception(std::domain_error(string_builder {}
                     << "broken connection: "
                     << output
-                    << string_builder::to_string);
+                    << string_builder::to_string));
         }
         return output.opposite()->owner();
     }
@@ -108,7 +108,7 @@ void collect_process_steps(
             }
         }
         if (!found) {
-            throw std::domain_error("missing head operator");
+            throw_exception(std::domain_error("missing head operator"));
         }
     }
 }

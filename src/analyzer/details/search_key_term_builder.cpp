@@ -4,6 +4,7 @@
 #include <takatori/scalar/walk.h>
 
 #include <takatori/util/downcast.h>
+#include <takatori/util/exception.h>
 
 #include "decompose_predicate.h"
 
@@ -14,6 +15,7 @@ namespace scalar = ::takatori::scalar;
 
 using ::takatori::util::object_ownership_reference;
 using ::takatori::util::optional_ptr;
+using ::takatori::util::throw_exception;
 using ::takatori::util::unsafe_downcast;
 
 using expression_ref = object_ownership_reference<scalar::expression>;
@@ -179,7 +181,7 @@ void search_key_term_builder::clear() {
 
 void search_key_term_builder::check_before_build() {
     if (!terms_.empty()) {
-        throw std::domain_error("cannot reconfigure after build");
+        throw_exception(std::domain_error("cannot reconfigure after build"));
     }
 }
 

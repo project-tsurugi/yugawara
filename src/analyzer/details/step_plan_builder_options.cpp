@@ -1,8 +1,11 @@
 #include <yugawara/analyzer/details/step_plan_builder_options.h>
 
+#include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 namespace yugawara::analyzer::details {
+
+using ::takatori::util::throw_exception;
 
 step_plan_builder_options::step_plan_builder_options(::takatori::util::object_creator creator) noexcept
     : join_hints_(creator.allocator())
@@ -11,10 +14,10 @@ step_plan_builder_options::step_plan_builder_options(::takatori::util::object_cr
 template<class T>
 [[noreturn]] static void raise_duplicate(T const& expr) {
     using ::takatori::util::string_builder;
-    throw std::invalid_argument(string_builder {}
+    throw_exception(std::invalid_argument(string_builder {}
             << "the operation is already registered: "
             << expr
-            << string_builder::to_string);
+            << string_builder::to_string));
 }
 
 void step_plan_builder_options::add(::takatori::relation::intermediate::join const& expr, join_info info) {

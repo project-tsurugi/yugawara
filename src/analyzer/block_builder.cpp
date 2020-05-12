@@ -5,16 +5,18 @@
 #include <tsl/hopscotch_set.h>
 
 #include <takatori/util/assertion.h>
+#include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 namespace yugawara::analyzer {
 
 namespace relation = ::takatori::relation;
 
-namespace {
-
 using ::takatori::relation::expression_kind_set;
 using ::takatori::util::string_builder;
+using ::takatori::util::throw_exception;
+
+namespace {
 
 inline bool is_front(relation::expression const& expr) noexcept {
     static constexpr expression_kind_set force_front {
@@ -53,10 +55,10 @@ inline relation::expression& find_back(relation::expression& expr) {
     BOOST_ASSERT(expr.output_ports().size() == 1); // NOLINT
     auto&& out = expr.output_ports().front();
     if (!out.opposite()) {
-        throw std::domain_error(string_builder {}
+        throw_exception(std::domain_error(string_builder {}
                 << "invalid connectivity (must be connected): "
                 << out
-                << string_builder::to_string);
+                << string_builder::to_string));
     }
     auto&& next = out.opposite()->owner();
     if (is_front(next)) {
@@ -124,10 +126,10 @@ block_builder::block_builder(::takatori::graph::graph<::takatori::relation::expr
 
         for (auto&& output : back.output_ports()) {
             if (!output.opposite()) {
-                throw std::domain_error(string_builder {}
+                throw_exception(std::domain_error(string_builder {}
                         << "invalid connectivity (must be connected): "
                         << output
-                        << string_builder::to_string);
+                        << string_builder::to_string));
             }
             auto&& next = output.opposite()->owner();
             if (saw.find(std::addressof(next)) == saw.end()) {

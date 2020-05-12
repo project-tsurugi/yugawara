@@ -1,13 +1,13 @@
 #include "collect_exchange_columns.h"
 
 #include <numeric>
-#include <stdexcept>
 
 #include <takatori/relation/intermediate/escape.h>
 #include <takatori/relation/step/dispatch.h>
 #include <takatori/plan/dispatch.h>
 
 #include <takatori/util/assertion.h>
+#include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/exchange_info.h>
@@ -27,6 +27,7 @@ namespace plan = ::takatori::plan;
 
 using ::takatori::util::unsafe_downcast;
 using ::takatori::util::string_builder;
+using ::takatori::util::throw_exception;
 
 namespace {
 
@@ -45,21 +46,21 @@ void rewrite_exchange_column(exchange_column_info const& info, descriptor::varia
         column = *c;
         return;
     }
-    throw std::domain_error(string_builder {}
+    throw_exception(std::domain_error(string_builder {}
             << "unregistered column: "
             << column
-            << string_builder::to_string);
+            << string_builder::to_string));
 }
 
 template<class Upstream, class Expr>
 auto& get_upstream(Expr& expr) {
     auto&& upstream = expr.input().opposite()->owner();
     if (upstream.kind() != Upstream::tag) {
-        throw std::domain_error(string_builder {}
+        throw_exception(std::domain_error(string_builder {}
                 << "inconsistent upstream operator: " << upstream
                 << ", but required " << Upstream::tag
                 << " at " << expr
-                << string_builder::to_string);
+                << string_builder::to_string));
     }
     return unsafe_downcast<Upstream>(upstream);
 }
@@ -78,21 +79,21 @@ public:
         for (auto&& expr : step.operators()) {
             if (expr.input_ports().empty()) {
                 if (head != nullptr) {
-                    throw std::domain_error(string_builder {}
+                    throw_exception(std::domain_error(string_builder {}
                             << "multiple head operators in process: "
                             << *head
                             << " <=> "
                             << expr
-                            << string_builder::to_string);
+                            << string_builder::to_string));
                 }
                 head = std::addressof(expr);
             }
         }
         if (head == nullptr) {
-            throw std::domain_error(string_builder {}
+            throw_exception(std::domain_error(string_builder {}
                     << "no head operators in process: "
                     << step
-                    << string_builder::to_string);
+                    << string_builder::to_string));
         }
 
         auto available_columns = buffer_pool_.acquire();
@@ -179,12 +180,12 @@ public:
         auto&& take = get_upstream<relation::step::take_group>(expr);
         auto&& info = unsafe_downcast<binding::exchange_info>(binding::unwrap(take.source()));
         if (info.declaration().kind() != plan::group::tag) {
-            throw std::domain_error(string_builder {}
+            throw_exception(std::domain_error(string_builder {}
                     << "inconsistent take_group: "
                     << expr
                     << " <=> "
                     << info
-                    << string_builder::to_string);
+                    << string_builder::to_string));
         }
         auto&& group = unsafe_downcast<plan::group>(info.declaration());
 
@@ -365,10 +366,10 @@ private:
                 // special case: escape operator may retain the current phase
                 std::invoke(*this, unsafe_downcast<relation::intermediate::escape>(*current), available_columns);
             } else {
-                throw std::domain_error(string_builder {}
+                throw_exception(std::domain_error(string_builder {}
                         << "unsupported operator is still retained: "
                         << *current
-                        << string_builder::to_string);
+                        << string_builder::to_string));
             }
 
             auto outputs = current->output_ports();

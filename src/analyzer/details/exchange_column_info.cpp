@@ -1,9 +1,8 @@
 #include "exchange_column_info.h"
 
-#include <stdexcept>
-
 #include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
+#include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/factory.h>
@@ -14,6 +13,8 @@ namespace yugawara::analyzer::details {
 
 namespace descriptor = ::takatori::descriptor;
 
+using ::takatori::util::throw_exception;
+
 template<binding::variable_info_kind Kind>
 static binding::variable_info_impl<Kind> const& check_variable(descriptor::variable const& variable) {
     using ::takatori::util::unsafe_downcast;
@@ -21,10 +22,10 @@ static binding::variable_info_impl<Kind> const& check_variable(descriptor::varia
     auto&& info = binding::unwrap(variable);
     if (info.kind() != info_kind) {
         using ::takatori::util::string_builder;
-        throw std::invalid_argument(string_builder {}
+        throw_exception(std::invalid_argument(string_builder {}
                 << "invalid " << info_kind << ":"
                 << variable
-                << string_builder::to_string);
+                << string_builder::to_string));
     }
     return unsafe_downcast<binding::variable_info_impl<info_kind>>(info);
 }

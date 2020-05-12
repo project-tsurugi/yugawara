@@ -1,11 +1,10 @@
 #include "search_key_term.h"
 
-#include <stdexcept>
-
 #include <takatori/scalar/variable_reference.h>
 
 #include <takatori/util/clonable.h>
 #include <takatori/util/downcast.h>
+#include <takatori/util/exception.h>
 
 #include "boolean_constants.h"
 
@@ -16,6 +15,7 @@ namespace scalar = ::takatori::scalar;
 using ::takatori::util::clone_unique;
 using ::takatori::util::object_creator;
 using ::takatori::util::optional_ptr;
+using ::takatori::util::throw_exception;
 using ::takatori::util::unique_object_ptr;
 using ::takatori::util::unsafe_downcast;
 
@@ -136,7 +136,7 @@ unique_object_ptr<scalar::expression> search_key_term::purge(
         *term = boolean_expression(true, creator_);
         return result;
     }
-    throw std::domain_error("cannot purge undefined term");
+    throw_exception(std::domain_error("cannot purge undefined term"));
 }
 
 } // namespace yugawara::analyzer::details

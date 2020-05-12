@@ -1,6 +1,10 @@
 #include <yugawara/analyzer/variable_mapping.h>
 
+#include <takatori/util/exception.h>
+
 namespace yugawara::analyzer {
+
+using ::takatori::util::throw_exception;
 
 variable_mapping::variable_mapping(::takatori::util::object_creator creator) noexcept
     : mapping_(creator.allocator())
@@ -26,7 +30,7 @@ variable_resolution const& variable_mapping::bind(
     if (auto [iter, success] = mapping_.emplace(variable, std::move(resolution)); success) {
         return iter->second;
     }
-    throw std::domain_error("rebind variable");
+    throw_exception(std::domain_error("rebind variable"));
 }
 
 takatori::util::object_creator variable_mapping::get_object_creator() const {

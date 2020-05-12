@@ -1,7 +1,5 @@
 #include <yugawara/analyzer/step_plan_builder.h>
 
-#include <stdexcept>
-
 #include <takatori/relation/graph.h>
 
 #include <takatori/plan/graph.h>

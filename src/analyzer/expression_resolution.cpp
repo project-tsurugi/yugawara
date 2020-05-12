@@ -1,10 +1,11 @@
 #include <yugawara/analyzer/expression_resolution.h>
 
-#include <stdexcept>
+#include <takatori/util/exception.h>
 
 namespace yugawara::analyzer {
 
 using ::takatori::util::optional_ptr;
+using ::takatori::util::throw_exception;
 
 expression_resolution::expression_resolution(std::shared_ptr<::takatori::type::data const> type) noexcept
     : type_(std::move(type))
@@ -38,7 +39,7 @@ expression_resolution::operator bool() const noexcept {
 
 void expression_resolution::check_resolved() const {
     if (!is_resolved()) {
-        throw std::domain_error("unresolved expression");
+        throw_exception(std::domain_error("unresolved expression"));
     }
 }
 

@@ -1,7 +1,5 @@
 #include "push_down_filters.h"
 
-#include <stdexcept>
-
 #include <boost/dynamic_bitset.hpp>
 
 #include <tsl/hopscotch_set.h>
@@ -10,6 +8,7 @@
 #include <takatori/relation/intermediate/dispatch.h>
 
 #include <takatori/util/assertion.h>
+#include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 #include "boolean_constants.h"
@@ -27,8 +26,9 @@ using ::takatori::util::clone_unique;
 using ::takatori::util::enum_tag;
 using ::takatori::util::enum_tag_t;
 using ::takatori::util::object_ownership_reference;
-using ::takatori::util::unique_object_ptr;
 using ::takatori::util::string_builder;
+using ::takatori::util::throw_exception;
+using ::takatori::util::unique_object_ptr;
 
 namespace {
 
@@ -356,10 +356,10 @@ public:
     }
 
     void operator()(relation::buffer& expr, mask_type&&) {
-        throw std::domain_error(string_builder {}
+        throw_exception(std::domain_error(string_builder {}
                 << "unsupported operator: "
                 << expr
-                << string_builder::to_string);
+                << string_builder::to_string));
     }
 
     [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept {
@@ -384,10 +384,10 @@ private:
 
     void pass(relation::expression::input_port_type& upstream, mask_type&& mask) {
         if (!upstream.opposite()) {
-            throw std::domain_error(string_builder {}
+            throw_exception(std::domain_error(string_builder {}
                     << "orphaned port: "
                     << upstream
-                    << string_builder::to_string);
+                    << string_builder::to_string));
         }
         auto&& next = upstream.opposite()->owner();
 

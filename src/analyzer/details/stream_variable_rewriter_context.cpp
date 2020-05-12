@@ -1,9 +1,8 @@
 #include "stream_variable_rewriter_context.h"
 
-#include <stdexcept>
-
 #include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
+#include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/factory.h>
@@ -13,6 +12,7 @@
 namespace yugawara::analyzer::details {
 
 using ::takatori::util::string_builder;
+using ::takatori::util::throw_exception;
 using ::takatori::util::unsafe_downcast;
 
 stream_variable_rewriter_context::stream_variable_rewriter_context(::takatori::util::object_creator creator) noexcept
@@ -43,10 +43,10 @@ bool stream_variable_rewriter_context::try_rewrite_define(::takatori::descriptor
     if (auto it = mappings_.find(variable); it != mappings_.end()) {
         auto&& e = it.value();
         if (e.status != status_t::undefined) {
-            throw std::domain_error(string_builder {}
+            throw_exception(std::domain_error(string_builder {}
                     << "redefine stream variable: "
                     << variable
-                    << string_builder::to_string);
+                    << string_builder::to_string));
         }
         e.status = status_t::defined;
         variable = e.variable;
@@ -71,10 +71,10 @@ void stream_variable_rewriter_context::rewrite_use(::takatori::descriptor::varia
                         variable = e.variable;
                         break;
                     case status_t::defined:
-                        throw std::domain_error(string_builder {}
+                        throw_exception(std::domain_error(string_builder {}
                                 << "use before define stream variable: "
                                 << variable
-                                << string_builder::to_string);
+                                << string_builder::to_string));
                     case status_t::alias:
                         variable = e.variable;
                         return rewrite_use(variable);
@@ -95,10 +95,10 @@ void stream_variable_rewriter_context::rewrite_use(::takatori::descriptor::varia
         }
 
         default:
-            throw std::invalid_argument(string_builder {}
+            throw_exception(std::invalid_argument(string_builder {}
                     << "unhandled variable: "
                     << variable
-                    << string_builder::to_string);
+                    << string_builder::to_string));
     }
 }
 
@@ -112,12 +112,12 @@ void stream_variable_rewriter_context::alias(
                     status_t::alias,
             });
     if (!success) {
-        throw std::invalid_argument(string_builder {}
+        throw_exception(std::invalid_argument(string_builder {}
                 << "duplicate entry for alias: "
                 << alias
                 << " : "
                 << it->second.variable
-                << string_builder::to_string);
+                << string_builder::to_string));
     }
 }
 

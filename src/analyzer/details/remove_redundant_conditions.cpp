@@ -1,6 +1,8 @@
 #include "remove_redundant_conditions.h"
 
 #include <takatori/relation/intermediate/dispatch.h>
+
+#include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 #include "simplify_predicate.h"
@@ -10,6 +12,7 @@ namespace yugawara::analyzer::details {
 namespace relation = ::takatori::relation;
 
 using ::takatori::util::string_builder;
+using ::takatori::util::throw_exception;
 
 namespace {
 
@@ -24,17 +27,17 @@ public:
         if (r == simplify_predicate_result::constant_true) {
             auto upstream = expr.input().opposite();
             if (!upstream) {
-                throw std::domain_error(string_builder {}
+                throw_exception(std::domain_error(string_builder {}
                         << "disconnected port: "
                         << expr.input()
-                        << string_builder::to_string);
+                        << string_builder::to_string));
             }
             auto downstream = expr.output().opposite();
             if (!downstream) {
-                throw std::domain_error(string_builder {}
+                throw_exception(std::domain_error(string_builder {}
                         << "disconnected port: "
                         << expr.output()
-                        << string_builder::to_string);
+                        << string_builder::to_string));
             }
             upstream->reconnect_to(*downstream);
             return true;

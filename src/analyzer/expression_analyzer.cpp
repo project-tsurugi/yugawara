@@ -1,7 +1,6 @@
 #include <yugawara/analyzer/expression_analyzer.h>
 
 #include <functional>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -21,6 +20,7 @@
 
 #include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
+#include <takatori/util/exception.h>
 
 #include <yugawara/type/category.h>
 #include <yugawara/type/conversion.h>
@@ -44,6 +44,7 @@ namespace plan = ::takatori::plan;
 
 using ::takatori::util::enum_tag;
 using ::takatori::util::enum_tag_t;
+using ::takatori::util::throw_exception;
 using ::takatori::util::unsafe_downcast;
 using ::yugawara::type::category;
 using ::yugawara::type::extensions::is_error;
@@ -134,7 +135,7 @@ public:
                     return false;
                 }
             } else {
-                throw std::invalid_argument("incomplete relational expression");
+                throw_exception(std::invalid_argument("incomplete relational expression"));
             }
         }
         saw.emplace(std::addressof(expression));
@@ -176,15 +177,15 @@ public:
     }
 
     type_ptr operator()(scalar::expression const&) {
-        throw std::domain_error("unknown expression");
+        throw_exception(std::domain_error("unknown expression"));
     }
 
     bool operator()(relation::expression const&) {
-        throw std::domain_error("unknown expression");
+        throw_exception(std::domain_error("unknown expression"));
     }
 
     bool operator()(plan::step const&) {
-        throw std::domain_error("unknown step");
+        throw_exception(std::domain_error("unknown step"));
     }
 
     type_ptr operator()(scalar::immediate const& expr) {
@@ -1089,7 +1090,7 @@ public:
         if (validate_) {
             auto&& relation = binding::unwrap(expr.destination());
             if (relation.kind() != binding::relation_info::kind_type::index) {
-                throw std::domain_error("must be index");
+                throw_exception(std::domain_error("must be index"));
             }
             auto&& table = unsafe_downcast<binding::index_info>(relation)
                     .declaration()
@@ -1348,7 +1349,7 @@ private:
             if (auto column = dst.template element_if<variable_resolution::kind_type::table_column>();
                     !column
                     || column->optional_owner().get() != std::addressof(table)) {
-                throw std::domain_error("invalid table column");
+                throw_exception(std::domain_error("invalid table column"));
             }
 
             auto srct = ana_.inspect(src);
@@ -1401,7 +1402,7 @@ private:
         auto&& info = binding::unwrap(variable);
         using kind = binding::variable_info_kind;
         if (info.kind() != kind::table_column) {
-            throw std::domain_error("must be a table column");
+            throw_exception(std::domain_error("must be a table column"));
         }
         if (auto&& resolution = ana_.variables().find(variable)) {
             return resolution;
@@ -1414,12 +1415,12 @@ private:
         auto&& info = binding::unwrap(variable);
         using kind = binding::variable_info_kind;
         if (info.kind() != kind::exchange_column) {
-            throw std::domain_error("must be an exchange column");
+            throw_exception(std::domain_error("must be an exchange column"));
         }
         if (auto&& resolution = ana_.variables().find(variable)) {
             return resolution;
         }
-        throw std::domain_error("FIXME: unresolved exchange column");
+        throw_exception(std::domain_error("FIXME: unresolved exchange column"));
     }
 
     variable_resolution const& resolve_external_relation_column(::takatori::descriptor::variable const& variable) {
@@ -1435,10 +1436,10 @@ private:
             }
             case kind::exchange_column: {
                 // FIXME: unresolved exchange
-                throw std::domain_error("FIXME: unresolved exchange column");
+                throw_exception(std::domain_error("FIXME: unresolved exchange column"));
             }
             default:
-                throw std::domain_error("invalid variable");
+                throw_exception(std::domain_error("invalid variable"));
         }
     }
 
@@ -1451,18 +1452,18 @@ private:
         switch (info.kind()) {
             case kind::stream_variable: {
                 // FIXME: stream variable
-                throw std::domain_error("FIXME: unresolved stream variable");
+                throw_exception(std::domain_error("FIXME: unresolved stream variable"));
             }
             case kind::frame_variable: {
                 // FIXME: frame variable
-                throw std::domain_error("FIXME: unresolved frame variable");
+                throw_exception(std::domain_error("FIXME: unresolved frame variable"));
             }
             case kind::external_variable: {
                 auto&& v = unsafe_downcast<binding::external_variable_info>(info);
                 return ana_.variables().bind(variable, v.declaration(), true);
             }
             default:
-                throw std::domain_error("invalid variable");
+                throw_exception(std::domain_error("invalid variable"));
         }
     }
 

@@ -1,7 +1,5 @@
 #include "collect_step_relations.h"
 
-#include <stdexcept>
-
 #include <takatori/relation/intermediate/escape.h>
 #include <takatori/relation/step/dispatch.h>
 
@@ -9,6 +7,7 @@
 #include <takatori/plan/exchange.h>
 
 #include <takatori/util/assertion.h>
+#include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/relation_info.h>
@@ -20,6 +19,7 @@ namespace relation = ::takatori::relation;
 namespace plan = ::takatori::plan;
 
 using ::takatori::util::string_builder;
+using ::takatori::util::throw_exception;
 
 namespace {
 
@@ -35,10 +35,10 @@ public:
             return;
         }
         if (!relation::is_available_in_step_plan(expr.kind())) {
-            throw std::domain_error(string_builder {}
+            throw_exception(std::domain_error(string_builder {}
                     << "intermediate plan operator is rest: "
                     << expr
-                    << string_builder::to_string);
+                    << string_builder::to_string));
         }
         relation::step::dispatch(*this, expr);
     }
@@ -106,10 +106,10 @@ private:
             if (auto&& it = g.find(exinfo.declaration()); it != g.end()) {
                 return ::takatori::util::unsafe_downcast<plan::exchange>(*it);
             }
-            throw std::domain_error(string_builder {}
+            throw_exception(std::domain_error(string_builder {}
                     << "unbound exchange: "
                     << exinfo
-                    << string_builder::to_string);
+                    << string_builder::to_string));
         }
         return {};
     }

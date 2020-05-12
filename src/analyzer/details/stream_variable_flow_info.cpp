@@ -1,10 +1,9 @@
 #include "stream_variable_flow_info.h"
 
-#include <stdexcept>
-
 #include <takatori/relation/intermediate/dispatch.h>
 
 #include <takatori/util/assertion.h>
+#include <takatori/util/exception.h>
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/string_builder.h>
 
@@ -15,6 +14,7 @@ namespace relation = ::takatori::relation;
 
 using ::takatori::util::optional_ptr;
 using ::takatori::util::string_builder;
+using ::takatori::util::throw_exception;
 
 namespace {
 
@@ -30,10 +30,10 @@ public:
         optional_ptr current { port };
         while (true) {
             if (!current->opposite()) {
-                throw std::domain_error(string_builder {}
+                throw_exception(std::domain_error(string_builder {}
                         << "must be connected: "
                         << port
-                        << string_builder::to_string);
+                        << string_builder::to_string));
             }
             auto&& expr = current->opposite()->owner();
             relation::intermediate::dispatch(*this, expr);
@@ -47,10 +47,10 @@ public:
     }
 
     void operator()(relation::expression const& expr) {
-        throw std::domain_error(string_builder {}
+        throw_exception(std::domain_error(string_builder {}
                 << "unsupported relation expression: "
                 << expr
-                << string_builder::to_string);
+                << string_builder::to_string));
     }
 
     void operator()(relation::find const& expr) {
