@@ -15,9 +15,9 @@ constexpr ::takatori::type::extension::extension_id_type min_id = 1'000;
 constexpr ::takatori::type::extension::extension_id_type max_id = 1'999;
 
 /**
- * @brief error kind in type conversion operations.
+ * @brief extension IDs.
  */
-enum extension_kind : ::takatori::type::extension::extension_id_type {
+enum extension_id : ::takatori::type::extension::extension_id_type {
 
     /// @brief represents a compile error.
     error_id = min_id + 1,
@@ -45,9 +45,9 @@ inline constexpr bool is_known_compiler_extension(::takatori::type::extension::e
  * @param value the target value
  * @return the corresponded string representation
  */
-constexpr inline std::string_view to_string_view(extension_kind value) noexcept {
+constexpr inline std::string_view to_string_view(extension_id value) noexcept {
     using namespace std::string_view_literals;
-    using kind = extension_kind;
+    using kind = extension_id;
     switch (value) {
         case kind::error_id: return "error"sv;
         case kind::pending_id: return "pending"sv;
@@ -61,7 +61,7 @@ constexpr inline std::string_view to_string_view(extension_kind value) noexcept 
  * @param value the target value
  * @return the output
  */
-inline std::ostream& operator<<(std::ostream& out, extension_kind value) {
+inline std::ostream& operator<<(std::ostream& out, extension_id value) {
     return out << to_string_view(value);
 }
 

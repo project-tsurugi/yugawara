@@ -7,7 +7,7 @@ namespace yugawara::extension::type {
 /**
  * @brief represents an error while analyzing program.
  */
-using error = compiler_extension<extension_kind::error_id>;
+using error = compiler_extension<extension_id::error_id>;
 
 /**
  * @brief returns whether or not the given type model represents an erroneous type.

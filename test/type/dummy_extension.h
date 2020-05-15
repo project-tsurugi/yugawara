@@ -3,7 +3,7 @@
 #include <takatori/type/extension.h>
 
 #include <yugawara/extension/type/compiler_extension.h>
-#include <yugawara/extension/type/extension_kind.h>
+#include <yugawara/extension/type/extension_id.h>
 
 namespace yugawara::type {
 

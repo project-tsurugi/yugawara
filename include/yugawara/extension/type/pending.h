@@ -9,7 +9,7 @@ namespace yugawara::extension::type {
  * @details The pending type may appear the result of referring unresolved placeholders,
  *      or is propagated from expressions with pending type.
  */
-using pending = compiler_extension<extension_kind::pending_id>;
+using pending = compiler_extension<extension_id::pending_id>;
 
 /**
  * @brief returns whether or not the given type model represents an erroneous type.

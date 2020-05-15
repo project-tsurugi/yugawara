@@ -6,7 +6,7 @@
 #include <takatori/type/extension.h>
 #include <takatori/util/downcast.h>
 
-#include "extension_kind.h"
+#include "extension_id.h"
 
 namespace yugawara::extension::type {
 
@@ -14,8 +14,8 @@ namespace yugawara::extension::type {
  * @brief a simple type extension for this compiler.
  * @tparam ExtensionId the extension ID
  */
-template<takatori::type::extension::extension_id_type ExtensionId>
-class compiler_extension : public takatori::type::extension {
+template<::takatori::type::extension::extension_id_type ExtensionId>
+class compiler_extension : public ::takatori::type::extension {
 
     static_assert(ExtensionId >= min_id);
     static_assert(ExtensionId <= max_id);
@@ -29,12 +29,12 @@ public:
      * @param creator the object creator
      * @return the created clone
      */
-    [[nodiscard]] compiler_extension* clone(takatori::util::object_creator creator) const& override {
+    [[nodiscard]] compiler_extension* clone(::takatori::util::object_creator creator) const& override {
         return creator.create_object<compiler_extension>();
     }
 
     /// @copydoc clone()
-    [[nodiscard]] compiler_extension* clone(takatori::util::object_creator creator) && override {
+    [[nodiscard]] compiler_extension* clone(::takatori::util::object_creator creator) && override {
         return creator.create_object<compiler_extension>();
     }
 
@@ -51,53 +51,16 @@ public:
      * @param type the target type model
      * @return true if the model is an instance of this class
      */
-    [[nodiscard]] static bool is_instance(takatori::type::data const& type) noexcept {
-        if (type.kind() == takatori::type::type_kind::extension) {
-            return is_instance(takatori::util::downcast<takatori::type::extension>(type));
+    [[nodiscard]] static bool is_instance(::takatori::type::data const& type) noexcept {
+        if (type.kind() == ::takatori::type::type_kind::extension) {
+            return is_instance(::takatori::util::downcast<::takatori::type::extension>(type));
         }
         return false;
     }
 
-    /// @copydoc is_instance(takatori::type::data const&)
-    [[nodiscard]] static bool is_instance(takatori::type::extension const& type) noexcept {
+    /// @copydoc is_instance(::takatori::type::data const&)
+    [[nodiscard]] static bool is_instance(::takatori::type::extension const& type) noexcept {
         return type.extension_id() == extension_tag;
-    }
-
-    /**
-     * @brief returns whether or not the two elements are equivalent.
-     * @param a the first element
-     * @param b the second element
-     * @return true if a == b
-     * @return false otherwise
-     */
-    friend bool operator==(compiler_extension const& a, compiler_extension const& b) noexcept {
-        return a.extension_id() == b.extension_id();
-    }
-
-    /**
-     * @brief returns whether or not the two elements are different.
-     * @param a the first element
-     * @param b the second element
-     * @return true if a != b
-     * @return false otherwise
-     */
-    friend bool operator!=(compiler_extension const& a, compiler_extension const& b) noexcept {
-        return !(a == b);
-    }
-
-    /**
-     * @brief appends string representation of the given value.
-     * @param out the target output
-     * @param value the target value
-     * @return the output
-     */
-    friend std::ostream& operator<<(std::ostream& out, compiler_extension const& value) {
-        (void) value;
-        if (is_known_compiler_extension(extension_tag)) {
-            return out << static_cast<extension_kind>(extension_tag) << "()";
-        }
-        return out << "compiler_extension("
-                   << "extension_id=" << extension_tag << ")";
     }
 
 protected:
@@ -130,11 +93,55 @@ protected:
     }
 };
 
+/**
+ * @brief returns whether or not the two elements are equivalent.
+ * @tparam ExtensionId the extension ID
+ * @param a the first element
+ * @param b the second element
+ * @return true if a == b
+ * @return false otherwise
+ */
+template<::takatori::type::extension::extension_id_type ExtensionId>
+inline bool operator==(compiler_extension<ExtensionId> const& a, compiler_extension<ExtensionId> const& b) noexcept {
+    return a.extension_id() == b.extension_id();
+}
+
+/**
+ * @brief returns whether or not the two elements are different.
+ * @tparam ExtensionId the extension ID
+ * @param a the first element
+ * @param b the second element
+ * @return true if a != b
+ * @return false otherwise
+ */
+template<::takatori::type::extension::extension_id_type ExtensionId>
+inline bool operator!=(compiler_extension<ExtensionId> const& a, compiler_extension<ExtensionId> const& b) noexcept {
+    return !(a == b);
+}
+
+/**
+ * @brief appends string representation of the given value.
+ * @tparam ExtensionId the extension ID
+ * @param out the target output
+ * @param value the target value
+ * @return the output
+ */
+template<::takatori::type::extension::extension_id_type ExtensionId>
+inline std::ostream& operator<<(std::ostream& out, compiler_extension<ExtensionId> const& value) {
+    (void) value;
+    constexpr auto tag = compiler_extension<ExtensionId>::extension_tag;
+    if (is_known_compiler_extension(tag)) {
+        return out << static_cast<extension_id>(tag) << "()";
+    }
+    return out << "compiler_extension("
+               << "extension_id=" << tag << ")";
+}
+
 } // namespace yugawara::extension::type
 
 /**
- * @brief specialization for yugawara::extension::type::simple_extension.
+ * @brief specialization for yugawara::extension::type::compiler_extension.
  * @tparam ExtensionId the extension ID
  */
-template<takatori::type::extension::extension_id_type ExtensionId>
-struct std::hash<yugawara::extension::type::compiler_extension<ExtensionId>> : hash<takatori::type::data> {};
+template<::takatori::type::extension::extension_id_type ExtensionId>
+struct std::hash<yugawara::extension::type::compiler_extension<ExtensionId>> : hash<::takatori::type::data> {};
