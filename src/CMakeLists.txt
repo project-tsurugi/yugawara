@@ -39,6 +39,9 @@ add_library(yugawara
     variable/negation.cpp
     variable/quantification.cpp
 
+    # extensions
+    extension/scalar/aggregate_function_call.cpp
+
     # analyzer
     analyzer/expression_mapping.cpp
     analyzer/expression_resolution.cpp

@@ -51,6 +51,9 @@ add_test_executable(storage/table_test.cpp)
 add_test_executable(storage/index_test.cpp)
 add_test_executable(storage/storage_configurable_provider_test.cpp)
 
+# extensions
+add_test_executable(extension/scalar/aggregate_function_call_test.cpp)
+
 # analyzer
 add_test_executable(analyzer/type_diagnostic_test.cpp)
 add_test_executable(analyzer/expression_analyzer_scalar_test.cpp)

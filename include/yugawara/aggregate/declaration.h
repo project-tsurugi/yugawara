@@ -18,6 +18,9 @@
 
 namespace yugawara::aggregate {
 
+/// @brief represents either set (`DISTINCT`) or multi-set (`ALL`) operation.
+using ::takatori::relation::set_quantifier;
+
 /**
  * @brief represents an aggregate function declaration.
  */
@@ -42,7 +45,7 @@ public:
     using name_type = std::basic_string<char, std::char_traits<char>, takatori::util::object_allocator<char>>;
 
     /// @brief the set quantifier type.
-    using quantifier_type = ::takatori::relation::set_quantifier;
+    using quantifier_type = set_quantifier;
 
     /// @brief the smart pointer of parameter/result type.
     using type_pointer = std::shared_ptr<takatori::type::data const>;
