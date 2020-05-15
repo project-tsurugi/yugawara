@@ -20,6 +20,7 @@
 #include <yugawara/variable/comparison.h>
 #include <yugawara/variable/negation.h>
 #include <yugawara/variable/quantification.h>
+#include <yugawara/extension/scalar/aggregate_function_call.h>
 
 namespace yugawara::serializer {
 
@@ -325,6 +326,32 @@ TEST_F(object_scanner_test, resolution_aggregation) {
     auto v = bindings.stream_variable("c");
     variables().bind(v, decl);
     print(v);
+}
+
+TEST_F(object_scanner_test, extension_scalar_aggregate_function_call) {
+    print(extension::scalar::aggregate_function_call {
+            bindings(aggregate::declaration {
+                1000,
+                        "f",
+                        aggregate::declaration::quantifier_type::all,
+                        t::int4 {},
+                        {
+                                t::boolean {},
+                                t::int8 {},
+                        },
+                        true,
+            }),
+            {
+                    scalar::immediate {
+                            v::boolean { true },
+                            t::boolean {}
+                    },
+                    scalar::immediate {
+                            v::int8 { 100 },
+                            t::int8 {}
+                    },
+            }
+    });
 }
 
 } // namespace yugawara::serializer

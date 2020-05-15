@@ -102,6 +102,8 @@ add_library(yugawara
     serializer/details/binding_scanner.cpp
     serializer/details/resolution_scanner.cpp
     serializer/details/predicate_scanner.cpp
+    serializer/details/extension_type_property_scanner.cpp
+    serializer/details/extension_scalar_property_scanner.cpp
 )
 
 target_include_directories(yugawara

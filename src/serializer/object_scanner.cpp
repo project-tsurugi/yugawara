@@ -10,9 +10,12 @@
 #include <yugawara/binding/aggregate_function_info.h>
 
 #include <yugawara/extension/type/extension_id.h>
+#include <yugawara/extension/scalar/aggregate_function_call.h>
 
 #include "details/binding_scanner.h"
 #include "details/resolution_scanner.h"
+#include "details/extension_type_property_scanner.h"
+#include "details/extension_scalar_property_scanner.h"
 
 namespace yugawara::serializer {
 
@@ -62,12 +65,11 @@ void object_scanner::properties(descriptor::aggregate_function const& element, o
 void object_scanner::properties(takatori::type::data const& element, object_acceptor& acceptor) {
     ::takatori::serializer::object_scanner::properties(element, acceptor);
     if (element.kind() == ::takatori::type::extension::tag) {
-        using namespace ::yugawara::extension::type;
         auto&& ext = unsafe_downcast<::takatori::type::extension>(element);
-        if (is_known_compiler_extension(ext.extension_id())) {
-            acceptor.property_begin("extension_tag"sv);
-            acceptor.string(to_string_view(static_cast<extension_id>(ext.extension_id())));
-            acceptor.property_end();
+        if (extension::type::is_known_compiler_extension(ext.extension_id())) {
+            details::extension_type_property_scanner s { *this, acceptor };
+            s.process(ext);
+            return;
         }
     }
 }
@@ -76,6 +78,15 @@ void object_scanner::properties(scalar::expression const& element, object_accept
     acceptor.property_begin("this"sv);
     acceptor.pointer(std::addressof(element));
     acceptor.property_end();
+
+    if (element.kind() == ::takatori::scalar::extension::tag) {
+        auto&& ext = unsafe_downcast<::takatori::scalar::extension>(element);
+        if (extension::scalar::is_known_compiler_extension(ext.extension_id())) {
+            details::extension_scalar_property_scanner s { *this, acceptor };
+            s.process(ext);
+            return;
+        }
+    }
 
     ::takatori::serializer::object_scanner::properties(element, acceptor);
     accept_resolution(element, acceptor);
