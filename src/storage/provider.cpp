@@ -16,12 +16,12 @@ void provider::each_table_index(
     });
 }
 
-std::shared_ptr<index const> provider::find_primary_index(class table const& table) {
+std::shared_ptr<index const> provider::find_primary_index(class table const& table) const {
     std::shared_ptr<index const> result;
     each_index([&](std::string_view, std::shared_ptr<index const> const& idx) {
         if (!result
-            && std::addressof(idx->table()) == std::addressof(table)
-            && idx->features().contains(index_feature::primary)) {
+                && std::addressof(idx->table()) == std::addressof(table)
+                && idx->features().contains(index_feature::primary)) {
             result = idx;
         }
     });

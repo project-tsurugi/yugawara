@@ -98,7 +98,7 @@ public:
      * @return the primary index of the table
      * @return empty if it is absent
      */
-    virtual std::shared_ptr<index const> find_primary_index(class table const& table);
+    virtual std::shared_ptr<index const> find_primary_index(class table const& table) const;
 };
 
 } // namespace yugawara::storage
