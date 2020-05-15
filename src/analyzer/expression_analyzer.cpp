@@ -21,11 +21,13 @@
 #include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
 #include <takatori/util/exception.h>
+#include <takatori/util/string_builder.h>
 
 #include <yugawara/type/category.h>
 #include <yugawara/type/conversion.h>
 
 #include <yugawara/extension/type/error.h>
+#include <yugawara/extension/scalar/aggregate_function_call.h>
 
 #include <yugawara/binding/table_column_info.h>
 #include <yugawara/binding/variable_info.h>
@@ -36,6 +38,7 @@
 #include <yugawara/binding/index_info.h>
 
 #include <yugawara/storage/table.h>
+#include <takatori/util/string_builder.h>
 
 namespace yugawara::analyzer {
 
@@ -45,6 +48,7 @@ namespace plan = ::takatori::plan;
 
 using ::takatori::util::enum_tag;
 using ::takatori::util::enum_tag_t;
+using ::takatori::util::string_builder;
 using ::takatori::util::throw_exception;
 using ::takatori::util::unsafe_downcast;
 using ::yugawara::extension::type::is_error;
@@ -177,16 +181,22 @@ public:
         return plan::dispatch(*this, step);
     }
 
-    type_ptr operator()(scalar::expression const&) {
-        throw_exception(std::domain_error("unknown expression"));
+    type_ptr operator()(scalar::expression const& expr) {
+        throw_exception(std::domain_error(string_builder {}
+                << expr.kind()
+                << string_builder::to_string));
     }
 
-    bool operator()(relation::expression const&) {
-        throw_exception(std::domain_error("unknown expression"));
+    bool operator()(relation::expression const& expr) {
+        throw_exception(std::domain_error(string_builder {}
+                << expr.kind()
+                << string_builder::to_string));
     }
 
-    bool operator()(plan::step const&) {
-        throw_exception(std::domain_error("unknown step"));
+    bool operator()(plan::step const& step) {
+        throw_exception(std::domain_error(string_builder {}
+                << step.kind()
+                << string_builder::to_string));
     }
 
     type_ptr operator()(scalar::immediate const& expr) {
@@ -360,6 +370,28 @@ public:
     }
 
     type_ptr operator()(scalar::function_call const& expr) {
+        if (validate_) {
+            // FIXME: type resolution has been completed since overload was detected
+            for (auto&& arg : expr.arguments()) {
+                resolve(arg);
+            }
+        }
+        auto&& func = binding::unwrap(expr.function());
+        return func.declaration().shared_return_type();
+    }
+
+    type_ptr operator()(scalar::extension const& expr) {
+        using extension::scalar::extension_id;
+        if (expr.extension_id() == extension_id::aggregate_function_call_id) {
+            return operator()(unsafe_downcast<extension::scalar::aggregate_function_call>(expr));
+        }
+        throw_exception(std::domain_error(string_builder {}
+                << "unknown scalar expression extension: "
+                << expr.extension_id()
+                << string_builder::to_string));
+    }
+
+    type_ptr operator()(extension::scalar::aggregate_function_call const& expr) {
         if (validate_) {
             // FIXME: type resolution has been completed since overload was detected
             for (auto&& arg : expr.arguments()) {

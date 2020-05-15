@@ -29,6 +29,7 @@
 #include <yugawara/binding/factory.h>
 #include <yugawara/extension/type/error.h>
 #include <yugawara/extension/type/pending.h>
+#include <yugawara/extension/scalar/aggregate_function_call.h>
 
 namespace yugawara::analyzer {
 
@@ -37,6 +38,7 @@ namespace t = ::takatori::type;
 namespace v = ::takatori::value;
 
 namespace ex = ::yugawara::extension::type;
+namespace es = ::yugawara::extension::scalar;
 
 using code = type_diagnostic::code_type;
 using vref = ::takatori::scalar::variable_reference;
@@ -1496,6 +1498,40 @@ TEST_F(expression_analyzer_scalar_test, function_call_unresolved) {
             {},
     });
     s::function_call expr {
+            f,
+            {},
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::int4());
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, aggregate_function_call) {
+    auto f = bindings.aggregate_function({
+            aggregate::declaration::minimum_user_function_id + 100,
+            "testing",
+            aggregate::set_quantifier::distinct,
+            t::int4 {},
+            {},
+    });
+    es::aggregate_function_call expr {
+            f,
+            {},
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::int4());
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, aggregate_function_call_unresolved) {
+    auto f = bindings.aggregate_function({
+            aggregate::declaration::unresolved_definition_id,
+            "testing",
+            aggregate::set_quantifier::distinct,
+            t::int4 {},
+            {},
+    });
+    es::aggregate_function_call expr {
             f,
             {},
     };
