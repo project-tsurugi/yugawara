@@ -2,7 +2,7 @@
 
 #include "compiler_extension.h"
 
-namespace yugawara::type::extensions {
+namespace yugawara::extension::type {
 
 /**
  * @brief represents an error while analyzing program.
@@ -19,4 +19,4 @@ inline bool is_error(takatori::type::data const& type) noexcept {
     return error::is_instance(type);
 }
 
-} // namespace yugawara::type::extensions
+} // namespace yugawara::extension::type

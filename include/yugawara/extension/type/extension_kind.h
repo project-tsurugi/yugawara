@@ -6,7 +6,7 @@
 
 #include <takatori/type/extension.h>
 
-namespace yugawara::type::extensions {
+namespace yugawara::extension::type {
 
 /// @brief the minimum extension ID for yugawara.
 constexpr ::takatori::type::extension::extension_id_type min_id = 1'000;
@@ -65,4 +65,4 @@ inline std::ostream& operator<<(std::ostream& out, extension_kind value) {
     return out << to_string_view(value);
 }
 
-} // namespace yugawara::type::extensions
+} // namespace yugawara::extension::type

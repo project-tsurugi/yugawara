@@ -24,7 +24,8 @@
 
 #include <yugawara/type/category.h>
 #include <yugawara/type/conversion.h>
-#include <yugawara/type/extensions/error.h>
+
+#include <yugawara/extension/type/error.h>
 
 #include <yugawara/binding/table_column_info.h>
 #include <yugawara/binding/variable_info.h>
@@ -46,8 +47,8 @@ using ::takatori::util::enum_tag;
 using ::takatori::util::enum_tag_t;
 using ::takatori::util::throw_exception;
 using ::takatori::util::unsafe_downcast;
+using ::yugawara::extension::type::is_error;
 using ::yugawara::type::category;
-using ::yugawara::type::extensions::is_error;
 using ::yugawara::util::ternary;
 using code = type_diagnostic_code;
 
@@ -1271,7 +1272,7 @@ private:
 
     type_ptr raise(type_diagnostic diagnostic) {
         report(std::move(diagnostic));
-        static auto result = std::make_shared<type::extensions::error>();
+        static auto result = std::make_shared<extension::type::error>();
         return result;
     }
 

@@ -9,7 +9,7 @@
 #include <yugawara/binding/function_info.h>
 #include <yugawara/binding/aggregate_function_info.h>
 
-#include <yugawara/type/extensions/extension_kind.h>
+#include <yugawara/extension/type/extension_kind.h>
 
 #include "details/binding_scanner.h"
 #include "details/resolution_scanner.h"
@@ -62,7 +62,7 @@ void object_scanner::properties(descriptor::aggregate_function const& element, o
 void object_scanner::properties(takatori::type::data const& element, object_acceptor& acceptor) {
     ::takatori::serializer::object_scanner::properties(element, acceptor);
     if (element.kind() == ::takatori::type::extension::tag) {
-        using namespace ::yugawara::type::extensions;
+        using namespace ::yugawara::extension::type;
         auto&& ext = unsafe_downcast<::takatori::type::extension>(element);
         if (is_known_compiler_extension(ext.extension_id())) {
             acceptor.property_begin("extension_tag"sv);

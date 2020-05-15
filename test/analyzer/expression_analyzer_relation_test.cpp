@@ -42,7 +42,7 @@
 #include <takatori/plan/group.h>
 
 #include <yugawara/binding/factory.h>
-#include <yugawara/type/extensions/error.h>
+#include <yugawara/extension/type/error.h>
 
 #include <yugawara/storage/table.h>
 #include <yugawara/storage/index.h>
@@ -60,7 +60,7 @@ namespace t = ::takatori::type;
 namespace v = ::takatori::value;
 namespace p = ::takatori::plan;
 
-namespace ex = ::yugawara::type::extensions;
+namespace ex = ::yugawara::extension::type;
 
 using code = type_diagnostic::code_type;
 using vref = ::takatori::scalar::variable_reference;
@@ -103,7 +103,7 @@ public:
         if (t) {
             return *repo.get(*t);
         }
-        static type::extensions::error error;
+        static extension::type::error error;
         return error;
     }
 

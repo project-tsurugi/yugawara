@@ -11,8 +11,8 @@
 #include <takatori/type/time_point.h>
 #include <takatori/type/datetime_interval.h>
 
-#include <yugawara/type/extensions/error.h>
-#include <yugawara/type/extensions/pending.h>
+#include <yugawara/extension/type/error.h>
+#include <yugawara/extension/type/pending.h>
 
 #include "dummy_extension.h"
 
@@ -57,8 +57,8 @@ TEST_F(type_category_test, unknown) {
 }
 
 TEST_F(type_category_test, unresolved) {
-    EXPECT_EQ(category_of(extensions::error()), category::unresolved);
-    EXPECT_EQ(category_of(extensions::pending()), category::unresolved);
+    EXPECT_EQ(category_of(extension::type::error()), category::unresolved);
+    EXPECT_EQ(category_of(extension::type::pending()), category::unresolved);
 }
 
 TEST_F(type_category_test, external) {

@@ -10,8 +10,8 @@
 #include <takatori/util/downcast.h>
 
 #include <yugawara/type/category.h>
-#include <yugawara/type/extensions/error.h>
-#include <yugawara/type/extensions/pending.h>
+#include <yugawara/extension/type/error.h>
+#include <yugawara/extension/type/pending.h>
 
 namespace yugawara::type {
 
@@ -24,8 +24,8 @@ using yugawara::util::ternary_of;
 bool impl::is_conversion_stop_type(model::data const& type) noexcept {
     if (type.kind() == model::extension::tag) {
         auto&& ext = unsafe_downcast<model::extension>(type);
-        return extensions::error::is_instance(ext)
-            || extensions::pending::is_instance(ext);
+        return extension::type::error::is_instance(ext)
+            || extension::type::pending::is_instance(ext);
     }
     return false;
 }
@@ -39,13 +39,13 @@ static constexpr std::uint64_t npair(kind a, kind b) noexcept {
     return static_cast<std::uint64_t>(a) * scale + static_cast<std::uint64_t>(b);
 }
 
-static std::shared_ptr<extensions::error> shared_error() {
-    static auto result = std::make_shared<extensions::error>();
+static std::shared_ptr<extension::type::error> shared_error() {
+    static auto result = std::make_shared<extension::type::error>();
     return result;
 }
 
-static std::shared_ptr<extensions::pending> shared_pending() {
-    static auto result = std::make_shared<extensions::pending>();
+static std::shared_ptr<extension::type::pending> shared_pending() {
+    static auto result = std::make_shared<extension::type::pending>();
     return result;
 }
 

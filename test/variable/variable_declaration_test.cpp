@@ -5,7 +5,7 @@
 #include <takatori/type/primitive.h>
 #include <takatori/value/primitive.h>
 
-#include <yugawara/type/extensions/pending.h>
+#include <yugawara/extension/type/pending.h>
 
 namespace yugawara::variable {
 
@@ -21,7 +21,7 @@ TEST_F(variable_declaration_test, unresolved) {
 
     EXPECT_FALSE(d.is_resolved());
     EXPECT_EQ(d.name(), "?");
-    EXPECT_EQ(d.type(), type::extensions::pending());
+    EXPECT_EQ(d.type(), extension::type::pending());
     EXPECT_EQ(d.criteria().nullity(), nullable);
 }
 

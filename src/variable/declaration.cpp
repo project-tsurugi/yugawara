@@ -3,13 +3,13 @@
 #include <takatori/util/clonable.h>
 #include <takatori/util/print_support.h>
 
-#include <yugawara/type/extensions/pending.h>
+#include <yugawara/extension/type/pending.h>
 
 namespace yugawara::variable {
 
 static declaration::type_pointer or_pending(declaration::type_pointer ptr) {
     if (!ptr) {
-        static auto pending = std::make_shared<type::extensions::pending>();
+        static auto pending = std::make_shared<extension::type::pending>();
         return pending;
     }
     return ptr;
@@ -35,7 +35,7 @@ declaration::declaration(
 {}
 
 bool declaration::is_resolved() const noexcept {
-    return !type::extensions::pending::is_instance(*type_);
+    return !extension::type::pending::is_instance(*type_);
 }
 
 declaration::operator bool() const noexcept {

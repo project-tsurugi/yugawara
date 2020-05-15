@@ -4,8 +4,8 @@
 #include <takatori/type/extension.h>
 #include <takatori/util/downcast.h>
 
-#include <yugawara/type/extensions/error.h>
-#include <yugawara/type/extensions/pending.h>
+#include <yugawara/extension/type/error.h>
+#include <yugawara/extension/type/pending.h>
 
 namespace yugawara::type {
 
@@ -64,8 +64,8 @@ category category_of(takatori::type::data const& type) noexcept {
 }
 
 inline category extension_category_of(takatori::type::extension const& type) noexcept {
-    if (extensions::error::is_instance(type)
-            || extensions::pending::is_instance(type)) {
+    if (extension::type::error::is_instance(type)
+            || extension::type::pending::is_instance(type)) {
         return category::unresolved;
     }
     return category::external;

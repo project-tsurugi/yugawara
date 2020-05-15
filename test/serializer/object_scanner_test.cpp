@@ -14,8 +14,8 @@
 
 #include <yugawara/binding/factory.h>
 
-#include <yugawara/type/extensions/error.h>
-#include <yugawara/type/extensions/pending.h>
+#include <yugawara/extension/type/error.h>
+#include <yugawara/extension/type/pending.h>
 
 #include <yugawara/variable/comparison.h>
 #include <yugawara/variable/negation.h>
@@ -161,11 +161,11 @@ TEST_F(object_scanner_test, aggregate_function) {
 }
 
 TEST_F(object_scanner_test, type_error) {
-    print(type::extensions::error {});
+    print(extension::type::error {});
 }
 
 TEST_F(object_scanner_test, type_pending) {
-    print(type::extensions::pending {});
+    print(extension::type::pending {});
 }
 
 TEST_F(object_scanner_test, scalar_expression) {

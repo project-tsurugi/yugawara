@@ -27,8 +27,8 @@
 #include <takatori/util/optional_ptr.h>
 
 #include <yugawara/binding/factory.h>
-#include <yugawara/type/extensions/error.h>
-#include <yugawara/type/extensions/pending.h>
+#include <yugawara/extension/type/error.h>
+#include <yugawara/extension/type/pending.h>
 
 namespace yugawara::analyzer {
 
@@ -36,7 +36,7 @@ namespace s = ::takatori::scalar;
 namespace t = ::takatori::type;
 namespace v = ::takatori::value;
 
-namespace ex = ::yugawara::type::extensions;
+namespace ex = ::yugawara::extension::type;
 
 using code = type_diagnostic::code_type;
 using vref = ::takatori::scalar::variable_reference;

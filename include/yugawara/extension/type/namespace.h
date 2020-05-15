@@ -4,4 +4,4 @@
  * @brief more type models used in yugawara.
  * @see takatori::type::extension
  */
-namespace yugawara::type::extensions {}
+namespace yugawara::extension::type {}

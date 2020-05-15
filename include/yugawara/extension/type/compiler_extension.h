@@ -8,7 +8,7 @@
 
 #include "extension_kind.h"
 
-namespace yugawara::type::extensions {
+namespace yugawara::extension::type {
 
 /**
  * @brief a simple type extension for this compiler.
@@ -130,11 +130,11 @@ protected:
     }
 };
 
-} // namespace yugawara::type::extensions
+} // namespace yugawara::extension::type
 
 /**
- * @brief specialization for yugawara::type::extensions::simple_extension.
+ * @brief specialization for yugawara::extension::type::simple_extension.
  * @tparam ExtensionId the extension ID
  */
 template<takatori::type::extension::extension_id_type ExtensionId>
-struct std::hash<yugawara::type::extensions::compiler_extension<ExtensionId>> : hash<takatori::type::data> {};
+struct std::hash<yugawara::extension::type::compiler_extension<ExtensionId>> : hash<takatori::type::data> {};

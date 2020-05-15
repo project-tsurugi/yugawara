@@ -2,7 +2,7 @@
 
 #include "compiler_extension.h"
 
-namespace yugawara::type::extensions {
+namespace yugawara::extension::type {
 
 /**
  * @brief represents an unresolved type that will be resolved in the future.
@@ -21,4 +21,4 @@ inline bool is_pending(takatori::type::data const& type) noexcept {
     return pending::is_instance(type);
 }
 
-} // namespace yugawara::type::extensions
+} // namespace yugawara::extension::type
