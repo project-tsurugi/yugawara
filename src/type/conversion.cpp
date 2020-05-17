@@ -21,6 +21,11 @@ using takatori::util::unsafe_downcast;
 using yugawara::util::ternary;
 using yugawara::util::ternary_of;
 
+constexpr std::size_t decimal_precision_int1 = 3;
+constexpr std::size_t decimal_precision_int2 = 5;
+constexpr std::size_t decimal_precision_int4 = 10;
+constexpr std::size_t decimal_precision_int8 = 19;
+
 bool impl::is_conversion_stop_type(model::data const& type) noexcept {
     if (type.kind() == model::extension::tag) {
         auto&& ext = unsafe_downcast<model::extension>(type);
@@ -103,13 +108,13 @@ std::shared_ptr<model::data const> unary_decimal_promotion(model::data const& ty
     switch (type.kind()) {
         case kind::unknown:
         case kind::int1:
-            return repo.get(model::decimal { 3 });
+            return repo.get(model::decimal { decimal_precision_int1 });
         case kind::int2:
-            return repo.get(model::decimal { 5 });
+            return repo.get(model::decimal { decimal_precision_int2 });
         case kind::int4:
-            return repo.get(model::decimal { 10 });
+            return repo.get(model::decimal { decimal_precision_int4 });
         case kind::int8:
-            return repo.get(model::decimal { 19 });
+            return repo.get(model::decimal { decimal_precision_int8 });
         case kind::decimal:
             return repo.get(type);
         default:
@@ -128,7 +133,7 @@ binary_numeric_promotion(model::data const& type, model::data const& with, repos
         case npair(kind::int1, kind::int8):
             return repo.get(model::int8 {});
         case npair(kind::int1, kind::decimal):
-            return repo.get(model::decimal { 3 });
+            return repo.get(model::decimal { decimal_precision_int1 });
         case npair(kind::int1, kind::float4):
             return repo.get(model::float4 {});
         case npair(kind::int1, kind::float8):
@@ -141,7 +146,7 @@ binary_numeric_promotion(model::data const& type, model::data const& with, repos
         case npair(kind::int2, kind::int8):
             return repo.get(model::int8 {});
         case npair(kind::int2, kind::decimal):
-            return repo.get(model::decimal { 5 });
+            return repo.get(model::decimal { decimal_precision_int2 });
         case npair(kind::int2, kind::float4):
             return repo.get(model::float4 {});
         case npair(kind::int2, kind::float8):
@@ -154,7 +159,7 @@ binary_numeric_promotion(model::data const& type, model::data const& with, repos
         case npair(kind::int4, kind::int8):
             return repo.get(model::int8 {});
         case npair(kind::int4, kind::decimal):
-            return repo.get(model::decimal { 10 });
+            return repo.get(model::decimal { decimal_precision_int4 });
         case npair(kind::int4, kind::float4):
             return repo.get(model::float8 {});
         case npair(kind::int4, kind::float8):
@@ -166,7 +171,7 @@ binary_numeric_promotion(model::data const& type, model::data const& with, repos
         case npair(kind::int8, kind::int8):
             return repo.get(model::int8 {});
         case npair(kind::int8, kind::decimal):
-            return repo.get(model::decimal { 19 });
+            return repo.get(model::decimal { decimal_precision_int8 });
         case npair(kind::int8, kind::float4):
             return repo.get(model::float8 {});
         case npair(kind::int8, kind::float8):
@@ -679,6 +684,113 @@ ternary is_cast_convertible(takatori::type::data const& type, takatori::type::da
         case npair(kind::extension, kind::extension):
             // FIXME: impl cast extension -> extension
             return ternary::no;
+
+        default:
+            return ternary::no;
+    }
+}
+
+util::ternary is_widening_convertible(takatori::type::data const& type, takatori::type::data const& target) noexcept {
+    if (is_conversion_stop_type(type) || is_conversion_stop_type(target)) return ternary::unknown;
+
+    switch (npair(type.kind(), target.kind())) {
+        case npair(kind::boolean, kind::boolean):
+
+        case npair(kind::int1, kind::int1):
+        case npair(kind::int1, kind::int2):
+        case npair(kind::int1, kind::int4):
+        case npair(kind::int1, kind::int8):
+        case npair(kind::int1, kind::float4):
+        case npair(kind::int1, kind::float8):
+
+        case npair(kind::int2, kind::int2):
+        case npair(kind::int2, kind::int4):
+        case npair(kind::int2, kind::int8):
+        case npair(kind::int2, kind::float4):
+        case npair(kind::int2, kind::float8):
+
+        case npair(kind::int4, kind::int4):
+        case npair(kind::int4, kind::int8):
+        case npair(kind::int4, kind::float4):
+        case npair(kind::int4, kind::float8):
+
+        case npair(kind::int8, kind::int8):
+        case npair(kind::int8, kind::float4):
+        case npair(kind::int8, kind::float8):
+
+        case npair(kind::decimal, kind::float4):
+        case npair(kind::decimal, kind::float8):
+
+        case npair(kind::float4, kind::float4):
+        case npair(kind::float4, kind::float8):
+
+        case npair(kind::float8, kind::float8):
+
+        case npair(kind::date, kind::date):
+        case npair(kind::date, kind::time_point):
+
+        case npair(kind::time_of_day, kind::time_of_day):
+        case npair(kind::time_of_day, kind::time_point):
+
+        case npair(kind::time_point, kind::time_point):
+
+        case npair(kind::datetime_interval, kind::datetime_interval):
+            return ternary::yes;
+
+        case npair(kind::int1, kind::decimal):
+            return is_widening_convertible(model::decimal { decimal_precision_int1 }, target);
+        case npair(kind::int2, kind::decimal):
+            return is_widening_convertible(model::decimal { decimal_precision_int2 }, target);
+        case npair(kind::int4, kind::decimal):
+            return is_widening_convertible(model::decimal { decimal_precision_int4 }, target);
+        case npair(kind::int8, kind::decimal):
+            return is_widening_convertible(model::decimal { decimal_precision_int8 }, target);
+
+        case npair(kind::decimal, kind::int1):
+            return is_widening_convertible(type, model::decimal { decimal_precision_int1 - 1 });
+        case npair(kind::decimal, kind::int2):
+            return is_widening_convertible(type, model::decimal { decimal_precision_int2 - 1 });
+        case npair(kind::decimal, kind::int4):
+            return is_widening_convertible(type, model::decimal { decimal_precision_int4 - 1 });
+        case npair(kind::decimal, kind::int8):
+            return is_widening_convertible(type, model::decimal { decimal_precision_int8 - 1 });
+
+        case npair(kind::decimal, kind::decimal): {
+            auto&& a = unsafe_downcast<model::decimal>(type);
+            auto&& b = unsafe_downcast<model::decimal>(target);
+            if (a.scale() < b.scale()) return ternary::no;
+            if (!a.precision()) return ternary::no;
+            if (!b.precision()) return ternary::yes;
+            auto ai = static_cast<std::int64_t>(*a.precision()) - a.scale();
+            auto bi = static_cast<std::int64_t>(*b.precision()) - b.scale();
+            return ternary_of(ai <= bi);
+        }
+
+        case npair(kind::character, kind::character): {
+            auto&& a = unsafe_downcast<model::character>(type);
+            auto&& b = unsafe_downcast<model::character>(target);
+            if (a.varying() && !b.varying()) return ternary::no;
+            if (!a.length()) return ternary::no;
+            if (!b.length()) return ternary::yes;
+            return ternary_of(*a.length() <= b.length());
+        }
+
+        case npair(kind::bit, kind::bit): {
+            auto&& a = unsafe_downcast<model::bit>(type);
+            auto&& b = unsafe_downcast<model::bit>(target);
+            if (a.varying() && !b.varying()) return ternary::no;
+            if (!a.length()) return ternary::no;
+            if (!b.length()) return ternary::yes;
+            return ternary_of(*a.length() <= b.length());
+        }
+
+        case npair(kind::array, kind::array):
+        case npair(kind::record, kind::record):
+        case npair(kind::declared, kind::declared):
+            return ternary_of(type == target);
+
+        case npair(kind::extension, kind::extension):
+            return ternary_of(type == target);
 
         default:
             return ternary::no;

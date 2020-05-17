@@ -295,4 +295,14 @@ util::ternary is_assignment_convertible(::takatori::type::data const& type, ::ta
  */
 util::ternary is_cast_convertible(::takatori::type::data const& type, ::takatori::type::data const& target) noexcept;
 
+/**
+ * @brief returns whether or not the "widening conversion" is applicable to the given types.
+ * @param type the type to be converted
+ * @param target the conversion target type
+ * @return yes if the conversion is applicable
+ * @return no if the conversion is not applicable
+ * @return unknown if the parameters contain an erroneous or pending type
+ */
+util::ternary is_widening_convertible(::takatori::type::data const& type, ::takatori::type::data const& target) noexcept;
+
 } // namespace yugawara::type
