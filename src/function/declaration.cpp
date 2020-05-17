@@ -3,6 +3,8 @@
 #include <takatori/util/vector_print_support.h>
 #include <takatori/util/clonable.h>
 
+#include "utils.h"
+
 namespace yugawara::function {
 
 declaration::declaration(
@@ -86,6 +88,10 @@ std::vector<declaration::type_pointer, takatori::util::object_allocator<declarat
 
 std::vector<declaration::type_pointer, takatori::util::object_allocator<declaration::type_pointer>> const& declaration::shared_parameter_types() const noexcept {
     return parameter_types_;
+}
+
+bool declaration::has_wider_parameters(declaration const& other) const noexcept {
+    return utils::each_is_widening_convertible(parameter_types_, other.parameter_types_);
 }
 
 std::ostream& operator<<(std::ostream& out, declaration const& value) {

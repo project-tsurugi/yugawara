@@ -16,6 +16,7 @@ add_library(yugawara
 
     # function information
     function/declaration.cpp
+    function/utils.cpp
 
     # aggregate function information
     aggregate/declaration.cpp
