@@ -758,9 +758,9 @@ util::ternary is_widening_convertible(takatori::type::data const& type, takatori
         case npair(kind::decimal, kind::decimal): {
             auto&& a = unsafe_downcast<model::decimal>(type);
             auto&& b = unsafe_downcast<model::decimal>(target);
-            if (a.scale() < b.scale()) return ternary::no;
-            if (!a.precision()) return ternary::no;
+            if (a.scale() > b.scale()) return ternary::no;
             if (!b.precision()) return ternary::yes;
+            if (!a.precision()) return ternary::no;
             auto ai = static_cast<std::int64_t>(*a.precision()) - a.scale();
             auto bi = static_cast<std::int64_t>(*b.precision()) - b.scale();
             return ternary_of(ai <= bi);
