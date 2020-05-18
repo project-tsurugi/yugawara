@@ -36,6 +36,14 @@ expression_resolution const& expression_mapping::bind(
     return iter->second;
 }
 
+void expression_mapping::unbind(takatori::scalar::expression const& expression) {
+    mapping_.erase(std::addressof(expression));
+}
+
+void expression_mapping::clear() noexcept {
+    mapping_.clear();
+}
+
 takatori::util::object_creator expression_mapping::get_object_creator() const {
     return mapping_.get_allocator();
 }

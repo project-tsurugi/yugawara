@@ -51,6 +51,18 @@ public:
             bool overwrite = false);
 
     /**
+     * @brief removes the resolution for the target variable.
+     * @details This will do nothing if there is not resolution for the given variable.
+     * @param variable the target variable
+     */
+    void unbind(::takatori::descriptor::variable const& variable);
+
+    /**
+     * @brief removes all registered entries.
+     */
+    void clear() noexcept;
+
+    /**
      * @brief returns the object creator.
      * @return the object creator
      */

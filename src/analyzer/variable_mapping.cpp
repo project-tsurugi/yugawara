@@ -33,6 +33,14 @@ variable_resolution const& variable_mapping::bind(
     throw_exception(std::domain_error("rebind variable"));
 }
 
+void variable_mapping::unbind(takatori::descriptor::variable const& variable) {
+    mapping_.erase(variable);
+}
+
+void variable_mapping::clear() noexcept {
+    mapping_.clear();
+}
+
 takatori::util::object_creator variable_mapping::get_object_creator() const {
     return mapping_.get_allocator();
 }

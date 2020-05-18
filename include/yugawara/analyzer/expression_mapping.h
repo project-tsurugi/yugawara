@@ -37,7 +37,6 @@ public:
 
     /**
      * @brief sets the resolved type for the expression.
-     * @attention this is designed only for testing
      * @param expression the target expression
      * @param resolution the resolved information
      * @param overwrite whether or not the overwrite the existing result if it exists
@@ -48,6 +47,18 @@ public:
             ::takatori::scalar::expression const& expression,
             expression_resolution resolution,
             bool overwrite = false);
+
+    /**
+     * @brief removes the resolution for the target expression.
+     * @details This will do nothing if there is not resolution for the given expression.
+     * @param expression the target expression
+     */
+    void unbind(::takatori::scalar::expression const& expression);
+
+    /**
+     * @brief removes all registered entries.
+     */
+    void clear() noexcept;
 
     /**
      * @brief returns the object creator.
