@@ -72,7 +72,14 @@ public:
      * @brief creates a new external variable descriptor.
      * @param declaration the original declaration
      */
-    [[nodiscard]] ::takatori::descriptor::variable external_variable(variable::declaration const& declaration);
+    [[nodiscard]] ::takatori::descriptor::variable external_variable(std::shared_ptr<variable::declaration const> declaration);
+
+    /**
+     * @brief creates a new external variable descriptor.
+     * @param declaration the original declaration
+     * @attention this may take a copy of argument
+     */
+    [[nodiscard]] ::takatori::descriptor::variable external_variable(variable::declaration&& declaration);
 
     /**
      * @brief returns a variable descriptor for a new frame variable.
@@ -130,8 +137,11 @@ public:
     /// @copydoc table_column()
     [[nodiscard]] ::takatori::descriptor::variable operator()(storage::column const& declaration);
 
-    /// @copydoc external_variable()
-    [[nodiscard]] ::takatori::descriptor::variable operator()(variable::declaration const& declaration);
+    /// @copydoc external_variable(std::shared_ptr<variable::declaration const>)
+    [[nodiscard]] ::takatori::descriptor::variable operator()(std::shared_ptr<variable::declaration const> declaration);
+
+    /// @copydoc external_variable(variable::declaration&&)
+    [[nodiscard]] ::takatori::descriptor::variable operator()(variable::declaration&& declaration);
 
     /// @copydoc function(std::shared_ptr<function::declaration const>)
     [[nodiscard]] ::takatori::descriptor::function operator()(std::shared_ptr<function::declaration const> declaration);

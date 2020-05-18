@@ -5,8 +5,8 @@
 
 namespace yugawara::binding {
 
-external_variable_info::external_variable_info(variable::declaration const& declaration) noexcept
-    : declaration_(std::addressof(declaration))
+external_variable_info::external_variable_info(declaration_pointer declaration) noexcept
+    : declaration_(std::move(declaration))
 {}
 
 variable_info_kind external_variable_info::kind() const noexcept {
@@ -15,6 +15,15 @@ variable_info_kind external_variable_info::kind() const noexcept {
 
 yugawara::variable::declaration const& external_variable_info::declaration() const noexcept {
     return *declaration_;
+}
+
+external_variable_info& external_variable_info::declaration(declaration_pointer declaration) noexcept {
+    declaration_ = std::move(declaration);
+    return *this;
+}
+
+external_variable_info::declaration_pointer const& external_variable_info::shared_declaration() const noexcept {
+    return declaration_;
 }
 
 bool operator==(external_variable_info const& a, external_variable_info const& b) noexcept {

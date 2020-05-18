@@ -92,12 +92,10 @@ TEST_F(object_scanner_test, local_variable) {
 }
 
 TEST_F(object_scanner_test, external_variable) {
-    variable::declaration v {
+    print(bindings( variable::declaration {
             "X",
             t::int4 {},
-    };
-
-    print(bindings(v));
+    }));
 }
 
 TEST_F(object_scanner_test, index) {
@@ -187,7 +185,7 @@ TEST_F(object_scanner_test, scalar_expression_resolution) {
 }
 
 TEST_F(object_scanner_test, predicate_comparison) {
-    variable::declaration v {
+    print(bindings(variable::declaration {
             "X",
             t::int4 {},
             {
@@ -197,13 +195,11 @@ TEST_F(object_scanner_test, predicate_comparison) {
                             v::int4 { 0 },
                     },
             }
-    };
-
-    print(bindings(v));
+    }));
 }
 
 TEST_F(object_scanner_test, predicate_negation) {
-    variable::declaration v {
+    print(bindings(variable::declaration {
             "X",
             t::int4 {},
             {
@@ -215,13 +211,11 @@ TEST_F(object_scanner_test, predicate_negation) {
                             },
                     },
             }
-    };
-
-    print(bindings(v));
+    }));
 }
 
 TEST_F(object_scanner_test, predicate_quantification) {
-    variable::declaration v {
+    print(bindings(variable::declaration {
             "X",
             t::int4 {},
             {
@@ -240,9 +234,7 @@ TEST_F(object_scanner_test, predicate_quantification) {
                             }
                     },
             }
-    };
-
-    print(bindings(v));
+    }));
 }
 
 TEST_F(object_scanner_test, resolution_unresolved) {
