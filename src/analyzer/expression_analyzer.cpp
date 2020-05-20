@@ -12,6 +12,7 @@
 #include <takatori/relation/intermediate/dispatch.h>
 #include <takatori/relation/step/dispatch.h>
 #include <takatori/plan/dispatch.h>
+#include <takatori/statement/dispatch.h>
 
 #include <takatori/type/primitive.h>
 #include <takatori/type/decimal.h>
@@ -45,6 +46,7 @@ namespace yugawara::analyzer {
 namespace scalar = ::takatori::scalar;
 namespace relation = ::takatori::relation;
 namespace plan = ::takatori::plan;
+namespace statement = ::takatori::statement;
 
 using ::takatori::util::enum_tag;
 using ::takatori::util::enum_tag_t;
@@ -155,6 +157,16 @@ public:
         return relation::intermediate::dispatch(*this, expression);
     }
 
+    bool resolve(relation::graph_type const& graph) {
+        bool result = true;
+        relation::sort_from_upstream(graph, [&](relation::expression const& v) {
+            if (result) {
+                result = resolve(v, false);
+            }
+        });
+        return result;
+    }
+
     bool resolve(plan::step const& step, bool recursive) {
         if (recursive) {
             saw_set<plan::step> saw {};
@@ -164,6 +176,16 @@ public:
             return resolve_recursive(unsafe_downcast<plan::exchange>(step), saw);
         }
         return plan::dispatch(*this, step);
+    }
+
+    bool resolve(plan::graph_type const& graph) {
+        bool result = true;
+        plan::sort_from_upstream(graph, [&](plan::step const& v) {
+            if (result) {
+                result = resolve(v, false);
+            }
+        });
+        return result;
     }
 
     template<class Step>
@@ -181,6 +203,10 @@ public:
         return plan::dispatch(*this, step);
     }
 
+    bool resolve(::takatori::statement::statement const& stmt) {
+        return ::takatori::statement::dispatch(*this, stmt);
+    }
+
     type_ptr operator()(scalar::expression const& expr) {
         throw_exception(std::domain_error(string_builder {}
                 << expr.kind()
@@ -196,6 +222,12 @@ public:
     bool operator()(plan::step const& step) {
         throw_exception(std::domain_error(string_builder {}
                 << step.kind()
+                << string_builder::to_string));
+    }
+
+    bool operator()(::takatori::statement::statement const& stmt) {
+        throw_exception(std::domain_error(string_builder {}
+                << stmt.kind()
                 << string_builder::to_string));
     }
 
@@ -1206,13 +1238,7 @@ public:
     }
 
     bool operator()(plan::process const& step) {
-        auto&& g = step.operators();
-        for (auto&& r : g) {
-            if (!resolve(r, true)) {
-                return false;
-            }
-        }
-        return true;
+        return resolve(step.operators());
     }
 
     bool operator()(plan::forward const& step) {
@@ -1270,6 +1296,74 @@ public:
         return true;
     }
 
+    bool operator()(statement::execute const& stmt) {
+        return resolve(stmt.execution_plan());
+    }
+
+    bool operator()(statement::write const& stmt) {
+        if (validate_) {
+            auto&& relation = binding::unwrap(stmt.destination());
+            if (relation.kind() != binding::relation_info::kind_type::index) {
+                throw_exception(std::domain_error("must be index"));
+            }
+            auto&& table = unsafe_downcast<binding::index_info>(relation)
+                    .declaration()
+                    .table();
+            for (auto&& tuple : stmt.tuples()) {
+                if (stmt.columns().size() < tuple.elements().size()) {
+                    report({
+                            code::inconsistent_number_of_elements,
+                            extract_region(tuple.elements()[stmt.columns().size()]),
+                            repo_.get(::takatori::type::unknown()),
+                            {},
+                    });
+                    return false;
+                }
+                if (stmt.columns().size() > tuple.elements().size()) {
+                    if (tuple.elements().empty()) {
+                        report({
+                                code::inconsistent_number_of_elements,
+                                extract_region(stmt.columns()[0]),
+                                repo_.get(::takatori::type::unknown()),
+                                {},
+                        });
+                    } else {
+                        report({
+                                code::inconsistent_number_of_elements,
+                                extract_region(tuple.elements().back()),
+                                repo_.get(::takatori::type::unknown()),
+                                {},
+                        });
+                    }
+                    return false;
+                }
+            }
+            auto&& columns = stmt.columns();
+            for (std::size_t i = 0, n = columns.size(); i < n; ++i) {
+                auto&& dst = resolve_table_column(columns[i]);
+                auto column = dst.element_if<variable_resolution::kind_type::table_column>();
+                if (!column || column->optional_owner().get() != std::addressof(table)) {
+                    throw_exception(std::domain_error("invalid table column"));
+                }
+                for (auto&& tuple : stmt.tuples()) {
+                    auto&& src = resolve(tuple.elements()[i]);
+                    if (!is_unresolved_or_error(src)) {
+                        auto t = type::is_assignment_convertible(*src, column->type());
+                        if (t != ternary::yes) {
+                            report({
+                                    code::inconsistent_type,
+                                    tuple.elements()[i].region(),
+                                    std::move(src),
+                                    { type::category_of(column->type()) },
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
 private:
     expression_analyzer& ana_;
     std::vector<type_diagnostic, ::takatori::util::object_allocator<type_diagnostic>>& diagnostics_;
@@ -1306,7 +1400,7 @@ private:
     void validate_function_call(Expr const& expr, F const& func) {
         if (func.declaration().parameter_types().size() != expr.arguments().size()) {
             report({
-                    code::inconsistent_function_call,
+                    code::inconsistent_number_of_elements,
                     extract_region(expr),
                     repo_.get(::takatori::type::unknown()),
                     {},
@@ -1657,7 +1751,7 @@ std::shared_ptr<::takatori::type::data const> expression_analyzer::inspect(
 }
 
 std::shared_ptr<::takatori::type::data const> expression_analyzer::resolve(
-        ::takatori::scalar::expression const& expression,
+        scalar::expression const& expression,
         bool validate,
         type::repository& repo) {
     return engine { *this, validate, diagnostics_, repo }
@@ -1665,7 +1759,7 @@ std::shared_ptr<::takatori::type::data const> expression_analyzer::resolve(
 }
 
 bool expression_analyzer::resolve(
-        ::takatori::relation::expression const& expression,
+        relation::expression const& expression,
         bool validate,
         bool recursive,
         type::repository& repo) {
@@ -1674,12 +1768,36 @@ bool expression_analyzer::resolve(
 }
 
 bool expression_analyzer::resolve(
-        ::takatori::plan::step const& step,
+        relation::graph_type const& graph,
+        bool validate,
+        type::repository& repo) {
+    return engine { *this, validate, diagnostics_, repo }
+            .resolve(graph);
+}
+
+bool expression_analyzer::resolve(
+        plan::step const& step,
         bool validate,
         bool recursive,
         type::repository& repo) {
     return engine { *this, validate, diagnostics_, repo }
             .resolve(step, recursive);
+}
+
+bool expression_analyzer::resolve(
+        plan::graph_type const& graph,
+        bool validate,
+        type::repository& repo) {
+    return engine { *this, validate, diagnostics_, repo }
+            .resolve(graph);
+}
+
+bool expression_analyzer::resolve(
+        statement::statement const& statement,
+        bool validate,
+        type::repository& repo) {
+    return engine { *this, validate, diagnostics_, repo }
+            .resolve(statement);
 }
 
 bool expression_analyzer::has_diagnostics() const noexcept {

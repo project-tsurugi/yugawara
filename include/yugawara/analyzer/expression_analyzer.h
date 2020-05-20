@@ -4,8 +4,11 @@
 #include <vector>
 
 #include <takatori/descriptor/variable.h>
+#include <takatori/statement/statement.h>
 #include <takatori/plan/step.h>
+#include <takatori/plan/graph.h>
 #include <takatori/relation/expression.h>
+#include <takatori/relation/graph.h>
 #include <takatori/scalar/expression.h>
 #include <takatori/type/data.h>
 #include <takatori/util/object_creator.h>
@@ -126,8 +129,24 @@ public:
             type::repository& repo = type::default_repository());
 
     /**
+     * @brief computes the type of variables in the relational expressions.
+     * @details this also computes types of scalar expressions in the given expression graph only if they are needed
+     *      to compute types of declared variables in the graph.
+     * @param validate whether or not the operation validates the all sub-elements,
+     *      if `false`, this computes the sub-elements only for decide the variable types
+     * @param graph the target expression graph
+     * @param repo the type repository
+     * @return true if resolution was success
+     * @return false if resolution was not success, please refer diagnostics()
+     */
+    bool resolve(
+            ::takatori::relation::graph_type const& graph,
+            bool validate = false,
+            type::repository& repo = type::default_repository());
+
+    /**
      * @brief computes type of variables in the step of execution plan.
-     * @param step the target
+     * @param step the target step
      * @param validate whether or not the operation validates the all sub-elements,
      *      if `false`, this computes the sub-elements only for decide the variable types
      * @param recursive if true, this also resolves the upstream steps.
@@ -141,6 +160,34 @@ public:
             ::takatori::plan::step const& step,
             bool validate = false,
             bool recursive = false,
+            type::repository& repo = type::default_repository());
+
+    /**
+     * @brief computes type of variables in the execution plan.
+     * @param graph the target plan
+     * @param validate whether or not the operation validates the all sub-elements,
+     *      if `false`, this computes the sub-elements only for decide the variable types
+     * @param repo the type repository
+     * @return true if resolution was success
+     * @return false if resolution was not success, please refer diagnostics()
+     */
+    bool resolve(
+            ::takatori::plan::graph_type const& graph,
+            bool validate = false,
+            type::repository& repo = type::default_repository());
+
+    /**
+     * @brief computes type of variables in the statement.
+     * @param statement the target statement
+     * @param validate whether or not the operation validates the all sub-elements,
+     *      if `false`, this computes the sub-elements only for decide the variable types
+     * @param repo the type repository
+     * @return true if resolution was success
+     * @return false if resolution was not success, please refer diagnostics()
+     */
+    bool resolve(
+            ::takatori::statement::statement const& statement,
+            bool validate = false,
             type::repository& repo = type::default_repository());
 
     /**

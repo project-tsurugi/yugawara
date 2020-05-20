@@ -4,6 +4,10 @@
 #include <string_view>
 #include <utility>
 
+#include <cstdlib>
+
+#include <takatori/util/enum_set.h>
+
 namespace yugawara::analyzer {
 
 /**
@@ -20,9 +24,15 @@ enum class type_diagnostic_code {
     inconsistent_type,
     /// @brief the referring variable is not resolved.
     unresolved_variable,
-    /// @brief the number of function argument is wrong.
-    inconsistent_function_call,
+    /// @brief the number of values is wrong.
+    inconsistent_number_of_elements,
 };
+
+/// @brief an enum set of join_strategy.
+using type_diagnostic_code_set = ::takatori::util::enum_set<
+        type_diagnostic_code,
+        type_diagnostic_code::unknown,
+        type_diagnostic_code::inconsistent_number_of_elements>;
 
 /**
  * @brief returns string representation of the value.
@@ -38,7 +48,7 @@ constexpr std::string_view to_string_view(type_diagnostic_code value) noexcept {
         case kind::ambiguous_type: return "ambiguous_type"sv;
         case kind::inconsistent_type: return "inconsistent_type"sv;
         case kind::unresolved_variable: return "unresolved_variable"sv;
-        case kind::inconsistent_function_call: return "inconsistent_function_call"sv;
+        case kind::inconsistent_number_of_elements: return "inconsistent_number_of_elements"sv;
     }
     std::abort();
 }

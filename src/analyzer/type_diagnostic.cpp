@@ -48,11 +48,21 @@ type::category_set const& type_diagnostic::expected_categories() const noexcept 
 }
 
 std::ostream& operator<<(std::ostream& out, type_diagnostic const& value) {
+    constexpr type_diagnostic_code_set type_available {
+            type_diagnostic_code::unsupported_type,
+            type_diagnostic_code::ambiguous_type,
+            type_diagnostic_code::inconsistent_type,
+    };
+    if (type_available.contains(value.code())) {
+        return out << "type_diagnostic("
+                   << "code=" << value.code() << ", "
+                   << "region=" << value.region() << ", "
+                   << "actual_type=" << value.actual_type() << ", "
+                   << "expected_categories=" << value.expected_categories() << ")";
+    }
     return out << "type_diagnostic("
                << "code=" << value.code() << ", "
-               << "region=" << value.region() << ", "
-               << "actual_type=" << value.actual_type() << ", "
-               << "expected_categories=" << value.expected_categories() << ")";
+               << "region=" << value.region() << ")";
 }
 
 } // namespace yugawara::analyzer
