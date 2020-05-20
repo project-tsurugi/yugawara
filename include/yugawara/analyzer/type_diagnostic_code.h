@@ -20,6 +20,8 @@ enum class type_diagnostic_code {
     inconsistent_type,
     /// @brief the referring variable is not resolved.
     unresolved_variable,
+    /// @brief the number of function argument is wrong.
+    inconsistent_function_call,
 };
 
 /**
@@ -36,6 +38,7 @@ constexpr std::string_view to_string_view(type_diagnostic_code value) noexcept {
         case kind::ambiguous_type: return "ambiguous_type"sv;
         case kind::inconsistent_type: return "inconsistent_type"sv;
         case kind::unresolved_variable: return "unresolved_variable"sv;
+        case kind::inconsistent_function_call: return "inconsistent_function_call"sv;
     }
     std::abort();
 }

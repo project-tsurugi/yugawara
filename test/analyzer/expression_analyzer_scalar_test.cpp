@@ -1490,6 +1490,27 @@ TEST_F(expression_analyzer_scalar_test, function_call) {
     EXPECT_TRUE(ok());
 }
 
+TEST_F(expression_analyzer_scalar_test, function_call_inconsistent) {
+    auto f = bindings.function({
+            function::declaration::minimum_user_function_id + 100,
+            "testing",
+            t::int4 {},
+            {
+                    t::character(t::varying),
+            },
+    });
+    s::function_call expr {
+            f,
+            {
+                    vref { decl(t::int4 {}) },
+            },
+    };
+    bless(expr.arguments()[0]);
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::int4());
+    EXPECT_TRUE(find(expr.arguments()[0], code::inconsistent_type));
+}
+
 TEST_F(expression_analyzer_scalar_test, function_call_unresolved) {
     auto f = bindings.function({
             function::declaration::unresolved_definition_id,
@@ -1538,6 +1559,28 @@ TEST_F(expression_analyzer_scalar_test, aggregate_function_call_unresolved) {
     auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, aggregate_function_call_inconsistent) {
+    auto f = bindings.aggregate_function({
+            aggregate::declaration::unresolved_definition_id,
+            "testing",
+            aggregate::set_quantifier::distinct,
+            t::int4 {},
+            {
+                    t::character(t::varying),
+            },
+    });
+    es::aggregate_function_call expr {
+            f,
+            {
+                    vref { decl(t::int4 {}) },
+            },
+    };
+    bless(expr.arguments()[0]);
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::int4());
+    EXPECT_TRUE(find(expr.arguments()[0], code::inconsistent_type));
 }
 
 } // namespace yugawara::analyzer

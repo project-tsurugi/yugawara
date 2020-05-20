@@ -370,13 +370,10 @@ public:
     }
 
     type_ptr operator()(scalar::function_call const& expr) {
-        if (validate_) {
-            // FIXME: type resolution has been completed since overload was detected
-            for (auto&& arg : expr.arguments()) {
-                resolve(arg);
-            }
-        }
         auto&& func = binding::unwrap(expr.function());
+        if (validate_) {
+            validate_function_call(expr, func);
+        }
         return func.declaration().shared_return_type();
     }
 
@@ -392,13 +389,10 @@ public:
     }
 
     type_ptr operator()(extension::scalar::aggregate_function_call const& expr) {
-        if (validate_) {
-            // FIXME: type resolution has been completed since overload was detected
-            for (auto&& arg : expr.arguments()) {
-                resolve(arg);
-            }
-        }
         auto&& func = binding::unwrap(expr.function());
+        if (validate_) {
+            validate_function_call(expr, func);
+        }
         return func.declaration().shared_return_type();
     }
 
@@ -1306,6 +1300,35 @@ private:
         report(std::move(diagnostic));
         static auto result = std::make_shared<extension::type::error>();
         return result;
+    }
+
+    template<class Expr, class F>
+    void validate_function_call(Expr const& expr, F const& func) {
+        if (func.declaration().parameter_types().size() != expr.arguments().size()) {
+            report({
+                    code::inconsistent_function_call,
+                    extract_region(expr),
+                    repo_.get(::takatori::type::unknown()),
+                    {},
+            });
+        } else {
+            for (std::size_t i = 0, n = expr.arguments().size(); i < n; ++i) {
+                auto&& arg = expr.arguments()[i];
+                auto&& param = func.declaration().parameter_types()[i];
+                auto r = resolve(arg);
+                if (!is_unresolved_or_error(r)) {
+                    auto t = type::is_assignment_convertible(*r, param);
+                    if (t != ternary::yes) {
+                        report({
+                                code::inconsistent_type,
+                                arg.region(),
+                                std::move(r),
+                                { type::category_of(param) },
+                        });
+                    }
+                }
+            }
+        }
     }
 
     template<class Expr, class Keys>
