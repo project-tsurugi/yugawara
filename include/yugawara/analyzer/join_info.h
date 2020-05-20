@@ -30,7 +30,7 @@ public:
      * @brief returns the join strategy.
      * @return the join strategy
      */
-    [[nodiscard]] [[nodiscard]] strategy_type strategy() const noexcept;
+    [[nodiscard]] strategy_type strategy() const noexcept;
 
     /**
      * @brief sets the join strategy.
