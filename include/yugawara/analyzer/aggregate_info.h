@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+#include "aggregate_strategy.h"
+
 namespace yugawara::analyzer {
 
 /**
@@ -10,36 +12,35 @@ namespace yugawara::analyzer {
  */
 class aggregate_info {
 public:
-    /// @brief the default value of whether or not incremental aggregation is enabled.
-    static constexpr bool default_incremental = false;
+    /// @brief the aggregate strategy type.
+    using strategy_type = aggregate_strategy;
 
     /**
-     * @brief creates a new instance which has default settings.
+     * @brief creates a new instance, which represents group based aggregate operation.
      */
     aggregate_info() = default;
 
     /**
      * @brief creates a new instance.
-     * @param incremental whether or not incremental aggregation is enabled
+     * @param strategy the aggregate strategy
      */
-    explicit aggregate_info(bool incremental) noexcept;
+    aggregate_info(strategy_type strategy) noexcept; // NOLINT
 
     /**
-     * @brief returns whether or not incremental aggregation is enabled
-     * @return true if the target operation enables incremental aggregation
-     * @return false otherwise
+     * @brief returns the aggregate strategy.
+     * @return the aggregate strategy
      */
-    [[nodiscard]] bool incremental() const noexcept;
+    [[nodiscard]] strategy_type strategy() const noexcept;
 
     /**
-     * @brief sets whether or not incremental aggregation is enabled.
-     * @param enabled whether or not incremental aggregation is enabled
+     * @brief sets the aggregate strategy.
+     * @param strategy the aggregate strategy
      * @return this
      */
-    aggregate_info& incremental(bool enabled) noexcept;
+    aggregate_info& strategy(strategy_type strategy) noexcept;
 
 private:
-    bool incremental_ { default_incremental };
+    strategy_type strategy_;
 };
 
 /**

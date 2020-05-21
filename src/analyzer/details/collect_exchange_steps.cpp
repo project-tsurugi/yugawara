@@ -114,8 +114,21 @@ public:
     }
 
     void operator()(relation::intermediate::aggregate& expr) {
-        if (is_incremental(expr)) {
-            process_aggregate_incremental(expr);
+        using kind = aggregate_info::strategy_type;
+        if (auto info = info_.find(expr)) {
+            switch (info->strategy()) {
+                case kind::group:
+                    process_aggregate_group(expr);
+                    return;
+                case kind::exchange:
+                    process_aggregate_exchange(expr);
+                    return;
+            }
+            std::abort();
+        }
+        auto availables = available_aggregate_strategies(expr);
+        if (availables.contains(kind::exchange)) {
+            process_aggregate_exchange(expr);
         } else {
             process_aggregate_group(expr);
         }
@@ -424,7 +437,7 @@ private:
         return right_mandatory.contains(k);
     }
 
-    void process_aggregate_incremental(relation::intermediate::aggregate& expr) {
+    void process_aggregate_exchange(relation::intermediate::aggregate& expr) {
         /*
          * .. - aggregate_relation{k, f} - ..
          * =>
@@ -480,13 +493,6 @@ private:
         migrate(expr.output(), replacement.output());
 
         cursor_ = source_.erase(cursor_);
-    }
-
-    [[nodiscard]] bool is_incremental(relation::intermediate::aggregate const& expr) const {
-        if (auto info = info_.find(expr)) {
-            return info->incremental();
-        }
-        return aggregate_info::default_incremental;
     }
 
     void process_limit_flat(relation::intermediate::limit& expr) {

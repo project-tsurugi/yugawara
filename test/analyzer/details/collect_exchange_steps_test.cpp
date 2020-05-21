@@ -71,18 +71,6 @@ protected:
 
     std::shared_ptr<storage::index> i0 = storages.add_index("I0", { t0, "I0", });
     std::shared_ptr<storage::index> i1 = storages.add_index("I1", { t1, "I1" });
-
-    aggregate::configurable_provider aggregates;
-    std::shared_ptr<aggregate::declaration> agg0 = aggregates.add(aggregate::declaration {
-            aggregate::declaration::minimum_builtin_function_id + 1,
-            "testing",
-            relation::set_quantifier::distinct,
-            t::int4 {},
-            {
-                    t::int4 {},
-            },
-            true,
-    });
 };
 
 TEST_F(collect_exchange_steps_test, simple) {
@@ -719,7 +707,19 @@ TEST_F(collect_exchange_steps_test, join_broadcast_scan_default) {
     EXPECT_EQ(r4.upper().kind(), relation::endpoint_kind::prefixed_exclusive);
 }
 
-TEST_F(collect_exchange_steps_test, aggregate_default) {
+TEST_F(collect_exchange_steps_test, aggregate_default_group) {
+    aggregate::configurable_provider aggregates;
+    auto func = aggregates.add({
+            aggregate::declaration::minimum_builtin_function_id + 1,
+            "testing",
+            relation::set_quantifier::distinct,
+            t::int4 {},
+            {
+                    t::int4 {},
+            },
+            false,
+    });
+
     /*
      * scan:r0 - aggregate_relation:r1 - emit:r2
      */
@@ -739,7 +739,7 @@ TEST_F(collect_exchange_steps_test, aggregate_default) {
                     c0,
             },
             {
-                    { bindings(agg0), c1, c2, },
+                    { bindings(func), c1, c2, },
             },
     });
     auto& r2 = r.insert(relation::emit {
@@ -776,10 +776,84 @@ TEST_F(collect_exchange_steps_test, aggregate_default) {
     EXPECT_EQ(e0.limit(), std::nullopt);
 
     ASSERT_EQ(r5.columns().size(), 1);
-    EXPECT_EQ(r5.columns()[0].function(), bindings(agg0));
+    EXPECT_EQ(r5.columns()[0].function(), bindings(func));
     ASSERT_EQ(r5.columns()[0].arguments().size(), 1);
     EXPECT_EQ(r5.columns()[0].arguments()[0], c1);
     EXPECT_EQ(r5.columns()[0].destination(), c2);
+}
+
+TEST_F(collect_exchange_steps_test, aggregate_default_exchange) {
+    aggregate::configurable_provider aggregates;
+    auto func = aggregates.add({
+            aggregate::declaration::minimum_builtin_function_id + 2,
+            "testing",
+            relation::set_quantifier::distinct,
+            t::int4 {},
+            {
+                    t::int4 {},
+            },
+            true,
+    });
+
+    /*
+     * scan:r0 - aggregate_relation:r1 - emit:r2
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+            },
+    });
+    auto& r1 = r.insert(relation::intermediate::aggregate {
+            {
+                    c0,
+            },
+            {
+                    { bindings(func), c1, c2, },
+            },
+    });
+    auto& r2 = r.insert(relation::emit {
+            c0,
+            c2,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    details::step_plan_builder_options info;
+    plan::graph_type p;
+
+    /*
+     * scan:r0 - offer:r3 - [aggregate] - take_group:r4 - flatten_group:r5 - emit:r2
+     */
+    details::collect_exchange_steps(r, p, info);
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_TRUE(r.contains(r0));
+    EXPECT_TRUE(r.contains(r2));
+
+    auto&& r3 = next<offer>(r0.output());
+    auto&& r5 = next<relation::step::flatten>(r2.input());
+    auto&& r4 = next<take_group>(r5.input());
+
+    auto&& e0 = resolve<plan::aggregate>(r3.destination());
+
+    ASSERT_EQ(p.size(), 1);
+    EXPECT_TRUE(p.contains(e0));
+
+    EXPECT_EQ(r4.source(), r3.destination());
+
+    ASSERT_EQ(e0.group_keys().size(), 1);
+    EXPECT_EQ(e0.group_keys()[0], c0);
+
+    ASSERT_EQ(e0.aggregations().size(), 1);
+    EXPECT_EQ(e0.aggregations()[0].function(), bindings(func));
+    ASSERT_EQ(e0.aggregations()[0].arguments().size(), 1);
+    EXPECT_EQ(e0.aggregations()[0].arguments()[0], c1);
+    EXPECT_EQ(e0.aggregations()[0].destination(), c2);
 }
 
 TEST_F(collect_exchange_steps_test, distinct) {

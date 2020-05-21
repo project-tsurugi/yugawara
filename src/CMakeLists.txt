@@ -60,6 +60,7 @@ add_library(yugawara
     analyzer/step_plan_builder.cpp
     analyzer/join_strategy.cpp
     analyzer/join_info.cpp
+    analyzer/aggregate_strategy.cpp
     analyzer/aggregate_info.cpp
     analyzer/details/block_expression_util.cpp
     analyzer/details/step_plan_builder_options.cpp

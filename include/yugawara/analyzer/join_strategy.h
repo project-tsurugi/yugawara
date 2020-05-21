@@ -17,14 +17,14 @@ namespace yugawara::analyzer {
  * @brief represents kind of join strategy.
  * @see join_info
  */
-enum class join_strategy : std::size_t {
+enum class join_strategy {
     /**
      * @brief co-group based join.
      * @details This is a hint to build a `join_group` operator from the corresponded `join_relation`.
      *      This requires keys are equivalent between `lower` and `upper`, and
      *      the values in each key element must be a simple variable reference of a column in the left input.
      */
-    cogroup,
+    cogroup = 0,
 
     /**
      * @brief broadcast based join.
