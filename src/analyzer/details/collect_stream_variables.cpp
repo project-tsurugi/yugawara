@@ -2,7 +2,7 @@
 
 #include <takatori/scalar/walk.h>
 
-#include <yugawara/binding/variable_info.h>
+#include <yugawara/binding/extract.h>
 
 namespace yugawara::analyzer::details {
 
@@ -27,7 +27,7 @@ private:
     variable_consumer const& consumer_;
 
     void accept(descriptor::variable const& variable) {
-        if (binding::unwrap(variable).kind() == binding::variable_info_kind::stream_variable) {
+        if (binding::kind_of(variable) == binding::variable_info_kind::stream_variable) {
             consumer_(variable);
         }
     }

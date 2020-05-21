@@ -10,7 +10,7 @@
 #include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
-#include <yugawara/binding/variable_info.h>
+#include <yugawara/binding/extract.h>
 
 namespace yugawara::analyzer {
 
@@ -30,8 +30,7 @@ bool is_definable(::takatori::descriptor::variable const& v) {
             binding::variable_info_kind::stream_variable,
             binding::variable_info_kind::local_variable,
     };
-    auto&& info = binding::unwrap(v);
-    return definables.contains(info.kind());
+    return definables.contains(binding::kind_of(v));
 }
 
 class define_use_analyzer {

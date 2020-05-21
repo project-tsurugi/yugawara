@@ -10,8 +10,7 @@
 #include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
-#include <yugawara/binding/relation_info.h>
-#include <yugawara/binding/exchange_info.h>
+#include <yugawara/binding/extract.h>
 
 namespace yugawara::analyzer::details {
 
@@ -99,16 +98,14 @@ private:
     }
 
     ::takatori::util::optional_ptr<plan::exchange> extract_exchange(::takatori::descriptor::relation const& d) {
-        auto&& info = binding::unwrap(d);
-        if (info.kind() == binding::exchange_info::tag) {
-            auto&& exinfo = ::takatori::util::unsafe_downcast<binding::exchange_info>(info);
+        if (auto exchange = binding::extract_if<plan::exchange>(d)) {
             auto&& g = process_.owner();
-            if (auto&& it = g.find(exinfo.declaration()); it != g.end()) {
+            if (auto&& it = g.find(*exchange); it != g.end()) {
                 return ::takatori::util::unsafe_downcast<plan::exchange>(*it);
             }
             throw_exception(std::domain_error(string_builder {}
                     << "unbound exchange: "
-                    << exinfo
+                    << exchange
                     << string_builder::to_string));
         }
         return {};

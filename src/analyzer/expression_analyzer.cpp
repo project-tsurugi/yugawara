@@ -30,13 +30,7 @@
 #include <yugawara/extension/type/error.h>
 #include <yugawara/extension/scalar/aggregate_function_call.h>
 
-#include <yugawara/binding/table_column_info.h>
-#include <yugawara/binding/variable_info.h>
-#include <yugawara/binding/external_variable_info.h>
-#include <yugawara/binding/function_info.h>
-#include <yugawara/binding/aggregate_function_info.h>
-#include <yugawara/binding/relation_info.h>
-#include <yugawara/binding/index_info.h>
+#include <yugawara/binding/extract.h>
 
 #include <yugawara/storage/table.h>
 #include <takatori/util/string_builder.h>
@@ -405,12 +399,12 @@ public:
     }
 
     type_ptr operator()(scalar::function_call const& expr) {
-        auto&& func = binding::unwrap(expr.function());
+        auto&& func = binding::extract(expr.function());
         if (validate_) {
             validate_function_call(expr, func);
         }
         // FIXME: maybe unresolved
-        return func.declaration().shared_return_type();
+        return func.shared_return_type();
     }
 
     type_ptr operator()(scalar::extension const& expr) {
@@ -426,11 +420,11 @@ public:
 
     type_ptr operator()(extension::scalar::aggregate_function_call const& expr) {
         // FIXME: unhandled
-        auto&& func = binding::unwrap(expr.function());
+        auto&& func = binding::extract(expr.function());
         if (validate_) {
             validate_function_call(expr, func);
         }
-        return func.declaration().shared_return_type();
+        return func.shared_return_type();
     }
 
     // FIXME: more expressions
@@ -1152,13 +1146,8 @@ public:
 
     bool operator()(relation::write const& expr) {
         if (validate_) {
-            auto&& relation = binding::unwrap(expr.destination());
-            if (relation.kind() != binding::relation_info::kind_type::index) {
-                throw_exception(std::domain_error("must be index"));
-            }
-            auto&& table = unsafe_downcast<binding::index_info>(relation)
-                    .declaration()
-                    .table();
+            auto index = binding::extract<storage::index>(expr.destination());
+            auto&& table = index.table();
             if (!validate_table_write(expr, table, expr.keys())) {
                 return false;
             }
@@ -1307,13 +1296,8 @@ public:
 
     bool operator()(statement::write const& stmt) {
         if (validate_) {
-            auto&& relation = binding::unwrap(stmt.destination());
-            if (relation.kind() != binding::relation_info::kind_type::index) {
-                throw_exception(std::domain_error("must be index"));
-            }
-            auto&& table = unsafe_downcast<binding::index_info>(relation)
-                    .declaration()
-                    .table();
+            auto&& index = binding::extract<storage::index>(stmt.destination());
+            auto&& table = index.table();
             for (auto&& tuple : stmt.tuples()) {
                 if (stmt.columns().size() < tuple.elements().size()) {
                     report({
@@ -1403,7 +1387,7 @@ private:
 
     template<class Expr, class F>
     void validate_function_call(Expr const& expr, F const& func) {
-        if (func.declaration().parameter_types().size() != expr.arguments().size()) {
+        if (func.parameter_types().size() != expr.arguments().size()) {
             report({
                     code::inconsistent_number_of_elements,
                     extract_region(expr),
@@ -1413,7 +1397,7 @@ private:
         } else {
             for (std::size_t i = 0, n = expr.arguments().size(); i < n; ++i) {
                 auto&& arg = expr.arguments()[i];
-                auto&& param = func.declaration().parameter_types()[i];
+                auto&& param = func.parameter_types()[i];
                 auto r = resolve(arg);
                 if (!is_unresolved_or_error(r)) {
                     auto t = type::is_assignment_convertible(*r, param);
@@ -1554,22 +1538,16 @@ private:
     }
 
     variable_resolution const& resolve_table_column(::takatori::descriptor::variable const& variable) {
-        auto&& info = binding::unwrap(variable);
-        using kind = binding::variable_info_kind;
-        if (info.kind() != kind::table_column) {
-            throw_exception(std::domain_error("must be a table column"));
-        }
+        auto&& column = binding::extract<storage::column>(variable);
         if (auto&& resolution = ana_.variables().find(variable)) {
             return resolution;
         }
-        auto&& v = unsafe_downcast<binding::table_column_info>(info);
-        return ana_.variables().bind(variable, v.column(), true);
+        return ana_.variables().bind(variable, column, true);
     }
 
     variable_resolution const& resolve_exchange_column(::takatori::descriptor::variable const& variable) {
-        auto&& info = binding::unwrap(variable);
         using kind = binding::variable_info_kind;
-        if (info.kind() != kind::exchange_column) {
+        if (binding::kind_of(variable) != kind::exchange_column) {
             throw_exception(std::domain_error("must be an exchange column"));
         }
         if (auto&& resolution = ana_.variables().find(variable)) {
@@ -1582,13 +1560,11 @@ private:
         if (auto&& resolution = ana_.variables().find(variable)) {
             return resolution;
         }
-        auto&& info = binding::unwrap(variable);
         using kind = binding::variable_info_kind;
-        switch (info.kind()) {
+        switch (binding::kind_of(variable)) {
             case kind::table_column: {
-                auto&& v = unsafe_downcast<binding::table_column_info>(info);
                 // FIXME: maybe unresolved
-                return ana_.variables().bind(variable, v.column(), true);
+                return ana_.variables().bind(variable, binding::extract<storage::column>(variable), true);
             }
             case kind::exchange_column: {
                 // FIXME: unresolved exchange
@@ -1603,9 +1579,8 @@ private:
         if (auto&& resolution = ana_.variables().find(variable)) {
             return resolution;
         }
-        auto&& info = binding::unwrap(variable);
         using kind = binding::variable_info_kind;
-        switch (info.kind()) {
+        switch (binding::kind_of(variable)) {
             case kind::stream_variable: {
                 // FIXME: stream variable
                 throw_exception(std::domain_error("FIXME: unresolved stream variable"));
@@ -1615,9 +1590,9 @@ private:
                 throw_exception(std::domain_error("FIXME: unresolved frame variable"));
             }
             case kind::external_variable: {
-                auto&& v = unsafe_downcast<binding::external_variable_info>(info);
                 // FIXME: maybe unresolved
-                return ana_.variables().bind(variable, v.declaration(), true);
+                auto&& decl = binding::extract<variable::declaration>(variable);
+                return ana_.variables().bind(variable, decl, true);
             }
             default:
                 throw_exception(std::domain_error("invalid variable"));
@@ -1627,11 +1602,10 @@ private:
     template<class Seq>
     bool resolve_aggregate_columns(Seq const& columns) {
         for (auto&& column : columns) {
-            auto&& function = binding::unwrap(column.function());
-            auto&& declaration = function.declaration();
+            auto&& function = binding::extract(column.function());
             if (validate_) {
-                if (!declaration
-                        || declaration.parameter_types().size() != column.arguments().size()) {
+                if (!function
+                        || function.parameter_types().size() != column.arguments().size()) {
                     return false;
                 }
                 std::size_t index = 0;
@@ -1641,19 +1615,19 @@ private:
                     if (is_error(*t)) {
                         return false;
                     }
-                    if (type::is_assignment_convertible(*t, declaration.parameter_types()[index]) == ternary::no) {
+                    if (type::is_assignment_convertible(*t, function.parameter_types()[index]) == ternary::no) {
                         report({
                                 code::inconsistent_type,
                                 extract_region(arg),
-                                declaration.shared_parameter_types()[index],
-                                { type::category_of(declaration.parameter_types()[index]) },
+                                function.shared_parameter_types()[index],
+                                { type::category_of(function.parameter_types()[index]) },
                         });
                         return false;
                     }
                     ++index;
                 }
             }
-            ana_.variables().bind(column.destination(), function.declaration(), true);
+            ana_.variables().bind(column.destination(), function, true);
         }
         return true;
     }

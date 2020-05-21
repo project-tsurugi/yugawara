@@ -25,6 +25,7 @@
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/binding/exchange_info.h>
 
 namespace yugawara::analyzer::details {
 

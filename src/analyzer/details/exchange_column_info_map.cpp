@@ -4,6 +4,7 @@
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/binding/extract.h>
 
 namespace yugawara::analyzer::details {
 
@@ -24,10 +25,8 @@ exchange_column_info_map::size_type exchange_column_info_map::size() const noexc
 }
 
 static ::takatori::plan::exchange const* extract(::takatori::descriptor::relation const& relation) {
-    auto&& info = binding::unwrap(relation);
-    if (info.kind() == binding::exchange_info::tag) {
-        auto&& decl = ::takatori::util::unsafe_downcast<binding::exchange_info>(info).declaration();
-        return std::addressof(decl);
+    if (auto exchange = binding::extract_if<::takatori::plan::exchange>(relation)) {
+        return exchange.get();
     }
     throw_exception(std::invalid_argument(string_builder {}
             << "invalid exchange descriptor: "
@@ -62,8 +61,7 @@ void exchange_column_info_map::erase(::takatori::descriptor::relation const& rel
 }
 
 bool exchange_column_info_map::is_target(::takatori::descriptor::relation const& relation) {
-    auto&& info = binding::unwrap(relation);
-    return info.kind() == binding::exchange_info::tag;
+    return binding::kind_of(relation) == binding::relation_info_kind::exchange;
 }
 
 ::takatori::util::object_creator exchange_column_info_map::get_object_creator() const {

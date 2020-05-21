@@ -2,16 +2,31 @@
 
 #include <cstddef>
 
+#include <takatori/descriptor/variable.h>
+
 #include <takatori/util/downcast.h>
+#include <takatori/util/exception.h>
 #include <takatori/util/hash.h>
+#include <takatori/util/optional_ptr.h>
+#include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/variable_info.h>
 #include <yugawara/binding/variable_info_kind.h>
 
 namespace yugawara::binding {
 
+static constexpr variable_info_kind_set variable_info_impl_supported {
+        variable_info_kind::exchange_column,
+        variable_info_kind::frame_variable,
+        variable_info_kind::stream_variable,
+        variable_info_kind::local_variable,
+};
+
 template<variable_info_kind Kind>
 class variable_info_impl : public variable_info {
+
+    static_assert(variable_info_impl_supported.contains(Kind));
+
 public:
     static constexpr variable_info_kind tag = Kind;
 
@@ -58,5 +73,29 @@ protected:
 private:
     std::string label_;
 };
+
+template<variable_info_kind Kind>
+[[nodiscard]] ::takatori::util::optional_ptr<variable_info_impl<Kind> const> extract_if(::takatori::descriptor::variable const& descriptor) {
+    auto&& info = unwrap(descriptor);
+    if (info.kind() == Kind) {
+        using ::takatori::util::unsafe_downcast;
+        return unsafe_downcast<variable_info_impl<Kind>>(info);
+    }
+    return {};
+}
+
+template<variable_info_kind Kind>
+[[nodiscard]] variable_info_impl<Kind> const& extract(::takatori::descriptor::variable const& descriptor) {
+    if (auto r = extract_if<Kind>(descriptor)) {
+        return *r;
+    }
+    using ::takatori::util::string_builder;
+    using ::takatori::util::throw_exception;
+    throw_exception(std::invalid_argument(string_builder {}
+            << "cannot extract from descriptor: "
+            << "expected=" << Kind << ", "
+            << "actual=" << unwrap(descriptor).kind()
+            << string_builder::to_string));
+}
 
 } // namespace yugawara::binding

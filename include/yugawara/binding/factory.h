@@ -4,23 +4,30 @@
 #include <string_view>
 #include <vector>
 
+#include <takatori/descriptor/variable.h>
+#include <takatori/descriptor/function.h>
+#include <takatori/descriptor/aggregate_function.h>
+#include <takatori/descriptor/declared_type.h>
+#include <takatori/descriptor/relation.h>
+
+#include <takatori/plan/exchange.h>
+
+#include <takatori/util/optional_ptr.h>
+
 #include <takatori/util/object_creator.h>
 
-#include "relation_info.h"
-#include "index_info.h"
-#include "exchange_info.h"
-#include "variable_info.h"
-#include "table_column_info.h"
-#include "external_variable_info.h"
-#include "function_info.h"
-#include "aggregate_function_info.h"
+#include <yugawara/variable/declaration.h>
+#include <yugawara/function/declaration.h>
+#include <yugawara/aggregate/declaration.h>
+#include <yugawara/storage/index.h>
+#include <yugawara/storage/column.h>
 
 namespace yugawara::binding {
 
 /**
  * @brief provides binding descriptor.
  * @details Developers can create this class's objects directly.
- * @note To extract binding information from descriptors, please use ::yugawara::binding::unwrap() to them.
+ * @note To extract binding information from descriptors, please use ::yugawara::binding::extract() to them.
  */
 class factory {
 public:

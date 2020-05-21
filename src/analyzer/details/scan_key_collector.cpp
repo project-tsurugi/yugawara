@@ -2,12 +2,13 @@
 
 #include <takatori/relation/intermediate/dispatch.h>
 
-#include <takatori/util/downcast.h>
 #include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
-#include <yugawara/binding/index_info.h>
-#include <yugawara/binding/table_column_info.h>
+#include <yugawara/binding/extract.h>
+
+#include <yugawara/storage/index.h>
+#include <yugawara/storage/column.h>
 
 #include "decompose_predicate.h"
 
@@ -22,24 +23,22 @@ using ::takatori::util::optional_ptr;
 using ::takatori::util::sequence_view;
 using ::takatori::util::string_builder;
 using ::takatori::util::throw_exception;
-using ::takatori::util::unsafe_downcast;
 
 using expression_ref = object_ownership_reference<scalar::expression>;
 
 namespace {
 
 storage::column const* extract_column(descriptor::variable const& variable, bool mandatory = true) {
-    auto&& info = binding::unwrap(variable);
-    if (info.kind() != binding::table_column_info::tag) {
-        if (mandatory) {
-            throw_exception(std::domain_error(string_builder {}
-                    << "must be table columns: "
-                    << variable
-                    << string_builder::to_string));
-        }
-        return nullptr;
+    if (auto column = binding::extract_if<storage::column>(variable)) {
+        return column.get();
     }
-    return std::addressof(unsafe_downcast<binding::table_column_info>(info).column());
+    if (mandatory) {
+        throw_exception(std::domain_error(string_builder {}
+                << "must be table columns: "
+                << variable
+                << string_builder::to_string));
+    }
+    return nullptr;
 }
 
 class factor_collector {
@@ -143,14 +142,7 @@ bool scan_key_collector::operator()(relation::scan& expression, bool include_joi
     }
 
     // set table info
-    auto&& info = binding::unwrap(expression.source());
-    if (info.kind() != binding::index_info::tag) {
-        throw_exception(std::domain_error(string_builder {}
-                << "invalid scan source: "
-                << info
-                << string_builder::to_string));
-    }
-    auto&& index = unsafe_downcast<binding::index_info>(info).declaration();
+    auto&& index = binding::extract<storage::index>(expression.source());
     table_.reset(index.table());
 
     return true;

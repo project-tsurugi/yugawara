@@ -1,11 +1,11 @@
 #include "stream_variable_rewriter_context.h"
 
 #include <takatori/util/assertion.h>
-#include <takatori/util/downcast.h>
 #include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/binding/extract.h>
 
 #include "../../binding/variable_info_impl.h"
 
@@ -13,7 +13,6 @@ namespace yugawara::analyzer::details {
 
 using ::takatori::util::string_builder;
 using ::takatori::util::throw_exception;
-using ::takatori::util::unsafe_downcast;
 
 stream_variable_rewriter_context::stream_variable_rewriter_context(::takatori::util::object_creator creator) noexcept
     : mappings_(creator.allocator())
@@ -56,9 +55,8 @@ bool stream_variable_rewriter_context::try_rewrite_define(::takatori::descriptor
 }
 
 void stream_variable_rewriter_context::rewrite_use(::takatori::descriptor::variable& variable) {
-    auto&& info = binding::unwrap(variable);
     using kind = binding::variable_info_kind;
-    switch (info.kind()) {
+    switch (binding::kind_of(variable)) {
         case kind::external_variable:
         case kind::frame_variable:
             break;
@@ -81,12 +79,12 @@ void stream_variable_rewriter_context::rewrite_use(::takatori::descriptor::varia
                 }
                 break;
             }
-            auto&& info_impl = unsafe_downcast<binding::variable_info_impl<kind::stream_variable>>(info);
+            auto&& info = binding::extract<kind::stream_variable>(variable);
             auto f = binding::factory { get_object_creator() };
             auto [it, success] = mappings_.emplace(
                     variable,
                     entry {
-                            f.stream_variable(info_impl.label()),
+                            f.stream_variable(info.label()),
                             status_t::undefined,
                     });
             BOOST_ASSERT(success); // NOLINT

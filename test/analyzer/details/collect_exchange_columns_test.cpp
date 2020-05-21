@@ -31,6 +31,7 @@
 #include <takatori/plan/broadcast.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/binding/extract.h>
 #include <yugawara/type/repository.h>
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/aggregate/configurable_provider.h>
@@ -132,7 +133,7 @@ protected:
 };
 
 inline bool is_exchange(descriptor::variable const& v) {
-    return binding::unwrap(v).kind() == binding::variable_info_kind::exchange_column;
+    return binding::kind_of(v) == binding::variable_info_kind::exchange_column;
 }
 
 TEST_F(collect_exchange_columns_test, simple) {

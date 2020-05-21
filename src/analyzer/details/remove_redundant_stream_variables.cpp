@@ -9,7 +9,7 @@
 #include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
-#include <yugawara/binding/variable_info.h>
+#include <yugawara/binding/extract.h>
 
 namespace yugawara::analyzer::details {
 
@@ -143,8 +143,7 @@ public:
     constexpr void operator()(scalar::expression const&) noexcept {}
 
     void operator()(scalar::variable_reference const& expr) {
-        auto&& info = binding::unwrap(expr.variable());
-        auto kind = info.kind();
+        auto kind = binding::kind_of(expr.variable());
         if (kind == binding::variable_info_kind::stream_variable
                 || kind == binding::variable_info_kind::local_variable) {
             used_.emplace(expr.variable());

@@ -1,5 +1,16 @@
 #include <yugawara/binding/factory.h>
 
+#include <yugawara/binding/variable_info.h>
+#include <yugawara/binding/function_info.h>
+#include <yugawara/binding/aggregate_function_info.h>
+#include <yugawara/binding/relation_info.h>
+
+#include <yugawara/binding/table_column_info.h>
+#include <yugawara/binding/external_variable_info.h>
+
+#include <yugawara/binding/index_info.h>
+#include <yugawara/binding/exchange_info.h>
+
 #include "variable_info_impl.h"
 
 namespace yugawara::binding {

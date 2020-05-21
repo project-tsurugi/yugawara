@@ -30,6 +30,7 @@ add_library(yugawara
     binding/external_variable_info.cpp
     binding/function_info.cpp
     binding/aggregate_function_info.cpp
+    binding/extract.cpp
     binding/factory.cpp
 
     # variable binding

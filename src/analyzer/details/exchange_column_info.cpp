@@ -1,34 +1,15 @@
 #include "exchange_column_info.h"
 
 #include <takatori/util/assertion.h>
-#include <takatori/util/downcast.h>
-#include <takatori/util/exception.h>
-#include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/binding/extract.h>
 
 #include "../../binding/variable_info_impl.h"
 
 namespace yugawara::analyzer::details {
 
 namespace descriptor = ::takatori::descriptor;
-
-using ::takatori::util::throw_exception;
-
-template<binding::variable_info_kind Kind>
-static binding::variable_info_impl<Kind> const& check_variable(descriptor::variable const& variable) {
-    using ::takatori::util::unsafe_downcast;
-    constexpr auto info_kind = Kind;
-    auto&& info = binding::unwrap(variable);
-    if (info.kind() != info_kind) {
-        using ::takatori::util::string_builder;
-        throw_exception(std::invalid_argument(string_builder {}
-                << "invalid " << info_kind << ":"
-                << variable
-                << string_builder::to_string));
-    }
-    return unsafe_downcast<binding::variable_info_impl<info_kind>>(info);
-}
 
 exchange_column_info::exchange_column_info(::takatori::util::object_creator creator) noexcept
     : entries_(creator.allocator())
@@ -58,7 +39,7 @@ descriptor::variable const& exchange_column_info::allocate(descriptor::variable 
     if (auto v = find(variable)) {
         return *v;
     }
-    auto&& info = check_variable<binding::variable_info_kind::stream_variable>(variable);
+    auto&& info = binding::extract<binding::variable_info_kind::stream_variable>(variable);
     auto f = binding::factory { get_object_creator() };
     auto&& entry = entries_.emplace_back(variable, f.exchange_column(info.label()));
     auto [it, success] = index_.emplace(variable, entries_.size() - 1);
@@ -70,8 +51,8 @@ descriptor::variable const& exchange_column_info::allocate(descriptor::variable 
 void exchange_column_info::bind(
         descriptor::variable variable,
         descriptor::variable replacement) {
-    check_variable<binding::variable_info_kind::stream_variable>(variable);
-    check_variable<binding::variable_info_kind::exchange_column>(replacement);
+    (void) binding::extract<binding::variable_info_kind::stream_variable>(variable);
+    (void) binding::extract<binding::variable_info_kind::exchange_column>(replacement);
     entries_.emplace_back(variable, std::move(replacement));
     auto [it, success] = index_.emplace(std::move(variable), entries_.size() - 1);
     BOOST_ASSERT(success); // NOLINT
@@ -79,7 +60,7 @@ void exchange_column_info::bind(
 }
 
 void exchange_column_info::touch(descriptor::variable const& variable) {
-    check_variable<binding::variable_info_kind::exchange_column>(variable);
+    (void) binding::extract<binding::variable_info_kind::exchange_column>(variable);
     touched_.emplace(variable);
 }
 

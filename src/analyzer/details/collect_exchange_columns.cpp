@@ -10,7 +10,7 @@
 #include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
-#include <yugawara/binding/exchange_info.h>
+#include <yugawara/binding/extract.h>
 
 #include "container_pool.h"
 
@@ -32,7 +32,7 @@ using ::takatori::util::throw_exception;
 namespace {
 
 bool is_exchange(descriptor::relation const& desc) {
-    return binding::unwrap(desc).kind() == binding::exchange_info::tag;
+    return binding::kind_of(desc) == binding::relation_info_kind::exchange;
 }
 
 void expand(
@@ -178,16 +178,16 @@ public:
     void operator()(relation::step::aggregate const& expr, buffer_type& available_columns) {
         available_columns.clear();
         auto&& take = get_upstream<relation::step::take_group>(expr);
-        auto&& info = unsafe_downcast<binding::exchange_info>(binding::unwrap(take.source()));
-        if (info.declaration().kind() != plan::group::tag) {
+        auto&& exchange = binding::extract<plan::exchange>(take.source());
+        if (exchange.kind() != plan::group::tag) {
             throw_exception(std::domain_error(string_builder {}
                     << "inconsistent take_group: "
                     << expr
                     << " <=> "
-                    << info
+                    << exchange.kind()
                     << string_builder::to_string));
         }
-        auto&& group = unsafe_downcast<plan::group>(info.declaration());
+        auto&& group = unsafe_downcast<plan::group>(exchange);
 
         available_columns.reserve(group.group_keys().size() + expr.columns().size());
 
