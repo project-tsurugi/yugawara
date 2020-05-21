@@ -232,12 +232,14 @@ public:
     }
 
     type_ptr operator()(scalar::immediate const& expr) {
+        // FIXME: maybe unresolved
         return expr.shared_type();
     }
 
     type_ptr operator()(scalar::variable_reference const& expr) {
         if (auto&& resolution = ana_.variables().find(expr.variable())) {
             if (auto type = ana_.inspect(resolution)) {
+                // FIXME: maybe unresolved
                 return type;
             }
         }
@@ -266,6 +268,7 @@ public:
                 });
             }
         }
+        // FIXME: maybe unresolved
         return expr.shared_type();
     }
 
@@ -406,6 +409,7 @@ public:
         if (validate_) {
             validate_function_call(expr, func);
         }
+        // FIXME: maybe unresolved
         return func.declaration().shared_return_type();
     }
 
@@ -421,6 +425,7 @@ public:
     }
 
     type_ptr operator()(extension::scalar::aggregate_function_call const& expr) {
+        // FIXME: unhandled
         auto&& func = binding::unwrap(expr.function());
         if (validate_) {
             validate_function_call(expr, func);
@@ -1582,6 +1587,7 @@ private:
         switch (info.kind()) {
             case kind::table_column: {
                 auto&& v = unsafe_downcast<binding::table_column_info>(info);
+                // FIXME: maybe unresolved
                 return ana_.variables().bind(variable, v.column(), true);
             }
             case kind::exchange_column: {
@@ -1610,6 +1616,7 @@ private:
             }
             case kind::external_variable: {
                 auto&& v = unsafe_downcast<binding::external_variable_info>(info);
+                // FIXME: maybe unresolved
                 return ana_.variables().bind(variable, v.declaration(), true);
             }
             default:
