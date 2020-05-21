@@ -62,12 +62,12 @@ public:
     explicit engine(
             relation::graph_type& source,
             plan::graph_type& destination,
-            step_plan_builder_options const& info) noexcept
+            step_plan_builder_options const& options) noexcept
         : source_(source)
         , destination_(destination)
-        , info_(info)
+        , options_(options)
         , cursor_(source_.begin())
-        , added_(info.get_object_creator().template allocator<decltype(added_)::value_type>())
+        , added_(options.get_object_creator().template allocator<decltype(added_)::value_type>())
     {}
 
     void operator()() {
@@ -91,8 +91,12 @@ public:
     }
 
     void operator()(relation::intermediate::join& expr) {
+        if (!options_.runtime_features().contains(runtime_feature::broadcast_exchange)) {
+            process_cogroup_join(expr);
+            return;
+        }
         using kind = join_info::strategy_type;
-        if (auto info = info_.find(expr)) {
+        if (auto info = options_.find(expr)) {
             switch (info->strategy()) {
                 case kind::cogroup:
                     process_cogroup_join(expr);
@@ -114,8 +118,12 @@ public:
     }
 
     void operator()(relation::intermediate::aggregate& expr) {
+        if (!options_.runtime_features().contains(runtime_feature::aggregate_exchange)) {
+            process_aggregate_group(expr);
+            return;
+        }
         using kind = aggregate_info::strategy_type;
-        if (auto info = info_.find(expr)) {
+        if (auto info = options_.find(expr)) {
             switch (info->strategy()) {
                 case kind::group:
                     process_aggregate_group(expr);
@@ -192,13 +200,13 @@ public:
     }
 
     [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept {
-        return info_.get_object_creator();
+        return options_.get_object_creator();
     }
 
 private:
     relation::graph_type& source_;
     plan::graph_type& destination_;
-    step_plan_builder_options const& info_;
+    step_plan_builder_options const& options_;
 
     relation::graph_type::iterator cursor_;
     std::vector<

@@ -9,7 +9,16 @@ using ::takatori::util::throw_exception;
 
 step_plan_builder_options::step_plan_builder_options(::takatori::util::object_creator creator) noexcept
     : join_hints_(creator.allocator())
+    , aggregate_hints_(creator.allocator())
 {}
+
+runtime_feature_set& step_plan_builder_options::runtime_features() noexcept {
+    return runtime_features_;
+}
+
+runtime_feature_set const& step_plan_builder_options::runtime_features() const noexcept {
+    return runtime_features_;
+}
 
 template<class T>
 [[noreturn]] static void raise_duplicate(T const& expr) {

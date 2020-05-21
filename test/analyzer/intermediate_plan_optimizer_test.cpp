@@ -14,6 +14,7 @@
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/configurable_provider.h>
 #include <takatori/relation/find.h>
+#include <takatori/relation/step/join.h>
 
 #include "details/utils.h"
 
@@ -308,6 +309,147 @@ TEST_F(intermediate_plan_optimizer_test, rewrite_join_condition) {
     ASSERT_EQ(join.upper().keys()[0].value(), varref(cl0));
 
     EXPECT_EQ(join.condition(), nullptr);
+}
+
+TEST_F(intermediate_plan_optimizer_test, rewrite_join_suppress_index_join) {
+    // SELECT T0.cl1, T1.cr1
+    // FROM T0
+    // INNER JOIN T1
+    // WHERE T0.cl0 = T0.cr0
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto cl1 = bindings.stream_variable("cl1");
+    auto cl2 = bindings.stream_variable("cl2");
+    auto&& in_left = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), cl0 },
+                    { bindings(t0c1), cl1 },
+                    { bindings(t0c2), cl2 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto cr2 = bindings.stream_variable("cr2");
+    auto&& in_right = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), cr0 },
+                    { bindings(t1c1), cr1 },
+                    { bindings(t1c2), cr2 },
+            },
+    });
+    auto&& out = r.insert(relation::emit { cl1, cr1 });
+
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::inner,
+    });
+    auto&& filter = r.insert(relation::filter {
+            compare(varref(cl0), varref(cr0)),
+    });
+
+    in_left.output() >> join.left();
+    in_right.output() >> join.right();
+    join.output() >> filter.input();
+    filter.output() >> out.input();
+
+    storages->add_index("x1", storage::index {
+            t1,
+            "x1",
+            { t1c0 },
+    });
+    intermediate_plan_optimizer optimizer { options() };
+    auto&& rf = optimizer.options().runtime_features();
+    rf.erase(runtime_feature::index_join);
+    optimizer(r);
+
+    ASSERT_EQ(r.size(), 4);
+    ASSERT_TRUE(r.contains(in_left));
+    ASSERT_TRUE(r.contains(in_right));
+    ASSERT_TRUE(r.contains(join));
+    ASSERT_TRUE(r.contains(out));
+
+    EXPECT_EQ(join.lower().kind(), endpoint_kind::prefixed_inclusive);
+    ASSERT_EQ(join.lower().keys().size(), 1);
+    ASSERT_EQ(join.lower().keys()[0].variable(), cr0);
+    ASSERT_EQ(join.lower().keys()[0].value(), varref(cl0));
+
+    EXPECT_EQ(join.upper().kind(), endpoint_kind::prefixed_inclusive);
+    ASSERT_EQ(join.upper().keys().size(), 1);
+    ASSERT_EQ(join.upper().keys()[0].variable(), cr0);
+    ASSERT_EQ(join.upper().keys()[0].value(), varref(cl0));
+
+    EXPECT_EQ(join.condition(), nullptr);
+}
+
+TEST_F(intermediate_plan_optimizer_test, rewrite_join_suppress_broadcast) {
+    // SELECT T0.cl1, T1.cr1
+    // FROM T0
+    // INNER JOIN T1
+    // WHERE T0.cl0 = T1.cr0
+    // AND T0.cl1 < T1.cr1
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto cl1 = bindings.stream_variable("cl1");
+    auto cl2 = bindings.stream_variable("cl2");
+    auto&& in_left = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), cl0 },
+                    { bindings(t0c1), cl1 },
+                    { bindings(t0c2), cl2 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto cr2 = bindings.stream_variable("cr2");
+    auto&& in_right = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), cr0 },
+                    { bindings(t1c1), cr1 },
+                    { bindings(t1c2), cr2 },
+            },
+    });
+    auto&& out = r.insert(relation::emit { cl2, cr2 });
+
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::inner,
+    });
+    auto&& filter = r.insert(relation::filter {
+            land(
+                    compare(cl0, cr0),
+                    compare(cl1, cr1, comparison_operator::less))
+    });
+
+    in_left.output() >> join.left();
+    in_right.output() >> join.right();
+    join.output() >> filter.input();
+    filter.output() >> out.input();
+
+    intermediate_plan_optimizer optimizer { options() };
+    auto&& rf = optimizer.options().runtime_features();
+    rf.erase(runtime_feature::broadcast_exchange);
+    optimizer(r);
+
+    ASSERT_EQ(r.size(), 4);
+    ASSERT_TRUE(r.contains(in_left));
+    ASSERT_TRUE(r.contains(in_right));
+    ASSERT_TRUE(r.contains(join));
+    ASSERT_TRUE(r.contains(out));
+    EXPECT_GT(join.output(), out.input());
+
+    EXPECT_EQ(join.lower().kind(), endpoint_kind::prefixed_inclusive);
+    ASSERT_EQ(join.lower().keys().size(), 1);
+    ASSERT_EQ(join.lower().keys()[0].variable(), cr0);
+    ASSERT_EQ(join.lower().keys()[0].value(), varref(cl0));
+
+    EXPECT_EQ(join.upper().kind(), endpoint_kind::prefixed_inclusive);
+    ASSERT_EQ(join.upper().keys().size(), 1);
+    ASSERT_EQ(join.upper().keys()[0].variable(), cr0);
+    ASSERT_EQ(join.upper().keys()[0].value(), varref(cl0));
+
+    EXPECT_EQ(join.condition(), compare(cl1, cr1, comparison_operator::less));
 }
 
 TEST_F(intermediate_plan_optimizer_test, rewrite_scan) {

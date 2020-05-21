@@ -90,13 +90,13 @@ TEST_F(collect_exchange_steps_test, simple) {
     });
     r0.output() >> r1.input();
 
-    details::step_plan_builder_options info;
+    details::step_plan_builder_options options;
     plan::graph_type p;
 
     /*
      * scan:r0 - emit:r1
      */
-    details::collect_exchange_steps(r, p, info);
+    details::collect_exchange_steps(r, p, options);
     ASSERT_EQ(r.size(), 2);
     EXPECT_TRUE(r.contains(r0));
     EXPECT_TRUE(r.contains(r1));
@@ -137,7 +137,7 @@ TEST_F(collect_exchange_steps_test, join_default) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_plan_builder_options info;
+    details::step_plan_builder_options options;
     plan::graph_type p;
 
     /*
@@ -145,7 +145,7 @@ TEST_F(collect_exchange_steps_test, join_default) {
      *                                   take_cogroup:r6 - join_group:r7 - emit:r3
      * scan:r1 - offer:r5 - [group]:e1 -/
      */
-    details::collect_exchange_steps(r, p, info);
+    details::collect_exchange_steps(r, p, options);
     ASSERT_EQ(r.size(), 7);
     EXPECT_TRUE(r.contains(r0));
     EXPECT_TRUE(r.contains(r1));
@@ -230,8 +230,8 @@ TEST_F(collect_exchange_steps_test, join_cogroup) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_plan_builder_options info;
-    info.add(r2, join_strategy::cogroup);
+    details::step_plan_builder_options options;
+    options.add(r2, join_strategy::cogroup);
     plan::graph_type p;
 
     /*
@@ -239,7 +239,7 @@ TEST_F(collect_exchange_steps_test, join_cogroup) {
      *                                   take_cogroup:r6 - join_group:r7 - emit:r3
      * scan:r1 - offer:r5 - [group]:e1 -/
      */
-    details::collect_exchange_steps(r, p, info);
+    details::collect_exchange_steps(r, p, options);
     ASSERT_EQ(r.size(), 7);
     EXPECT_TRUE(r.contains(r0));
     EXPECT_TRUE(r.contains(r1));
@@ -326,7 +326,7 @@ TEST_F(collect_exchange_steps_test, join_cogroup_default) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_plan_builder_options info;
+    details::step_plan_builder_options options;
     plan::graph_type p;
 
     /*
@@ -334,7 +334,7 @@ TEST_F(collect_exchange_steps_test, join_cogroup_default) {
      *                                   take_cogroup:r6 - join_group:r7 - emit:r3
      * scan:r1 - offer:r5 - [group]:e1 -/
      */
-    details::collect_exchange_steps(r, p, info);
+    details::collect_exchange_steps(r, p, options);
     ASSERT_EQ(r.size(), 7);
     EXPECT_TRUE(r.contains(r0));
     EXPECT_TRUE(r.contains(r1));
@@ -421,8 +421,8 @@ TEST_F(collect_exchange_steps_test, join_broadcast_find) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_plan_builder_options info;
-    info.add(r2, join_strategy::broadcast);
+    details::step_plan_builder_options options;
+    options.add(r2, join_strategy::broadcast);
     plan::graph_type p;
 
     /*
@@ -430,7 +430,7 @@ TEST_F(collect_exchange_steps_test, join_broadcast_find) {
      *                                       /
      * scan:r1 - offer:r5 - [broadcast]:e0 -/
      */
-    details::collect_exchange_steps(r, p, info);
+    details::collect_exchange_steps(r, p, options);
     ASSERT_EQ(r.size(), 5);
     EXPECT_TRUE(r.contains(r0));
     EXPECT_TRUE(r.contains(r1));
@@ -504,7 +504,7 @@ TEST_F(collect_exchange_steps_test, join_broadcast_find_default) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_plan_builder_options info;
+    details::step_plan_builder_options options;
     plan::graph_type p;
 
     /*
@@ -512,7 +512,7 @@ TEST_F(collect_exchange_steps_test, join_broadcast_find_default) {
      *                                       /
      * scan:r1 - offer:r5 - [broadcast]:e0 -/
      */
-    details::collect_exchange_steps(r, p, info);
+    details::collect_exchange_steps(r, p, options);
     ASSERT_EQ(r.size(), 5);
     EXPECT_TRUE(r.contains(r0));
     EXPECT_TRUE(r.contains(r1));
@@ -586,8 +586,8 @@ TEST_F(collect_exchange_steps_test, join_broadcast_scan) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_plan_builder_options info;
-    info.add(r2, join_strategy::broadcast);
+    details::step_plan_builder_options options;
+    options.add(r2, join_strategy::broadcast);
     plan::graph_type p;
 
     /*
@@ -595,7 +595,7 @@ TEST_F(collect_exchange_steps_test, join_broadcast_scan) {
      *                                       /
      * scan:r1 - offer:r5 - [broadcast]:e0 -/
      */
-    details::collect_exchange_steps(r, p, info);
+    details::collect_exchange_steps(r, p, options);
     ASSERT_EQ(r.size(), 5);
     EXPECT_TRUE(r.contains(r0));
     EXPECT_TRUE(r.contains(r1));
@@ -674,7 +674,7 @@ TEST_F(collect_exchange_steps_test, join_broadcast_scan_default) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_plan_builder_options info;
+    details::step_plan_builder_options options;
     plan::graph_type p;
 
     /*
@@ -682,7 +682,7 @@ TEST_F(collect_exchange_steps_test, join_broadcast_scan_default) {
      *                                       /
      * scan:r1 - offer:r5 - [broadcast]:e0 -/
      */
-    details::collect_exchange_steps(r, p, info);
+    details::collect_exchange_steps(r, p, options);
     ASSERT_EQ(r.size(), 5);
     EXPECT_TRUE(r.contains(r0));
     EXPECT_TRUE(r.contains(r1));
@@ -749,13 +749,13 @@ TEST_F(collect_exchange_steps_test, aggregate_default_group) {
     r0.output() >> r1.input();
     r1.output() >> r2.input();
 
-    details::step_plan_builder_options info;
+    details::step_plan_builder_options options;
     plan::graph_type p;
 
     /*
      * scan:r0 - offer:r3 - [group] - take_group:r4 - aggregate_group:r5 - emit:r2
      */
-    details::collect_exchange_steps(r, p, info);
+    details::collect_exchange_steps(r, p, options);
     ASSERT_EQ(r.size(), 5);
     EXPECT_TRUE(r.contains(r0));
     EXPECT_TRUE(r.contains(r2));
@@ -824,13 +824,13 @@ TEST_F(collect_exchange_steps_test, aggregate_default_exchange) {
     r0.output() >> r1.input();
     r1.output() >> r2.input();
 
-    details::step_plan_builder_options info;
+    details::step_plan_builder_options options;
     plan::graph_type p;
 
     /*
      * scan:r0 - offer:r3 - [aggregate] - take_group:r4 - flatten_group:r5 - emit:r2
      */
-    details::collect_exchange_steps(r, p, info);
+    details::collect_exchange_steps(r, p, options);
     ASSERT_EQ(r.size(), 5);
     EXPECT_TRUE(r.contains(r0));
     EXPECT_TRUE(r.contains(r2));
@@ -854,6 +854,82 @@ TEST_F(collect_exchange_steps_test, aggregate_default_exchange) {
     ASSERT_EQ(e0.aggregations()[0].arguments().size(), 1);
     EXPECT_EQ(e0.aggregations()[0].arguments()[0], c1);
     EXPECT_EQ(e0.aggregations()[0].destination(), c2);
+}
+
+TEST_F(collect_exchange_steps_test, aggregate_exchange_disabled) {
+    aggregate::configurable_provider aggregates;
+    auto func = aggregates.add({
+            aggregate::declaration::minimum_builtin_function_id + 2,
+            "testing",
+            relation::set_quantifier::distinct,
+            t::int4 {},
+            {
+                    t::int4 {},
+            },
+            true,
+    });
+
+    /*
+     * scan:r0 - aggregate_relation:r1 - emit:r2
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+            },
+    });
+    auto& r1 = r.insert(relation::intermediate::aggregate {
+            {
+                    c0,
+            },
+            {
+                    { bindings(func), c1, c2, },
+            },
+    });
+    auto& r2 = r.insert(relation::emit {
+            c0,
+            c2,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    details::step_plan_builder_options options;
+    options.runtime_features().erase(runtime_feature::aggregate_exchange);
+    plan::graph_type p;
+
+    /*
+     * scan:r0 - offer:r3 - [group] - take_group:r4 - aggregate_group:r5 - emit:r2
+     */
+    details::collect_exchange_steps(r, p, options);
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_TRUE(r.contains(r0));
+    EXPECT_TRUE(r.contains(r2));
+
+    auto&& r3 = next<offer>(r0.output());
+    auto&& r5 = next<relation::step::aggregate>(r2.input());
+    auto&& r4 = next<take_group>(r5.input());
+
+    auto&& e0 = resolve<plan::group>(r3.destination());
+
+    ASSERT_EQ(p.size(), 1);
+    EXPECT_TRUE(p.contains(e0));
+
+    EXPECT_EQ(r4.source(), r3.destination());
+
+    ASSERT_EQ(e0.group_keys().size(), 1);
+    EXPECT_EQ(e0.group_keys()[0], c0);
+    EXPECT_EQ(e0.limit(), std::nullopt);
+
+    ASSERT_EQ(r5.columns().size(), 1);
+    EXPECT_EQ(r5.columns()[0].function(), bindings(func));
+    ASSERT_EQ(r5.columns()[0].arguments().size(), 1);
+    EXPECT_EQ(r5.columns()[0].arguments()[0], c1);
+    EXPECT_EQ(r5.columns()[0].destination(), c2);
 }
 
 TEST_F(collect_exchange_steps_test, distinct) {
@@ -881,13 +957,13 @@ TEST_F(collect_exchange_steps_test, distinct) {
     r0.output() >> r1.input();
     r1.output() >> r2.input();
 
-    details::step_plan_builder_options info;
+    details::step_plan_builder_options options;
     plan::graph_type p;
 
     /*
      * scan:r0 - offer:r3 - [group] - take_group:r4 - flattern:r5 - emit:r2
      */
-    details::collect_exchange_steps(r, p, info);
+    details::collect_exchange_steps(r, p, options);
     ASSERT_EQ(r.size(), 5);
     EXPECT_TRUE(r.contains(r0));
     EXPECT_TRUE(r.contains(r2));
@@ -930,13 +1006,13 @@ TEST_F(collect_exchange_steps_test, limit_flat) {
     r0.output() >> r1.input();
     r1.output() >> r2.input();
 
-    details::step_plan_builder_options info;
+    details::step_plan_builder_options options;
     plan::graph_type p;
 
     /*
      * scan:r0 - offer:r3 - [forward] - take_flat:r4 - emit:r2
      */
-    details::collect_exchange_steps(r, p, info);
+    details::collect_exchange_steps(r, p, options);
     ASSERT_EQ(r.size(), 4);
     EXPECT_TRUE(r.contains(r0));
     EXPECT_TRUE(r.contains(r2));
@@ -982,13 +1058,13 @@ TEST_F(collect_exchange_steps_test, limit_group) {
     r0.output() >> r1.input();
     r1.output() >> r2.input();
 
-    details::step_plan_builder_options info;
+    details::step_plan_builder_options options;
     plan::graph_type p;
 
     /*
      * scan:r0 - offer:r3 - [group] - take_group:r4 - flattern:r5 - emit:r2
      */
-    details::collect_exchange_steps(r, p, info);
+    details::collect_exchange_steps(r, p, options);
     ASSERT_EQ(r.size(), 5);
     EXPECT_TRUE(r.contains(r0));
     EXPECT_TRUE(r.contains(r2));
@@ -1055,7 +1131,7 @@ TEST_F(collect_exchange_steps_test, union_all) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_plan_builder_options info;
+    details::step_plan_builder_options options;
     plan::graph_type p;
 
     /*
@@ -1063,7 +1139,7 @@ TEST_F(collect_exchange_steps_test, union_all) {
      *                      [forward]:e0 - take_flat:r6 - emit:r3
      * scan:r1 - offer:r5 -/
      */
-    details::collect_exchange_steps(r, p, info);
+    details::collect_exchange_steps(r, p, options);
     ASSERT_EQ(r.size(), 6);
     EXPECT_TRUE(r.contains(r0));
     EXPECT_TRUE(r.contains(r1));
@@ -1143,7 +1219,7 @@ TEST_F(collect_exchange_steps_test, union_distinct) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_plan_builder_options info;
+    details::step_plan_builder_options options;
     plan::graph_type p;
 
     /*
@@ -1151,7 +1227,7 @@ TEST_F(collect_exchange_steps_test, union_distinct) {
      *                      [group]:e0 - take_group:r6 - flatten:r7 - emit:r3
      * scan:r1 - offer:r5 -/
      */
-    details::collect_exchange_steps(r, p, info);
+    details::collect_exchange_steps(r, p, options);
     ASSERT_EQ(r.size(), 7);
     EXPECT_TRUE(r.contains(r0));
     EXPECT_TRUE(r.contains(r1));
@@ -1231,7 +1307,7 @@ TEST_F(collect_exchange_steps_test, binary_all) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_plan_builder_options info;
+    details::step_plan_builder_options options;
     plan::graph_type p;
 
     /*
@@ -1239,7 +1315,7 @@ TEST_F(collect_exchange_steps_test, binary_all) {
      *                                   take_cogroup:r6 - intersection_group:r7 - emit:r3
      * scan:r1 - offer:r5 - [group]:e1 -/
      */
-    details::collect_exchange_steps(r, p, info);
+    details::collect_exchange_steps(r, p, options);
     ASSERT_EQ(r.size(), 7);
     EXPECT_TRUE(r.contains(r0));
     EXPECT_TRUE(r.contains(r1));
@@ -1312,7 +1388,7 @@ TEST_F(collect_exchange_steps_test, binary_distinct) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    details::step_plan_builder_options info;
+    details::step_plan_builder_options options;
     plan::graph_type p;
 
     /*
@@ -1320,7 +1396,7 @@ TEST_F(collect_exchange_steps_test, binary_distinct) {
      *                                   take_cogroup:r6 - difference_group:r7 - emit:r3
      * scan:r1 - offer:r5 - [group]:e1 -/
      */
-    details::collect_exchange_steps(r, p, info);
+    details::collect_exchange_steps(r, p, options);
     ASSERT_EQ(r.size(), 7);
     EXPECT_TRUE(r.contains(r0));
     EXPECT_TRUE(r.contains(r1));

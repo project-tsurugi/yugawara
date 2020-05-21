@@ -25,6 +25,14 @@ intermediate_plan_optimizer_options& intermediate_plan_optimizer_options::storag
     return *this;
 }
 
+runtime_feature_set& intermediate_plan_optimizer_options::runtime_features() noexcept {
+    return runtime_features_;
+}
+
+runtime_feature_set const& intermediate_plan_optimizer_options::runtime_features() const noexcept {
+    return runtime_features_;
+}
+
 class index_estimator& intermediate_plan_optimizer_options::index_estimator() const noexcept {
     if (index_estimator_) {
         return *index_estimator_;

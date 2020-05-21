@@ -7,8 +7,9 @@
 
 #include <takatori/util/optional_ptr.h>
 
-#include "../join_info.h"
-#include "../aggregate_info.h"
+#include <yugawara/analyzer/runtime_feature.h>
+#include <yugawara/analyzer/join_info.h>
+#include <yugawara/analyzer/aggregate_info.h>
 
 namespace yugawara::analyzer::details {
 
@@ -42,6 +43,15 @@ public:
      * @param creator the object creator
      */
     explicit step_plan_builder_options(::takatori::util::object_creator creator = {}) noexcept;
+
+    /**
+     * @brief returns the available feature set of the target environment.
+     * @return the available features
+     */
+    [[nodiscard]] runtime_feature_set& runtime_features() noexcept;
+
+    /// @copydoc runtime_features()
+    [[nodiscard]] runtime_feature_set const& runtime_features() const noexcept;
 
     /**
      * @brief registers hint for the given join operation.
@@ -84,6 +94,7 @@ public:
 private:
     join_hint_map join_hints_;
     aggregate_hint_map aggregate_hints_;
+    runtime_feature_set runtime_features_ { runtime_feature_all };
 };
 
 } // namespace yugawara::analyzer::details

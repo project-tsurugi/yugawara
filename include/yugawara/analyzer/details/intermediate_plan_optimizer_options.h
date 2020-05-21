@@ -4,6 +4,7 @@
 
 #include <yugawara/storage/provider.h>
 #include <yugawara/analyzer/index_estimator.h>
+#include <yugawara/analyzer/runtime_feature.h>
 
 namespace yugawara::analyzer::details {
 
@@ -22,6 +23,15 @@ public:
      * @param creator the object creator
      */
     explicit intermediate_plan_optimizer_options(::takatori::util::object_creator creator) noexcept;
+
+    /**
+     * @brief returns the available feature set of the target environment.
+     * @return the available features
+     */
+    [[nodiscard]] runtime_feature_set& runtime_features() noexcept;
+
+    /// @copydoc runtime_features()
+    [[nodiscard]] runtime_feature_set const& runtime_features() const noexcept;
 
     /**
      * @brief returns the storage provider.
@@ -59,6 +69,7 @@ private:
     ::takatori::util::object_creator creator_ {};
     std::shared_ptr<storage::provider const> storage_provider_ {};
     std::shared_ptr<class index_estimator> index_estimator_ {};
+    runtime_feature_set runtime_features_ { runtime_feature_all };
 };
 
 } // namespace yugawara::analyzer::details
