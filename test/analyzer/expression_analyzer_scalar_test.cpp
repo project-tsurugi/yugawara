@@ -40,7 +40,7 @@ namespace v = ::takatori::value;
 namespace ex = ::yugawara::extension::type;
 namespace es = ::yugawara::extension::scalar;
 
-using code = type_diagnostic::code_type;
+using code = expression_analyzer_code;
 using vref = ::takatori::scalar::variable_reference;
 
 class expression_analyzer_scalar_test : public ::testing::Test {
@@ -55,20 +55,20 @@ public:
         return std::forward<T>(t);
     }
 
-    ::takatori::util::optional_ptr<type_diagnostic const> find(
+    ::takatori::util::optional_ptr<expression_analyzer::diagnostic_type const> find(
             ::takatori::scalar::expression const& expr,
-            type_diagnostic::code_type code) {
+            expression_analyzer_code code) {
         return find(expr.region(), code);
     }
 
-    ::takatori::util::optional_ptr<type_diagnostic const> find(
+    ::takatori::util::optional_ptr<expression_analyzer::diagnostic_type const> find(
             ::takatori::document::region region,
-            type_diagnostic::code_type code) {
+            expression_analyzer_code code) {
         if (!region) {
             throw std::invalid_argument("unknown region");
         }
         for (auto&& d : analyzer.diagnostics()) {
-            if (code == d.code() && region == d.region()) {
+            if (code == d.code() && region == d.location()) {
                 return d;
             }
         }

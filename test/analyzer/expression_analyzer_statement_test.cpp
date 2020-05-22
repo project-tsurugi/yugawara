@@ -38,7 +38,7 @@ namespace statement = ::takatori::statement;
 namespace t = ::takatori::type;
 namespace v = ::takatori::value;
 
-using code = type_diagnostic::code_type;
+using code = expression_analyzer_code;
 using vref = ::takatori::scalar::variable_reference;
 
 class expression_analyzer_statement_test : public ::testing::Test {

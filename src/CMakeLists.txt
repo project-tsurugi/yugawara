@@ -50,7 +50,6 @@ add_library(yugawara
     analyzer/variable_mapping.cpp
     analyzer/variable_resolution.cpp
     analyzer/expression_analyzer.cpp
-    analyzer/type_diagnostic.cpp
     analyzer/block.cpp
     analyzer/block_algorithm.cpp
     analyzer/block_builder.cpp

@@ -14,10 +14,11 @@
 #include <takatori/util/object_creator.h>
 #include <takatori/util/sequence_view.h>
 
-#include "type_diagnostic.h"
+#include "expression_analyzer_code.h"
 #include "expression_mapping.h"
 #include "variable_mapping.h"
 
+#include <yugawara/diagnostic.h>
 #include <yugawara/type/repository.h>
 
 namespace yugawara::analyzer {
@@ -27,6 +28,9 @@ namespace yugawara::analyzer {
  */
 class expression_analyzer {
 public:
+    /// @brief the analyzer diagnostic type.
+    using diagnostic_type = diagnostic<expression_analyzer_code>;
+
     /**
      * @brief creates a new instance.
      */
@@ -201,7 +205,7 @@ public:
      * @brief returns diagnostics while analyzing scalar expressions.
      * @return the diagnostics
      */
-    [[nodiscard]] ::takatori::util::sequence_view<type_diagnostic const> diagnostics() const noexcept;
+    [[nodiscard]] ::takatori::util::sequence_view<diagnostic_type const> diagnostics() const noexcept;
 
     /**
      * @brief remove all diagnostics while analyzing scalar expression.
@@ -211,7 +215,7 @@ public:
 private:
     std::shared_ptr<expression_mapping> expressions_;
     std::shared_ptr<variable_mapping> variables_;
-    std::vector<type_diagnostic, ::takatori::util::object_allocator<type_diagnostic>> diagnostics_;
+    std::vector<diagnostic_type, ::takatori::util::object_allocator<diagnostic_type>> diagnostics_;
 };
 
 } // namespace yugawara::analyzer

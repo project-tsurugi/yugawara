@@ -13,7 +13,7 @@ namespace yugawara::analyzer {
 /**
  * @brief represents diagnostic code of type analysis.
  */
-enum class type_diagnostic_code {
+enum class expression_analyzer_code {
     /// @brief unknown diagnostic.
     unknown = 0,
     /// @brief input type is not supported in this operation.
@@ -28,20 +28,20 @@ enum class type_diagnostic_code {
     inconsistent_number_of_elements,
 };
 
-/// @brief an enum set of join_strategy.
-using type_diagnostic_code_set = ::takatori::util::enum_set<
-        type_diagnostic_code,
-        type_diagnostic_code::unknown,
-        type_diagnostic_code::inconsistent_number_of_elements>;
+/// @brief an enum set of expression_analyzer_code.
+using expression_analyzer_code_set = ::takatori::util::enum_set<
+        expression_analyzer_code,
+        expression_analyzer_code::unknown,
+        expression_analyzer_code::inconsistent_number_of_elements>;
 
 /**
  * @brief returns string representation of the value.
  * @param value the target value
  * @return the corresponded string representation
  */
-constexpr std::string_view to_string_view(type_diagnostic_code value) noexcept {
+constexpr std::string_view to_string_view(expression_analyzer_code value) noexcept {
     using namespace std::string_view_literals;
-    using kind = type_diagnostic_code;
+    using kind = expression_analyzer_code;
     switch (value) {
         case kind::unknown: return "unknown"sv;
         case kind::unsupported_type: return "unsupported_type"sv;
@@ -59,7 +59,7 @@ constexpr std::string_view to_string_view(type_diagnostic_code value) noexcept {
  * @param value the target value
  * @return the output
  */
-inline std::ostream& operator<<(std::ostream& out, type_diagnostic_code value) noexcept {
+inline std::ostream& operator<<(std::ostream& out, expression_analyzer_code value) noexcept {
     return out << to_string_view(value);
 }
 

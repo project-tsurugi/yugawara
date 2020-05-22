@@ -55,7 +55,6 @@ add_test_executable(storage/storage_configurable_provider_test.cpp)
 add_test_executable(extension/scalar/aggregate_function_call_test.cpp)
 
 # analyzer
-add_test_executable(analyzer/type_diagnostic_test.cpp)
 add_test_executable(analyzer/expression_analyzer_scalar_test.cpp)
 add_test_executable(analyzer/expression_analyzer_relation_test.cpp)
 add_test_executable(analyzer/expression_analyzer_plan_test.cpp)

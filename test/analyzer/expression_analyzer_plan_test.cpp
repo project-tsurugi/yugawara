@@ -40,7 +40,7 @@ namespace v = ::takatori::value;
 
 namespace ex = ::yugawara::extension::type;
 
-using code = type_diagnostic::code_type;
+using code = expression_analyzer_code;
 using vref = ::takatori::scalar::variable_reference;
 
 using G = ::takatori::graph::graph<r::expression>;

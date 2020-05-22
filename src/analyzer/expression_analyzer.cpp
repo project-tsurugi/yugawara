@@ -42,6 +42,9 @@ namespace relation = ::takatori::relation;
 namespace plan = ::takatori::plan;
 namespace statement = ::takatori::statement;
 
+using diagnostic_type = expression_analyzer::diagnostic_type;
+using code = diagnostic_type::code_type;
+
 using ::takatori::util::enum_tag;
 using ::takatori::util::enum_tag_t;
 using ::takatori::util::string_builder;
@@ -50,7 +53,6 @@ using ::takatori::util::unsafe_downcast;
 using ::yugawara::extension::type::is_error;
 using ::yugawara::type::category;
 using ::yugawara::util::ternary;
-using code = type_diagnostic_code;
 
 namespace {
 
@@ -98,7 +100,7 @@ public:
     explicit engine(
             expression_analyzer& ana,
             bool validate,
-            std::vector<type_diagnostic, ::takatori::util::object_allocator<type_diagnostic>>& diagnostics,
+            std::vector<diagnostic_type, ::takatori::util::object_allocator<diagnostic_type>>& diagnostics,
             type::repository& repo) noexcept
         : ana_(ana)
         , diagnostics_(diagnostics)
@@ -240,8 +242,6 @@ public:
         return raise({
                 code::unresolved_variable,
                 extract_region(expr),
-                repo_.get(::takatori::type::unknown()),
-                {},
         });
     }
 
@@ -254,12 +254,10 @@ public:
         if (validate_) {
             auto operand = resolve(expr.operand());
             if (type::is_cast_convertible(*operand, expr.type()) == ternary::no) {
-                report({
-                        code::unsupported_type,
+                report(code::unsupported_type,
                         extract_region(expr),
-                        std::move(operand),
-                        { type::category_of(expr.type()) },
-                });
+                        *operand,
+                        { type::category_of(expr.type()) });
             }
         }
         // FIXME: maybe unresolved
@@ -284,12 +282,10 @@ public:
             auto unify = type::unifying_conversion(*left, *right);
             auto ucat = type::category_of(*unify);
             if (ucat == category::unresolved) {
-                report({
-                        code::inconsistent_type,
+                report(code::inconsistent_type,
                         extract_region(expr.right()),
-                        std::move(right),
-                        { rcat },
-                });
+                        *right,
+                        { rcat });
             }
         }
         return repo_.get(::takatori::type::boolean());
@@ -310,12 +306,10 @@ public:
                     case category::character_string:
                         break; // ok
                     default:
-                        report({
-                                code::unsupported_type,
+                        report(code::unsupported_type,
                                 extract_region(unwrap(property)),
-                                std::move(ptype),
-                                { category::character_string },
-                        });
+                                *ptype,
+                                { category::character_string });
                 }
             }
         }
@@ -333,24 +327,20 @@ public:
                     case category::boolean:
                         break; // ok
                     default:
-                        report({
-                                code::unsupported_type,
+                        report(code::unsupported_type,
                                 extract_region(alternative.condition()),
-                                std::move(condition),
-                                { category::boolean },
-                        });
+                                *condition,
+                                { category::boolean });
                 }
             }
             auto body = resolve(alternative.body());
             if (is_unresolved_or_error(body)) return body;
             auto next = type::unifying_conversion(*current, *body);
             if (is_unresolved_or_error(next)) {
-                return raise({
-                        code::inconsistent_type,
+                return raise(code::inconsistent_type,
                         extract_region(alternative.body()),
-                        std::move(body),
-                        { type::category_of(*current) },
-                });
+                        *body,
+                        { type::category_of(*current) });
             }
             current = std::move(next);
         }
@@ -359,12 +349,10 @@ public:
             if (is_unresolved_or_error(body)) return body;
             auto next = type::unifying_conversion(*current, *body);
             if (is_unresolved_or_error(next)) {
-                return raise({
-                        code::inconsistent_type,
+                return raise(code::inconsistent_type,
                         extract_region(*e),
-                        std::move(body),
-                        { type::category_of(*current) },
-                });
+                        *body,
+                        { type::category_of(*current) });
             }
             current = std::move(next);
         }
@@ -378,12 +366,10 @@ public:
             if (is_unresolved_or_error(alt)) return alt;
             auto next = type::unifying_conversion(*current, *alt);
             if (is_unresolved_or_error(next)) {
-                return raise({
-                        code::inconsistent_type,
+                return raise(code::inconsistent_type,
                         extract_region(alternative),
-                        std::move(alt),
-                        { type::category_of(*current) },
-                });
+                        *alt,
+                        { type::category_of(*current) });
             }
             current = std::move(next);
         }
@@ -432,12 +418,10 @@ public:
     type_ptr operator()(enum_tag_t<scalar::unary_operator::plus>, scalar::unary const& expr, type_ptr operand) {
         switch (type::category_of(*operand)) {
             case category::unknown:
-                return raise({
-                        code::ambiguous_type,
+                return raise(code::ambiguous_type,
                         extract_region(expr.operand()),
-                        std::move(operand),
-                        { category::number, category::datetime_interval },
-                });
+                        *operand,
+                        { category::number, category::datetime_interval });
             case category::number:
                 return type::unary_numeric_promotion(*operand, repo_);
             case category::datetime_interval:
@@ -445,24 +429,20 @@ public:
             case category::unresolved:
                 return operand;
             default:
-                return raise({
-                        code::unsupported_type,
+                return raise(code::unsupported_type,
                         extract_region(expr.operand()),
-                        std::move(operand),
-                        { category::number, category::datetime_interval },
-                });
+                        *operand,
+                        { category::number, category::datetime_interval });
         }
     }
 
     type_ptr operator()(enum_tag_t<scalar::unary_operator::sign_inversion>, scalar::unary const& expr, type_ptr operand) {
         switch (type::category_of(*operand)) {
             case category::unknown:
-                return raise({
-                        code::ambiguous_type,
+                return raise(code::ambiguous_type,
                         extract_region(expr.operand()),
-                        std::move(operand),
-                        { category::number, category::datetime_interval },
-                });
+                        *operand,
+                        { category::number, category::datetime_interval });
             case category::number:
                 return type::unary_numeric_promotion(*operand, repo_);
             case category::datetime_interval:
@@ -470,16 +450,14 @@ public:
             case category::unresolved:
                 return operand;
             default:
-                return raise({
-                        code::unsupported_type,
+                return raise(code::unsupported_type,
                         extract_region(expr.operand()),
-                        std::move(operand),
-                        { category::number, category::datetime_interval },
-                });
+                        *operand,
+                        { category::number, category::datetime_interval });
         }
     }
 
-    type_ptr operator()(enum_tag_t<scalar::unary_operator::length>, scalar::unary const& expr, type_ptr operand) {
+    type_ptr operator()(enum_tag_t<scalar::unary_operator::length>, scalar::unary const& expr, type_ptr const& operand) {
         if (validate_) {
             switch (type::category_of(*operand)) {
                 case category::character_string:
@@ -487,27 +465,23 @@ public:
                 case category::unresolved:
                     break; // ok
                 case category::unknown:
-                    report({
-                            code::ambiguous_type,
+                    report(code::ambiguous_type,
                             extract_region(expr.operand()),
-                            std::move(operand),
-                            { category::character_string, category::bit_string },
-                    });
+                            *operand,
+                            { category::character_string, category::bit_string });
                     break;
                 default:
-                    report({
-                            code::unsupported_type,
+                    report(code::unsupported_type,
                             extract_region(expr.operand()),
-                            std::move(operand),
-                            { category::character_string, category::bit_string },
-                    });
+                            *operand,
+                            { category::character_string, category::bit_string });
                     break;
             }
         }
         return repo_.get(::takatori::type::int4());
     }
 
-    type_ptr operator()(enum_tag_t<scalar::unary_operator::conditional_not>, scalar::unary const& expr, type_ptr operand) {
+    type_ptr operator()(enum_tag_t<scalar::unary_operator::conditional_not>, scalar::unary const& expr, type_ptr const& operand) {
         if (validate_) {
             switch (type::category_of(*operand)) {
                 case category::unknown:
@@ -515,18 +489,16 @@ public:
                 case category::unresolved:
                     break; // ok
                 default:
-                    report({
-                            code::unsupported_type,
+                    report(code::unsupported_type,
                             extract_region(expr.operand()),
-                            std::move(operand),
-                            { category::boolean },
-                    });
+                            *operand,
+                            { category::boolean });
             }
         }
         return repo_.get(::takatori::type::boolean());
     }
 
-    type_ptr operator()(enum_tag_t<scalar::unary_operator::is_null>, scalar::unary const& expr, type_ptr operand) {
+    type_ptr operator()(enum_tag_t<scalar::unary_operator::is_null>, scalar::unary const& expr, type_ptr const& operand) {
         if (validate_) {
             switch (type::category_of(*operand)) {
                 case category::unknown:
@@ -539,10 +511,9 @@ public:
                 case category::unresolved:
                     break; // ok
                 default:
-                    report({
-                            code::unsupported_type,
+                    report(code::unsupported_type,
                             extract_region(expr.operand()),
-                            std::move(operand),
+                            *operand,
                             {
                                     category::boolean,
                                     category::number,
@@ -550,15 +521,14 @@ public:
                                     category::bit_string,
                                     category::temporal,
                                     category::datetime_interval,
-                            },
-                    });
+                            });
                     break;
             }
         }
         return repo_.get(::takatori::type::boolean());
     }
 
-    type_ptr operator()(enum_tag_t<scalar::unary_operator::is_true>, scalar::unary const& expr, type_ptr operand) {
+    type_ptr operator()(enum_tag_t<scalar::unary_operator::is_true>, scalar::unary const& expr, type_ptr const& operand) {
         if (validate_) {
             switch (type::category_of(*operand)) {
                 case category::unknown:
@@ -566,24 +536,22 @@ public:
                 case category::unresolved:
                     break; // ok
                 default:
-                    report({
-                            code::unsupported_type,
+                    report(code::unsupported_type,
                             extract_region(expr.operand()),
-                            std::move(operand),
-                            { category::boolean },
-                    });
+                            *operand,
+                            { category::boolean });
                     break;
             }
         }
         return repo_.get(::takatori::type::boolean());
     }
 
-    type_ptr operator()(enum_tag_t<scalar::unary_operator::is_false>, scalar::unary const& expr, type_ptr operand) {
-        return operator()(enum_tag<scalar::unary_operator::is_true>, expr, std::move(operand));
+    type_ptr operator()(enum_tag_t<scalar::unary_operator::is_false>, scalar::unary const& expr, type_ptr const& operand) {
+        return operator()(enum_tag<scalar::unary_operator::is_true>, expr, operand);
     }
 
-    type_ptr operator()(enum_tag_t<scalar::unary_operator::is_unknown>, scalar::unary const& expr, type_ptr operand) {
-        return operator()(enum_tag<scalar::unary_operator::is_true>, expr, std::move(operand));
+    type_ptr operator()(enum_tag_t<scalar::unary_operator::is_unknown>, scalar::unary const& expr, type_ptr const& operand) {
+        return operator()(enum_tag<scalar::unary_operator::is_true>, expr, operand);
     }
 
     static std::pair<category, category> category_pair(type_ptr const& left, type_ptr const& right) noexcept {
@@ -605,12 +573,10 @@ public:
         switch (lcat) {
             case category::unknown:
                 // FIXME: unknown * number
-                return raise({
-                        code::ambiguous_type,
+                return raise(code::ambiguous_type,
                         extract_region(expr.left()),
-                        std::move(left),
-                        { category::number, category::temporal, category::datetime_interval },
-                });
+                        *left,
+                        { category::number, category::temporal, category::datetime_interval });
             case category::number:
                 // FIXME: number * unknown
                 // FIXME: as decimal
@@ -628,36 +594,28 @@ public:
                     }
                     return result;
                 }
-                return raise({
-                        code::inconsistent_type,
+                return raise(code::inconsistent_type,
                         extract_region(expr.right()),
-                        std::move(right),
-                        { category::number },
-                });
+                        *right,
+                        { category::number });
             case category::temporal:
                 if (rcat == category::datetime_interval) return type::unary_temporal_promotion(*left, repo_);
-                return raise({
-                        code::inconsistent_type,
+                return raise(code::inconsistent_type,
                         extract_region(expr.right()),
-                        std::move(right),
-                        { category::datetime_interval },
-                });
+                        *right,
+                        { category::datetime_interval });
             case category::datetime_interval:
                 if (rcat == category::temporal) return type::unary_temporal_promotion(*right, repo_);
                 if (rcat == category::datetime_interval) return type::binary_time_interval_promotion(*left, *right, repo_);
-                return raise({
-                        code::inconsistent_type,
+                return raise(code::inconsistent_type,
                         extract_region(expr.right()),
-                        std::move(right),
-                        { category::temporal, category::datetime_interval },
-                });
+                        *right,
+                        { category::temporal, category::datetime_interval });
             default:
-                return raise({
-                        code::unsupported_type,
+                return raise(code::unsupported_type,
                         extract_region(expr.left()),
-                        std::move(left),
-                        { category::number, category::temporal, category::datetime_interval },
-                 });
+                        *left,
+                        { category::number, category::temporal, category::datetime_interval });
         }
     }
 
@@ -667,12 +625,10 @@ public:
         if (rcat == category::unresolved) return right;
         switch (lcat) {
             case category::unknown:
-                return raise({
-                        code::ambiguous_type,
+                return raise(code::ambiguous_type,
                         extract_region(expr.left()),
-                        std::move(left),
-                        { category::number, category::temporal, category::datetime_interval },
-                });
+                        *left,
+                        { category::number, category::temporal, category::datetime_interval });
             case category::number:
                 if (rcat == category::number) {
                     auto result = type::binary_numeric_promotion(*left, *right, repo_);
@@ -687,36 +643,28 @@ public:
                     }
                     return result;
                 }
-                return raise({
-                        code::inconsistent_type,
+                return raise(code::inconsistent_type,
                         extract_region(expr.right()),
-                        std::move(right),
-                        { category::number },
-                });
+                        *right,
+                        { category::number });
             case category::temporal:
                 if (rcat == category::datetime_interval) return type::unary_temporal_promotion(*left, repo_);
-                return raise({
-                        code::inconsistent_type,
+                return raise(code::inconsistent_type,
                         extract_region(expr.right()),
-                        std::move(right),
-                        { category::datetime_interval },
-                });
+                        *right,
+                        { category::datetime_interval });
             case category::datetime_interval:
                 // NOTE: <time_interval> - <temporal> is not defined
                 if (rcat == category::datetime_interval) return type::binary_time_interval_promotion(*left, *right, repo_);
-                return raise({
-                        code::inconsistent_type,
+                return raise(code::inconsistent_type,
                         extract_region(expr.right()),
-                        std::move(right),
-                        { category::datetime_interval },
-                });
+                        *right,
+                        { category::datetime_interval });
             default:
-                return raise({
-                        code::unsupported_type,
+                return raise(code::unsupported_type,
                         extract_region(expr.left()),
-                        std::move(left),
-                        { category::number, category::temporal, category::datetime_interval },
-                });
+                        *left,
+                        { category::number, category::temporal, category::datetime_interval });
         }
     }
 
@@ -726,12 +674,10 @@ public:
         if (rcat == category::unresolved) return right;
         switch (lcat) {
             case category::unknown:
-                return raise({
-                        code::ambiguous_type,
+                return raise(code::ambiguous_type,
                         extract_region(expr.left()),
-                        std::move(left),
-                        { category::number, category::datetime_interval },
-                });
+                        *left,
+                        { category::number, category::datetime_interval });
             case category::number:
                 if (rcat == category::number) {
                     auto result = type::binary_numeric_promotion(*left, *right, repo_);
@@ -747,27 +693,21 @@ public:
                     return result;
                 }
                 if (rcat == category::datetime_interval) return type::unary_time_interval_promotion(*right, repo_);
-                return raise({
-                        code::inconsistent_type,
+                return raise(code::inconsistent_type,
                         extract_region(expr.right()),
-                        std::move(right),
-                        { category::number, category::datetime_interval },
-                });
+                        *right,
+                        { category::number, category::datetime_interval });
             case category::datetime_interval:
                 if (rcat == category::number) return type::unary_time_interval_promotion(*left, repo_);
-                return raise({
-                        code::inconsistent_type,
+                return raise(code::inconsistent_type,
                         extract_region(expr.right()),
-                        std::move(right),
-                        { category::datetime_interval },
-                });
+                        *right,
+                        { category::datetime_interval });
             default:
-                return raise({
-                        code::unsupported_type,
+                return raise(code::unsupported_type,
                         extract_region(expr.left()),
-                        std::move(left),
-                        { category::number, category::datetime_interval },
-                });
+                        *left,
+                        { category::number, category::datetime_interval });
         }
     }
 
@@ -777,12 +717,10 @@ public:
         if (rcat == category::unresolved) return right;
         switch (lcat) {
             case category::unknown:
-                return raise({
-                        code::ambiguous_type,
+                return raise(code::ambiguous_type,
                         extract_region(expr.left()),
-                        std::move(left),
-                        { category::number, category::datetime_interval },
-                });
+                        *left,
+                        { category::number, category::datetime_interval });
             case category::number:
                 if (rcat == category::number) {
                     auto result = type::binary_numeric_promotion(*left, *right, repo_);
@@ -797,27 +735,21 @@ public:
                     }
                     return result;
                 }
-                return raise({
-                        code::inconsistent_type,
+                return raise(code::inconsistent_type,
                         extract_region(expr.right()),
-                        std::move(right),
-                        { category::number },
-                });
+                        *right,
+                        { category::number });
             case category::datetime_interval:
                 if (rcat == category::number) return type::unary_time_interval_promotion(*left, repo_);
-                return raise({
-                        code::inconsistent_type,
+                return raise(code::inconsistent_type,
                         extract_region(expr.right()),
-                        std::move(right),
-                        { category::number },
-                });
+                        *right,
+                        { category::number });
             default:
-                return raise({
-                        code::unsupported_type,
+                return raise(code::unsupported_type,
                         extract_region(expr.left()),
-                        std::move(left),
-                        { category::number, category::datetime_interval },
-                });
+                        *left,
+                        { category::number, category::datetime_interval });
         }
     }
 
@@ -831,12 +763,10 @@ public:
         if (rcat == category::unresolved) return right;
         switch (lcat) {
             case category::unknown:
-                return raise({
-                        code::ambiguous_type,
+                return raise(code::ambiguous_type,
                         extract_region(expr.left()),
-                        std::move(left),
-                        { category::character_string, category::bit_string },
-                });
+                        *left,
+                        { category::character_string, category::bit_string });
             case category::character_string:
                 if (rcat == category::character_string) {
                     auto result = type::binary_character_string_promotion(*left, *right, repo_);
@@ -851,12 +781,10 @@ public:
                     }
                     return result;
                 }
-                return raise({
-                        code::inconsistent_type,
+                return raise(code::inconsistent_type,
                         extract_region(expr.right()),
-                        std::move(right),
-                        { category::character_string },
-                });
+                        *right,
+                        { category::character_string });
             case category::bit_string:
                 if (rcat == category::bit_string) {
                     auto result = type::binary_bit_string_promotion(*left, *right, repo_);
@@ -871,25 +799,21 @@ public:
                     }
                     return result;
                 }
-                return raise({
-                        code::inconsistent_type,
+                return raise(code::inconsistent_type,
                         extract_region(expr.right()),
-                        std::move(right),
-                        { category::bit_string },
-                });
+                        *right,
+                        { category::bit_string });
             case category::collection:
                 // FIXME: impl array like
             default:
-                return raise({
-                        code::unsupported_type,
+                return raise(code::unsupported_type,
                         extract_region(expr.left()),
-                        std::move(left),
-                        { category::character_string, category::bit_string },
-                });
+                        *left,
+                        { category::character_string, category::bit_string });
         }
     }
 
-    type_ptr operator()(enum_tag_t<scalar::binary_operator::conditional_and>, scalar::binary const& expr, type_ptr left, type_ptr right) {
+    type_ptr operator()(enum_tag_t<scalar::binary_operator::conditional_and>, scalar::binary const& expr, type_ptr const& left, type_ptr const& right) {
         if (validate_) {
             auto [lcat, rcat] = category_pair(left, right);
             if (lcat != category::unresolved && rcat != category::unresolved) {
@@ -897,21 +821,17 @@ public:
                     case category::unknown:
                     case category::boolean:
                         if (rcat != category::unknown && rcat != category::boolean) {
-                            report({
-                                    code::inconsistent_type,
+                            report(code::inconsistent_type,
                                     extract_region(expr.right()),
-                                    std::move(right),
-                                    { category::boolean },
-                            });
+                                    *right,
+                                    { category::boolean });
                         }
                         break;
                     default:
-                        report({
-                                code::unsupported_type,
+                        report(code::unsupported_type,
                                 extract_region(expr.left()),
-                                std::move(left),
-                                { category::boolean },
-                        });
+                                *left,
+                                { category::boolean });
                         break;
                 }
             }
@@ -919,8 +839,8 @@ public:
         return repo_.get(::takatori::type::boolean());
     }
 
-    type_ptr operator()(enum_tag_t<scalar::binary_operator::conditional_or>, scalar::binary const& expr, type_ptr left, type_ptr right) {
-        return operator()(enum_tag<scalar::binary_operator::conditional_and>, expr, std::move(left), std::move(right));
+    type_ptr operator()(enum_tag_t<scalar::binary_operator::conditional_or>, scalar::binary const& expr, type_ptr const& left, type_ptr const& right) {
+        return operator()(enum_tag<scalar::binary_operator::conditional_and>, expr, left, right);
     }
 
     // relational operators
@@ -1059,12 +979,10 @@ public:
                 }
                 auto t = type::unifying_conversion(*left, *right, repo_);
                 if (is_error(*t)) {
-                    report({
-                            code::inconsistent_type,
+                    report(code::inconsistent_type,
                             extract_region(*mapping.right()),
-                            std::move(right),
-                            { type::category_of(*left) },
-                    });
+                            *right,
+                            { type::category_of(*left) });
                     return false;
                 }
                 ana_.variables().bind(mapping.destination(), std::move(t), true);
@@ -1094,12 +1012,10 @@ public:
                 }
                 auto t = type::unifying_conversion(*left, *right, repo_);
                 if (is_error(*t)) {
-                    report({
-                            code::inconsistent_type,
+                    report(code::inconsistent_type,
                             extract_region(key_pair.right()),
-                            std::move(right),
-                            { type::category_of(*left) },
-                    });
+                            *right,
+                            { type::category_of(*left) });
                     return false;
                 }
             }
@@ -1119,12 +1035,10 @@ public:
                 }
                 auto t = type::unifying_conversion(*left, *right, repo_);
                 if (is_error(*t)) {
-                    report({
-                            code::inconsistent_type,
+                    report(code::inconsistent_type,
                             extract_region(key_pair.right()),
-                            std::move(right),
-                            { type::category_of(*left) },
-                    });
+                            *right,
+                            { type::category_of(*left) });
                     return false;
                 }
             }
@@ -1219,12 +1133,10 @@ public:
                 }
                 auto t = type::unifying_conversion(*srct, *dstt, repo_);
                 if (is_error(*t)) {
-                    report({
-                            code::inconsistent_type,
+                    report(code::inconsistent_type,
                             column.source().region(),
-                            std::move(srct),
-                            { type::category_of(*dstt) },
-                    });
+                            *srct,
+                            { type::category_of(*dstt) });
                 }
             }
         }
@@ -1303,8 +1215,6 @@ public:
                     report({
                             code::inconsistent_number_of_elements,
                             extract_region(tuple.elements()[stmt.columns().size()]),
-                            repo_.get(::takatori::type::unknown()),
-                            {},
                     });
                     return false;
                 }
@@ -1313,15 +1223,11 @@ public:
                         report({
                                 code::inconsistent_number_of_elements,
                                 extract_region(stmt.columns()[0]),
-                                repo_.get(::takatori::type::unknown()),
-                                {},
                         });
                     } else {
                         report({
                                 code::inconsistent_number_of_elements,
                                 extract_region(tuple.elements().back()),
-                                repo_.get(::takatori::type::unknown()),
-                                {},
                         });
                     }
                     return false;
@@ -1339,12 +1245,10 @@ public:
                     if (!is_unresolved_or_error(src)) {
                         auto t = type::is_assignment_convertible(*src, column->type());
                         if (t != ternary::yes) {
-                            report({
-                                    code::inconsistent_type,
+                            report(code::inconsistent_type,
                                     tuple.elements()[i].region(),
-                                    std::move(src),
-                                    { type::category_of(column->type()) },
-                            });
+                                    *src,
+                                    { type::category_of(column->type()) });
                         }
                     }
                 }
@@ -1355,7 +1259,7 @@ public:
 
 private:
     expression_analyzer& ana_;
-    std::vector<type_diagnostic, ::takatori::util::object_allocator<type_diagnostic>>& diagnostics_;
+    std::vector<diagnostic_type, ::takatori::util::object_allocator<diagnostic_type>>& diagnostics_;
     type::repository& repo_;
     bool validate_;
 
@@ -1375,12 +1279,36 @@ private:
         return undefined;
     }
 
-    void report(type_diagnostic diagnostic) {
+    void report(diagnostic_type diagnostic) {
         diagnostics_.emplace_back(std::move(diagnostic));
     }
 
-    type_ptr raise(type_diagnostic diagnostic) {
+    void report(
+            code c,
+            ::takatori::document::region region,
+            ::takatori::type::data const& actual,
+            type::category_set expected) {
+        diagnostics_.emplace_back(
+                c,
+                string_builder {}
+                        << actual
+                        << " (expected: " << expected << ")"
+                        << string_builder::to_string,
+                region);
+    }
+
+    type_ptr raise(diagnostic_type diagnostic) {
         report(std::move(diagnostic));
+        static auto result = std::make_shared<extension::type::error>();
+        return result;
+    }
+
+    type_ptr raise(
+            code c,
+            ::takatori::document::region region,
+            ::takatori::type::data const& actual,
+            type::category_set expected) {
+        report(c, region, actual, expected);
         static auto result = std::make_shared<extension::type::error>();
         return result;
     }
@@ -1391,8 +1319,6 @@ private:
             report({
                     code::inconsistent_number_of_elements,
                     extract_region(expr),
-                    repo_.get(::takatori::type::unknown()),
-                    {},
             });
         } else {
             for (std::size_t i = 0, n = expr.arguments().size(); i < n; ++i) {
@@ -1402,12 +1328,11 @@ private:
                 if (!is_unresolved_or_error(r)) {
                     auto t = type::is_assignment_convertible(*r, param);
                     if (t != ternary::yes) {
-                        report({
+                        report(
                                 code::inconsistent_type,
                                 arg.region(),
-                                std::move(r),
-                                { type::category_of(param) },
-                        });
+                                *r,
+                                { type::category_of(param) });
                     }
                 }
             }
@@ -1425,12 +1350,11 @@ private:
             }
             auto t = type::is_assignment_convertible(*val, *var);
             if (t != ternary::yes) {
-                report({
+                report(
                         code::inconsistent_type,
                         key.value().region(),
-                        std::move(val),
-                        { type::category_of(*var) },
-                });
+                        *val,
+                        { type::category_of(*var) });
                 return false;
             }
         }
@@ -1446,12 +1370,10 @@ private:
                 case category::boolean: // ok
                     break;
                 default:
-                    report({
-                            code::inconsistent_type,
+                    report(code::inconsistent_type,
                             extract_region(*condition),
-                            std::move(cond),
-                            { category::boolean },
-                    });
+                            *cond,
+                            { category::boolean });
                     return false;
             }
         }
@@ -1498,12 +1420,10 @@ private:
             }
             auto r = type::is_assignment_convertible(*srct, *dstt);
             if (r == ternary::no) {
-                report({
-                        code::inconsistent_type,
+                report(code::inconsistent_type,
                         extract_region(mapping.source()),
-                        std::move(srct),
-                        { type::category_of(*dstt) },
-                });
+                       *srct,
+                        { type::category_of(*dstt) });
                 return false;
             }
             if (r == ternary::unknown) {
@@ -1616,12 +1536,10 @@ private:
                         return false;
                     }
                     if (type::is_assignment_convertible(*t, function.parameter_types()[index]) == ternary::no) {
-                        report({
-                                code::inconsistent_type,
+                        report(code::inconsistent_type,
                                 extract_region(arg),
-                                function.shared_parameter_types()[index],
-                                { type::category_of(function.parameter_types()[index]) },
-                        });
+                                function.parameter_types()[index],
+                                { type::category_of(function.parameter_types()[index]) });
                         return false;
                     }
                     ++index;
@@ -1785,7 +1703,7 @@ bool expression_analyzer::has_diagnostics() const noexcept {
     return !diagnostics_.empty();
 }
 
-::takatori::util::sequence_view<type_diagnostic const> expression_analyzer::diagnostics() const noexcept {
+::takatori::util::sequence_view<diagnostic_type const> expression_analyzer::diagnostics() const noexcept {
     return diagnostics_;
 }
 
