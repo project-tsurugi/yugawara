@@ -7,7 +7,7 @@
 
 #include <takatori/util/optional_ptr.h>
 
-#include <yugawara/analyzer/runtime_feature.h>
+#include <yugawara/runtime_feature.h>
 #include <yugawara/analyzer/join_info.h>
 #include <yugawara/analyzer/aggregate_info.h>
 

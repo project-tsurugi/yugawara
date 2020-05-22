@@ -4,7 +4,7 @@
 
 #include <yugawara/storage/provider.h>
 #include <yugawara/analyzer/index_estimator.h>
-#include <yugawara/analyzer/runtime_feature.h>
+#include <yugawara/runtime_feature.h>
 
 namespace yugawara::analyzer::details {
 

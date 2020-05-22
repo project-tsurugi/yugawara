@@ -9,7 +9,7 @@
 
 #include <takatori/util/enum_set.h>
 
-namespace yugawara::analyzer {
+namespace yugawara {
 
 /**
  * @brief represents supported features of runtime.
@@ -68,4 +68,4 @@ inline std::ostream& operator<<(std::ostream& out, runtime_feature value) {
     return out << to_string_view(value);
 }
 
-} // namespace yugawara::analyzer
+} // namespace yugawara
