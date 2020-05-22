@@ -24,23 +24,24 @@ using namespace std::string_view_literals;
 namespace descriptor = ::takatori::descriptor;
 namespace scalar = ::takatori::scalar;
 using ::takatori::serializer::object_acceptor;
+using ::takatori::util::maybe_shared_ptr;
 using ::takatori::util::unsafe_downcast;
 using ::takatori::util::optional_ptr; // NOLINT(misc-unused-using-decls)
 
 object_scanner::object_scanner(
-        std::shared_ptr<analyzer::variable_mapping const> variable_mapping,
-        std::shared_ptr<analyzer::expression_mapping const> expression_mapping) noexcept
+        maybe_shared_ptr<analyzer::variable_mapping const> variable_mapping,
+        maybe_shared_ptr<analyzer::expression_mapping const> expression_mapping) noexcept
     : ::takatori::serializer::object_scanner(true)
     , variable_mapping_(std::move(variable_mapping))
     , expression_mapping_(std::move(expression_mapping))
 {}
 
-object_scanner& object_scanner::variable_mapping(std::shared_ptr<analyzer::variable_mapping const> mapping) noexcept {
+object_scanner& object_scanner::variable_mapping(maybe_shared_ptr<analyzer::variable_mapping const> mapping) noexcept {
     variable_mapping_ = std::move(mapping);
     return *this;
 }
 
-object_scanner& object_scanner::expression_mapping(std::shared_ptr<analyzer::expression_mapping const> mapping) noexcept {
+object_scanner& object_scanner::expression_mapping(maybe_shared_ptr<analyzer::expression_mapping const> mapping) noexcept {
     expression_mapping_ = std::move(mapping);
     return *this;
 }
