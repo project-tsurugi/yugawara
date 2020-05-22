@@ -54,40 +54,40 @@ protected:
      * @param acceptor the acceptor
      * @note This may be called only if verbose() is enabled.
      */
-    void properties(::takatori::descriptor::variable const& element, ::takatori::serializer::object_acceptor& acceptor) override;
+    void properties(::takatori::descriptor::variable const& element, ::takatori::serializer::object_acceptor& acceptor) const override;
 
     /// @copydoc properties(::takatori::descriptor::variable const&, ::takatori::serializer::object_acceptor&)
-    void properties(::takatori::descriptor::relation const& element, ::takatori::serializer::object_acceptor& acceptor) override;
+    void properties(::takatori::descriptor::relation const& element, ::takatori::serializer::object_acceptor& acceptor) const override;
 
     /// @copydoc properties(::takatori::descriptor::variable const&, ::takatori::serializer::object_acceptor&)
-    void properties(::takatori::descriptor::function const& element, ::takatori::serializer::object_acceptor& acceptor) override;
+    void properties(::takatori::descriptor::function const& element, ::takatori::serializer::object_acceptor& acceptor) const override;
 
     /// @copydoc properties(::takatori::descriptor::variable const&, ::takatori::serializer::object_acceptor&)
-    void properties(::takatori::descriptor::aggregate_function const& element, ::takatori::serializer::object_acceptor& acceptor) override;
+    void properties(::takatori::descriptor::aggregate_function const& element, ::takatori::serializer::object_acceptor& acceptor) const override;
 
     /**
      * @brief scans properties of the given type.
      * @param element the target element
      * @param acceptor the acceptor
      */
-    void properties(::takatori::type::data const& element, ::takatori::serializer::object_acceptor& acceptor) override;
+    void properties(::takatori::type::data const& element, ::takatori::serializer::object_acceptor& acceptor) const override;
 
     /**
      * @brief scans properties of the given expression.
      * @param element the target element
      * @param acceptor the acceptor
      */
-    void properties(::takatori::scalar::expression const& element, ::takatori::serializer::object_acceptor& acceptor) override;
+    void properties(::takatori::scalar::expression const& element, ::takatori::serializer::object_acceptor& acceptor) const override;
 
 private:
     std::shared_ptr<analyzer::variable_mapping const> variable_mapping_ {};
     std::shared_ptr<analyzer::expression_mapping const> expression_mapping_ {};
 
     template<::takatori::descriptor::descriptor_kind Kind>
-    void accept_properties(::takatori::descriptor::element<Kind> const& element, ::takatori::serializer::object_acceptor& acceptor);
+    void accept_properties(::takatori::descriptor::element<Kind> const& element, ::takatori::serializer::object_acceptor& acceptor) const;
 
     template<class T>
-    void accept_resolution(T const& element, ::takatori::serializer::object_acceptor& acceptor);
+    void accept_resolution(T const& element, ::takatori::serializer::object_acceptor& acceptor) const;
 };
 
 } // namespace yugawara::serializer

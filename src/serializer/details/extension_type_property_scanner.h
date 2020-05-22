@@ -10,7 +10,7 @@ namespace yugawara::serializer::details {
 class extension_type_property_scanner {
 public:
     explicit extension_type_property_scanner(
-            ::takatori::serializer::object_scanner& scanner,
+            ::takatori::serializer::object_scanner const& scanner,
             ::takatori::serializer::object_acceptor& acceptor) noexcept;
 
     void process(::takatori::type::extension const& element);

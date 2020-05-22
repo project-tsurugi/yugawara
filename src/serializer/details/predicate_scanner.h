@@ -12,7 +12,7 @@ namespace yugawara::serializer::details {
 class predicate_scanner {
 public:
     explicit predicate_scanner(
-            ::takatori::serializer::object_scanner& scanner,
+            ::takatori::serializer::object_scanner const& scanner,
             ::takatori::serializer::object_acceptor& acceptor) noexcept;
 
     void scan(variable::predicate const& element);
@@ -22,7 +22,7 @@ public:
     void operator()(variable::quantification const& element);
 
 private:
-    ::takatori::serializer::object_scanner& scanner_;
+    ::takatori::serializer::object_scanner const& scanner_;
     ::takatori::serializer::object_acceptor& acceptor_;
 };
 

@@ -13,7 +13,7 @@ using namespace std::string_view_literals;
 using ::takatori::util::unsafe_downcast;
 
 details::extension_scalar_property_scanner::extension_scalar_property_scanner(
-        ::takatori::serializer::object_scanner& scanner,
+        ::takatori::serializer::object_scanner const& scanner,
         ::takatori::serializer::object_acceptor& acceptor) noexcept
     : scanner_(scanner)
     , acceptor_(acceptor)

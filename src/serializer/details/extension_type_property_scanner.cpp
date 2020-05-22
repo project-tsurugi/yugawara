@@ -9,7 +9,7 @@ namespace yugawara::serializer::details {
 using namespace std::string_view_literals;
 
 details::extension_type_property_scanner::extension_type_property_scanner(
-        ::takatori::serializer::object_scanner&,
+        ::takatori::serializer::object_scanner const&,
         ::takatori::serializer::object_acceptor& acceptor) noexcept
     : acceptor_(acceptor)
 {}

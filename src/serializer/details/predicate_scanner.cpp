@@ -7,7 +7,7 @@ namespace yugawara::serializer::details {
 using namespace std::string_view_literals;
 
 predicate_scanner::predicate_scanner(
-        takatori::serializer::object_scanner& scanner,
+        takatori::serializer::object_scanner const& scanner,
         takatori::serializer::object_acceptor& acceptor) noexcept
     : scanner_(scanner)
     , acceptor_(acceptor)

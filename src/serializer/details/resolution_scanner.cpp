@@ -9,7 +9,7 @@ using namespace std::string_view_literals;
 using ::takatori::util::optional_ptr;
 
 resolution_scanner::resolution_scanner(
-        takatori::serializer::object_scanner& scanner,
+        takatori::serializer::object_scanner const& scanner,
         takatori::serializer::object_acceptor& acceptor,
         optional_ptr<analyzer::variable_mapping const> variable_mapping,
         optional_ptr<analyzer::expression_mapping const> expression_mapping) noexcept

@@ -12,13 +12,13 @@ namespace yugawara::serializer::details {
 class extension_scalar_property_scanner {
 public:
     explicit extension_scalar_property_scanner(
-            ::takatori::serializer::object_scanner& scanner,
+            ::takatori::serializer::object_scanner const& scanner,
             ::takatori::serializer::object_acceptor& acceptor) noexcept;
 
     void process(::takatori::scalar::extension const& element);
 
 private:
-    ::takatori::serializer::object_scanner& scanner_;
+    ::takatori::serializer::object_scanner const& scanner_;
     ::takatori::serializer::object_acceptor& acceptor_;
 
     void properties(extension::scalar::aggregate_function_call const& element);

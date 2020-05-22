@@ -33,7 +33,7 @@ namespace yugawara::serializer::details {
 class binding_scanner {
 public:
     explicit binding_scanner(
-            ::takatori::serializer::object_scanner& scanner,
+            ::takatori::serializer::object_scanner const& scanner,
             ::takatori::serializer::object_acceptor& acceptor,
             ::takatori::util::optional_ptr<analyzer::variable_mapping const> variable_mapping,
             ::takatori::util::optional_ptr<analyzer::expression_mapping const> expression_mapping) noexcept;
@@ -51,7 +51,7 @@ public:
     void properties(aggregate::declaration const& element);
 
 private:
-    ::takatori::serializer::object_scanner& scanner_;
+    ::takatori::serializer::object_scanner const& scanner_;
     ::takatori::serializer::object_acceptor& acceptor_;
     ::takatori::util::optional_ptr<analyzer::variable_mapping const> variable_mapping_;
     ::takatori::util::optional_ptr<analyzer::expression_mapping const> expression_mapping_;

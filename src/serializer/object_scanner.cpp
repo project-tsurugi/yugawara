@@ -45,24 +45,24 @@ object_scanner& object_scanner::expression_mapping(std::shared_ptr<analyzer::exp
     return *this;
 }
 
-void object_scanner::properties(descriptor::variable const& element, object_acceptor& acceptor) {
+void object_scanner::properties(descriptor::variable const& element, object_acceptor& acceptor) const {
     accept_properties(element, acceptor);
     accept_resolution(element, acceptor);
 }
 
-void object_scanner::properties(descriptor::relation const& element, object_acceptor& acceptor) {
+void object_scanner::properties(descriptor::relation const& element, object_acceptor& acceptor) const {
     accept_properties(element, acceptor);
 }
 
-void object_scanner::properties(descriptor::function const& element, object_acceptor& acceptor) {
+void object_scanner::properties(descriptor::function const& element, object_acceptor& acceptor) const {
     accept_properties(element, acceptor);
 }
 
-void object_scanner::properties(descriptor::aggregate_function const& element, object_acceptor& acceptor) {
+void object_scanner::properties(descriptor::aggregate_function const& element, object_acceptor& acceptor) const {
     accept_properties(element, acceptor);
 }
 
-void object_scanner::properties(takatori::type::data const& element, object_acceptor& acceptor) {
+void object_scanner::properties(takatori::type::data const& element, object_acceptor& acceptor) const {
     ::takatori::serializer::object_scanner::properties(element, acceptor);
     if (element.kind() == ::takatori::type::extension::tag) {
         auto&& ext = unsafe_downcast<::takatori::type::extension>(element);
@@ -74,7 +74,7 @@ void object_scanner::properties(takatori::type::data const& element, object_acce
     }
 }
 
-void object_scanner::properties(scalar::expression const& element, object_acceptor& acceptor) {
+void object_scanner::properties(scalar::expression const& element, object_acceptor& acceptor) const {
     acceptor.property_begin("this"sv);
     acceptor.pointer(std::addressof(element));
     acceptor.property_end();
@@ -93,7 +93,7 @@ void object_scanner::properties(scalar::expression const& element, object_accept
 }
 
 template<::takatori::descriptor::descriptor_kind Kind>
-void object_scanner::accept_properties(descriptor::element<Kind> const& element, object_acceptor& acceptor) {
+void object_scanner::accept_properties(descriptor::element<Kind> const& element, object_acceptor& acceptor) const {
     auto&& info = binding::unwrap(element);
     acceptor.property_begin("binding"sv);
     details::binding_scanner s {
@@ -107,7 +107,7 @@ void object_scanner::accept_properties(descriptor::element<Kind> const& element,
 }
 
 template<class T>
-void object_scanner::accept_resolution(T const& element, object_acceptor& acceptor) {
+void object_scanner::accept_resolution(T const& element, object_acceptor& acceptor) const {
     acceptor.property_begin("resolution"sv);
     details::resolution_scanner s {
             *this,
