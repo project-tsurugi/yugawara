@@ -2,6 +2,7 @@
 
 #include <numeric>
 
+#include <takatori/relation/graph.h>
 #include <takatori/relation/intermediate/escape.h>
 #include <takatori/relation/step/dispatch.h>
 #include <takatori/plan/dispatch.h>
@@ -76,19 +77,17 @@ public:
 
     void operator()(::takatori::plan::process& step) {
         relation::expression* head { nullptr };
-        for (auto&& expr : step.operators()) {
-            if (expr.input_ports().empty()) {
-                if (head != nullptr) {
-                    throw_exception(std::domain_error(string_builder {}
-                            << "multiple head operators in process: "
-                            << *head
-                            << " <=> "
-                            << expr
-                            << string_builder::to_string));
-                }
-                head = std::addressof(expr);
+        relation::enumerate_top(step.operators(), [&](relation::expression& expr) {
+            if (head != nullptr) {
+                throw_exception(std::domain_error(string_builder {}
+                        << "multiple head operators in process: "
+                        << *head
+                        << " <=> "
+                        << expr
+                        << string_builder::to_string));
             }
-        }
+            head = std::addressof(expr);
+        });
         if (head == nullptr) {
             throw_exception(std::domain_error(string_builder {}
                     << "no head operators in process: "

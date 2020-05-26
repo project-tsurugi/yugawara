@@ -1,7 +1,7 @@
 #pragma once
 
 #include <takatori/graph/graph.h>
-#include <takatori/relation/expression.h>
+#include <takatori/relation/graph.h>
 #include <takatori/util/object_creator.h>
 
 #include "block.h"
@@ -34,7 +34,7 @@ public:
      * @brief creates a new instance.
      * @param expressions the source relational expression graph
      */
-    explicit block_builder(::takatori::graph::graph<::takatori::relation::expression>& expressions);
+    explicit block_builder(::takatori::relation::graph_type& expressions);
 
     /**
      * @brief returns the built graph.
@@ -62,8 +62,7 @@ public:
      * @param expressions the relational expression graph
      * @return the built graph
      */
-    static ::takatori::graph::graph<block> build(
-            ::takatori::graph::graph<::takatori::relation::expression>& expressions);
+    static ::takatori::graph::graph<block> build(::takatori::relation::graph_type& expressions);
 
 private:
     ::takatori::graph::graph<block> blocks_;

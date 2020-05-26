@@ -4,6 +4,8 @@
 
 #include <tsl/hopscotch_set.h>
 
+#include <takatori/relation/graph.h>
+
 #include <takatori/util/assertion.h>
 #include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
@@ -15,6 +17,8 @@ namespace relation = ::takatori::relation;
 using ::takatori::relation::expression_kind_set;
 using ::takatori::util::string_builder;
 using ::takatori::util::throw_exception;
+
+using block_graph = ::takatori::graph::graph<block>;
 
 namespace {
 
@@ -73,7 +77,7 @@ block_builder::block_builder(::takatori::util::object_creator creator) noexcept
     : blocks_(creator)
 {}
 
-block_builder::block_builder(::takatori::graph::graph<block> blocks) noexcept
+block_builder::block_builder(block_graph blocks) noexcept
     : blocks_(std::move(blocks))
 {}
 
@@ -81,15 +85,15 @@ block_builder::block_builder(::takatori::graph::graph<::takatori::relation::expr
     : blocks_(build(expressions))
 {}
 
-::takatori::graph::graph<block>& block_builder::graph() noexcept {
+block_graph& block_builder::graph() noexcept {
     return blocks_;
 }
 
-::takatori::graph::graph<block> const& block_builder::graph() const noexcept {
+block_graph const& block_builder::graph() const noexcept {
     return blocks_;
 }
 
-::takatori::graph::graph<block> block_builder::release() noexcept {
+block_graph block_builder::release() noexcept {
     auto r = std::move(blocks_);
     blocks_ = decltype(r) { r.get_object_creator() };
     return r;
@@ -99,8 +103,7 @@ block_builder::block_builder(::takatori::graph::graph<::takatori::relation::expr
     return blocks_.get_object_creator();
 }
 
-::takatori::graph::graph<block> block_builder::build(
-        ::takatori::graph::graph<::takatori::relation::expression>& expressions) {
+block_graph block_builder::build(relation::graph_type& expressions) {
     std::vector<relation::expression*, ::takatori::util::object_allocator<relation::expression*>> heads;
     ::tsl::hopscotch_set<
             relation::expression*,
@@ -108,16 +111,13 @@ block_builder::block_builder(::takatori::graph::graph<::takatori::relation::expr
             std::equal_to<>,
             ::takatori::util::object_allocator<relation::expression*>> saw;
 
-    // collect the "head" expressions
-    for (auto&& expr : expressions) {
-        if (expr.input_ports().empty()) {
-            heads.emplace_back(std::addressof(expr));
-            saw.emplace(std::addressof(expr));
-        }
-    }
+    relation::enumerate_top(expressions, [&](relation::expression& expr) {
+        heads.emplace_back(std::addressof(expr));
+        saw.emplace(std::addressof(expr));
+    });
 
     auto creator = expressions.get_object_creator();
-    ::takatori::graph::graph<block> result { creator };
+    block_graph result { creator };
     while (!heads.empty()) {
         auto&& front = *heads.back();
         heads.pop_back();

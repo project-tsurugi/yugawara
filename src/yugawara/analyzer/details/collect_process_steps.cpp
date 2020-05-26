@@ -36,7 +36,7 @@ public:
     }
 
     relation::graph_type operator()(relation::expression const& head) {
-        BOOST_ASSERT(head.input_ports().empty()); // NOLINT
+        BOOST_ASSERT(!relation::has_upstream(head)); // NOLINT
         work_.clear();
         do_collect(head);
         return relation::release(source_, work_);

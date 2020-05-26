@@ -139,11 +139,9 @@ public:
     {}
 
     void process() {
-        for (auto&& e : graph_) {
-            if (e.output_ports().empty()) {
-                schedule(e, empty_mask());
-            }
-        }
+        relation::enumerate_bottom(graph_, [&](relation::expression& expr) {
+            schedule(expr, empty_mask());
+        });
         while (!tasks_.empty()) {
             auto task = std::move(tasks_.back());
             tasks_.pop_back();
