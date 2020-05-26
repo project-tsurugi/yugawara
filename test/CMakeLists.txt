@@ -24,6 +24,9 @@ function (add_test_executable source_file)
     )
 endfunction (add_test_executable)
 
+# root
+add_test_executable(yugawara/compiler_test.cpp)
+
 # type system
 add_test_executable(yugawara/type/type_category_test.cpp)
 

@@ -1,5 +1,10 @@
 add_library(yugawara
 
+    # root
+    yugawara/compiler.cpp
+    yugawara/compiler_options.cpp
+    yugawara/compiler_result.cpp
+
     # storage information
     yugawara/storage/relation.cpp
     yugawara/storage/table.cpp
