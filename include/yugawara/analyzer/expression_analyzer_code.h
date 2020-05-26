@@ -25,14 +25,14 @@ enum class expression_analyzer_code {
     /// @brief the referring variable is not resolved.
     unresolved_variable,
     /// @brief the number of values is wrong.
-    inconsistent_number_of_elements,
+    inconsistent_elements,
 };
 
 /// @brief an enum set of expression_analyzer_code.
 using expression_analyzer_code_set = ::takatori::util::enum_set<
         expression_analyzer_code,
         expression_analyzer_code::unknown,
-        expression_analyzer_code::inconsistent_number_of_elements>;
+        expression_analyzer_code::inconsistent_elements>;
 
 /**
  * @brief returns string representation of the value.
@@ -48,7 +48,7 @@ constexpr std::string_view to_string_view(expression_analyzer_code value) noexce
         case kind::ambiguous_type: return "ambiguous_type"sv;
         case kind::inconsistent_type: return "inconsistent_type"sv;
         case kind::unresolved_variable: return "unresolved_variable"sv;
-        case kind::inconsistent_number_of_elements: return "inconsistent_number_of_elements"sv;
+        case kind::inconsistent_elements: return "inconsistent_elements"sv;
     }
     std::abort();
 }

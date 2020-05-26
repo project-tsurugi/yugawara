@@ -80,7 +80,7 @@ public:
             storage::index const& index,
             ::takatori::util::sequence_view<search_key const> search_keys,
             ::takatori::util::sequence_view<sort_key const> sort_keys,
-            ::takatori::util::sequence_view<column_ref const> values) = 0;
+            ::takatori::util::sequence_view<column_ref const> values) const = 0;
 };
 
 } // namespace yugawara::analyzer

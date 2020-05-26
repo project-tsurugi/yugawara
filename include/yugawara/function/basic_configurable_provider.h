@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 
+#include <takatori/util/maybe_shared_ptr.h>
 #include <takatori/util/object_creator.h>
 
 #include "provider.h"
@@ -35,7 +36,7 @@ public:
      * @param compare the name comparator object
      */
     explicit basic_configurable_provider(
-            std::shared_ptr<provider const> parent = {},
+            ::takatori::util::maybe_shared_ptr<provider const> parent = {},
             ::takatori::util::object_creator creator = {},
             compare_type const& compare = compare_type{}) noexcept
         : parent_(std::move(parent))
@@ -120,7 +121,7 @@ private:
             compare_type,
             takatori::util::object_allocator<std::pair<key_type const, value_type>>>;
 
-    std::shared_ptr<provider const> parent_;
+    ::takatori::util::maybe_shared_ptr<provider const> parent_;
     map_type declarations_;
     mutable mutex_type mutex_ {};
 

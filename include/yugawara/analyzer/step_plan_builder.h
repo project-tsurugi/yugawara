@@ -1,7 +1,6 @@
 #pragma once
 
 #include <takatori/relation/expression.h>
-#include <takatori/relation/intermediate/join.h>
 
 #include <takatori/plan/step.h>
 
@@ -47,15 +46,6 @@ public:
 
     /// @copydoc options()
     [[nodiscard]] options_type const& options() const noexcept;
-
-    /**
-     * @brief registers hint for the given join operation.
-     * @param expr the join operation
-     * @param info the hint information
-     * @return this
-     * @throws std::invalid_argument if the target join expression has been already registered
-     */
-    step_plan_builder& add(::takatori::relation::intermediate::join const& expr, join_info info);
 
     /**
      * @brief builds a step plan from the given intermediate plan.

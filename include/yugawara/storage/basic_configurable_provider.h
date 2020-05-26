@@ -9,6 +9,7 @@
 
 #include <takatori/util/clonable.h>
 #include <takatori/util/exception.h>
+#include <takatori/util/maybe_shared_ptr.h>
 #include <takatori/util/object_creator.h>
 #include <takatori/util/optional_ptr.h>
 
@@ -33,8 +34,8 @@ public:
      * @param creator the object creator
      */
     explicit basic_configurable_provider(
-            std::shared_ptr<provider const> parent = {},
-            takatori::util::object_creator creator = {}) noexcept
+            ::takatori::util::maybe_shared_ptr<provider const> parent = {},
+            ::takatori::util::object_creator creator = {}) noexcept
         : parent_(std::move(parent))
         , relations_(creator.allocator(std::in_place_type<typename decltype(relations_)::value_type>))
         , indices_(creator.allocator(std::in_place_type<typename decltype(indices_)::value_type>))
@@ -177,7 +178,7 @@ private:
             std::less<>,
             takatori::util::object_allocator<std::pair<key_type const, index_value_type>>>;
 
-    std::shared_ptr<provider const> parent_;
+    ::takatori::util::maybe_shared_ptr<provider const> parent_;
     relation_map_type relations_;
     index_map_type indices_;
     mutable mutex_type mutex_ {};

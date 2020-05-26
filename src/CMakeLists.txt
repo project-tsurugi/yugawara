@@ -1,111 +1,111 @@
 add_library(yugawara
 
     # storage information
-    storage/relation.cpp
-    storage/table.cpp
-    storage/column.cpp
-    storage/index.cpp
-    storage/provider.cpp
-    storage/details/index_key_element.cpp
-    storage/details/search_key_element.cpp
+    yugawara/storage/relation.cpp
+    yugawara/storage/table.cpp
+    yugawara/storage/column.cpp
+    yugawara/storage/index.cpp
+    yugawara/storage/provider.cpp
+    yugawara/storage/details/index_key_element.cpp
+    yugawara/storage/details/search_key_element.cpp
 
     # type system
-    type/category.cpp
-    type/conversion.cpp
-    type/repository.cpp
+    yugawara/type/category.cpp
+    yugawara/type/conversion.cpp
+    yugawara/type/repository.cpp
 
     # function information
-    function/declaration.cpp
-    function/utils.cpp
+    yugawara/function/declaration.cpp
+    yugawara/function/utils.cpp
 
     # aggregate function information
-    aggregate/declaration.cpp
+    yugawara/aggregate/declaration.cpp
 
     # descriptor entities
-    binding/relation_info.cpp
-    binding/exchange_info.cpp
-    binding/index_info.cpp
-    binding/variable_info.cpp
-    binding/table_column_info.cpp
-    binding/external_variable_info.cpp
-    binding/function_info.cpp
-    binding/aggregate_function_info.cpp
-    binding/extract.cpp
-    binding/factory.cpp
+    yugawara/binding/relation_info.cpp
+    yugawara/binding/exchange_info.cpp
+    yugawara/binding/index_info.cpp
+    yugawara/binding/variable_info.cpp
+    yugawara/binding/table_column_info.cpp
+    yugawara/binding/external_variable_info.cpp
+    yugawara/binding/function_info.cpp
+    yugawara/binding/aggregate_function_info.cpp
+    yugawara/binding/extract.cpp
+    yugawara/binding/factory.cpp
 
     # variable binding
-    variable/declaration.cpp
-    variable/criteria.cpp
-    variable/predicate.cpp
-    variable/comparison.cpp
-    variable/negation.cpp
-    variable/quantification.cpp
+    yugawara/variable/declaration.cpp
+    yugawara/variable/criteria.cpp
+    yugawara/variable/predicate.cpp
+    yugawara/variable/comparison.cpp
+    yugawara/variable/negation.cpp
+    yugawara/variable/quantification.cpp
 
     # extensions
-    extension/scalar/aggregate_function_call.cpp
+    yugawara/extension/scalar/aggregate_function_call.cpp
 
     # analyzer
-    analyzer/expression_mapping.cpp
-    analyzer/expression_resolution.cpp
-    analyzer/variable_mapping.cpp
-    analyzer/variable_resolution.cpp
-    analyzer/expression_analyzer.cpp
-    analyzer/block.cpp
-    analyzer/block_algorithm.cpp
-    analyzer/block_builder.cpp
-    analyzer/variable_liveness_info.cpp
-    analyzer/variable_liveness_analyzer.cpp
+    yugawara/analyzer/expression_mapping.cpp
+    yugawara/analyzer/expression_resolution.cpp
+    yugawara/analyzer/variable_mapping.cpp
+    yugawara/analyzer/variable_resolution.cpp
+    yugawara/analyzer/expression_analyzer.cpp
+    yugawara/analyzer/block.cpp
+    yugawara/analyzer/block_algorithm.cpp
+    yugawara/analyzer/block_builder.cpp
+    yugawara/analyzer/variable_liveness_info.cpp
+    yugawara/analyzer/variable_liveness_analyzer.cpp
 
     # planner
-    analyzer/step_plan_builder.cpp
-    analyzer/join_strategy.cpp
-    analyzer/join_info.cpp
-    analyzer/aggregate_strategy.cpp
-    analyzer/aggregate_info.cpp
-    analyzer/details/block_expression_util.cpp
-    analyzer/details/step_plan_builder_options.cpp
-    analyzer/details/collect_process_steps.cpp
-    analyzer/details/collect_exchange_steps.cpp
-    analyzer/details/collect_step_relations.cpp
-    analyzer/details/stream_variable_rewriter_context.cpp
-    analyzer/details/exchange_column_info.cpp
-    analyzer/details/exchange_column_info_map.cpp
-    analyzer/details/collect_exchange_columns.cpp
-    analyzer/details/scalar_expression_variable_rewriter.cpp
-    analyzer/details/rewrite_stream_variables.cpp
+    yugawara/analyzer/step_plan_builder.cpp
+    yugawara/analyzer/join_strategy.cpp
+    yugawara/analyzer/join_info.cpp
+    yugawara/analyzer/aggregate_strategy.cpp
+    yugawara/analyzer/aggregate_info.cpp
+    yugawara/analyzer/details/block_expression_util.cpp
+    yugawara/analyzer/details/step_plan_builder_options.cpp
+    yugawara/analyzer/details/collect_process_steps.cpp
+    yugawara/analyzer/details/collect_exchange_steps.cpp
+    yugawara/analyzer/details/collect_step_relations.cpp
+    yugawara/analyzer/details/stream_variable_rewriter_context.cpp
+    yugawara/analyzer/details/exchange_column_info.cpp
+    yugawara/analyzer/details/exchange_column_info_map.cpp
+    yugawara/analyzer/details/collect_exchange_columns.cpp
+    yugawara/analyzer/details/scalar_expression_variable_rewriter.cpp
+    yugawara/analyzer/details/rewrite_stream_variables.cpp
 
     # optimizer
-    analyzer/intermediate_plan_optimizer.cpp
-    analyzer/details/boolean_constants.cpp
-    analyzer/details/intermediate_plan_optimizer_options.cpp
-    analyzer/details/decompose_projections.cpp
-    analyzer/details/remove_redundant_stream_variables.cpp
-    analyzer/details/stream_variable_flow_info.cpp
-    analyzer/details/stream_variable_flow_info_entry.cpp
-    analyzer/details/decompose_predicate.cpp
-    analyzer/details/collect_stream_variables.cpp
-    analyzer/details/push_down_filters.cpp
-    analyzer/details/simplify_predicate.cpp
-    analyzer/details/remove_redundant_conditions.cpp
-    analyzer/details/index_estimator_result.cpp
-    analyzer/details/default_index_estimator.cpp
-    analyzer/details/search_key_term.cpp
-    analyzer/details/search_key_term_builder.cpp
-    analyzer/details/scan_key_collector.cpp
-    analyzer/details/rewrite_join.cpp
-    analyzer/details/collect_join_keys.cpp
-    analyzer/details/rewrite_scan.cpp
+    yugawara/analyzer/intermediate_plan_optimizer.cpp
+    yugawara/analyzer/details/boolean_constants.cpp
+    yugawara/analyzer/details/intermediate_plan_optimizer_options.cpp
+    yugawara/analyzer/details/decompose_projections.cpp
+    yugawara/analyzer/details/remove_redundant_stream_variables.cpp
+    yugawara/analyzer/details/stream_variable_flow_info.cpp
+    yugawara/analyzer/details/stream_variable_flow_info_entry.cpp
+    yugawara/analyzer/details/decompose_predicate.cpp
+    yugawara/analyzer/details/collect_stream_variables.cpp
+    yugawara/analyzer/details/push_down_filters.cpp
+    yugawara/analyzer/details/simplify_predicate.cpp
+    yugawara/analyzer/details/remove_redundant_conditions.cpp
+    yugawara/analyzer/details/index_estimator_result.cpp
+    yugawara/analyzer/details/default_index_estimator.cpp
+    yugawara/analyzer/details/search_key_term.cpp
+    yugawara/analyzer/details/search_key_term_builder.cpp
+    yugawara/analyzer/details/scan_key_collector.cpp
+    yugawara/analyzer/details/rewrite_join.cpp
+    yugawara/analyzer/details/collect_join_keys.cpp
+    yugawara/analyzer/details/rewrite_scan.cpp
 
     # analyzer misc.
-    analyzer/details/detect_join_endpoint_style.cpp
+    yugawara/analyzer/details/detect_join_endpoint_style.cpp
 
     # serializer
-    serializer/object_scanner.cpp
-    serializer/details/binding_scanner.cpp
-    serializer/details/resolution_scanner.cpp
-    serializer/details/predicate_scanner.cpp
-    serializer/details/extension_type_property_scanner.cpp
-    serializer/details/extension_scalar_property_scanner.cpp
+    yugawara/serializer/object_scanner.cpp
+    yugawara/serializer/details/binding_scanner.cpp
+    yugawara/serializer/details/resolution_scanner.cpp
+    yugawara/serializer/details/predicate_scanner.cpp
+    yugawara/serializer/details/extension_type_property_scanner.cpp
+    yugawara/serializer/details/extension_scalar_property_scanner.cpp
 )
 
 target_include_directories(yugawara

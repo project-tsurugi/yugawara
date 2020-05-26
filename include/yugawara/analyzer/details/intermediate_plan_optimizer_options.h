@@ -1,5 +1,6 @@
 #pragma once
 
+#include <takatori/util/maybe_shared_ptr.h>
 #include <takatori/util/object_creator.h>
 
 #include <yugawara/storage/provider.h>
@@ -44,20 +45,22 @@ public:
      * @param provider the storage provider
      * @return this
      */
-    intermediate_plan_optimizer_options& storage_provider(std::shared_ptr<storage::provider const> provider) noexcept;
+    intermediate_plan_optimizer_options& storage_provider(
+            ::takatori::util::maybe_shared_ptr<storage::provider const> provider) noexcept;
 
     /**
      * @brief returns the index estimator for index selection.
      * @return the index estimator
      */
-    [[nodiscard]] class index_estimator& index_estimator() const noexcept;
+    [[nodiscard]] analyzer::index_estimator const& index_estimator() const noexcept;
 
     /**
      * @brief sets the index estimator for index selection.
      * @param estimator index estimator
      * @return this
      */
-    intermediate_plan_optimizer_options& index_estimator(std::shared_ptr<class index_estimator> estimator) noexcept;
+    intermediate_plan_optimizer_options& index_estimator(
+            ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> estimator) noexcept;
 
     /**
      * @brief returns the object creator.
@@ -67,8 +70,8 @@ public:
 
 private:
     ::takatori::util::object_creator creator_ {};
-    std::shared_ptr<storage::provider const> storage_provider_ {};
-    std::shared_ptr<class index_estimator> index_estimator_ {};
+    ::takatori::util::maybe_shared_ptr<storage::provider const> storage_provider_ {};
+    ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> index_estimator_ {};
     runtime_feature_set runtime_features_ { runtime_feature_all };
 };
 

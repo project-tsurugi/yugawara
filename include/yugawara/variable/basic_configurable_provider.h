@@ -7,9 +7,11 @@
 #include <string>
 #include <string_view>
 
-#include <takatori/util/exception.h>
-#include <takatori/util/object_creator.h>
 #include <takatori/util/detect.h>
+#include <takatori/util/exception.h>
+#include <takatori/util/maybe_shared_ptr.h>
+#include <takatori/util/object_creator.h>
+#include <takatori/util/string_builder.h>
 
 #include "provider.h"
 
@@ -48,8 +50,8 @@ public:
      * @param compare the name comparator object
      */
     explicit basic_configurable_provider(
-            std::shared_ptr<provider const> parent = {},
-            takatori::util::object_creator creator = {},
+            ::takatori::util::maybe_shared_ptr<provider const> parent = {},
+            ::takatori::util::object_creator creator = {},
             compare_type const& compare = compare_type{}) noexcept
         : parent_(std::move(parent))
         , declarations_(
@@ -91,6 +93,7 @@ public:
      */
     std::shared_ptr<declaration> const& add(std::shared_ptr<declaration> element, bool overwrite = false) {
         using ::takatori::util::throw_exception;
+        using ::takatori::util::string_builder;
         key_type key { element->name(), get_object_creator().allocator(std::in_place_type<char>) };
         std::lock_guard lock { mutex_ };
         if (overwrite) {
@@ -99,13 +102,19 @@ public:
             return iter->second;
         }
         if (parent_ && parent_->find(key)) {
-            throw_exception(std::invalid_argument(std::string("already exists in parent provider: ") += key));
+            throw_exception(std::invalid_argument(string_builder {}
+                    << "already exists in parent provider: "
+                    << key
+                    << string_builder::to_string));
         }
         if (auto [iter, success] = declarations_.try_emplace(std::move(key), std::move(element)); success) {
             return iter->second;
         }
         // NOTE: if try_emplace was failed, `key` must be not changed
-        throw_exception(std::invalid_argument(std::string("already exists: ") += key));
+        throw_exception(std::invalid_argument(string_builder {}
+                << "already exists: "
+                << key
+                << string_builder::to_string));
     }
 
     /// @copydoc add()
@@ -148,7 +157,7 @@ private:
             compare_type,
             takatori::util::object_allocator<std::pair<key_type const, value_type>>>;
 
-    std::shared_ptr<provider const> parent_;
+    ::takatori::util::maybe_shared_ptr<provider const> parent_;
     map_type declarations_;
     mutable mutex_type mutex_ {};
 

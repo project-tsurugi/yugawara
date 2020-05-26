@@ -11,6 +11,7 @@
 #include <takatori/relation/graph.h>
 #include <takatori/scalar/expression.h>
 #include <takatori/type/data.h>
+#include <takatori/util/maybe_shared_ptr.h>
 #include <takatori/util/object_creator.h>
 #include <takatori/util/sequence_view.h>
 
@@ -48,8 +49,8 @@ public:
      * @param variables the variable mapping
      */
     expression_analyzer(
-            std::shared_ptr<expression_mapping> expressions,
-            std::shared_ptr<variable_mapping> variables) noexcept;
+            ::takatori::util::maybe_shared_ptr<expression_mapping> expressions,
+            ::takatori::util::maybe_shared_ptr<variable_mapping> variables) noexcept;
 
     /**
      * @brief returns the underlying expression mapping.
@@ -61,7 +62,7 @@ public:
     [[nodiscard]] expression_mapping const& expressions() const noexcept;
 
     /// @copydoc expressions()
-    [[nodiscard]] std::shared_ptr<expression_mapping> shared_expressions() noexcept;
+    [[nodiscard]] ::takatori::util::maybe_shared_ptr<expression_mapping> shared_expressions() noexcept;
 
     /**
      * @brief returns the underlying variable mapping.
@@ -73,7 +74,21 @@ public:
     [[nodiscard]] variable_mapping const& variables() const noexcept;
 
     /// @copydoc variables()
-    [[nodiscard]] std::shared_ptr<variable_mapping> shared_variables() noexcept;
+    [[nodiscard]] ::takatori::util::maybe_shared_ptr<variable_mapping> shared_variables() noexcept;
+
+    /**
+     * @brief whether or not this allow some unresolved elements in validation.
+     * @return true if this allow some unresolved elements
+     * @return false otherwise
+     */
+    [[nodiscard]] bool allow_unresolved() const noexcept;
+
+    /**
+     * @brief sets whether or not this allows some unresolved elements in validation.
+     * @param allow whether or not this allows some unresolved elements (default: true)
+     * @return this
+     */
+    expression_analyzer& allow_unresolved(bool allow) noexcept;
 
     /**
      * @brief extracts the type of the given resolution.
@@ -213,8 +228,9 @@ public:
     void clear_diagnostics() noexcept;
 
 private:
-    std::shared_ptr<expression_mapping> expressions_;
-    std::shared_ptr<variable_mapping> variables_;
+    ::takatori::util::maybe_shared_ptr<expression_mapping> expressions_;
+    ::takatori::util::maybe_shared_ptr<variable_mapping> variables_;
+    bool allow_unresolved_ { true };
     std::vector<diagnostic_type, ::takatori::util::object_allocator<diagnostic_type>> diagnostics_;
 };
 
