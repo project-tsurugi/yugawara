@@ -70,15 +70,15 @@ public:
         add_downstream(expr.destination());
     }
 
-    void operator()(relation::find const& expr) {
+    void operator()([[maybe_unused]] relation::find const& expr) {
         BOOST_ASSERT(!extract_exchange(expr.source())); // NOLINT
     }
 
-    void operator()(relation::scan const& expr) {
+    void operator()([[maybe_unused]] relation::scan const& expr) {
         BOOST_ASSERT(!extract_exchange(expr.source())); // NOLINT
     }
 
-    void operator()(relation::write const& expr) {
+    void operator()([[maybe_unused]] relation::write const& expr) {
         BOOST_ASSERT(!extract_exchange(expr.destination())); // NOLINT
     }
 

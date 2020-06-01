@@ -44,6 +44,7 @@ descriptor::variable const& exchange_column_info::allocate(descriptor::variable 
     auto&& entry = entries_.emplace_back(variable, f.exchange_column(info.label()));
     auto [it, success] = index_.emplace(variable, entries_.size() - 1);
     (void) it;
+    (void) success;
     BOOST_ASSERT(success); // NOLINT
     return entry.second;
 }
@@ -55,8 +56,9 @@ void exchange_column_info::bind(
     (void) binding::extract<binding::variable_info_kind::exchange_column>(replacement);
     entries_.emplace_back(variable, std::move(replacement));
     auto [it, success] = index_.emplace(std::move(variable), entries_.size() - 1);
-    BOOST_ASSERT(success); // NOLINT
     (void) it;
+    (void) success;
+    BOOST_ASSERT(success); // NOLINT
 }
 
 void exchange_column_info::touch(descriptor::variable const& variable) {

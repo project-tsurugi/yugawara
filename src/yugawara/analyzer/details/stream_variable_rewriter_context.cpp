@@ -87,6 +87,7 @@ void stream_variable_rewriter_context::rewrite_use(::takatori::descriptor::varia
                             f.stream_variable(info.label()),
                             status_t::undefined,
                     });
+            (void) success;
             BOOST_ASSERT(success); // NOLINT
             variable = it->second.variable;
             break;

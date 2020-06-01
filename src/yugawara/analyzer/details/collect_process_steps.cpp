@@ -102,7 +102,7 @@ void collect_process_steps(
         for (auto&& e : source) {
             if (engine::is_entry(e)) {
                 found = true;
-                auto&& p = destination.emplace<plan::process>(collector(e));
+                [[maybe_unused]] auto&& p = destination.emplace<plan::process>(collector(e));
                 BOOST_ASSERT(p.operators().contains(e)); // NOLINT
                 break;
             }
