@@ -3,6 +3,7 @@ add_library(yugawara
     # root
     yugawara/compiler.cpp
     yugawara/compiler_options.cpp
+    yugawara/compiled_info.cpp
     yugawara/compiler_result.cpp
 
     # storage information

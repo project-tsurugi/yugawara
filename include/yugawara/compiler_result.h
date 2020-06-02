@@ -19,6 +19,7 @@
 
 #include "diagnostic.h"
 #include "compiler_code.h"
+#include "compiled_info.h"
 
 namespace yugawara {
 
@@ -27,6 +28,9 @@ namespace yugawara {
  */
 class compiler_result {
 public:
+    /// @brief the compiled information type.
+    using info_type = compiled_info;
+
     /// @brief diagnostic code type.
     using code_type = compiler_code;
 
@@ -35,20 +39,18 @@ public:
 
     /**
      * @brief creates a new invalid instance.
-     * @details This represents not a successfully result without any diagnostics.
+     * @details This represents erroneous result without any diagnostics.
      */
     compiler_result() = default;
 
     /**
      * @brief creates a new instance.
      * @param statement the compiled statement
-     * @param expression_mapping information of individual expressions in the compiled statement
-     * @param variable_mapping information of individual variables in the compiled statement
+     * @param info the compiled information
      */
     compiler_result(
             ::takatori::util::unique_object_ptr<::takatori::statement::statement> statement,
-            std::shared_ptr<analyzer::expression_mapping const> expression_mapping,
-            std::shared_ptr<analyzer::variable_mapping const> variable_mapping) noexcept;
+            info_type info) noexcept;
 
     /**
      * @brief creates a new instance which represents a compilation error.
@@ -66,12 +68,6 @@ public:
 
     /// @copydoc success()
     [[nodiscard]] explicit operator bool() const noexcept;
-
-    /**
-     * @brief returns the diagnostic information.
-     * @return the diagnostic information of the compiled result.
-     */
-    [[nodiscard]] ::takatori::util::sequence_view<diagnostic_type const> diagnostics() const noexcept;
 
     /**
      * @brief returns the compiled statement.
@@ -100,39 +96,45 @@ public:
      */
     [[nodiscard]] ::takatori::util::unique_object_ptr<::takatori::statement::statement> release_statement() noexcept;
 
-    // FIXME: nullity and more
+    /**
+     * @brief returns the compiled information.
+     * @return the compiled information
+     * @return empty information if compilation was failed
+     * @note You can take a copy of the returned object at low cost.
+     */
+    [[nodiscard]] info_type& info() noexcept;
+
+    /// @copydoc info()
+    [[nodiscard]] info_type const& info() const noexcept;
 
     /**
-     * @brief returns the type of the given expression.
-     * @details the target expression must appear in the compilation result.
-     * @param expression the target expression
-     * @return the expression type
-     * @throws std::invalid_argument if the given expression is not a member of the compilation result
-     * @warning undefined behavior if this compiled information is not valid
+     * @brief returns the diagnostic information.
+     * @return the diagnostic information of the compiled result.
+     */
+    [[nodiscard]] ::takatori::util::sequence_view<diagnostic_type const> diagnostics() const noexcept;
+
+    /**
+     * @copydoc compiled_info::type_of(::takatori::scalar::expression const&) const
+     * @note This is equivalent to `info().type_of(expression)`.
      */
     [[nodiscard]] ::takatori::type::data const& type_of(::takatori::scalar::expression const& expression) const;
 
     /**
-     * @brief returns the type of the given variable.
-     * @details the target variable must appear in the compilation result.
-     * @param variable the target variable
-     * @return the variable type
-     * @throws std::invalid_argument if the given variable is not a member of the compilation result
-     * @warning undefined behavior if this compiled information is not valid
+     * @copydoc compiled_info::type_of(::takatori::descriptor::variable const&) const
+     * @note This is equivalent to `info().type_of(variable)`.
      */
     [[nodiscard]] ::takatori::type::data const& type_of(::takatori::descriptor::variable const& variable) const;
 
     /**
-     * @brief returns an object scanner for the compilation result.
-     * @return the object scanner
+     * @copydoc compiled_info::object_scanner() const
+     * @note This is equivalent to `info().object_scanner()`.
      */
     [[nodiscard]] serializer::object_scanner object_scanner() const noexcept;
 
 private:
     // successfully information
     ::takatori::util::unique_object_ptr<::takatori::statement::statement> statement_ {};
-    std::shared_ptr<analyzer::expression_mapping const> expression_mapping_ {};
-    std::shared_ptr<analyzer::variable_mapping const> variable_mapping_ {};
+    info_type info_ {};
 
     // erroneous information
     std::vector<diagnostic_type> diagnostics_ {};

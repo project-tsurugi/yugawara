@@ -15,7 +15,9 @@ using options_type = compiler::options_type;
 using result_type = compiler::result_type;
 using diagnostic_type = result_type::diagnostic_type;
 using code_type = result_type::code_type;
+using info_type = result_type::info_type;
 
+namespace scalar = ::takatori::scalar;
 namespace relation = ::takatori::relation;
 namespace plan = ::takatori::plan;
 namespace statement = ::takatori::statement;
@@ -23,7 +25,47 @@ namespace statement = ::takatori::statement;
 using ::takatori::util::clone_unique;
 using ::takatori::util::unique_object_ptr;
 
+using ::yugawara::util::either;
+
 namespace {
+
+code_type convert(analyzer::expression_analyzer_code source) noexcept {
+    using from = decltype(source);
+    using to = code_type;
+    switch (source) {
+        case from::unknown: return to::unknown;
+        case from::unsupported_type: return to::unsupported_type;
+        case from::ambiguous_type: return to::ambiguous_type;
+        case from::inconsistent_type: return to::inconsistent_type;
+        case from::unresolved_variable: return to::unresolved_variable;
+        case from::inconsistent_elements: return to::inconsistent_elements;
+    }
+    std::abort();
+}
+
+std::vector<diagnostic_type> build_error(analyzer::expression_analyzer const& analyzer) {
+    auto&& diagnostics = analyzer.diagnostics();
+    std::vector<diagnostic_type> results;
+    results.reserve(diagnostics.size());
+    for (auto&& d : diagnostics) {
+        results.emplace_back(
+                convert(d.code()),
+                d.message(),
+                d.location());
+    }
+    return results;
+}
+
+either<std::vector<diagnostic_type>, info_type> do_inspect(std::function<void(analyzer::expression_analyzer&)> const& action) {
+    auto exprs = std::make_shared<analyzer::expression_mapping>();
+    auto vars = std::make_shared<analyzer::variable_mapping>();
+    analyzer::expression_analyzer analyzer { exprs, vars };
+    action(analyzer);
+    if (analyzer.has_diagnostics()) {
+        return build_error(analyzer);
+    }
+    return info_type { exprs, vars };
+}
 
 class engine {
 public:
@@ -43,7 +85,7 @@ public:
     result_type compile(relation::graph_type&& plan) {
         expression_analyzer_.resolve(plan, true, type_repository_);
         if (expression_analyzer_.has_diagnostics()) {
-            return build_error();
+            return result_type { build_error(expression_analyzer_) };
         }
         expression_mapping_->clear();
         variable_mapping_->clear();
@@ -57,7 +99,7 @@ public:
     result_type compile(unique_object_ptr<statement::statement> stmt) {
         expression_analyzer_.resolve(*stmt, true, type_repository_);
         if (expression_analyzer_.has_diagnostics()) {
-            return build_error();
+            return result_type { build_error(expression_analyzer_) };
         }
         return build_success(std::move(stmt));
     }
@@ -73,36 +115,11 @@ private:
         BOOST_ASSERT(!expression_analyzer_.has_diagnostics()); // NOLINT
         return {
                 std::move(result),
-                expression_analyzer_.shared_expressions().ownership(),
-                expression_analyzer_.shared_variables().ownership(),
+                info_type {
+                        std::move(expression_mapping_),
+                        std::move(variable_mapping_),
+                },
         };
-    }
-
-    result_type build_error() {
-        auto&& diagnostics = expression_analyzer_.diagnostics();
-        std::vector<diagnostic_type> results;
-        results.reserve(diagnostics.size());
-        for (auto&& d : diagnostics) {
-            results.emplace_back(
-                    convert(d.code()),
-                    d.message(),
-                    d.location());
-        }
-        return result_type { std::move(results) };
-    }
-
-    static code_type convert(analyzer::expression_analyzer_code source) noexcept {
-        using from = decltype(source);
-        using to = code_type;
-        switch (source) {
-            case from::unknown: return to::unknown;
-            case from::unsupported_type: return to::unsupported_type;
-            case from::ambiguous_type: return to::ambiguous_type;
-            case from::inconsistent_type: return to::inconsistent_type;
-            case from::unresolved_variable: return to::unresolved_variable;
-            case from::inconsistent_elements: return to::inconsistent_elements;
-        }
-        std::abort();
     }
 
     plan::graph_type do_compile(relation::graph_type&& intermediate) {
@@ -140,6 +157,38 @@ result_type compiler::operator()(options_type const& options, unique_object_ptr<
 
 result_type compiler::operator()(options_type const& options, statement::statement&& statement) {
     return operator()(options, clone_unique(std::move(statement), options.get_object_creator()));
+}
+
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+either<std::vector<diagnostic_type>, info_type> compiler::inspect(scalar::expression const& expression) {
+    return do_inspect([&](analyzer::expression_analyzer& a) {
+        type::repository repo { {}, true };
+        a.resolve(expression, true, repo);
+    });
+}
+
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+either<std::vector<diagnostic_type>, info_type> compiler::inspect(relation::graph_type const& graph) {
+    return do_inspect([&](analyzer::expression_analyzer& a) {
+        type::repository repo { {}, true };
+        a.resolve(graph, true, repo);
+    });
+}
+
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+either<std::vector<diagnostic_type>, info_type> compiler::inspect(plan::graph_type const& graph) {
+    return do_inspect([&](analyzer::expression_analyzer& a) {
+        type::repository repo { {}, true };
+        a.resolve(graph, true, repo);
+    });
+}
+
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+either<std::vector<diagnostic_type>, info_type> compiler::inspect(statement::statement const& statement) {
+    return do_inspect([&](analyzer::expression_analyzer& a) {
+        type::repository repo { {}, true };
+        a.resolve(statement, true, repo);
+    });
 }
 
 } // namespace yugawara

@@ -118,6 +118,22 @@ TEST_F(compiler_test, graph_emit) {
     EXPECT_EQ(result.type_of(c0p0), t::int4());
 
     dump(result);
+
+    // inspection
+    {
+        auto inspection = compiler().inspect(c);
+        ASSERT_TRUE(inspection);
+
+        EXPECT_EQ(inspection->type_of(bindings(t0c0)), t::int4());
+        EXPECT_EQ(inspection->type_of(c0p0), t::int4());
+    }
+    {
+        auto inspection = compiler().inspect(c.execution_plan());
+        ASSERT_TRUE(inspection);
+
+        EXPECT_EQ(inspection->type_of(bindings(t0c0)), t::int4());
+        EXPECT_EQ(inspection->type_of(c0p0), t::int4());
+    }
 }
 
 TEST_F(compiler_test, graph_update) {
@@ -314,6 +330,39 @@ TEST_F(compiler_test, write_error) {
     });
     EXPECT_FALSE(result);
     EXPECT_TRUE(find_diagnostic(compiler_code::inconsistent_type, result));
+}
+
+TEST_F(compiler_test, inspect_scalar) {
+    scalar::immediate expr {
+            v::int4 { 100 },
+            t::int4 {},
+    };
+
+    auto result = compiler().inspect(expr);
+    ASSERT_TRUE(result);
+
+    EXPECT_EQ(result->type_of(expr), t::int4 {});
+}
+
+TEST_F(compiler_test, inspect_relation) {
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+                    { bindings(t0c1), c1 },
+            },
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+    in.output() >> out.input();
+
+    auto inspection = compiler().inspect(r);
+    ASSERT_TRUE(inspection);
+
+    EXPECT_EQ(inspection->type_of(bindings(t0c0)), t::int4());
+    EXPECT_EQ(inspection->type_of(c0), t::int4());
 }
 
 } // namespace yugawara
