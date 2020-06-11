@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iostream>
+#include <ostream>
 
 #include <takatori/scalar/expression.h>
 #include <takatori/relation/endpoint_kind.h>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iostream>
+#include <ostream>
 #include <unordered_set>
 
 #include <takatori/descriptor/variable.h>

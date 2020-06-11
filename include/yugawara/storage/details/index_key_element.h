@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iostream>
+#include <ostream>
 #include <utility>
 
 #include <takatori/relation/sort_direction.h>

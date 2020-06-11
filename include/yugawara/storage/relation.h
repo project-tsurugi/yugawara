@@ -1,6 +1,6 @@
 #pragma once
 
-#include <iostream>
+#include <ostream>
 #include <string_view>
 
 #include <takatori/util/object_creator.h>
