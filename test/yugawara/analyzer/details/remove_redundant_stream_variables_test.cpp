@@ -572,6 +572,47 @@ TEST_F(remove_redundant_stream_variables_test, aggregate_relation) {
     EXPECT_EQ(a0.destination(), x2);
 }
 
+TEST_F(remove_redundant_stream_variables_test, aggregate_relation_key_only) {
+    /*
+     * scan:r0 - aggregate_relation:r1 - emit:ro
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = r.insert(relation::scan{
+            bindings(*i0),
+            {
+                    {t0c0, c0},
+                    {t0c1, c1},
+                    {t0c2, c2},
+            },
+    });
+    auto& r1 = r.insert(relation::intermediate::aggregate{
+            {
+                    c0,
+            },
+            {},
+    });
+    auto& ro = r.insert(relation::emit{
+            c0,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> ro.input();
+
+    apply(r);
+
+    // scan
+    ASSERT_EQ(r0.columns().size(), 1);
+    EXPECT_EQ(r0.columns()[0].source(), t0c0);
+    EXPECT_EQ(r0.columns()[0].destination(), c0);
+
+    // aggregate
+    ASSERT_EQ(r1.columns().size(), 0);
+    ASSERT_EQ(r1.group_keys().size(), 1);
+    EXPECT_EQ(r1.group_keys()[0], c0);
+}
+
 TEST_F(remove_redundant_stream_variables_test, distinct_relation) {
     /*
      * scan:r0 - distinct_relation:r1 - emit:ro

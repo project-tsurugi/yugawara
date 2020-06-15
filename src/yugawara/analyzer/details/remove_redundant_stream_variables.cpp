@@ -88,7 +88,9 @@ public:
     }
 
     void operator()(relation::intermediate::aggregate& expr) {
-        remove_unused_mappings(expr.columns());
+        if (!expr.columns().empty()) {
+            remove_unused_mappings(expr.columns());
+        }
         for (auto&& column : expr.columns()) {
             touch_variables(column.arguments());
         }
