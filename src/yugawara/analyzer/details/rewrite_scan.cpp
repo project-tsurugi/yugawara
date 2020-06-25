@@ -214,7 +214,6 @@ private:
 
 void rewrite_scan(
         ::takatori::relation::graph_type& graph,
-        storage::provider const&,
         class index_estimator const& index_estimator,
         object_creator creator) {
     engine e { index_estimator, creator };

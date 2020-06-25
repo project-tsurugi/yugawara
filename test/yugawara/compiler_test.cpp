@@ -28,8 +28,6 @@ namespace statement = ::takatori::statement;
 
 using ::takatori::scalar::comparison_operator;
 
-using ::takatori::relation::endpoint_kind;
-
 class compiler_test: public ::testing::Test {
 protected:
     ::takatori::util::object_creator creator;
@@ -55,7 +53,6 @@ protected:
 
     compiler_options options() {
         return {
-                storages,
                 indices,
                 runtime_features,
                 creator,

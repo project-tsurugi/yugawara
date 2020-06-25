@@ -404,7 +404,6 @@ private:
 
 void rewrite_join(
         relation::graph_type& graph,
-        storage::provider const&,
         analyzer::index_estimator const& index_estimator,
         flow_volume_info const& flow_volume,
         object_creator creator) {

@@ -45,7 +45,7 @@ protected:
 
     void apply(relation::graph_type& graph) {
         default_index_estimator estimator;
-        rewrite_scan(graph, storages, estimator, creator);
+        rewrite_scan(graph, estimator, creator);
     }
 };
 
