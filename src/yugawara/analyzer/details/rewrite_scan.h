@@ -3,7 +3,6 @@
 #include <takatori/relation/graph.h>
 #include <takatori/util/object_creator.h>
 
-#include <yugawara/storage/provider.h>
 #include <yugawara/analyzer/index_estimator.h>
 
 namespace yugawara::analyzer::details {
