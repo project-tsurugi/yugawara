@@ -212,6 +212,36 @@ TEST_F(storage_configurable_provider_test, remove_relation) {
     EXPECT_TRUE(p1->remove_relation("TBL"));
 }
 
+TEST_F(storage_configurable_provider_test, add_relation_owner) {
+    auto p1 = std::make_shared<configurable_provider>();
+    auto element = p1->add_relation("TBL", table {
+            "T1",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+    ASSERT_TRUE(element);
+    EXPECT_EQ(element->owner().get(), p1.get());
+
+    p1->remove_relation("TBL");
+    EXPECT_EQ(element->owner().get(), nullptr);
+}
+
+TEST_F(storage_configurable_provider_test, add_table_owner) {
+    auto p1 = std::make_shared<configurable_provider>();
+    auto element = p1->add_table("TBL", {
+            "T1",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+    ASSERT_TRUE(element);
+    EXPECT_EQ(element->owner().get(), p1.get());
+
+    p1->remove_relation("TBL");
+    EXPECT_EQ(element->owner().get(), nullptr);
+}
+
 TEST_F(storage_configurable_provider_test, find_index) {
     auto p1 = std::make_shared<configurable_provider>();
     auto&& element = p1->add_index("IDX", {

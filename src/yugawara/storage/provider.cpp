@@ -1,5 +1,8 @@
 #include <yugawara/storage/provider.h>
 
+#include <takatori/util/exception.h>
+#include <takatori/util/string_builder.h>
+
 namespace yugawara::storage {
 
 std::shared_ptr<class table const> provider::find_table(std::string_view id) const {
@@ -26,6 +29,36 @@ std::shared_ptr<index const> provider::find_primary_index(class table const& tab
         }
     });
     return result;
+}
+
+void provider::bless(relation& element) {
+    if (element.owner_ == nullptr || element.owner_ == this) {
+        element.owner_ = this;
+        return;
+    }
+    using ::takatori::util::throw_exception;
+    using ::takatori::util::string_builder;
+    throw_exception(std::invalid_argument { string_builder {}
+            << "relation '" << element.simple_name() << "' "
+            << "(" << element.kind() << ") "
+            << "is already bind to " << element.owner_
+            << string_builder::to_string
+    });
+}
+
+void provider::unbless(relation& element) {
+    if (element.owner_ == nullptr || element.owner_ == this) {
+        element.owner_ = nullptr;
+        return;
+    }
+    using ::takatori::util::throw_exception;
+    using ::takatori::util::string_builder;
+    throw_exception(std::invalid_argument { string_builder {}
+            << "relation '" << element.simple_name() << "' "
+            << "(" << element.kind() << ") "
+            << "is not owned by this provider: " << element.owner_
+            << string_builder::to_string
+    });
 }
 
 } // namespace yugawara::storage
