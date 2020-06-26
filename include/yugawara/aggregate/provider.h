@@ -6,8 +6,6 @@
 
 #include "declaration.h"
 
-#include <takatori/relation/set_quantifier.h>
-
 namespace yugawara::aggregate {
 
 /**
@@ -42,13 +40,11 @@ public:
     /**
      * @brief provides function declarations into the consumer.
      * @param name the target function name
-     * @param quantifier the set quantifier
      * @param parameter_count the number of parameters in the target function
      * @param consumer the destination consumer
      */
     virtual void each(
             std::string_view name,
-            ::takatori::relation::set_quantifier quantifier,
             std::size_t parameter_count,
             consumer_type const& consumer) const = 0;
 };

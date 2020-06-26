@@ -72,7 +72,6 @@ protected:
     std::shared_ptr<aggregate::declaration> agg0 = aggregates.add(aggregate::declaration {
             aggregate::declaration::minimum_builtin_function_id + 1,
             "agg0",
-            relation::set_quantifier::all,
             t::int4 {},
             {
                     t::int4 {},
@@ -82,7 +81,6 @@ protected:
     std::shared_ptr<aggregate::declaration> agg1 = aggregates.add(aggregate::declaration {
             agg0->definition_id() + 1,
             "agg1",
-            relation::set_quantifier::distinct,
             t::int4 {},
             {
                     t::int4 {},

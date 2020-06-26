@@ -10,14 +10,12 @@ namespace yugawara::aggregate {
 class aggregate_configurable_provider_test : public ::testing::Test {};
 
 namespace t = ::takatori::type;
-using ::takatori::relation::set_quantifier;
 
 TEST_F(aggregate_configurable_provider_test, add) {
     auto p1 = std::make_shared<configurable_provider>();
     p1->add({
             1,
             "f",
-            set_quantifier::all,
             t::int4(),
             {
                     t::int8(),
@@ -38,7 +36,6 @@ TEST_F(aggregate_configurable_provider_test, remove) {
     auto& f1 = p1->add({
             1,
             "f",
-            set_quantifier::all,
             t::int4(),
             {
                     t::int4(),
@@ -47,7 +44,6 @@ TEST_F(aggregate_configurable_provider_test, remove) {
     auto& f2 = p1->add({
             2,
             "f",
-            set_quantifier::all,
             t::int8(),
             {
                     t::int8(),
@@ -70,7 +66,6 @@ TEST_F(aggregate_configurable_provider_test, each_name) {
     p1->add({
             1,
             "f1",
-            set_quantifier::all,
             t::int4(),
             {
                     t::int8(),
@@ -79,7 +74,6 @@ TEST_F(aggregate_configurable_provider_test, each_name) {
     p1->add({
             2,
             "f2",
-            set_quantifier::all,
             t::int4(),
             {
                     t::int4(),
@@ -88,7 +82,6 @@ TEST_F(aggregate_configurable_provider_test, each_name) {
     p1->add({
             3,
             "f2",
-            set_quantifier::all,
             t::int8(),
             {
                     t::int8(),
@@ -97,16 +90,6 @@ TEST_F(aggregate_configurable_provider_test, each_name) {
     p1->add({
             4,
             "f2",
-            set_quantifier::distinct,
-            t::int8(),
-            {
-                    t::int8(),
-            },
-    });
-    p1->add({
-            5,
-            "f2",
-            set_quantifier::all,
             t::int8(),
             {
                     t::int8(),
@@ -115,7 +98,7 @@ TEST_F(aggregate_configurable_provider_test, each_name) {
     });
 
     std::vector<declaration const*> r;
-    p1->each("f2", set_quantifier::all, 1, [&](auto d){
+    p1->each("f2", 1, [&](auto d){
         r.emplace_back(d.get());
     });
 
@@ -134,7 +117,6 @@ TEST_F(aggregate_configurable_provider_test, each_parent) {
     p1->add({
             1,
             "f",
-            set_quantifier::all,
             t::int4(),
             {
                     t::int4(),
@@ -144,7 +126,6 @@ TEST_F(aggregate_configurable_provider_test, each_parent) {
     p2->add({
             2,
             "f",
-            set_quantifier::all,
             t::int8(),
             {
                     t::int8(),
@@ -171,7 +152,6 @@ TEST_F(aggregate_configurable_provider_test, each_name_parent) {
     p1->add({
             1,
             "f1",
-            set_quantifier::all,
             t::int4(),
             {
                     t::int8(),
@@ -180,7 +160,6 @@ TEST_F(aggregate_configurable_provider_test, each_name_parent) {
     p1->add({
             2,
             "f2",
-            set_quantifier::all,
             t::int4(),
             {
                     t::int4(),
@@ -190,7 +169,6 @@ TEST_F(aggregate_configurable_provider_test, each_name_parent) {
     p2->add({
             3,
             "f2",
-            set_quantifier::all,
             t::int8(),
             {
                     t::int8(),
@@ -199,16 +177,6 @@ TEST_F(aggregate_configurable_provider_test, each_name_parent) {
     p2->add({
             4,
             "f2",
-            set_quantifier::distinct,
-            t::int8(),
-            {
-                    t::int8(),
-            },
-    });
-    p2->add({
-            5,
-            "f2",
-            set_quantifier::all,
             t::int8(),
             {
                     t::int8(),
@@ -217,7 +185,7 @@ TEST_F(aggregate_configurable_provider_test, each_name_parent) {
     });
 
     std::vector<declaration const*> r;
-    p2->each("f2", set_quantifier::all, 1, [&](auto d){
+    p2->each("f2", 1, [&](auto d){
         r.emplace_back(d.get());
     });
 

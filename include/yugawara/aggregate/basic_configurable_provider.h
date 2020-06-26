@@ -56,12 +56,11 @@ public:
 
     void each(
             std::string_view name,
-            ::takatori::relation::set_quantifier quantifier,
             std::size_t parameter_count,
             consumer_type const& consumer) const override {
-        internal_each(name, quantifier, parameter_count, consumer);
+        internal_each(name, parameter_count, consumer);
         if (parent_) {
-            parent_->each(name, quantifier, parameter_count, consumer);
+            parent_->each(name, parameter_count, consumer);
         }
     }
 
@@ -137,7 +136,6 @@ private:
 
     void internal_each(
             std::string_view name,
-            ::takatori::relation::set_quantifier quantifier,
             std::size_t parameter_count,
             consumer_type const& consumer) const {
         std::lock_guard lock { mutex_ };
@@ -147,7 +145,6 @@ private:
             if (auto&& found = iter->second;
                     found
                     && found->name() == name
-                    && found->quantifier() == quantifier
                     && found->parameter_types().size() == parameter_count) {
                 consumer(found);
             }

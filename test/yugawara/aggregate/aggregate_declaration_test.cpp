@@ -10,13 +10,11 @@ namespace yugawara::aggregate {
 class aggregate_declaration_test : public ::testing::Test {};
 
 namespace t = ::takatori::type;
-using ::takatori::relation::set_quantifier;
 
 TEST_F(aggregate_declaration_test, simple) {
     declaration d {
         1,
         "f",
-        set_quantifier::all,
         t::int4(),
         {
                 t::int8(),
@@ -25,7 +23,6 @@ TEST_F(aggregate_declaration_test, simple) {
 
     EXPECT_EQ(d.definition_id(), 1);
     EXPECT_EQ(d.name(), "f");
-    EXPECT_EQ(d.quantifier(), set_quantifier::all);
     EXPECT_EQ(d.return_type(), t::int4());
     ASSERT_EQ(d.parameter_types().size(), 1);
     EXPECT_EQ(d.parameter_types()[0], t::int8());
@@ -36,7 +33,6 @@ TEST_F(aggregate_declaration_test, output) {
     declaration d {
             1,
             "f",
-            set_quantifier::distinct,
             t::int4(),
             {
                     t::int8(),

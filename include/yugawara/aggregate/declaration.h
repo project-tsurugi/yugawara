@@ -9,7 +9,6 @@
 #include <cstddef>
 
 #include <takatori/type/data.h>
-#include <takatori/relation/set_quantifier.h>
 #include <takatori/util/object_creator.h>
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/reference_list_view.h>
@@ -17,9 +16,6 @@
 #include <takatori/util/smart_pointer_extractor.h>
 
 namespace yugawara::aggregate {
-
-/// @brief represents either set (`DISTINCT`) or multi-set (`ALL`) operation.
-using ::takatori::relation::set_quantifier;
 
 /**
  * @brief represents an aggregate function declaration.
@@ -44,9 +40,6 @@ public:
     /// @brief the declaration name type.
     using name_type = std::basic_string<char, std::char_traits<char>, takatori::util::object_allocator<char>>;
 
-    /// @brief the set quantifier type.
-    using quantifier_type = set_quantifier;
-
     /// @brief the smart pointer of parameter/result type.
     using type_pointer = std::shared_ptr<takatori::type::data const>;
 
@@ -57,7 +50,6 @@ public:
      * @brief creates a new object.
      * @param definition_id the definition ID
      * @param name the function name
-     * @param quantifier the set quantifier
      * @param return_type the return type
      * @param parameter_types the parameter types
      * @param incremental whether or not incremental aggregation is enabled, that is,
@@ -66,7 +58,6 @@ public:
     explicit declaration(
             definition_id_type definition_id,
             name_type name,
-            quantifier_type quantifier,
             type_pointer return_type,
             std::vector<type_pointer, takatori::util::object_allocator<type_pointer>> parameter_types,
             bool incremental) noexcept;
@@ -75,7 +66,6 @@ public:
      * @brief creates a new object.
      * @param definition_id the definition ID
      * @param name the function name
-     * @param quantifier the set quantifier
      * @param return_type the return type
      * @param parameter_types the parameter types
      * @attention this may take copy of arguments
@@ -85,7 +75,6 @@ public:
     declaration(
             definition_id_type definition_id,
             std::string_view name,
-            quantifier_type quantifier,
             takatori::type::data&& return_type,
             std::initializer_list<takatori::util::rvalue_reference_wrapper<takatori::type::data>> parameter_types,
             bool incremental = false);
@@ -126,19 +115,6 @@ public:
      * @return this
      */
     declaration& name(name_type name) noexcept;
-
-    /**
-     * @brief returns the set quantifier.
-     * @return the set quantifier
-     */
-    [[nodiscard]] quantifier_type quantifier() const noexcept;
-
-    /**
-     * @brief sets the set quantifier.
-     * @param quantifier the set quantifier
-     * @return this
-     */
-    declaration& quantifier(quantifier_type quantifier) noexcept;
 
     /**
      * @brief returns the return type of the function.
@@ -210,7 +186,6 @@ public:
 private:
     definition_id_type definition_id_;
     name_type name_;
-    quantifier_type quantifier_;
     type_pointer return_type_;
     std::vector<type_pointer, takatori::util::object_allocator<type_pointer>> parameter_types_;
     bool incremental_;

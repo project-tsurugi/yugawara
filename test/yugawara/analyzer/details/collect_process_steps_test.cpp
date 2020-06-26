@@ -64,7 +64,6 @@ protected:
     std::shared_ptr<aggregate::declaration> agg0 = aggregates.add(aggregate::declaration {
             aggregate::declaration::minimum_builtin_function_id + 1,
             "testing",
-            relation::set_quantifier::distinct,
             t::int4 {},
             {
                     t::int4 {},

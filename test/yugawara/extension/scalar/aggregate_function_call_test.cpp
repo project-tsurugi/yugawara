@@ -20,7 +20,6 @@ public:
     ::takatori::descriptor::aggregate_function desc = bindings(aggregate::declaration {
             aggregate::declaration::minimum_builtin_function_id + 1,
             "testing",
-            aggregate::set_quantifier::distinct,
             ::takatori::type::int4 {},
             {
                     ::takatori::type::int4 {},
