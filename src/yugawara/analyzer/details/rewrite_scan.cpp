@@ -10,6 +10,7 @@
 #include <takatori/util/optional_ptr.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/storage/provider.h>
 
 #include "scan_key_collector.h"
 #include "rewrite_criteria.h"
@@ -35,11 +36,9 @@ namespace {
 class engine {
 public:
     explicit engine(
-            storage::provider const& storage_provider,
             index_estimator const& index_estimator,
             object_creator creator)
-        : storage_provider_(storage_provider)
-        , index_estimator_(index_estimator)
+        : index_estimator_(index_estimator)
         , collector_(creator)
         , term_buf_(creator.allocator())
         , search_key_buf_(creator.allocator())
@@ -50,7 +49,12 @@ public:
         if (!collector_(expr, false)) {
             return false;
         }
-        storage_provider_.each_table_index(
+        auto&& storages = collector_.table().owner();
+        if (!storages) {
+            // there is no index information
+            return false;
+        }
+        storages->each_table_index(
                 collector_.table(),
                 [&](std::string_view, std::shared_ptr<storage::index const> const& entry) {
                     estimate(*entry);
@@ -77,7 +81,6 @@ public:
     }
 
 private:
-    storage::provider const& storage_provider_;
     index_estimator const& index_estimator_;
     scan_key_collector collector_;
 
@@ -211,10 +214,9 @@ private:
 
 void rewrite_scan(
         ::takatori::relation::graph_type& graph,
-        storage::provider const& storage_provider,
         class index_estimator const& index_estimator,
         object_creator creator) {
-    engine e { storage_provider, index_estimator, creator };
+    engine e { index_estimator, creator };
     for (auto it = graph.begin(); it != graph.end();) {
         auto&& op = *it;
         if (op.kind() == relation::scan::tag) {

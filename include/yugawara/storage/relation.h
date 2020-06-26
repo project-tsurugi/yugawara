@@ -4,12 +4,15 @@
 #include <string_view>
 
 #include <takatori/util/object_creator.h>
+#include <takatori/util/optional_ptr.h>
 #include <takatori/util/reference_list_view.h>
 
 #include "relation_kind.h"
 #include "column.h"
 
 namespace yugawara::storage {
+
+class provider;
 
 /**
  * @brief an abstract interface of external durable relations.
@@ -62,6 +65,13 @@ public:
     [[nodiscard]] virtual relation* clone(takatori::util::object_creator creator) && = 0;
 
     /**
+     * @brief returns the owner of this relation.
+     * @return the owner
+     * @return empty if there are no provides that can provide this relation
+     */
+    [[nodiscard]] ::takatori::util::optional_ptr<provider const> owner() const noexcept;
+
+    /**
      * @brief appends string representation of the given value.
      * @param out the target output
      * @param value the target value
@@ -76,6 +86,11 @@ protected:
      * @return the output
      */
     virtual std::ostream& print_to(std::ostream& out) const = 0;
+
+private:
+    provider const* owner_ {};
+
+    friend provider;
 };
 
 } // namespace yugawara::storage

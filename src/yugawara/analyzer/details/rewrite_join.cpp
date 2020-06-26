@@ -16,6 +16,7 @@
 #include <takatori/util/optional_ptr.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/storage/provider.h>
 
 #include "boolean_constants.h"
 #include "scan_key_collector.h"
@@ -50,12 +51,10 @@ class engine {
 public:
     explicit engine(
             relation::graph_type& graph,
-            storage::provider const& storage_provider,
             index_estimator const& index_estimator,
             flow_volume_info const& flow_volume,
             object_creator creator)
         : graph_(graph)
-        , storage_provider_(storage_provider)
         , index_estimator_(index_estimator)
         , flow_volume_(flow_volume)
         , collector_(creator)
@@ -97,7 +96,6 @@ public:
 
 private:
     relation::graph_type& graph_;
-    storage::provider const& storage_provider_;
     index_estimator const& index_estimator_;
     flow_volume_info const& flow_volume_;
 
@@ -125,7 +123,12 @@ private:
         if (!scan || !collector_(*scan, true)) {
             return;
         }
-        storage_provider_.each_table_index(
+        auto storages = collector_.table().owner();
+        if (!storages) {
+            // there are no index information
+            return;
+        }
+        storages->each_table_index(
                 collector_.table(),
                 [&](std::string_view, std::shared_ptr<storage::index const> const& entry) {
                     estimate(expr, *scan, *entry, true);
@@ -151,7 +154,12 @@ private:
         if (!scan || !collector_(*scan, true)) {
             return;
         }
-        storage_provider_.each_table_index(
+        auto storages = collector_.table().owner();
+        if (!storages) {
+            // there are no index information
+            return;
+        }
+        storages->each_table_index(
                 collector_.table(),
                 [&](std::string_view, std::shared_ptr<storage::index const> const& entry) {
                     estimate(expr, *scan, *entry, false);
@@ -396,11 +404,10 @@ private:
 
 void rewrite_join(
         relation::graph_type& graph,
-        storage::provider const& storage_provider,
         analyzer::index_estimator const& index_estimator,
         flow_volume_info const& flow_volume,
         object_creator creator) {
-    engine e { graph, storage_provider, index_estimator, flow_volume, creator };
+    engine e { graph, index_estimator, flow_volume, creator };
     for (auto it = graph.begin(); it != graph.end();) {
         auto&& expr = *it;
         if (expr.kind() == relation::intermediate::join::tag) {

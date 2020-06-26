@@ -130,7 +130,6 @@ private:
     void do_optimize(relation::graph_type& graph) {
         analyzer::intermediate_plan_optimizer sub { options_.get_object_creator() };
         sub.options().runtime_features() = options_.runtime_features();
-        sub.options().storage_provider(options_.storage_provider());
         sub.options().index_estimator(options_.index_estimator());
         sub(graph);
     }

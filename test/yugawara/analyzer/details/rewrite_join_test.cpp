@@ -63,7 +63,7 @@ protected:
     void apply(relation::graph_type& graph) {
         default_index_estimator estimator;
         flow_volume_info vinfo { creator };
-        rewrite_join(graph, storages, estimator, vinfo, creator);
+        rewrite_join(graph, estimator, vinfo, creator);
     }
 };
 

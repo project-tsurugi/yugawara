@@ -99,6 +99,25 @@ public:
      * @return empty if it is absent
      */
     [[nodiscard]] virtual std::shared_ptr<index const> find_primary_index(class table const& table) const;
+
+protected:
+    /**
+     * @brief set this as the given relation's owner.
+     * @details Subclasses should call this function every relation was registered.
+     * @param element the target relation
+     * @throws std::invalid_argument if the target relation has been already another provider
+     * @see relation::owner()
+     */
+    void bless(relation& element);
+
+    /**
+     * @brief clears the given relation's owner.
+     * @details Subclasses should call this function every relation goes to unregister.
+     * @param element the target relation
+     * @throws std::invalid_argument if this does not own the given relation
+     * @see relation::owner()
+     */
+    void unbless(relation& element);
 };
 
 } // namespace yugawara::storage

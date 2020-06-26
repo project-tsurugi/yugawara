@@ -62,7 +62,6 @@ protected:
 
     details::intermediate_plan_optimizer_options options() {
         details::intermediate_plan_optimizer_options result;
-        result.storage_provider(storages);
         return result;
     }
 };

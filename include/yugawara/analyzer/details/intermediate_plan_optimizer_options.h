@@ -3,7 +3,6 @@
 #include <takatori/util/maybe_shared_ptr.h>
 #include <takatori/util/object_creator.h>
 
-#include <yugawara/storage/provider.h>
 #include <yugawara/analyzer/index_estimator.h>
 #include <yugawara/runtime_feature.h>
 
@@ -35,20 +34,6 @@ public:
     [[nodiscard]] runtime_feature_set const& runtime_features() const noexcept;
 
     /**
-     * @brief returns the storage provider.
-     * @return the storage provider
-     */
-    [[nodiscard]] storage::provider const& storage_provider() const noexcept;
-
-    /**
-     * @brief sets the storage provider.
-     * @param provider the storage provider
-     * @return this
-     */
-    intermediate_plan_optimizer_options& storage_provider(
-            ::takatori::util::maybe_shared_ptr<storage::provider const> provider) noexcept;
-
-    /**
      * @brief returns the index estimator for index selection.
      * @return the index estimator
      */
@@ -70,7 +55,6 @@ public:
 
 private:
     ::takatori::util::object_creator creator_ {};
-    ::takatori::util::maybe_shared_ptr<storage::provider const> storage_provider_ {};
     ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> index_estimator_ {};
     runtime_feature_set runtime_features_ { runtime_feature_all };
 };

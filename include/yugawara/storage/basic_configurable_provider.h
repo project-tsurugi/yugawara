@@ -61,6 +61,7 @@ public:
      * @param overwrite true to overwrite the existing entry
      * @return the added element
      * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
+     * @throws std::invalid_argument if the target entry has been already owned another provider
      * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
      */
     std::shared_ptr<relation> const& add_relation(std::string_view id, std::shared_ptr<relation> element, bool overwrite = false) {
@@ -80,6 +81,7 @@ public:
      * @param overwrite true to overwrite the existing entry
      * @return the added element
      * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
+     * @throws std::invalid_argument if the target entry has been already owned another provider
      * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
      */
     std::shared_ptr<table> add_table(std::string_view id, std::shared_ptr<table> element, bool overwrite = false) {
@@ -226,6 +228,8 @@ private:
             std::string_view id,
             std::shared_ptr<element_type<Container>> element,
             bool overwrite) {
+        using element_type = element_type<Container>;
+
         using ::takatori::util::throw_exception;
         key_type key { id, get_object_creator().allocator(std::in_place_type<char>) };
 
@@ -233,12 +237,18 @@ private:
         if (overwrite) {
             auto [iter, success] = container.insert_or_assign(std::move(key), std::move(element));
             (void) success;
+            if constexpr (std::is_base_of_v<relation, element_type>) { // NOLINT
+                bless(*iter->second);
+            }
             return iter->second;
         }
         if (parent_ && ((*parent_).*Find)(id)) {
             throw_exception(std::invalid_argument(std::string("already exists in parent provider: ") += id));
         }
         if (auto [iter, success] = container.try_emplace(std::move(key), std::move(element)); success) {
+            if constexpr (std::is_base_of_v<relation, element_type>) { // NOLINT
+                bless(*iter->second);
+            }
             return iter->second;
         }
         throw_exception(std::invalid_argument(std::string("already exists: ") += id));
@@ -250,6 +260,10 @@ private:
             std::string_view id) {
         std::lock_guard lock { mutex_ };
         if (auto iter = container.find(id); iter != container.end()) {
+            using element_type = element_type<Container>;
+            if constexpr (std::is_base_of_v<relation, element_type>) { // NOLINT
+                unbless(*iter->second);
+            }
             // NOTE: container.erase(id) does not work
             container.erase(iter);
             return true;
