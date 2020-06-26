@@ -47,6 +47,15 @@ public:
     using type_list_view = takatori::util::reference_list_view<takatori::util::smart_pointer_extractor<type_pointer>>;
 
     /**
+     * @brief name suffix for `DISTINCT` set functions.
+     * @details If the target set function accepts `DISTINCT` specifier in front of the arguments,
+     *      its declaration::name() must be form of `<bare-function-name>#distinct`.
+     *      For example, `COUNT(DISTINCT x)` is specified, then the compiler will search for
+     *      `count$distinct` function instead of `count`.
+     */
+    static constexpr std::string_view name_suffix_distinct { "$distinct" };
+
+    /**
      * @brief creates a new object.
      * @param definition_id the definition ID
      * @param name the function name
