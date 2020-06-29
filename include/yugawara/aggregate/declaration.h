@@ -49,7 +49,7 @@ public:
     /**
      * @brief name suffix for `DISTINCT` set functions.
      * @details If the target set function accepts `DISTINCT` specifier in front of the arguments,
-     *      its declaration::name() must be form of `<bare-function-name>#distinct`.
+     *      its declaration::name() must be form of `<bare-function-name>$distinct`.
      *      For example, `COUNT(DISTINCT x)` is specified, then the compiler will search for
      *      `count$distinct` function instead of `count`.
      */
