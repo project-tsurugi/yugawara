@@ -202,12 +202,6 @@ void binding_scanner::properties(aggregate::declaration const& element) {
     }
     acceptor_.property_end();
 
-    acceptor_.property_begin("quantifier"sv);
-    if (element) {
-        acceptor_.string(to_string_view(element.quantifier()));
-    }
-    acceptor_.property_end();
-
     acceptor_.property_begin("return_type"sv);
     if (auto v = element.optional_return_type()) {
         scanner_(*v, acceptor_);

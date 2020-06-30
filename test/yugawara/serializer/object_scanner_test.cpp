@@ -149,7 +149,6 @@ TEST_F(object_scanner_test, aggregate_function) {
     print(bindings(aggregate::declaration {
             1000,
             "f",
-            aggregate::declaration::quantifier_type::all,
             t::int4 {},
             {
                     t::boolean {},
@@ -306,7 +305,6 @@ TEST_F(object_scanner_test, resolution_aggregation) {
     aggregate::declaration decl {
             1000,
             "f",
-            aggregate::declaration::quantifier_type::all,
             t::int4 {},
             {
                     t::boolean {},
@@ -325,7 +323,6 @@ TEST_F(object_scanner_test, extension_scalar_aggregate_function_call) {
             bindings(aggregate::declaration {
                 1000,
                         "f",
-                        aggregate::declaration::quantifier_type::all,
                         t::int4 {},
                         {
                                 t::boolean {},

@@ -714,7 +714,6 @@ TEST_F(collect_exchange_steps_test, aggregate_default_group) {
     auto func = aggregates.add({
             aggregate::declaration::minimum_builtin_function_id + 1,
             "testing",
-            relation::set_quantifier::distinct,
             t::int4 {},
             {
                     t::int4 {},
@@ -789,7 +788,6 @@ TEST_F(collect_exchange_steps_test, aggregate_default_exchange) {
     auto func = aggregates.add({
             aggregate::declaration::minimum_builtin_function_id + 2,
             "testing",
-            relation::set_quantifier::distinct,
             t::int4 {},
             {
                     t::int4 {},
@@ -863,7 +861,6 @@ TEST_F(collect_exchange_steps_test, aggregate_exchange_disabled) {
     auto func = aggregates.add({
             aggregate::declaration::minimum_builtin_function_id + 2,
             "testing",
-            relation::set_quantifier::distinct,
             t::int4 {},
             {
                     t::int4 {},

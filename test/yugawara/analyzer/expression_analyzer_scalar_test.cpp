@@ -1531,7 +1531,6 @@ TEST_F(expression_analyzer_scalar_test, aggregate_function_call) {
     auto f = bindings.aggregate_function({
             aggregate::declaration::minimum_user_function_id + 100,
             "testing",
-            aggregate::set_quantifier::distinct,
             t::int4 {},
             {},
     });
@@ -1548,7 +1547,6 @@ TEST_F(expression_analyzer_scalar_test, aggregate_function_call_unresolved) {
     auto f = bindings.aggregate_function({
             aggregate::declaration::unresolved_definition_id,
             "testing",
-            aggregate::set_quantifier::distinct,
             t::int4 {},
             {},
     });
@@ -1565,7 +1563,6 @@ TEST_F(expression_analyzer_scalar_test, aggregate_function_call_inconsistent) {
     auto f = bindings.aggregate_function({
             aggregate::declaration::unresolved_definition_id,
             "testing",
-            aggregate::set_quantifier::distinct,
             t::int4 {},
             {
                     t::character(t::varying),

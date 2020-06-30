@@ -292,7 +292,6 @@ TEST_F(expression_analyzer_relation_test, aggregate) {
     auto f = p.add({
             aggregate::declaration::minimum_system_function_id + 1,
             "count",
-            r::set_quantifier::all,
             t::int8 {},
             {
                     t::character { t::varying },
@@ -482,7 +481,6 @@ TEST_F(expression_analyzer_relation_test, aggregate_group) {
     auto f = p.add({
             aggregate::declaration::minimum_system_function_id + 1,
             "count",
-            r::set_quantifier::all,
             t::int8 {},
             {
                     t::character { t::varying },
