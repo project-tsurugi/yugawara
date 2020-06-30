@@ -47,6 +47,9 @@ add_library(yugawara
     yugawara/variable/negation.cpp
     yugawara/variable/quantification.cpp
 
+    # schema
+    yugawara/schema/declaration.cpp
+
     # extensions
     yugawara/extension/scalar/aggregate_function_call.cpp
 

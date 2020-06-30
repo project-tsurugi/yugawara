@@ -1,7 +1,7 @@
 #include <yugawara/variable/declaration.h>
 
 #include <takatori/util/clonable.h>
-#include <takatori/util/print_support.h>
+#include <takatori/util/optional_print_support.h>
 
 #include <yugawara/extension/type/pending.h>
 
@@ -16,22 +16,38 @@ static declaration::type_pointer or_pending(declaration::type_pointer ptr) {
 }
 
 declaration::declaration(
+        std::optional<definition_id_type> definition_id,
         name_type name,
         type_pointer type,
-        class criteria criteria) noexcept
-    : name_(std::move(name))
-    , type_(or_pending(std::move(type)))
-    , criteria_(std::move(criteria))
+        class criteria criteria) noexcept :
+    definition_id_ { std::move(definition_id) },
+    name_(std::move(name)),
+    type_(or_pending(std::move(type))),
+    criteria_(std::move(criteria))
+{}
+
+declaration::declaration(
+        name_type name,
+        type_pointer type,
+        class criteria criteria) noexcept :
+    declaration {
+            std::nullopt,
+            std::move(name),
+            std::move(type),
+            std::move(criteria),
+    }
 {}
 
 declaration::declaration(
         std::string_view name,
         takatori::util::rvalue_ptr<takatori::type::data> type,
-        class criteria criteria)
-    : declaration(
+        class criteria criteria) :
+    declaration {
+            std::nullopt,
             decltype(name_) { name },
             takatori::util::clone_shared(type),
-            std::move(criteria))
+            std::move(criteria),
+    }
 {}
 
 bool declaration::is_resolved() const noexcept {
@@ -40,6 +56,15 @@ bool declaration::is_resolved() const noexcept {
 
 declaration::operator bool() const noexcept {
     return is_resolved();
+}
+
+std::optional<declaration::definition_id_type> declaration::definition_id() const noexcept {
+    return definition_id_;
+}
+
+declaration& declaration::definition_id(std::optional<definition_id_type> definition_id) noexcept {
+    definition_id_ = std::move(definition_id);
+    return *this;
 }
 
 std::string_view declaration::name() const noexcept {
@@ -77,7 +102,9 @@ class criteria const& declaration::criteria() const noexcept {
 }
 
 std::ostream& operator<<(std::ostream& out, declaration const& value) {
+    using ::takatori::util::print_support;
     return out << "variable("
+               << "definition_id=" << print_support { value.definition_id() } << ", "
                << "name=" << value.name() << ", "
                << "type=" << value.optional_type() << ", "
                << "criteria=" << value.criteria() << ")";

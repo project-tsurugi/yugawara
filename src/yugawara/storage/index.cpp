@@ -1,20 +1,39 @@
 #include <yugawara/storage/index.h>
 
 #include <takatori/util/vector_print_support.h>
+#include <takatori/util/optional_print_support.h>
 
 namespace yugawara::storage {
+
+index::index(
+        std::optional<definition_id_type> definition_id,
+        std::shared_ptr<class table const> table,
+        simple_name_type simple_name,
+        std::vector<key, takatori::util::object_allocator<key>> keys,
+        std::vector<column_ref, ::takatori::util::object_allocator<column_ref>> values,
+        index_feature_set features) noexcept :
+    definition_id_ { std::move(definition_id) },
+    table_ { std::move(table) },
+    simple_name_ { std::move(simple_name) },
+    keys_ { std::move(keys) },
+    values_ { std::move(values) },
+    features_ { features }
+{}
 
 index::index(
         std::shared_ptr<class table const> table,
         simple_name_type simple_name,
         std::vector<key, takatori::util::object_allocator<key>> keys,
-        std::vector<column_ref, takatori::util::object_allocator<column_ref>> values,
-        index_feature_set features) noexcept
-    : table_(std::move(table))
-    , simple_name_(std::move(simple_name))
-    , keys_(std::move(keys))
-    , values_(std::move(values))
-    , features_(features)
+        std::vector<column_ref, ::takatori::util::object_allocator<column_ref>> values,
+        index_feature_set features) noexcept :
+    index {
+            std::nullopt,
+            std::move(table),
+            std::move(simple_name),
+            std::move(keys),
+            std::move(values),
+            features,
+    }
 {}
 
 index::index(
@@ -30,6 +49,15 @@ index::index(
             decltype(values_) { values },
             features)
 {}
+
+std::optional<index::definition_id_type> index::definition_id() const noexcept {
+    return definition_id_;
+}
+
+index& index::definition_id(std::optional<definition_id_type> definition_id) noexcept {
+    definition_id_ = std::move(definition_id);
+    return *this;
+}
 
 class table const& index::table() const noexcept {
     return *table_;
@@ -78,11 +106,13 @@ index_feature_set const& index::features() const noexcept {
 }
 
 std::ostream& operator<<(std::ostream& out, index const& value) {
+    using ::takatori::util::print_support;
     return out << "index" << "("
+               << "definition_id=" << print_support { value.definition_id() } << ", "
                << "table=" << value.table().simple_name() << ", "
                << "simple_name=" << value.simple_name() << ", "
-               << "keys=" << takatori::util::print_support { value.keys() } << ", "
-               << "values=" << takatori::util::print_support { value.values() } << ", "
+               << "keys=" << print_support { value.keys() } << ", "
+               << "values=" << print_support { value.values() } << ", "
                << "features=" << value.features() << ")";
 }
 

@@ -1,10 +1,10 @@
 #pragma once
 
 #include <functional>
-#include <ostream>
 #include <initializer_list>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -22,6 +22,9 @@ namespace yugawara::storage {
  */
 class index {
 public:
+    /// @brief the schema definition ID type.
+    using definition_id_type = std::size_t;
+
     /// @brief the simple name type.
     using simple_name_type = std::basic_string<char, std::char_traits<char>, takatori::util::object_allocator<char>>;
 
@@ -30,6 +33,23 @@ public:
 
     /// @brief the column reference type.
     using column_ref = std::reference_wrapper<column const>;
+
+    /**
+     * @brief creates a new object.
+     * @param definition_id the table definition ID
+     * @param table the origin table
+     * @param simple_name the simple name, may be empty string
+     * @param keys the index keys
+     * @param values the extra columns
+     * @param features the index features
+     */
+    explicit index(
+            std::optional<definition_id_type> definition_id,
+            std::shared_ptr<class table const> table,
+            simple_name_type simple_name,
+            std::vector<key, takatori::util::object_allocator<key>> keys,
+            std::vector<column_ref, takatori::util::object_allocator<column_ref>> values,
+            index_feature_set features) noexcept;
 
     /**
      * @brief creates a new object.
@@ -60,6 +80,20 @@ public:
             std::initializer_list<key> keys = {},
             std::initializer_list<column_ref> values = {},
             index_feature_set features = { index_feature::find, index_feature::scan });
+
+    /**
+     * @brief returns the index definition ID.
+     * @return the definition ID
+     * @return empty if it is not specified
+     */
+    [[nodiscard]] std::optional<definition_id_type> definition_id() const noexcept;
+
+    /**
+     * @brief sets the index definition ID.
+     * @param definition_id the definition ID
+     * @return this
+     */
+    index& definition_id(std::optional<definition_id_type> definition_id) noexcept;
 
     /**
      * @brief returns the origin table of this index.
@@ -130,6 +164,7 @@ public:
     friend std::ostream& operator<<(std::ostream& out, index const& value);
 
 private:
+    std::optional<definition_id_type> definition_id_ {};
     std::shared_ptr<class table const> table_;
     simple_name_type simple_name_;
     std::vector<key, takatori::util::object_allocator<key>> keys_;

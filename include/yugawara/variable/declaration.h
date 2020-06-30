@@ -1,8 +1,9 @@
 #pragma once
 
 #include <functional>
-#include <ostream>
 #include <memory>
+#include <optional>
+#include <ostream>
 #include <string>
 #include <vector>
 
@@ -21,6 +22,9 @@ namespace yugawara::variable {
  */
 class declaration {
 public:
+    /// @brief the schema definition ID type.
+    using definition_id_type = std::size_t;
+
     /// @brief the declaration name type.
     using name_type = std::basic_string<char, std::char_traits<char>, takatori::util::object_allocator<char>>;
 
@@ -29,6 +33,19 @@ public:
 
     /// @brief the smart pointer of constant variables.
     using value_pointer = std::shared_ptr<takatori::value::data const>;
+
+    /**
+     * @brief creates a new object.
+     * @param definition_id the variable definition ID
+     * @param name the variable name
+     * @param type the variable type, or empty if it is not resolved
+     * @param criteria the variable criteria
+     */
+    explicit declaration(
+            std::optional<definition_id_type> definition_id,
+            name_type name,
+            type_pointer type,
+            class criteria criteria) noexcept;
 
     /**
      * @brief creates a new object.
@@ -62,6 +79,20 @@ public:
 
     /// @copydoc is_resolved()
     [[nodiscard]] explicit operator bool() const noexcept;
+
+    /**
+     * @brief returns the variable definition ID.
+     * @return the definition ID
+     * @return empty if it is not specified
+     */
+    [[nodiscard]] std::optional<definition_id_type> definition_id() const noexcept;
+
+    /**
+     * @brief sets the variable definition ID.
+     * @param definition_id the definition ID
+     * @return this
+     */
+    declaration& definition_id(std::optional<definition_id_type> definition_id) noexcept;
 
     /**
      * @brief returns the variable name.
@@ -119,6 +150,7 @@ public:
     friend std::ostream& operator<<(std::ostream& out, declaration const& value);
 
 private:
+    std::optional<definition_id_type> definition_id_ {};
     name_type name_;
     type_pointer type_;
     value_pointer value_;

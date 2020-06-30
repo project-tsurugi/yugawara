@@ -2,6 +2,7 @@
 
 #include <initializer_list>
 #include <ostream>
+#include <optional>
 #include <string_view>
 
 #include <takatori/tree/tree_element_vector.h>
@@ -17,6 +18,9 @@ namespace yugawara::storage {
  */
 class table : public relation {
 public:
+    /// @brief the schema definition ID type.
+    using definition_id_type = std::size_t;
+
     /// @brief the simple name type.
     using simple_name_type = std::basic_string<char, std::char_traits<char>, takatori::util::object_allocator<char>>;
 
@@ -25,6 +29,17 @@ public:
 
     /// @brief the kind of this type.
     static constexpr inline relation_kind tag = relation_kind::table;
+
+    /**
+     * @brief creates a new object.
+     * @param definition_id the table definition ID
+     * @param simple_name the simple name
+     * @param columns the table columns
+     */
+    explicit table(
+            std::optional<definition_id_type> definition_id,
+            simple_name_type simple_name,
+            takatori::util::reference_vector<column> columns) noexcept;
 
     /**
      * @brief creates a new object.
@@ -68,6 +83,20 @@ public:
     [[nodiscard]] std::string_view simple_name() const noexcept override;
 
     /**
+     * @brief returns the table definition ID.
+     * @return the definition ID
+     * @return empty if it is not specified
+     */
+    [[nodiscard]] std::optional<definition_id_type> definition_id() const noexcept;
+
+    /**
+     * @brief sets the table definition ID.
+     * @param definition_id the definition ID
+     * @return this
+     */
+    table& definition_id(std::optional<definition_id_type> definition_id) noexcept;
+
+    /**
      * @brief sets the simple name of this table.
      * @param simple_name the table simple name
      * @return this
@@ -91,6 +120,7 @@ protected:
     std::ostream& print_to(std::ostream& out) const override;
 
 private:
+    std::optional<definition_id_type> definition_id_ {};
     simple_name_type simple_name_;
     column_vector_type columns_;
 };

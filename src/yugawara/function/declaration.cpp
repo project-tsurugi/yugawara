@@ -2,6 +2,8 @@
 
 #include <takatori/util/vector_print_support.h>
 #include <takatori/util/clonable.h>
+#include <yugawara/schema/declaration.h>
+
 
 #include "utils.h"
 

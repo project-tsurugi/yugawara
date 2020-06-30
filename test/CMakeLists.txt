@@ -54,6 +54,10 @@ add_test_executable(yugawara/storage/table_test.cpp)
 add_test_executable(yugawara/storage/index_test.cpp)
 add_test_executable(yugawara/storage/storage_configurable_provider_test.cpp)
 
+# schema information
+add_test_executable(yugawara/schema/schema_declaration_test.cpp)
+add_test_executable(yugawara/schema/schema_configurable_provider_test.cpp)
+
 # extensions
 add_test_executable(yugawara/extension/scalar/aggregate_function_call_test.cpp)
 
