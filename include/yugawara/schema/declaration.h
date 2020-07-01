@@ -33,7 +33,7 @@ public:
     /**
      * @brief creates a new object.
      * @param definition_id the schema definition ID
-     * @param name the function name
+     * @param name the schema name
      * @param storage_provider the storage element provider
      * @param variable_provider the external variable declaration provider
      * @param function_provider the function declaration provider
@@ -51,7 +51,7 @@ public:
 
     /**
      * @brief creates a new object.
-     * @param name the function name
+     * @param name the schema name
      * @param definition_id the schema definition ID
      * @param storage_provider the storage element provider
      * @param variable_provider the external variable declaration provider

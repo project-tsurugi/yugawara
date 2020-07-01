@@ -49,6 +49,8 @@ add_library(yugawara
 
     # schema
     yugawara/schema/declaration.cpp
+    yugawara/schema/catalog.cpp
+    yugawara/schema/search_path.cpp
 
     # extensions
     yugawara/extension/scalar/aggregate_function_call.cpp
