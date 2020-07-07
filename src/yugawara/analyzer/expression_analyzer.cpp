@@ -304,7 +304,7 @@ public:
                 report(code::inconsistent_type,
                         extract_region(expr.right()),
                         *right,
-                        { rcat });
+                        { lcat });
             }
         }
         return repo_.get(::takatori::type::boolean());
@@ -884,6 +884,87 @@ public:
             if (!validate_keys(expr, expr.lower().keys())) {
                 return false;
             }
+        }
+        return true;
+    }
+
+    bool operator()(relation::values const& expr) {
+        // first, we check number of columns whether or not validate is enabled
+        for (auto&& row : expr.rows()) {
+            if (expr.columns().size() < row.elements().size()) {
+                report({
+                        code::inconsistent_elements,
+                        "too many values",
+                        extract_region(row.elements()[expr.columns().size()]),
+                });
+                return false;
+            }
+            if (expr.columns().size() > row.elements().size()) {
+                if (row.elements().empty()) {
+                    report({
+                            code::inconsistent_elements,
+                            "too short values",
+                            extract_region(expr.columns()[0]),
+                    });
+                } else {
+                    report({
+                            code::inconsistent_elements,
+                            "too short values",
+                            extract_region(row.elements().back()),
+                    });
+                }
+                return false;
+            }
+        }
+
+        // if no rows, we set columns type to unknown
+        if (expr.rows().empty()) {
+            for (auto&& c : expr.columns()) {
+                ana_.variables().bind(c, { ::takatori::type::unknown(), repo_ }, true);
+            }
+            return true;
+        }
+
+        if (expr.rows().size() == 1) {
+            for (std::size_t i = 0, n = expr.columns().size(); i < n; ++i) {
+                auto&& column = expr.columns()[i];
+                auto&& row = expr.rows()[0];
+                auto&& value = row.elements()[i];
+                auto source = resolve(value);
+                if (is_unresolved_or_error(source)) {
+                    return false;
+                }
+                ana_.variables().bind(column, value, true);
+            }
+            return true;
+        }
+
+        for (std::size_t i = 0, n = expr.columns().size(); i < n; ++i) {
+            auto&& column = expr.columns()[i];
+            std::shared_ptr<::takatori::type::data const> current;
+            for (auto&& row : expr.rows()) {
+                auto&& value = row.elements()[i];
+                auto next = resolve(value);
+                if (is_unresolved_or_error(next)) {
+                    return false;
+                }
+                if (!current) {
+                    current = std::move(next);
+                } else {
+                    auto unify = type::unifying_conversion(*current, *next);
+                    auto ucat = type::category_of(*unify);
+                    if (ucat == category::unresolved) {
+                        report(code::inconsistent_type,
+                                extract_region(value),
+                                *next,
+                                { type::category_of(*current) });
+                        return false;
+                    }
+                    current = std::move(unify);
+                }
+            }
+            BOOST_ASSERT(current); // NOLINT
+            ana_.variables().bind(column, std::move(current), true);
         }
         return true;
     }

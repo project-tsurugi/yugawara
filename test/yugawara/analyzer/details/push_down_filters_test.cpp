@@ -5,6 +5,7 @@
 #include <takatori/relation/graph.h>
 #include <takatori/relation/find.h>
 #include <takatori/relation/scan.h>
+#include <takatori/relation/values.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/buffer.h>
@@ -153,6 +154,36 @@ TEST_F(push_down_filters_test, scan) {
                     { t0c0, c0 },
                     { t0c1, c1 },
                     { t0c2, c2 },
+            },
+    });
+    auto&& rf = r.insert(relation::filter {
+            compare(c0, c1),
+    });
+    r0.output() >> rf.input();
+
+    connect(rf.output());
+    apply(r);
+
+    ASSERT_EQ(r.size(), 4);
+    auto&& f0 = next<relation::filter>(r0.output());
+    EXPECT_GT(f0.output(), rf.input());
+
+    EXPECT_EQ(f0.condition(), compare(c0, c1));
+    EXPECT_EQ(rf.condition(), boolean(true));
+}
+
+TEST_F(push_down_filters_test, values) {
+    /*
+     * values:r0 - filter:rf - ..
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = r.insert(relation::values {
+            { c0, c1, c2, },
+            {
+                    { constant(0), constant(1), constant(2), },
             },
     });
     auto&& rf = r.insert(relation::filter {

@@ -28,6 +28,7 @@ public:
         static constexpr relation::expression_kind_set head_operators {
                 relation::expression_kind::find,
                 relation::expression_kind::scan,
+                relation::expression_kind::values,
                 relation::expression_kind::take_flat,
                 relation::expression_kind::take_group,
                 relation::expression_kind::take_cogroup,

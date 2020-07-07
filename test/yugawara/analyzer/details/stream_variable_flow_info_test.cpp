@@ -8,6 +8,7 @@
 #include <takatori/relation/graph.h>
 #include <takatori/relation/find.h>
 #include <takatori/relation/scan.h>
+#include <takatori/relation/values.h>
 #include <takatori/relation/join_scan.h>
 #include <takatori/relation/join_find.h>
 #include <takatori/relation/project.h>
@@ -124,7 +125,7 @@ protected:
 
 TEST_F(stream_variable_flow_info_test, find) {
     /*
-     * scan:r0 - ..
+     * find:r0 - ..
      */
     relation::graph_type r;
     auto c0 = bindings.stream_variable("c0");
@@ -167,6 +168,32 @@ TEST_F(stream_variable_flow_info_test, scan) {
                     { t0c0, c0 },
                     { t0c1, c1 },
                     { t0c2, c2 },
+            },
+    });
+
+    auto&& input = connect(r0.output());
+
+    stream_variable_flow_info info;
+    auto&& entry = info.find(c0, input);
+    ASSERT_TRUE(entry);
+
+    EXPECT_EQ(entry->originator(), r0);
+    EXPECT_TRUE(entry->find(c1));
+    EXPECT_TRUE(entry->find(c2));
+}
+
+TEST_F(stream_variable_flow_info_test, values) {
+    /*
+     * values:r0 - ..
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = r.insert(relation::values {
+            { c0, c1, c2, },
+            {
+                    { constant(0), constant(1), constant(2) },
             },
     });
 

@@ -155,6 +155,13 @@ public:
         available_columns.clear();
     }
 
+    void operator()(relation::values const& expr, buffer_type& available_columns) {
+        expand(available_columns, expr.columns().size());
+        for (auto&& column : expr.columns()) {
+            available_columns.emplace_back(column);
+        }
+    }
+
     void operator()(relation::intermediate::escape const& expr, buffer_type& available_columns) {
         /* NOTE:
          * escape is not a step plan operator, but it will be required in later process.

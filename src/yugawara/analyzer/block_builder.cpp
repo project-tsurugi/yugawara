@@ -26,6 +26,7 @@ inline bool is_front(relation::expression const& expr) noexcept {
     static constexpr expression_kind_set force_front {
             relation::expression_kind::find,
             relation::expression_kind::scan,
+            relation::expression_kind::values,
             relation::expression_kind::take_flat,
             relation::expression_kind::take_group,
             relation::expression_kind::take_cogroup,

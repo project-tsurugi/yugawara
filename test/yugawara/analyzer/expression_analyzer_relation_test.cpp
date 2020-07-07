@@ -12,6 +12,7 @@
 #include <takatori/scalar/variable_reference.h>
 
 #include <takatori/relation/scan.h>
+#include <takatori/relation/values.h>
 #include <takatori/relation/intermediate/join.h>
 #include <takatori/relation/join_find.h>
 #include <takatori/relation/join_scan.h>
@@ -49,6 +50,7 @@
 #include <yugawara/storage/configurable_provider.h>
 
 #include <yugawara/aggregate/configurable_provider.h>
+#include <takatori/scalar/immediate.h>
 
 namespace yugawara::analyzer {
 
@@ -69,6 +71,12 @@ class expression_analyzer_relation_test : public ::testing::Test {
 public:
     bool ok() noexcept {
         return !analyzer.has_diagnostics();
+    }
+
+    template<class T>
+    T&& bless(T&& t) noexcept {
+        t.region() = { doc_, doc_cursor_ };
+        return std::forward<T>(t);
     }
 
     ::takatori::util::optional_ptr<expression_analyzer::diagnostic_type const> find(
@@ -102,6 +110,15 @@ public:
         auto t = analyzer.inspect(variable);
         if (t) {
             return *repo.get(*t);
+        }
+        static extension::type::error error;
+        return error;
+    }
+
+    ::takatori::type::data const& type(::takatori::scalar::expression const& expr) {
+        auto t = analyzer.expressions().find(expr);
+        if (t) {
+            return *repo.get(t.type());
         }
         static extension::type::error error;
         return error;
@@ -161,6 +178,115 @@ TEST_F(expression_analyzer_relation_test, scan) {
 
     EXPECT_EQ(type(expr.columns()[0].source()), t::int4());
     EXPECT_EQ(resolve(expr.columns()[0].source()), resolve(expr.columns()[0].destination()));
+}
+
+TEST_F(expression_analyzer_relation_test, values) {
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    r::values expr {
+            { c0, c1, },
+            {
+                    {
+                            vref { decl(t::int4 {}) },
+                            vref { decl(t::boolean {}) },
+                    },
+            },
+    };
+
+    auto b = analyzer.resolve(expr, true, false, repo);
+    ASSERT_TRUE(b);
+    EXPECT_TRUE(ok());
+
+    EXPECT_EQ(type(expr.rows()[0].elements()[0]), t::int4());
+    EXPECT_EQ(type(expr.rows()[0].elements()[1]), t::boolean());
+    EXPECT_EQ(resolve(expr.columns()[0]), expr.rows()[0].elements()[0]);
+    EXPECT_EQ(resolve(expr.columns()[1]), expr.rows()[0].elements()[1]);
+}
+
+TEST_F(expression_analyzer_relation_test, values_multirow) {
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    r::values expr {
+            { c0, c1, },
+            {
+                    {
+                            vref { decl(t::int4 {}) },
+                            vref { decl(t::boolean {}) },
+                    },
+                    {
+                            vref { decl(t::int8 {}) },
+                            vref { decl(t::unknown {}) },
+                    },
+            },
+    };
+
+    auto b = analyzer.resolve(expr, true, false, repo);
+    ASSERT_TRUE(b);
+    EXPECT_TRUE(ok());
+
+    EXPECT_EQ(type(expr.rows()[0].elements()[0]), t::int4());
+    EXPECT_EQ(type(expr.rows()[0].elements()[1]), t::boolean());
+    EXPECT_EQ(type(expr.rows()[1].elements()[0]), t::int8());
+    EXPECT_EQ(type(expr.rows()[1].elements()[1]), t::unknown());
+    EXPECT_EQ(type(expr.columns()[0]), t::int8());
+    EXPECT_EQ(type(expr.columns()[1]), t::boolean());
+}
+
+TEST_F(expression_analyzer_relation_test, values_inconsistent_type) {
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    r::values expr {
+            { c0, },
+            {
+                    {
+                            vref { decl(t::boolean {}) },
+                    },
+                    {
+                            vref { decl(t::character { 1 }) },
+                    },
+            },
+    };
+
+    bless(expr.rows()[1].elements()[0]);
+    auto b = analyzer.resolve(expr, true, false, repo);
+    ASSERT_FALSE(b);
+    EXPECT_TRUE(find(expr.rows()[1].elements()[0].region(), code::inconsistent_type));
+}
+
+TEST_F(expression_analyzer_relation_test, values_inconsistent_elements_exval) {
+    auto c0 = bindings.stream_variable("c0");
+    r::values expr {
+            { c0, },
+            {
+                    {
+                            vref { decl(t::boolean {}) },
+                            vref { decl(t::boolean {}) },
+                    },
+            },
+    };
+
+    bless(expr.rows()[0].elements()[1]);
+    auto b = analyzer.resolve(expr, true, false, repo);
+    ASSERT_FALSE(b);
+    EXPECT_TRUE(find(expr.rows()[0].elements()[1].region(), code::inconsistent_elements));
+}
+
+TEST_F(expression_analyzer_relation_test, values_inconsistent_elements_excol) {
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    r::values expr {
+            { c0, c1, },
+            {
+                    {
+                            vref { decl(t::boolean {}) },
+                    },
+            },
+    };
+
+    bless(expr.rows()[0].elements()[0]);
+    auto b = analyzer.resolve(expr, true, false, repo);
+    ASSERT_FALSE(b);
+    EXPECT_TRUE(find(expr.rows()[0].elements()[0].region(), code::inconsistent_elements));
 }
 
 TEST_F(expression_analyzer_relation_test, join) {

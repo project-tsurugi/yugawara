@@ -106,6 +106,17 @@ public:
         }
     }
 
+    void operator()(relation::values const& expr, block_info& info) {
+        for (auto&& row : expr.rows()) {
+            for (auto&& e : row.elements()) {
+                scalar::walk(*this, e, info);
+            }
+        }
+        for (auto&& column : expr.columns()) {
+            define(column, info);
+        }
+    }
+
     void operator()(relation::join_scan const& expr, block_info& info) {
         for (auto&& column : expr.columns()) {
             use(column.source(), info);

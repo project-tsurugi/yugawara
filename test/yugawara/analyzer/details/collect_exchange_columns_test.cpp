@@ -8,6 +8,7 @@
 #include <takatori/relation/graph.h>
 #include <takatori/relation/find.h>
 #include <takatori/relation/scan.h>
+#include <takatori/relation/values.h>
 #include <takatori/relation/join_scan.h>
 #include <takatori/relation/join_find.h>
 #include <takatori/relation/project.h>
@@ -216,6 +217,36 @@ TEST_F(collect_exchange_columns_test, scan) {
                     { t0c0, c0 },
                     { t0c1, c1 },
                     { t0c2, c2 },
+            },
+    });
+    auto& ro = p0.operators().insert(offer {
+            bindings(sink),
+    });
+    r0.output() >> ro.input();
+
+    apply(p);
+
+    ASSERT_EQ(ro.columns().size(), 3);
+    EXPECT_EQ(ro.columns()[0].source(), c0);
+    EXPECT_EQ(ro.columns()[1].source(), c1);
+    EXPECT_EQ(ro.columns()[2].source(), c2);
+}
+
+TEST_F(collect_exchange_columns_test, values) {
+    /*
+     * [values:r0 - offer:ro]:p0 - ...
+     */
+    plan::graph_type p;
+    auto&& p0 = p.insert(plan::process {});
+    auto&& sink = create_sink(p);
+
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto& r0 = p0.operators().insert(relation::values {
+            { c0, c1, c2, },
+            {
+                    { constant(0), constant(1), constant(2), },
             },
     });
     auto& ro = p0.operators().insert(offer {

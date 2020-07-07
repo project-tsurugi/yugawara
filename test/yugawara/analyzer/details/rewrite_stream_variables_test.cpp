@@ -11,6 +11,7 @@
 #include <takatori/relation/graph.h>
 #include <takatori/relation/find.h>
 #include <takatori/relation/scan.h>
+#include <takatori/relation/values.h>
 #include <takatori/relation/join_scan.h>
 #include <takatori/relation/join_find.h>
 #include <takatori/relation/project.h>
@@ -111,7 +112,7 @@ protected:
 
 TEST_F(rewrite_stream_variables_test, find) {
     /*
-     * [scan:r0 - emit:ro]:p0
+     * [find:r0 - emit:ro]:p0
      */
     plan::graph_type p;
     auto&& p0 = p.insert(plan::process {});
@@ -174,6 +175,54 @@ TEST_F(rewrite_stream_variables_test, scan) {
     ASSERT_EQ(r0.columns().size(), 1);
     EXPECT_EQ(r0.columns()[0].source(), t0c1);
     EXPECT_EQ(r0.columns()[0].destination(), c1m);
+}
+
+TEST_F(rewrite_stream_variables_test, values) {
+    /*
+     * [values:r0 - emit:ro]:p0
+     */
+    plan::graph_type p;
+    auto&& p0 = p.insert(plan::process {});
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = p0.operators().insert(relation::values {
+            { c0, c1, c2, },
+            {
+                    { constant(0), constant(1), constant(2), },
+                    { constant(3), constant(4), constant(6), },
+                    { constant(6), constant(7), constant(8), },
+            },
+    });
+    auto&& ro = p0.operators().insert(relation::emit {
+            c1,
+    });
+    r0.output() >> ro.input();
+
+    apply(p);
+    auto&& c1m = ro.columns()[0].source();
+
+    EXPECT_NE(c1m, c1);
+
+    ASSERT_EQ(r0.columns().size(), 1);
+    EXPECT_EQ(r0.columns()[0], c1m);
+
+    ASSERT_EQ(r0.rows().size(), 3);
+    {
+        auto&& es = r0.rows()[0].elements();
+        ASSERT_EQ(es.size(), 1);
+        EXPECT_EQ(es[0], constant(1));
+    }
+    {
+        auto&& es = r0.rows()[1].elements();
+        ASSERT_EQ(es.size(), 1);
+        EXPECT_EQ(es[0], constant(4));
+    }
+    {
+        auto&& es = r0.rows()[2].elements();
+        ASSERT_EQ(es.size(), 1);
+        EXPECT_EQ(es[0], constant(7));
+    }
 }
 
 TEST_F(rewrite_stream_variables_test, join_find_index) {

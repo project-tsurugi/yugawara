@@ -63,6 +63,13 @@ public:
         done(expr);
     }
 
+    void operator()(relation::values const& expr) {
+        for (auto&& column : expr.columns()) {
+            entry_.declare(column, expr);
+        }
+        done(expr);
+    }
+
     void operator()(relation::intermediate::join const& expr) {
         // no declarations
         done(expr);

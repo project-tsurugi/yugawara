@@ -54,6 +54,28 @@ public:
         // endpoints must not contain variables declared here
     }
 
+    void operator()(relation::values& expr) {
+        auto&& columns = expr.columns();
+        auto&& rows = expr.rows();
+        std::size_t index = 0;
+        for (auto&& it = columns.begin(); it != columns.end();) {
+            if (is_used(*it)) {
+                ++index;
+                ++it;
+                continue;
+            }
+            // removes column in table data
+            for (auto&& row : rows) {
+                auto&& es = row.elements();
+                // NOTE: maybe redundant guard
+                if (index < es.size()) {
+                    es.erase(es.cbegin() + index);
+                }
+            }
+            it = columns.erase(it);
+        }
+    }
+
     void operator()(relation::intermediate::join& expr) {
         collect(expr.condition());
         collect_keys(expr.lower().keys());

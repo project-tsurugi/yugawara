@@ -102,6 +102,29 @@ public:
         raise_undefined();
     }
 
+    void operator()(relation::values& expr) {
+        auto&& columns = expr.columns();
+        auto&& rows = expr.rows();
+        std::size_t index = 0;
+        for (auto&& it = columns.begin(); it != columns.end();) {
+            if (context_.try_rewrite_define(*it)) {
+                ++index;
+                ++it;
+                continue;
+            }
+            // removes column in table data
+            for (auto&& row : rows) {
+                auto&& es = row.elements();
+                // NOTE: maybe redundant guard
+                if (index < es.size()) {
+                    es.erase(es.cbegin() + index);
+                }
+            }
+            it = columns.erase(it);
+        }
+        raise_undefined();
+    }
+
     void operator()(relation::join_find& expr) {
         rewrite(expr.condition());
         if (exchange_map_type::is_target(expr.source())) {
@@ -318,7 +341,6 @@ private:
 
     template<class Columns>
     void define_used_columns(Columns& columns) {
-        BOOST_ASSERT(!columns.empty()); // NOLINT
         for (auto&& it = columns.begin(); it != columns.end();) {
             auto&& column = *it;
             if (context_.try_rewrite_define(column.destination())) {

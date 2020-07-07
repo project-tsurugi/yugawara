@@ -159,6 +159,11 @@ public:
         // no more upstreams
     }
 
+    void operator()(relation::values& expr, mask_type&& mask) {
+        flush_all(expr.output(), mask);
+        // no more upstreams
+    }
+
     void operator()(relation::intermediate::join& expr, mask_type&& mask) {
         relation::dispatch(*this, expr.operator_kind(), expr, std::move(mask));
     }
