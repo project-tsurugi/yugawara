@@ -17,22 +17,12 @@
 
 namespace yugawara::schema {
 
-/// @cond IMPL_DEFS
-namespace impl {
-
-template<class T>
-using compare_is_transparent_t = typename T::is_transparent;
-
-} // namespace impl
-/// @endcond
-
 /**
  * @brief an implementation of provider that can configurable its contents.
- * @tparam Compare the (less than) declaration name comparator type, must satisfy *Compare* and have `is_transparent`
  * @tparam Mutex the mutex type, must satisfy *DefaultConstructible* and *BasicLockable*
  * @note This class works as thread-safe only if the mutex works right
  */
-template<class Compare, class Mutex>
+template<class Mutex>
 class basic_configurable_provider : public provider {
 public:
     /// @brief the declaration consumer type.
@@ -41,23 +31,12 @@ public:
     /// @brief the mutex type.
     using mutex_type = Mutex;
 
-    /// @brief the comparator type.
-    using compare_type = Compare;
-
-    static_assert(takatori::util::is_detected_v<impl::compare_is_transparent_t, compare_type>);
-
     /**
      * @brief creates a new object.
      * @param creator the object creator
-     * @param compare the name comparator object
      */
-    explicit basic_configurable_provider(
-            ::takatori::util::object_creator creator = {},
-            compare_type const& compare = compare_type{}) noexcept :
-        declarations_ {
-                compare,
-                creator.allocator(),
-        }
+    explicit basic_configurable_provider(::takatori::util::object_creator creator = {}) noexcept :
+        declarations_ { creator.allocator() }
     {}
 
     /// @copydoc provider::each()
@@ -142,7 +121,7 @@ private:
     using map_type = std::map<
             key_type,
             value_type,
-            compare_type,
+            std::less<>,
             takatori::util::object_allocator<std::pair<key_type const, value_type>>>;
 
     map_type declarations_;

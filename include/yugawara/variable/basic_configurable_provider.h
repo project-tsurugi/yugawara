@@ -17,46 +17,27 @@
 
 namespace yugawara::variable {
 
-/// @cond IMPL_DEFS
-namespace impl {
-
-template<class T>
-using compare_is_transparent_t = typename T::is_transparent;
-
-} // namespace impl
-/// @endcond
-
 /**
  * @brief an implementation of provider that can configurable its contents.
- * @tparam Compare the (less than) comparator type, must satisfy *Compare* and have `is_transparent`
  * @tparam Mutex the mutex type, must satisfy *DefaultConstructible* and *BasicLockable*
  * @note This class works as thread-safe only if the mutex works right
  */
-template<class Compare, class Mutex>
+template<class Mutex>
 class basic_configurable_provider : public provider {
 public:
     /// @brief the mutex type.
     using mutex_type = Mutex;
 
-    /// @brief the comparator type.
-    using compare_type = Compare;
-
-    static_assert(takatori::util::is_detected_v<impl::compare_is_transparent_t, compare_type>);
-
     /**
      * @brief creates a new object.
      * @param parent the parent provider (nullable)
      * @param creator the object creator
-     * @param compare the name comparator object
      */
     explicit basic_configurable_provider(
             ::takatori::util::maybe_shared_ptr<provider const> parent = {},
-            ::takatori::util::object_creator creator = {},
-            compare_type const& compare = compare_type{}) noexcept
-        : parent_(std::move(parent))
-        , declarations_(
-                compare,
-                creator.allocator(std::in_place_type<typename decltype(declarations_)::value_type>))
+            ::takatori::util::object_creator creator = {}) noexcept :
+        parent_ { std::move(parent) },
+        declarations_ { creator.allocator() }
     {}
 
     void each(consumer_type const& consumer) const override {
@@ -154,13 +135,12 @@ private:
     using map_type = std::map<
             key_type,
             value_type,
-            compare_type,
+            std::less<>,
             takatori::util::object_allocator<std::pair<key_type const, value_type>>>;
 
     ::takatori::util::maybe_shared_ptr<provider const> parent_;
     map_type declarations_;
     mutable mutex_type mutex_ {};
-
 
     void internal_each(consumer_type const& consumer) const {
         std::lock_guard lock { mutex_ };

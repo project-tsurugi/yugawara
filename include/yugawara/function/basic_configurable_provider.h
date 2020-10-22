@@ -16,33 +16,25 @@ namespace yugawara::function {
 
 /**
  * @brief an implementation of provider that can configurable its contents.
- * @tparam Compare the (less than) comparator type, must satisfy *Compare*
  * @tparam Mutex the mutex type, must satisfy *DefaultConstructible* and *BasicLockable*
  * @note This class works as thread-safe only if the mutex works right
  */
-template<class Compare, class Mutex>
+template<class Mutex>
 class basic_configurable_provider : public provider {
 public:
     /// @brief the mutex type.
     using mutex_type = Mutex;
 
-    /// @brief the comparator type.
-    using compare_type = Compare;
-
     /**
      * @brief creates a new object.
      * @param parent the parent provider (nullable)
      * @param creator the object creator
-     * @param compare the name comparator object
      */
     explicit basic_configurable_provider(
             ::takatori::util::maybe_shared_ptr<provider const> parent = {},
-            ::takatori::util::object_creator creator = {},
-            compare_type const& compare = compare_type{}) noexcept
-        : parent_(std::move(parent))
-        , declarations_(
-                compare,
-                creator.allocator(std::in_place_type<typename decltype(declarations_)::value_type>))
+            ::takatori::util::object_creator creator = {}) noexcept :
+        parent_ { std::move(parent) },
+        declarations_ { creator.allocator() }
     {}
 
     using provider::each;
@@ -118,7 +110,7 @@ private:
     using map_type = std::multimap<
             key_type,
             value_type,
-            compare_type,
+            std::less<>,
             takatori::util::object_allocator<std::pair<key_type const, value_type>>>;
 
     ::takatori::util::maybe_shared_ptr<provider const> parent_;
