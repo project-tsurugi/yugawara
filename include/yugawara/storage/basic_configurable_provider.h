@@ -56,7 +56,6 @@ public:
 
     /**
      * @brief adds a relation.
-     * @param id the relation ID
      * @param element the relation to add
      * @param overwrite true to overwrite the existing entry
      * @return the added element
@@ -64,19 +63,18 @@ public:
      * @throws std::invalid_argument if the target entry has been already owned another provider
      * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
      */
-    std::shared_ptr<relation> const& add_relation(std::string_view id, std::shared_ptr<relation> element, bool overwrite = false) {
-        return internal_add<&provider::find_relation>(relations_, id, std::move(element), overwrite);
+    std::shared_ptr<relation> const& add_relation(std::shared_ptr<relation> element, bool overwrite = false) {
+        return internal_add<&provider::find_relation>(relations_, std::move(element), overwrite);
     }
 
-    /// @copydoc add_relation()
-    std::shared_ptr<relation> const& add_relation(std::string_view id, relation&& element, bool overwrite = false) {
+    /// @copydoc add_relation(std::shared_ptr<relation>, bool)
+    std::shared_ptr<relation> const& add_relation(relation&& element, bool overwrite = false) {
         auto shared = takatori::util::clone_shared(std::move(element));
-        return add_relation(id, std::move(shared), overwrite);
+        return add_relation(std::move(shared), overwrite);
     }
 
     /**
      * @brief adds a table.
-     * @param id the table ID
      * @param element the table to add
      * @param overwrite true to overwrite the existing entry
      * @return the added element
@@ -84,12 +82,66 @@ public:
      * @throws std::invalid_argument if the target entry has been already owned another provider
      * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
      */
-    std::shared_ptr<table> add_table(std::string_view id, std::shared_ptr<table> element, bool overwrite = false) {
-        internal_add<&provider::find_table>(relations_, id, element, overwrite);
+    std::shared_ptr<table> add_table(std::shared_ptr<table> element, bool overwrite = false) {
+        internal_add<&provider::find_table>(relations_, element, overwrite);
         return element;
     }
 
-    /// @copydoc add_table()
+    /// @copydoc add_table(std::shared_ptr<table>, bool)
+    std::shared_ptr<table> add_table(table&& element, bool overwrite = false) {
+        auto shared = takatori::util::clone_shared(std::move(element));
+        return add_table(std::move(shared), overwrite);
+    }
+
+    /**
+     * @brief adds a relation.
+     * @attention deprecated: use add_relation(std::shared_ptr<relation>, bool) instead
+     * @param id the relation ID, must be the simple name of the relation
+     * @param element the relation to add
+     * @param overwrite true to overwrite the existing entry
+     * @return the added element
+     * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
+     * @throws std::invalid_argument if the target entry has been already owned another provider
+     * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
+     */
+    [[deprecated]]
+    std::shared_ptr<relation> const& add_relation(std::string_view id, std::shared_ptr<relation> element, bool overwrite = false) {
+        if (id != element->simple_name()) {
+            using ::takatori::util::throw_exception;
+            throw_exception(std::invalid_argument("inconsistent relation ID"));
+        }
+        return add_relation(std::move(element), overwrite);
+    }
+
+    /// @copydoc add_relation(std::string_view id, std::shared_ptr<relation>, bool)
+    [[deprecated]]
+    std::shared_ptr<relation> const& add_relation(std::string_view id, relation&& element, bool overwrite = false) {
+        auto shared = takatori::util::clone_shared(std::move(element));
+        return add_relation(id, std::move(shared), overwrite);
+    }
+
+    /**
+     * @brief adds a table.
+     * @attention deprecated: use add_table(std::shared_ptr<table>, bool) instead
+     * @param id the table ID, must be the simple name of the table
+     * @param element the table to add
+     * @param overwrite true to overwrite the existing entry
+     * @return the added element
+     * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
+     * @throws std::invalid_argument if the target entry has been already owned another provider
+     * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
+     */
+    [[deprecated]]
+    std::shared_ptr<table> add_table(std::string_view id, std::shared_ptr<table> element, bool overwrite = false) {
+        if (id != element->simple_name()) {
+            using ::takatori::util::throw_exception;
+            throw_exception(std::invalid_argument("inconsistent table ID"));
+        }
+        return add_table(std::move(element), overwrite);
+    }
+
+    /// @copydoc add_table(std::string_view id, std::shared_ptr<table>, bool)
+    [[deprecated]]
     std::shared_ptr<table> add_table(std::string_view id, table&& element, bool overwrite = false) {
         auto shared = takatori::util::clone_shared(std::move(element));
         return add_table(id, std::move(shared), overwrite);
@@ -120,6 +172,25 @@ public:
 
     /**
      * @brief adds an index.
+     * @param element the index to add
+     * @param overwrite true to overwrite the existing entry
+     * @return this
+     * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
+     * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
+     */
+    std::shared_ptr<index> const& add_index(std::shared_ptr<index> element, bool overwrite = false) {
+        return internal_add<&provider::find_index>(indices_, std::move(element), overwrite);
+    }
+
+    /// @copydoc add_index(std::shared_ptr<index>, bool)
+    std::shared_ptr<index> const& add_index(index&& element, bool overwrite = false) {
+        auto shared = get_object_creator().template create_shared<index>(std::move(element));
+        return add_index(std::move(shared), overwrite);
+    }
+
+    /**
+     * @brief adds an index.
+     * @attention deprecated: use add_index(std::shared_ptr<index>, bool) instead
      * @param id the index ID
      * @param element the index to add
      * @param overwrite true to overwrite the existing entry
@@ -127,11 +198,17 @@ public:
      * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
      * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
      */
+    [[deprecated]]
     std::shared_ptr<index> const& add_index(std::string_view id, std::shared_ptr<index> element, bool overwrite = false) {
-        return internal_add<&provider::find_index>(indices_, id, std::move(element), overwrite);
+        if (id != element->simple_name()) {
+            using ::takatori::util::throw_exception;
+            throw_exception(std::invalid_argument("inconsistent index ID"));
+        }
+        return add_index(indices_, std::move(element), overwrite);
     }
 
-    /// @copydoc add_index()
+    /// @copydoc add_index(std::string_view id, std::shared_ptr<index>, bool)
+    [[deprecated]]
     std::shared_ptr<index> const& add_index(std::string_view id, index&& element, bool overwrite = false) {
         auto shared = get_object_creator().template create_shared<index>(std::move(element));
         return add_index(id, std::move(shared), overwrite);
@@ -225,12 +302,12 @@ private:
     template<auto Find, class Container>
     std::shared_ptr<element_type<Container>> const& internal_add(
             Container& container,
-            std::string_view id,
             std::shared_ptr<element_type<Container>> element,
             bool overwrite) {
         using element_type = element_type<Container>;
 
         using ::takatori::util::throw_exception;
+        auto id = element->simple_name();
         key_type key { id, get_object_creator().allocator(std::in_place_type<char>) };
 
         std::lock_guard lock { mutex_ };

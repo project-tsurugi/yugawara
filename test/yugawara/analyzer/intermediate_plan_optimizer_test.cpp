@@ -34,7 +34,7 @@ protected:
 
     std::shared_ptr<storage::configurable_provider> storages = std::make_shared<storage::configurable_provider>();
 
-    std::shared_ptr<storage::table> t0 = storages->add_table("T0", {
+    std::shared_ptr<storage::table> t0 = storages->add_table({
             "T0",
             {
                     { "C0", t::int4() },
@@ -42,7 +42,7 @@ protected:
                     { "C2", t::int4() },
             },
     });
-    std::shared_ptr<storage::table> t1 = storages->add_table("T1", {
+    std::shared_ptr<storage::table> t1 = storages->add_table({
             "T1",
             {
                     { "C0", t::int4() },
@@ -57,8 +57,8 @@ protected:
     storage::column const& t1c1 = t1->columns()[1];
     storage::column const& t1c2 = t1->columns()[2];
 
-    std::shared_ptr<storage::index> i0 = storages->add_index("I0", { t0, "I0", });
-    std::shared_ptr<storage::index> i1 = storages->add_index("I1", { t1, "I1", });
+    std::shared_ptr<storage::index> i0 = storages->add_index({ t0, "I0", });
+    std::shared_ptr<storage::index> i1 = storages->add_index({ t1, "I1", });
 
     details::intermediate_plan_optimizer_options options() {
         details::intermediate_plan_optimizer_options result;
@@ -207,7 +207,7 @@ TEST_F(intermediate_plan_optimizer_test, rewrite_join_operator) {
     join.output() >> filter.input();
     filter.output() >> out.input();
 
-    storages->add_index("x1", storage::index {
+    storages->add_index(storage::index {
             t1,
             "x1",
             { t1c0 },
@@ -348,7 +348,7 @@ TEST_F(intermediate_plan_optimizer_test, rewrite_join_suppress_index_join) {
     join.output() >> filter.input();
     filter.output() >> out.input();
 
-    storages->add_index("x1", storage::index {
+    storages->add_index(storage::index {
             t1,
             "x1",
             { t1c0 },
@@ -473,7 +473,7 @@ TEST_F(intermediate_plan_optimizer_test, rewrite_scan) {
     distinct.output() >> filter.input();
     filter.output() >> out.input();
 
-    storages->add_index("x0", {
+    storages->add_index({
             t0, "x0",
             { t0c0 },
     });

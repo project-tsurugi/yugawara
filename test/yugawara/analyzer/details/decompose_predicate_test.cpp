@@ -22,7 +22,7 @@ protected:
     binding::factory bindings;
     storage::configurable_provider storages;
 
-    std::shared_ptr<storage::table> t0 = storages.add_table("t0", {
+    std::shared_ptr<storage::table> t0 = storages.add_table({
             "T0",
             {
                     { "C0", t::int4() },
@@ -34,7 +34,7 @@ protected:
     descriptor::variable t0c1 = bindings(t0->columns()[0]);
     descriptor::variable t0c2 = bindings(t0->columns()[0]);
 
-    std::shared_ptr<storage::index> i0 = storages.add_index("I0", { t0, "I0", });
+    std::shared_ptr<storage::index> i0 = storages.add_index({ t0, "I0", });
 
     void apply(relation::graph_type& graph) {
         details::decompose_projections(graph, creator);

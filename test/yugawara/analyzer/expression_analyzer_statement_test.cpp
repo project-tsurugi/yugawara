@@ -69,7 +69,7 @@ protected:
     binding::factory bindings;
 
     storage::configurable_provider storages_;
-    std::shared_ptr<storage::table> t0 = storages_.add_table("t0", {
+    std::shared_ptr<storage::table> t0 = storages_.add_table({
             "T0",
             {
                     { "C0", t::int4() },
@@ -77,7 +77,7 @@ protected:
                     { "C2", t::int4() },
             },
     });
-    std::shared_ptr<storage::table> t1 = storages_.add_table("t1", {
+    std::shared_ptr<storage::table> t1 = storages_.add_table({
             "T1",
             {
                     { "C0", t::int4() },
@@ -85,8 +85,8 @@ protected:
                     { "C2", t::int4() },
             },
     });
-    std::shared_ptr<storage::index> i0 = storages_.add_index("I0", { t0, "I0", });
-    std::shared_ptr<storage::index> i1 = storages_.add_index("I1", { t1, "I1" });
+    std::shared_ptr<storage::index> i0 = storages_.add_index({ t0, "I0", });
+    std::shared_ptr<storage::index> i1 = storages_.add_index({ t1, "I1" });
 
     ::takatori::document::basic_document doc_ {
             "testing.sql",

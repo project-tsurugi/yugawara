@@ -88,13 +88,13 @@ protected:
 };
 
 TEST_F(expression_analyzer_plan_test, process) {
-    auto t1 = storages_.add_table("T1", storage::table {
+    auto t1 = storages_.add_table(storage::table {
             "T1",
             {
                     { "C1", t::int4() },
             },
     });
-    auto i1 = storages_.add_index("I1", storage::index {
+    auto i1 = storages_.add_index(storage::index {
             t1,
             "I1",
     });

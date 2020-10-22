@@ -26,7 +26,7 @@ protected:
 
     storage::configurable_provider storages;
 
-    std::shared_ptr<storage::table> t0 = storages.add_table("T0", {
+    std::shared_ptr<storage::table> t0 = storages.add_table({
             "T0",
             {
                     { "C0", t::int4() },
@@ -34,7 +34,7 @@ protected:
                     { "C2", t::int4() },
             },
     });
-    std::shared_ptr<storage::table> t1 = storages.add_table("T1", {
+    std::shared_ptr<storage::table> t1 = storages.add_table({
             "T1",
             {
                     { "C0", t::int4() },
@@ -49,8 +49,8 @@ protected:
     storage::column const& t1c1 = t1->columns()[1];
     storage::column const& t1c2 = t1->columns()[2];
 
-    std::shared_ptr<storage::index> i0 = storages.add_index("I0", { t0, "I0", });
-    std::shared_ptr<storage::index> i1 = storages.add_index("I1", { t1, "I1" });
+    std::shared_ptr<storage::index> i0 = storages.add_index({ t0, "I0", });
+    std::shared_ptr<storage::index> i1 = storages.add_index({ t1, "I1" });
 };
 
 template<class T, class U = T>

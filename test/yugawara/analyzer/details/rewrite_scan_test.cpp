@@ -29,7 +29,7 @@ protected:
 
     storage::configurable_provider storages;
 
-    std::shared_ptr<storage::table> t0 = storages.add_table("T0", {
+    std::shared_ptr<storage::table> t0 = storages.add_table({
             "T0",
             {
                     { "C0", t::int4() },
@@ -41,7 +41,7 @@ protected:
     storage::column const& t0c1 = t0->columns()[1];
     storage::column const& t0c2 = t0->columns()[2];
 
-    std::shared_ptr<storage::index> i0 = storages.add_index("I0", { t0, "I0", });
+    std::shared_ptr<storage::index> i0 = storages.add_index({ t0, "I0", });
 
     void apply(relation::graph_type& graph) {
         default_index_estimator estimator;
@@ -96,7 +96,7 @@ TEST_F(rewrite_scan_test, point) {
     in.output() >> f0.input();
     f0.output() >> out.input();
 
-    auto x0 = storages.add_index("x0", storage::index {
+    auto x0 = storages.add_index(storage::index {
             t0,
             "x0",
             {
@@ -140,7 +140,7 @@ TEST_F(rewrite_scan_test, range) {
     in.output() >> f0.input();
     f0.output() >> out.input();
 
-    auto x0 = storages.add_index("x0", storage::index {
+    auto x0 = storages.add_index(storage::index {
             t0,
             "x0",
             {
@@ -191,7 +191,7 @@ TEST_F(rewrite_scan_test, mixed) {
     in.output() >> f0.input();
     f0.output() >> out.input();
 
-    auto x0 = storages.add_index("x0", storage::index {
+    auto x0 = storages.add_index(storage::index {
             t0,
             "x0",
             {
@@ -199,7 +199,7 @@ TEST_F(rewrite_scan_test, mixed) {
                     t0->columns()[1],
             },
     });
-    auto x1 = storages.add_index("x1", storage::index {
+    auto x1 = storages.add_index(storage::index {
             t0,
             "x1",
             {
@@ -250,7 +250,7 @@ TEST_F(rewrite_scan_test, unique) {
     in.output() >> f0.input();
     f0.output() >> out.input();
 
-    auto x0 = storages.add_index("x0", storage::index {
+    auto x0 = storages.add_index(storage::index {
             t0,
             "x0",
             {
@@ -258,7 +258,7 @@ TEST_F(rewrite_scan_test, unique) {
             },
     });
 
-    auto x1 = storages.add_index("x1", storage::index {
+    auto x1 = storages.add_index(storage::index {
             t0,
             "x1",
             {
@@ -305,7 +305,7 @@ TEST_F(rewrite_scan_test, index_only) {
     in.output() >> f0.input();
     f0.output() >> out.input();
 
-    auto x0 = storages.add_index("x0", storage::index {
+    auto x0 = storages.add_index(storage::index {
             t0,
             "x0",
             {},
