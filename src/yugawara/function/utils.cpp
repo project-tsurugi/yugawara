@@ -13,7 +13,7 @@ bool each_is_widening_convertible(
     for (std::size_t i = 0, n = as.size(); i < n; ++i) {
         auto&& a = *as[i];
         auto&& b = *bs[i];
-        if (type::is_widening_convertible(b, a) != true) {
+        if (type::is_widening_convertible(a, b) != true) {
             return false;
         }
     }

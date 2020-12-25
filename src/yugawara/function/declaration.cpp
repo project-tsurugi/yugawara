@@ -93,7 +93,7 @@ std::vector<declaration::type_pointer, takatori::util::object_allocator<declarat
 }
 
 bool declaration::has_wider_parameters(declaration const& other) const noexcept {
-    return utils::each_is_widening_convertible(parameter_types_, other.parameter_types_);
+    return utils::each_is_widening_convertible(other.parameter_types_, parameter_types_);
 }
 
 std::ostream& operator<<(std::ostream& out, declaration const& value) {
