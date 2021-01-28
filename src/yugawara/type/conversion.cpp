@@ -572,6 +572,11 @@ std::shared_ptr<model::data const> unifying_conversion(
 ternary is_assignment_convertible(model::data const& type, model::data const& target) noexcept {
     if (is_conversion_stop_type(type) || is_conversion_stop_type(target)) return ternary::unknown;
 
+    // can convert unknown to anything
+    if (type.kind() == kind::unknown) {
+        return ternary::yes;
+    }
+
     switch (npair(type.kind(), target.kind())) {
         case npair(kind::boolean, kind::boolean):
 
@@ -692,6 +697,11 @@ ternary is_cast_convertible(takatori::type::data const& type, takatori::type::da
 
 util::ternary is_widening_convertible(takatori::type::data const& type, takatori::type::data const& target) noexcept {
     if (is_conversion_stop_type(type) || is_conversion_stop_type(target)) return ternary::unknown;
+
+    // can convert unknown to anything
+    if (type.kind() == kind::unknown) {
+        return ternary::yes;
+    }
 
     switch (npair(type.kind(), target.kind())) {
         case npair(kind::boolean, kind::boolean):
