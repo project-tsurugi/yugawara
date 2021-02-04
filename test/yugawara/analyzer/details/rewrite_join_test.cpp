@@ -753,4 +753,118 @@ TEST_F(rewrite_join_test, indirect_rest) {
     EXPECT_EQ(result.condition(), compare(varref(cr1), constant(1)));
 }
 
+TEST_F(rewrite_join_test, fix_heap_reuse) {
+    auto t_c = storages.add_table({
+            "customer",
+            {
+                    { "c_id", t::int4()} ,
+                    { "c_w_id", t::int4() },
+                    { "c_d_id", t::int4() },
+                    { "c_x", t::int4() },
+            },
+    });
+    auto t_w = storages.add_table({
+            "warehouse",
+            {
+                    { "w_id", t::int4()} ,
+                    { "w_x", t::int4()} ,
+            },
+    });
+    auto i_c = storages.add_index({
+            t_c,
+            "customer_primary",
+            {
+                    t_c->columns()[0],
+                    t_c->columns()[1],
+                    t_c->columns()[2],
+            },
+            {},
+            {
+                    ::yugawara::storage::index_feature::find,
+                    ::yugawara::storage::index_feature::scan,
+                    ::yugawara::storage::index_feature::unique,
+                    ::yugawara::storage::index_feature::primary,
+            },
+    });
+    auto i_w = storages.add_index({
+            t_w,
+            "warehouse_primary",
+            {
+                    t_w->columns()[0],
+            },
+            {},
+            {
+                    ::yugawara::storage::index_feature::find,
+                    ::yugawara::storage::index_feature::scan,
+                    ::yugawara::storage::index_feature::unique,
+                    ::yugawara::storage::index_feature::primary,
+            },
+    });
+
+    /*
+    "SELECT w_x, c_x FROM warehouse, customer "
+    "WHERE w_id = :w_id "
+    "AND c_w_id = w_id AND "
+    "c_d_id = :c_d_id AND "
+    "c_id = :c_id "
+    */
+    relation::graph_type r;
+
+    auto w_id = bindings.stream_variable("w_id");
+    auto w_x = bindings.stream_variable("w_x");
+    auto&& inl = r.insert(relation::scan {
+            bindings(*i_w),
+            {
+                    { bindings(t_w->columns()[0]), w_id },
+                    { bindings(t_w->columns()[1]), w_x },
+            },
+    });
+
+    auto c_id = bindings.stream_variable("c_id");
+    auto c_w_id = bindings.stream_variable("c_w_id");
+    auto c_d_id = bindings.stream_variable("c_d_id");
+    auto c_x = bindings.stream_variable("c_x");
+    auto&& inr = r.insert(relation::scan {
+            bindings(*i_c),
+            {
+                    { bindings(t_c->columns()[0]), c_id },
+                    { bindings(t_c->columns()[1]), c_w_id },
+                    { bindings(t_c->columns()[2]), c_d_id },
+                    { bindings(t_c->columns()[3]), c_x },
+            },
+    });
+
+    /*
+    "SELECT w_x, c_x FROM warehouse, customer "
+    "WHERE w_id = :w_id "
+    "AND c_w_id = w_id AND "
+    "c_d_id = :c_d_id AND "
+    "c_id = :c_id "
+    */
+
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::inner,
+    });
+
+    auto&& filter = r.insert(relation::filter {
+            land(
+                    compare(varref(w_id), constant(1)),
+                    land(
+                            compare(varref(c_w_id), varref(w_id)),
+                            land(
+                                    compare(varref(c_d_id), constant(2)),
+                                    compare(varref(c_id), constant(3))))),
+    });
+
+    auto&& out = r.insert(relation::emit { w_x, c_x });
+
+    inl.output() >> join.left();
+    inr.output() >> join.right();
+    join.output() >> filter.input();
+    filter.output() >> out.input();
+
+    apply(r);
+}
+
+
 } // namespace yugawara::analyzer::details

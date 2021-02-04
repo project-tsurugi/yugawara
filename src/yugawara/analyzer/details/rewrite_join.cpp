@@ -57,7 +57,8 @@ public:
         : graph_(graph)
         , index_estimator_(index_estimator)
         , flow_volume_(flow_volume)
-        , collector_(creator)
+        , left_collector_(creator)
+        , right_collector_(creator)
         , term_buf_(creator.allocator())
         , search_key_buf_(creator.allocator())
         , filter_buf_(creator.allocator())
@@ -76,7 +77,8 @@ public:
         }
 
         // clear the round data
-        collector_.clear();
+        left_collector_.clear();
+        right_collector_.clear();
         term_buf_.clear();
         search_key_buf_.clear();
         filter_buf_.clear();
@@ -91,7 +93,7 @@ public:
     }
 
     [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept {
-        return collector_.get_object_creator();
+        return left_collector_.get_object_creator();
     }
 
 private:
@@ -99,7 +101,8 @@ private:
     index_estimator const& index_estimator_;
     flow_volume_info const& flow_volume_;
 
-    scan_key_collector collector_;
+    scan_key_collector left_collector_;
+    scan_key_collector right_collector_;
 
     object_vector<search_key_term*> term_buf_;
     object_vector<search_key> search_key_buf_;
@@ -119,19 +122,20 @@ private:
         if (!allow.contains(expr.operator_kind())) {
             return;
         }
+        auto&& collector = left_collector_;
         auto scan = find_scan(expr.left(), false);
-        if (!scan || !collector_(*scan, true)) {
+        if (!scan || !collector(*scan, true)) {
             return;
         }
-        auto storages = collector_.table().owner();
+        auto storages = collector.table().owner();
         if (!storages) {
             // there are no index information
             return;
         }
         storages->each_table_index(
-                collector_.table(),
+                collector.table(),
                 [&](std::string_view, std::shared_ptr<storage::index const> const& entry) {
-                    estimate(expr, *scan, *entry, true);
+                    estimate(expr, *scan, *entry, collector, true);
                 });
         filter_buf_.clear();
     }
@@ -150,19 +154,20 @@ private:
         if (!allow.contains(expr.operator_kind())) {
             return;
         }
+        auto&& collector = right_collector_;
         auto scan = find_scan(expr.right(), direct.contains(expr.operator_kind()));
-        if (!scan || !collector_(*scan, true)) {
+        if (!scan || !collector(*scan, true)) {
             return;
         }
-        auto storages = collector_.table().owner();
+        auto storages = collector.table().owner();
         if (!storages) {
             // there are no index information
             return;
         }
         storages->each_table_index(
-                collector_.table(),
+                collector.table(),
                 [&](std::string_view, std::shared_ptr<storage::index const> const& entry) {
-                    estimate(expr, *scan, *entry, false);
+                    estimate(expr, *scan, *entry, collector, false);
                 });
         filter_buf_.clear();
     }
@@ -199,8 +204,13 @@ private:
         }
     }
 
-    void estimate(relation::intermediate::join const& expr, relation::scan& scan, storage::index const& index, bool left) {
-        build_search_key(index);
+    void estimate(
+            relation::intermediate::join const& expr,
+            relation::scan& scan,
+            storage::index const& index,
+            scan_key_collector& collector,
+            bool left) {
+        build_search_key(index, collector);
         if (search_key_buf_.empty()) {
             // index based join must have at least one term
             return;
@@ -208,8 +218,8 @@ private:
         auto result = index_estimator_(
                 index,
                 search_key_buf_,
-                collector_.sort_keys(),
-                collector_.referring());
+                collector.sort_keys(),
+                collector.referring());
 
         // FIXME: use more statistics of individual join inputs
         if (is_better(expr, result, left)) {
@@ -219,7 +229,7 @@ private:
         search_key_buf_.clear();
     }
 
-    void build_search_key(storage::index const& index) {
+    void build_search_key(storage::index const& index, scan_key_collector& collector) {
         BOOST_ASSERT(term_buf_.empty()); // NOLINT
         BOOST_ASSERT(search_key_buf_.empty()); // NOLINT
 
@@ -228,7 +238,7 @@ private:
         search_key_buf_.reserve(keys.size());
 
         for (auto&& key : keys) {
-            if (auto term = collector_.find(key.column())) {
+            if (auto term = collector.find(key.column())) {
                 BOOST_ASSERT(term); // NOLINT
 
                 term_buf_.emplace_back(term.get());
