@@ -64,34 +64,6 @@ public:
             value_type increment_value = default_increment_value) noexcept;
 
     /**
-     * @brief creates a new object.
-     * @param definition_id the table definition ID
-     * @param simple_name the simple name
-     * @param min_value the minimum value
-     * @param max_value the maximum value
-     * @param increment_value the increment value, should be `> 0`
-     */
-    explicit sequence(
-            std::optional<definition_id_type> definition_id,
-            std::string_view simple_name,
-            value_type min_value = default_min_value,
-            value_type max_value = default_max_value,
-            value_type increment_value = default_increment_value) noexcept;
-
-    /**
-     * @brief creates a new object.
-     * @param simple_name the simple name
-     * @param min_value the minimum value
-     * @param max_value the maximum value
-     * @param increment_value the increment value, should be `> 0`
-     */
-    explicit sequence(
-            std::string_view simple_name,
-            value_type min_value = default_min_value,
-            value_type max_value = default_max_value,
-            value_type increment_value = default_increment_value) noexcept;
-
-    /**
      * @brief returns the sequence definition ID.
      * @return the definition ID
      * @return empty if it is not specified

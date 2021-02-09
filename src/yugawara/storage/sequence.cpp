@@ -31,36 +31,6 @@ sequence::sequence(
     }
 {}
 
-
-sequence::sequence(
-        std::optional<definition_id_type> definition_id,
-        std::string_view simple_name,
-        value_type min_value,
-        value_type max_value,
-        value_type increment_value) noexcept :
-    sequence {
-            std::move(definition_id),
-            simple_name_type { simple_name },
-            min_value,
-            max_value,
-            increment_value,
-    }
-{}
-
-sequence::sequence(
-        std::string_view simple_name,
-        value_type min_value,
-        value_type max_value,
-        value_type increment_value) noexcept :
-    sequence {
-            {},
-            simple_name_type { simple_name },
-            min_value,
-            max_value,
-            increment_value,
-    }
-{}
-
 std::optional<sequence::definition_id_type> sequence::definition_id() const noexcept {
     return definition_id_;
 }
