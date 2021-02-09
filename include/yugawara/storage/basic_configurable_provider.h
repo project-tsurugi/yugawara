@@ -35,10 +35,11 @@ public:
      */
     explicit basic_configurable_provider(
             ::takatori::util::maybe_shared_ptr<provider const> parent = {},
-            ::takatori::util::object_creator creator = {}) noexcept
-        : parent_(std::move(parent))
-        , relations_(creator.allocator(std::in_place_type<typename decltype(relations_)::value_type>))
-        , indices_(creator.allocator(std::in_place_type<typename decltype(indices_)::value_type>))
+            ::takatori::util::object_creator creator = {}) noexcept :
+        parent_ { std::move(parent) },
+        relations_ { creator.allocator() },
+        indices_ { creator.allocator() },
+        sequences_ { creator.allocator() }
     {}
 
     std::shared_ptr<relation const> find_relation(std::string_view id) const override {
@@ -224,6 +225,47 @@ public:
         return internal_remove(indices_, id);
     }
 
+    [[nodiscard]] std::shared_ptr<class sequence const> find_sequence(std::string_view id) const override {
+        return internal_find<&provider::find_sequence>(sequences_, id);
+    }
+
+    /**
+     * @brief provides all sequences in this provider or its parents.
+     * @param consumer the destination consumer, which accepts pairs of element ID and element
+     * @note The hidden entries in parent provider will not occur in the consumer.
+     */
+    void each_sequence(sequence_consumer_type const& consumer) const override {
+        internal_each<&provider::each_sequence>(sequences_, consumer);
+    }
+
+    /**
+     * @brief adds a sequence.
+     * @param element the sequence to add
+     * @param overwrite true to overwrite the existing entry
+     * @return this
+     * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
+     * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
+     */
+    std::shared_ptr<sequence> const& add_sequence(std::shared_ptr<sequence> element, bool overwrite = false) {
+        return internal_add<&provider::find_sequence>(sequences_, std::move(element), overwrite);
+    }
+
+    /// @copydoc add_sequence(std::shared_ptr<sequence>, bool)
+    std::shared_ptr<sequence> const& add_sequence(sequence&& element, bool overwrite = false) {
+        auto shared = get_object_creator().template create_shared<sequence>(std::move(element));
+        return add_sequence(std::move(shared), overwrite);
+    }
+
+    /**
+     * @brief removes the sequence in this provider.
+     * @param id the sequence ID
+     * @return true if successfully removed
+     * @return false if there is no such a sequence
+     */
+    bool remove_sequence(std::string_view id) {
+        return internal_remove(sequences_, id);
+    }
+
     /**
      * @brief returns the parent provider.
      * @return the parent provider
@@ -257,9 +299,17 @@ private:
             std::less<>,
             takatori::util::object_allocator<std::pair<key_type const, index_value_type>>>;
 
+    using sequence_value_type = std::shared_ptr<sequence>;
+    using sequence_map_type = std::map<
+            key_type,
+            sequence_value_type,
+            std::less<>,
+            takatori::util::object_allocator<std::pair<key_type const, sequence_value_type>>>;
+
     ::takatori::util::maybe_shared_ptr<provider const> parent_;
     relation_map_type relations_;
     index_map_type indices_;
+    sequence_map_type sequences_;
     mutable mutex_type mutex_ {};
 
     template<class Container>
@@ -299,6 +349,9 @@ private:
         }
     }
 
+    template<class E>
+    static constexpr bool is_bless_target_v = std::is_base_of_v<relation, E> || std::is_same_v<sequence, E>;
+
     template<auto Find, class Container>
     std::shared_ptr<element_type<Container>> const& internal_add(
             Container& container,
@@ -308,13 +361,13 @@ private:
 
         using ::takatori::util::throw_exception;
         auto id = element->simple_name();
-        key_type key { id, get_object_creator().allocator(std::in_place_type<char>) };
+        key_type key { id, get_object_creator().allocator() };
 
         std::lock_guard lock { mutex_ };
         if (overwrite) {
             auto [iter, success] = container.insert_or_assign(std::move(key), std::move(element));
             (void) success;
-            if constexpr (std::is_base_of_v<relation, element_type>) { // NOLINT
+            if constexpr (is_bless_target_v<element_type>) { // NOLINT
                 bless(*iter->second);
             }
             return iter->second;
@@ -323,7 +376,7 @@ private:
             throw_exception(std::invalid_argument(std::string("already exists in parent provider: ") += id));
         }
         if (auto [iter, success] = container.try_emplace(std::move(key), std::move(element)); success) {
-            if constexpr (std::is_base_of_v<relation, element_type>) { // NOLINT
+            if constexpr (is_bless_target_v<element_type>) { // NOLINT
                 bless(*iter->second);
             }
             return iter->second;
@@ -338,7 +391,7 @@ private:
         std::lock_guard lock { mutex_ };
         if (auto iter = container.find(id); iter != container.end()) {
             using element_type = element_type<Container>;
-            if constexpr (std::is_base_of_v<relation, element_type>) { // NOLINT
+            if constexpr (is_bless_target_v<element_type>) { // NOLINT
                 unbless(*iter->second);
             }
             // NOTE: container.erase(id) does not work

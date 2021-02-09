@@ -443,4 +443,37 @@ TEST_F(storage_configurable_provider_test, remove_index) {
     EXPECT_TRUE(p1->remove_index("IDX"));
 }
 
+TEST_F(storage_configurable_provider_test, add_sequence) {
+    auto p1 = std::make_shared<configurable_provider>();
+    auto element = p1->add_sequence(sequence { "S1" });
+    ASSERT_TRUE(element);
+    EXPECT_EQ(p1->find_sequence("S1"), element);
+    EXPECT_EQ(p1->find_relation("__MISSING__"), nullptr);
+    
+    EXPECT_EQ(element->owner().get(), p1.get());
+}
+
+TEST_F(storage_configurable_provider_test, remove_sequence) {
+    auto p1 = std::make_shared<configurable_provider>();
+    auto s1 = p1->add_sequence(sequence { "S1" });
+    auto s2 = p1->add_sequence(sequence { "S2" });
+    auto s3 = p1->add_sequence(sequence { "S3" });
+
+    EXPECT_EQ(s2->owner().get(), p1.get());
+    p1->remove_sequence("S2");
+    EXPECT_EQ(s2->owner().get(), nullptr);
+
+    std::vector<std::shared_ptr<sequence const>> saw;
+    p1->each_sequence([&](auto id, auto& element) {
+        if (id != element->simple_name()) {
+            throw std::runtime_error("fail");
+        }
+        saw.emplace_back(element);
+    });
+    EXPECT_EQ(saw.size(), 2);
+    EXPECT_NE(std::find(saw.begin(), saw.end(), s1), saw.end());
+    EXPECT_EQ(std::find(saw.begin(), saw.end(), s2), saw.end());
+    EXPECT_NE(std::find(saw.begin(), saw.end(), s3), saw.end());
+}
+
 } // namespace yugawara::storage

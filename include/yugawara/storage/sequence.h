@@ -9,8 +9,11 @@
 #include <cstdint>
 
 #include <takatori/util/object_creator.h>
+#include <takatori/util/optional_ptr.h>
 
 namespace yugawara::storage {
+
+class provider;
 
 /**
  * @brief provides sequence information.
@@ -131,6 +134,13 @@ public:
     sequence& increment_value(value_type value) noexcept;
 
     /**
+     * @brief returns the owner of this sequence.
+     * @return the owner
+     * @return empty if there are no provides that can provide this sequence
+     */
+    [[nodiscard]] ::takatori::util::optional_ptr<provider const> owner() const noexcept;
+
+    /**
      * @brief appends string representation of the given value.
      * @param out the target output
      * @param value the target value
@@ -144,6 +154,9 @@ private:
     value_type min_value_;
     value_type max_value_;
     value_type increment_value_;
+    provider const* owner_ {};
+
+    friend provider;
 };
 
 /**

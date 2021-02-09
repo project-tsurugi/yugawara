@@ -2,7 +2,11 @@
 
 #include <takatori/util/optional_print_support.h>
 
+#include <yugawara/storage/provider.h>
+
 namespace yugawara::storage {
+
+using ::takatori::util::optional_ptr;
 
 sequence::sequence(
         std::optional<definition_id_type> definition_id,
@@ -74,6 +78,10 @@ sequence::value_type sequence::increment_value() const noexcept {
 sequence& sequence::increment_value(sequence::value_type value) noexcept {
     increment_value_ = value;
     return *this;
+}
+
+::takatori::util::optional_ptr<provider const> sequence::owner() const noexcept {
+    return optional_ptr { owner_ };
 }
 
 std::ostream& operator<<(std::ostream& out, sequence const& value) {
