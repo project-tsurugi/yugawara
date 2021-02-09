@@ -11,6 +11,7 @@ add_library(yugawara
     yugawara/storage/table.cpp
     yugawara/storage/column.cpp
     yugawara/storage/index.cpp
+    yugawara/storage/sequence.cpp
     yugawara/storage/provider.cpp
     yugawara/storage/details/index_key_element.cpp
     yugawara/storage/details/search_key_element.cpp
