@@ -11,27 +11,35 @@ using ::takatori::util::optional_ptr;
 sequence::sequence(
         std::optional<definition_id_type> definition_id,
         simple_name_type simple_name,
+        value_type initial_value,
+        value_type increment_value,
         value_type min_value,
         value_type max_value,
-        value_type increment_value) noexcept :
+        bool cycle) noexcept :
     definition_id_ { std::move(definition_id) },
     simple_name_ { std::move(simple_name) },
+    initial_value_ { initial_value },
+    increment_value_ { increment_value },
     min_value_ { min_value },
     max_value_ { max_value },
-    increment_value_ { increment_value }
+    cycle_ { cycle }
 {}
 
 sequence::sequence(
         simple_name_type simple_name,
+        value_type initial_value,
+        value_type increment_value,
         value_type min_value,
         value_type max_value,
-        value_type increment_value) noexcept :
+        bool cycle) noexcept :
     sequence {
             {},
             std::move(simple_name),
+            initial_value,
+            increment_value,
             min_value,
             max_value,
-            increment_value,
+            cycle,
     }
 {}
 
@@ -53,11 +61,29 @@ sequence& sequence::simple_name(simple_name_type simple_name) noexcept {
     return *this;
 }
 
+sequence::value_type sequence::initial_value() const noexcept {
+    return initial_value_;
+}
+
+sequence& sequence::initial_value(value_type value) noexcept {
+    initial_value_ = value;
+    return *this;
+}
+
+sequence::value_type sequence::increment_value() const noexcept {
+    return increment_value_;
+}
+
+sequence& sequence::increment_value(value_type value) noexcept {
+    increment_value_ = value;
+    return *this;
+}
+
 sequence::value_type sequence::min_value() const noexcept {
     return min_value_;
 }
 
-sequence& sequence::min_value(sequence::value_type value) noexcept {
+sequence& sequence::min_value(value_type value) noexcept {
     min_value_ = value;
     return *this;
 }
@@ -66,17 +92,17 @@ sequence::value_type sequence::max_value() const noexcept {
     return max_value_;
 }
 
-sequence& sequence::max_value(sequence::value_type value) noexcept {
+sequence& sequence::max_value(value_type value) noexcept {
     max_value_ = value;
     return *this;
 }
 
-sequence::value_type sequence::increment_value() const noexcept {
-    return increment_value_;
+bool sequence::cycle() const noexcept {
+    return cycle_;
 }
 
-sequence& sequence::increment_value(sequence::value_type value) noexcept {
-    increment_value_ = value;
+sequence& sequence::cycle(bool enabled) noexcept {
+    cycle_ = enabled;
     return *this;
 }
 
@@ -89,9 +115,11 @@ std::ostream& operator<<(std::ostream& out, sequence const& value) {
     return out << "sequence" << "("
                << "definition_id=" << print_support { value.definition_id() } << ", "
                << "simple_name=" << value.simple_name() << ", "
+               << "initial_value=" << value.initial_value() << ", "
+               << "increment_value=" << value.increment_value() << ", "
                << "min_value=" << value.min_value() << ", "
                << "max_value=" << value.max_value() << ", "
-               << "increment_value=" << value.increment_value() << ")";
+               << "cycle=" << print_support { value.cycle() } << ")";
 }
 
 } // namespace yugawara::storage
