@@ -14,11 +14,12 @@ namespace yugawara::storage {
  */
 enum class column_value_kind : std::size_t {
 
-    /// @brief no column values, that is, the column must have an explicit default value.
+    /**
+     * @brief no default column values.
+     * If the target column is nullale, the column will be initialized by `NULL` by default.
+     * Otherwise, the column will require an explicit initial value.
+     */
     nothing = 0,
-
-    /// @brief the column should be initialized as `NULL` by default.
-    null,
 
     /// @brief the column should be initialized as the immediate value by default.
     immediate,
@@ -37,7 +38,6 @@ inline constexpr std::string_view to_string_view(column_value_kind value) noexce
     using kind = column_value_kind;
     switch (value) {
         case kind::nothing: return "nothing"sv;
-        case kind::null: return "null"sv;
         case kind::immediate: return "immediate"sv;
         case kind::sequence: return "sequence"sv;
     }

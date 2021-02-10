@@ -20,7 +20,7 @@ TEST_F(column_value_test, nothing) {
 TEST_F(column_value_test, nullptr) {
     column_value c { nullptr };
 
-    EXPECT_EQ(c.kind(), column_value_kind::null);
+    EXPECT_EQ(c.kind(), column_value_kind::nothing);
 }
 
 TEST_F(column_value_test, immediate) {

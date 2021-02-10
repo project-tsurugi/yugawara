@@ -71,7 +71,6 @@ bool operator==(column_value const& a, column_value const& b) {
     using kind = column_value::kind_type;
     switch (a.kind()) {
         case kind::nothing: return true;
-        case kind::null: return true;
         case kind::immediate: return eq<kind::immediate>(a, b);
         case kind::sequence: return eq<kind::sequence>(a, b);
     }
@@ -86,7 +85,6 @@ std::ostream& operator<<(std::ostream& out, column_value const& value) {
     using kind = column_value::kind_type;
     switch (value.kind()) {
         case kind::nothing: return print<kind::nothing>(out, value);
-        case kind::null: return print<kind::null>(out, value);
         case kind::immediate: return print<kind::immediate>(out, value);
         case kind::sequence: return print<kind::sequence>(out, value);
     }

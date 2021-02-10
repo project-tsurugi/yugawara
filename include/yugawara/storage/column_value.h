@@ -22,7 +22,6 @@ public:
     /// @brief the entity type
     using entity_type = std::variant<
             std::monostate, // nothing
-            std::monostate, // null
             std::shared_ptr<::takatori::value::data const>, // immediate
             std::shared_ptr<storage::sequence const> // sequence
             >;
@@ -45,7 +44,7 @@ public:
      * @see column_value_kind::null
      */
     constexpr column_value(std::nullptr_t) noexcept : // NOLINT
-        entity_ { std::in_place_index<static_cast<std::size_t>(kind_type::null)> }
+        entity_ { std::in_place_index<static_cast<std::size_t>(kind_type::nothing)> }
     {}
 
     /**
