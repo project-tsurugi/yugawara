@@ -10,6 +10,7 @@ add_library(yugawara
     yugawara/storage/relation.cpp
     yugawara/storage/table.cpp
     yugawara/storage/column.cpp
+    yugawara/storage/column_value.cpp
     yugawara/storage/index.cpp
     yugawara/storage/sequence.cpp
     yugawara/storage/provider.cpp
