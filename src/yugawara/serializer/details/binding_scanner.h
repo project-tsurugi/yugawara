@@ -21,6 +21,7 @@
 
 #include <yugawara/storage/index.h>
 #include <yugawara/storage/column.h>
+#include <yugawara/storage/column_value.h>
 #include <yugawara/function/declaration.h>
 #include <yugawara/aggregate/declaration.h>
 #include <yugawara/variable/declaration.h>
@@ -56,6 +57,7 @@ private:
     ::takatori::util::optional_ptr<analyzer::variable_mapping const> variable_mapping_;
     ::takatori::util::optional_ptr<analyzer::expression_mapping const> expression_mapping_;
 
+    void accept(storage::column_value const& element);
     void accept(variable::criteria const& element);
     void accept(storage::details::index_key_element const& element);
 

@@ -9,23 +9,24 @@ column::column(
         simple_name_type simple_name,
         std::shared_ptr<takatori::type::data const> type,
         variable::criteria criteria,
-        std::shared_ptr<takatori::value::data const> default_value) noexcept
-    : simple_name_(std::move(simple_name))
-    , type_(std::move(type))
-    , criteria_(std::move(criteria))
-    , default_value_(std::move(default_value))
+        column_value default_value) noexcept :
+    simple_name_ { std::move(simple_name) },
+    type_ { std::move(type) },
+    criteria_ { std::move(criteria) },
+    default_value_ { std::move(default_value) }
 {}
 
 column::column(
         std::string_view simple_name,
         takatori::type::data&& type,
         variable::criteria criteria,
-        takatori::util::rvalue_ptr<takatori::value::data> default_value)
-    : column(
-            decltype(simple_name_) { simple_name },
-            takatori::util::clone_shared(std::move(type)),
-            std::move(criteria),
-            takatori::util::clone_shared(default_value))
+        column_value default_value) :
+    column {
+        decltype(simple_name_) { simple_name },
+        takatori::util::clone_shared(std::move(type)),
+        std::move(criteria),
+        std::move(default_value),
+    }
 {}
 
 column::column(column const& other, takatori::util::object_creator creator)
@@ -86,17 +87,12 @@ variable::criteria const& column::criteria() const noexcept {
     return criteria_;
 }
 
-takatori::util::optional_ptr<takatori::value::data const> column::default_value() const noexcept {
-    return takatori::util::optional_ptr<takatori::value::data const> { default_value_.get() };
-}
-
-std::shared_ptr<takatori::value::data const> column::shared_default_value() const noexcept {
+column_value& column::default_value() noexcept {
     return default_value_;
 }
 
-column& column::default_value(std::shared_ptr<takatori::value::data const> default_value) noexcept {
-    default_value_ = std::move(default_value);
-    return *this;
+column_value const& column::default_value() const noexcept {
+    return default_value_;
 }
 
 relation const& column::owner() const noexcept {

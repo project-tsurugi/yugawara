@@ -86,9 +86,7 @@ void binding_scanner::properties(storage::column const& element) {
     acceptor_.property_end();
 
     acceptor_.property_begin("default_value"sv);
-    if (auto v = element.default_value()) {
-        scanner_(*v, acceptor_);
-    }
+    accept(element.default_value());
     acceptor_.property_end();
 
     acceptor_.property_begin("owner"sv);
@@ -221,6 +219,40 @@ void binding_scanner::properties(aggregate::declaration const& element) {
         acceptor_.boolean(element.incremental());
     }
     acceptor_.property_end();
+}
+
+void binding_scanner::accept(storage::column_value const& element) {
+    acceptor_.struct_begin();
+
+    acceptor_.property_begin("kind"sv);
+    acceptor_.string(to_string_view(element.kind()));
+    acceptor_.property_end();
+
+    using kind = storage::column_value::kind_type;
+    switch (element.kind()) {
+        case kind::nothing:
+            break;
+
+        case kind::immediate: {
+            acceptor_.property_begin("element"sv);
+            if (auto&& e = element.element<kind::immediate>()) {
+                scanner_(*e, acceptor_);
+            }
+            acceptor_.property_end();
+            break;
+        }
+
+        case kind::sequence: {
+            acceptor_.property_begin("element"sv);
+            if (auto&& e = element.element<kind::sequence>()) {
+                acceptor_.string(e->simple_name());
+            }
+            acceptor_.property_end();
+            break;
+        }
+    }
+
+    acceptor_.struct_end();
 }
 
 void binding_scanner::accept(variable::criteria const& element) {

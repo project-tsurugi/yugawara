@@ -39,10 +39,10 @@ TEST_F(column_test, default_value) {
             "C1",
             t::int4(),
             {},
-            v::int4(100),
+            { v::int4(100) },
     };
 
-    EXPECT_EQ(c.default_value(), v::int4(100));
+    EXPECT_EQ(c.default_value(), column_value { v::int4(100) });
 }
 
 TEST_F(column_test, output) {
@@ -50,7 +50,7 @@ TEST_F(column_test, output) {
             "C1",
             t::int4(),
             ~variable::nullable,
-            v::int4(100),
+            { v::int4(100) },
     };
     std::cout << c << std::endl;
 }

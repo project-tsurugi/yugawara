@@ -7,13 +7,14 @@
 #include <utility>
 
 #include <takatori/type/data.h>
-#include <takatori/value/data.h>
 #include <takatori/util/object_creator.h>
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/reference_list_view.h>
 #include <takatori/util/rvalue_ptr.h>
 
 #include <yugawara/variable/criteria.h>
+
+#include "column_value.h"
 
 namespace yugawara::storage {
 
@@ -39,13 +40,13 @@ public:
      * @param simple_name the simple name
      * @param type the column data type
      * @param criteria the column value criteria
-     * @param default_value the column default value (nullable)
+     * @param default_value the column default value
      */
     explicit column(
             simple_name_type simple_name,
             std::shared_ptr<takatori::type::data const> type,
             variable::criteria criteria,
-            std::shared_ptr<takatori::value::data const> default_value) noexcept;
+            column_value default_value) noexcept;
 
     /**
      * @brief constructs a new object.
@@ -59,7 +60,7 @@ public:
             std::string_view simple_name,
             takatori::type::data&& type,
             variable::criteria criteria = {},
-            takatori::util::rvalue_ptr<takatori::value::data> default_value = {});
+            column_value default_value = {});
 
     /**
      * @brief creates a new object.
@@ -138,23 +139,11 @@ public:
     /**
      * @brief returns the default value.
      * @return the default value
-     * @return empty if the default value is not defined
      */
-    [[nodiscard]] takatori::util::optional_ptr<takatori::value::data const> default_value() const noexcept;
+    [[nodiscard]] column_value& default_value() noexcept;
 
-    /**
-     * @brief returns the default value for share its object.
-     * @return the default value for sharing
-     * @return empty if the value is not defined
-     */
-    [[nodiscard]] std::shared_ptr<takatori::value::data const> shared_default_value() const noexcept;
-
-    /**
-     * @brief sets a default value.
-     * @param default_value the default value
-     * @return this
-     */
-    column& default_value(std::shared_ptr<takatori::value::data const> default_value) noexcept;
+    /// @copydoc default_value()
+    [[nodiscard]] column_value const& default_value() const noexcept;
 
     /**
      * @brief returns what declares this column.
@@ -190,7 +179,7 @@ private:
     simple_name_type simple_name_;
     std::shared_ptr<takatori::type::data const> type_;
     variable::criteria criteria_;
-    std::shared_ptr<takatori::value::data const> default_value_;
+    column_value default_value_;
     relation* owner_ {};
 };
 
