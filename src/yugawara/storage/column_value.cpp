@@ -8,7 +8,7 @@ namespace yugawara::storage {
 using ::takatori::util::clone_shared;
 
 column_value::column_value(std::shared_ptr<::takatori::value::data const> element) noexcept :
-    entity_ { std::in_place_index<static_cast<std::size_t>(kind_type::immediate)>, std::move(element) }
+    entity_ { std::move(element) }
 {}
 
 column_value::column_value(::takatori::util::rvalue_ptr<::takatori::value::data> element) :
@@ -18,7 +18,7 @@ column_value::column_value(::takatori::util::rvalue_ptr<::takatori::value::data>
 {}
 
 column_value::column_value(std::shared_ptr<storage::sequence const> source) noexcept :
-    entity_ { std::in_place_index<static_cast<std::size_t>(kind_type::sequence)>, std::move(source) }
+    entity_ { std::move(source) }
 {}
 
 namespace {

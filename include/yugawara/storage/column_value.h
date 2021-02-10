@@ -40,12 +40,10 @@ public:
     constexpr column_value() noexcept = default;
 
     /**
-     * @brief creates a new instance which represents `NULL`.
-     * @see column_value_kind::null
+     * @brief creates a new instance which represents "no default value".
+     * @see column_value_kind::nothing
      */
-    constexpr column_value(std::nullptr_t) noexcept : // NOLINT
-        entity_ { std::in_place_index<static_cast<std::size_t>(kind_type::nothing)> }
-    {}
+    constexpr column_value(std::nullptr_t) noexcept : column_value {} {} // NOLINT
 
     /**
      * @brief creates a new instance which represents an immediate value.
@@ -98,7 +96,8 @@ public:
     }
 
 private:
-    entity_type entity_ {  std::in_place_index<static_cast<std::size_t>(kind_type::nothing)> };
+    static_assert(static_cast<std::size_t>(kind_type::nothing) == 0);
+    entity_type entity_ {};
 };
 
 /**
