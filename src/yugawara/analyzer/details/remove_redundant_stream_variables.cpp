@@ -1,5 +1,7 @@
 #include "remove_redundant_stream_variables.h"
 
+#include <vector>
+
 #include <tsl/hopscotch_set.h>
 
 #include <takatori/scalar/walk.h>
@@ -24,17 +26,35 @@ namespace {
 
 class engine {
 public:
-    explicit engine(::takatori::util::object_creator creator)
-        : used_(creator.allocator())
+    explicit engine(::takatori::util::object_creator creator) :
+        used_ { creator.allocator() },
+        to_be_removed_ { creator.allocator() }
     {}
 
     void process(relation::graph_type& graph) {
+        to_be_removed_.clear();
         relation::sort_from_downstream(
                 graph,
                 [this](relation::expression& expr) {
                     relation::intermediate::dispatch(*this, expr);
                 },
                 used_.get_allocator().resource());
+
+        // remove marked operators to be removed
+        for (relation::expression const& target : to_be_removed_) {
+            if (auto it = graph.find(target); it != graph.end()) {
+                auto&& expr = *it;
+                BOOST_ASSERT(expr.input_ports().size() == 1); // NOLINT
+                BOOST_ASSERT(expr.output_ports().size() == 1); // NOLINT
+                auto&& upstream = expr.input_ports()[0].opposite();
+                auto&& downstream = expr.output_ports()[0].opposite();
+                if (upstream && downstream) {
+                    upstream->reconnect_to(*downstream);
+                    graph.erase(it);
+                }
+            }
+        }
+        to_be_removed_.clear();
     }
 
     void operator()(relation::expression const& expr) {
@@ -99,6 +119,9 @@ public:
 
     void operator()(relation::project& expr) {
         remove_unused_declarators(expr.columns());
+        if (expr.columns().empty()) {
+            to_be_removed_.emplace_back(expr);
+        }
     }
 
     void operator()(relation::filter& expr) {
@@ -107,6 +130,12 @@ public:
 
     constexpr void operator()(relation::buffer const&) noexcept {
         // no use/defs
+    }
+
+    void operator()(relation::identify const& expr) {
+        if (!is_used(expr.variable())) {
+            to_be_removed_.emplace_back(expr);
+        }
     }
 
     void operator()(relation::intermediate::aggregate& expr) {
@@ -180,13 +209,16 @@ public:
         return false; // suppress auto walk
     }
 
-
 private:
-    tsl::hopscotch_set<
+    ::tsl::hopscotch_set<
             descriptor::variable,
             std::hash<descriptor::variable>,
             std::equal_to<>,
             ::takatori::util::object_allocator<descriptor::variable>> used_;
+
+    std::vector<
+            std::reference_wrapper<relation::expression const>,
+            ::takatori::util::object_allocator<std::reference_wrapper<relation::expression const>>> to_be_removed_;
 
     void use(descriptor::variable variable) {
         used_.emplace(std::move(variable));

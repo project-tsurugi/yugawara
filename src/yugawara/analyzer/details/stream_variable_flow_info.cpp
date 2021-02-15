@@ -103,6 +103,11 @@ public:
         // continue
     }
 
+    void operator()(relation::identify const& expr) {
+        entry_.declare(expr.variable(), expr);
+        // continue
+    }
+
     void operator()(relation::intermediate::aggregate const& expr) {
         declare_mappings(expr, expr.columns());
         // continue

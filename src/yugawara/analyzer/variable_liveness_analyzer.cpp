@@ -148,6 +148,10 @@ public:
         // no definitions & uses
     }
 
+    void operator()(relation::identify const& expr, block_info& info) {
+        define(expr.variable(), info);
+    }
+
     void operator()(relation::emit const& expr, block_info& info) {
         for (auto&& column : expr.columns()) {
             use(column.source(), info);

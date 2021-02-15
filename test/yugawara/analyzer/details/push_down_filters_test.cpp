@@ -9,6 +9,7 @@
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/buffer.h>
+#include <takatori/relation/identify.h>
 #include <takatori/relation/emit.h>
 
 #include <takatori/relation/intermediate/join.h>
@@ -706,6 +707,82 @@ TEST_F(push_down_filters_test, buffer) {
     EXPECT_GT(f0.output(), rf.input());
 
     EXPECT_EQ(f0.condition(), compare(varref(c0), constant(0)));
+    EXPECT_EQ(rf.condition(), boolean(true));
+}
+
+TEST_F(push_down_filters_test, identify_flush) {
+    /*
+     * scan:r0 - identify:r1 - filter:rf - ...
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+                    { t0c2, c2 },
+            },
+    });
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r1 = r.insert(relation::identify {
+            x0,
+            t::row_id { 2 },
+    });
+    auto&& rf = r.insert(relation::filter {
+            compare(varref(x0), varref(x0)),
+    });
+    r0.output() >> r1.input();
+    r1.output() >> rf.input();
+
+    connect(rf.output());
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    auto&& f0 = next<relation::filter>(r1.output());
+    EXPECT_GT(f0.output(), rf.input());
+
+    EXPECT_EQ(f0.condition(), compare(varref(x0), varref(x0)));
+    EXPECT_EQ(rf.condition(), boolean(true));
+}
+
+TEST_F(push_down_filters_test, identify_pass) {
+    /*
+     * scan:r0 - identify:r1 - filter:rf - ...
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+                    { t0c2, c2 },
+            },
+    });
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r1 = r.insert(relation::identify {
+            x0,
+            t::row_id { 2 },
+    });
+    auto&& rf = r.insert(relation::filter {
+            compare(varref(c2), constant(0)),
+    });
+    r0.output() >> r1.input();
+    r1.output() >> rf.input();
+
+    connect(rf.output());
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    auto&& f0 = next<relation::filter>(r0.output());
+    EXPECT_GT(f0.output(), r1.input());
+
+    EXPECT_EQ(f0.condition(), compare(varref(c2), constant(0)));
     EXPECT_EQ(rf.condition(), boolean(true));
 }
 

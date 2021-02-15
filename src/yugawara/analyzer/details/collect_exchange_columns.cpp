@@ -145,6 +145,11 @@ public:
         // just through all columns
     }
 
+    void operator()(relation::identify const& expr, buffer_type& available_columns) {
+        expand(available_columns, 1);
+        available_columns.emplace_back(expr.variable());
+    }
+
     void operator()(relation::emit const&, buffer_type& available_columns) {
         // no more succeeding operations
         available_columns.clear();

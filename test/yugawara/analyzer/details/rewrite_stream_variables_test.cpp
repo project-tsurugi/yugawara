@@ -17,6 +17,7 @@
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/buffer.h>
+#include <takatori/relation/identify.h>
 #include <takatori/relation/emit.h>
 #include <takatori/relation/write.h>
 
@@ -773,6 +774,52 @@ TEST_F(rewrite_stream_variables_test, buffer) {
     // emit - o1
     ASSERT_EQ(ro1.columns().size(), 1);
     EXPECT_EQ(ro1.columns()[0].source(), c2p0);
+}
+
+TEST_F(rewrite_stream_variables_test, identify) {
+    /*
+     * [scan:r0 - identify:r1 - emit:ro]:p0
+     */
+    plan::graph_type p;
+    auto&& p0 = p.insert(plan::process {});
+
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = p0.operators().insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+                    { t0c2, c2 },
+            },
+    });
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r1 = p0.operators().insert(relation::identify {
+            x0,
+            t::row_id { 2 },
+    });
+    auto&& ro = p0.operators().insert(relation::emit {
+            c2,
+            x0,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> ro.input();
+
+    apply(p);
+
+    // scan - p0
+    ASSERT_EQ(r0.columns().size(), 1);
+    EXPECT_EQ(r0.columns()[0].source(), t0c2);
+    auto&& c2p0 = r0.columns()[0].destination();
+
+    // identify
+    auto&& x0p0 = r1.variable();
+
+    // emit
+    ASSERT_EQ(ro.columns().size(), 2);
+    EXPECT_EQ(ro.columns()[0].source(), c2p0);
+    EXPECT_EQ(ro.columns()[1].source(), x0p0);
 }
 
 TEST_F(rewrite_stream_variables_test, emit) {

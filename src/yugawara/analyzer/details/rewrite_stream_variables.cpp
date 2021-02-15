@@ -173,6 +173,10 @@ public:
         // no column references
     }
 
+    void operator()(relation::identify& expr) {
+        (void) context_.try_rewrite_define(expr.variable());
+    }
+
     void operator()(relation::emit& expr) {
         for (auto&& column : expr.columns()) {
             context_.rewrite_use(column.source());

@@ -19,6 +19,7 @@
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/buffer.h>
+#include <takatori/relation/identify.h>
 #include <takatori/relation/intermediate/aggregate.h>
 #include <takatori/relation/intermediate/distinct.h>
 #include <takatori/relation/intermediate/limit.h>
@@ -411,6 +412,18 @@ TEST_F(expression_analyzer_relation_test, buffer) {
     auto b = analyzer.resolve(expr, true, false, repo);
     ASSERT_TRUE(b) << *this;
     EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_relation_test, identify) {
+    auto c1 = bindings.stream_variable();
+    r::identify expr {
+            c1,
+            t::row_id { 1 },
+    };
+    auto b = analyzer.resolve(expr, true, false, repo);
+    ASSERT_TRUE(b) << *this;
+    EXPECT_TRUE(ok());
+    EXPECT_EQ(type(c1), t::row_id { 1 });
 }
 
 TEST_F(expression_analyzer_relation_test, aggregate) {

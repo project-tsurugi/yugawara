@@ -1031,6 +1031,11 @@ public:
         return true;
     }
 
+    bool operator()(relation::identify const& expr) {
+        ana_.variables().bind(expr.variable(), variable_resolution { expr.shared_type() });
+        return true;
+    }
+
     constexpr bool operator()(relation::buffer const&) noexcept {
         return true;
     }

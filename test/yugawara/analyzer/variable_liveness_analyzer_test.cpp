@@ -10,6 +10,7 @@
 #include <takatori/relation/filter.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/buffer.h>
+#include <takatori/relation/identify.h>
 #include <takatori/relation/step/offer.h>
 #include <takatori/relation/step/take_flat.h>
 
@@ -77,6 +78,7 @@ public:
     };
 };
 
+namespace ttype = ::takatori::type;
 namespace relation = ::takatori::relation;
 namespace scalar = ::takatori::scalar;
 using take = relation::step::take_flat;
@@ -392,6 +394,64 @@ TEST_F(variable_liveness_analyzer_test, buffer) {
 
     EXPECT_EQ(eq(n2.kill(), {
             c1,
+    }), no_error);
+}
+
+TEST_F(variable_liveness_analyzer_test, identify) {
+    rgraph rg;
+
+    auto&& c1 = bindings.stream_variable();
+    auto&& c2 = bindings.stream_variable();
+    auto&& c3 = bindings.stream_variable();
+    auto&& r1 = rg.insert(take {
+            bindings.exchange(f1),
+            {
+                    { f1.columns()[0], c1 },
+                    { f1.columns()[1], c2 },
+                    { f1.columns()[2], c3 },
+            },
+    });
+    auto&& p1 = bindings.stream_variable("p1");
+    auto&& r2 = rg.insert(relation::identify {
+            p1,
+            ttype::row_id { 1 },
+    });
+    auto&& r3 = rg.insert(offer {
+            bindings.exchange(f2),
+            {
+                    { c1, f2.columns()[0] },
+                    { p1, f2.columns()[1] },
+                    { c2, f2.columns()[2] },
+            },
+    });
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    auto bg = block_builder::build(rg);
+    variable_liveness_analyzer analyzer { bg };
+
+    ASSERT_EQ(bg.size(), 1);
+    auto&& b0 = *find_unique_head(bg); // r1 .. r3
+    auto&& n0 = analyzer.inspect(b0);
+
+    EXPECT_EQ(eq(n0.define(), {
+            c1,
+            c2,
+            c3,
+            p1,
+    }), no_error);
+
+    EXPECT_EQ(eq(n0.use(), {
+            c1,
+            c2,
+            p1,
+            f1.columns()[0],
+            f1.columns()[1],
+            f1.columns()[2],
+    }), no_error);
+
+    EXPECT_EQ(eq(n0.kill(), {
+            c3,
     }), no_error);
 }
 

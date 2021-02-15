@@ -14,6 +14,7 @@
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/buffer.h>
+#include <takatori/relation/identify.h>
 #include <takatori/relation/emit.h>
 #include <takatori/relation/write.h>
 
@@ -658,6 +659,42 @@ TEST_F(collect_exchange_columns_test, buffer) {
     EXPECT_EQ(ro1.columns()[0].source(), c0);
     EXPECT_EQ(ro1.columns()[1].source(), c1);
     EXPECT_EQ(ro1.columns()[2].source(), c3);
+}
+
+TEST_F(collect_exchange_columns_test, identify) {
+    /*
+     * [scan:r0 - identify:r1 - offer:ro]:p0 - ...
+     */
+    plan::graph_type p;
+    auto&& p0 = p.insert(plan::process {});
+    auto&& sink = create_sink(p);
+
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto& r0 = p0.operators().insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+            },
+    });
+    auto c2 = bindings.stream_variable("c2");
+    auto& r1 = p0.operators().insert(relation::identify {
+            c2,
+            t::row_id { 2 },
+    });
+    auto& ro = p0.operators().insert(offer {
+            bindings(sink),
+    });
+    r0.output() >> r1.input();
+    r1.output() >> ro.input();
+
+    apply(p);
+
+    ASSERT_EQ(ro.columns().size(), 3);
+    EXPECT_EQ(ro.columns()[0].source(), c0);
+    EXPECT_EQ(ro.columns()[1].source(), c1);
+    EXPECT_EQ(ro.columns()[2].source(), c2);
 }
 
 TEST_F(collect_exchange_columns_test, emit) {

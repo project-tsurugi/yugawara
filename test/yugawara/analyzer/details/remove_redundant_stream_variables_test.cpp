@@ -14,6 +14,7 @@
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/buffer.h>
+#include <takatori/relation/identify.h>
 #include <takatori/relation/emit.h>
 #include <takatori/relation/write.h>
 
@@ -471,6 +472,51 @@ TEST_F(remove_redundant_stream_variables_test, project) {
     EXPECT_EQ(r1.columns()[2].value(), constant(3));
 }
 
+TEST_F(remove_redundant_stream_variables_test, project_dead) {
+    /*
+     * scan:r0 - project:r1 - emit:ro
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+                    { t0c2, c2 },
+            },
+    });
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r1 = r.insert(relation::project {
+            relation::project::column {
+                    varref { c0 },
+                    x0,
+            },
+    });
+    auto&& ro = r.insert(relation::emit {
+            c1,
+            c2,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> ro.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 2);
+    ASSERT_TRUE(r.contains(r0));
+    ASSERT_TRUE(r.contains(ro));
+    ASSERT_TRUE(r0.output().is_connected(ro.input()));
+
+    // scan
+    ASSERT_EQ(r0.columns().size(), 2);
+    EXPECT_EQ(r0.columns()[0].source(), t0c1);
+    EXPECT_EQ(r0.columns()[1].source(), t0c2);
+    EXPECT_EQ(r0.columns()[0].destination(), c1);
+    EXPECT_EQ(r0.columns()[1].destination(), c2);
+}
+
 TEST_F(remove_redundant_stream_variables_test, filter) {
     /*
      * scan:r0 - filter:r1 - emit:ro
@@ -554,6 +600,116 @@ TEST_F(remove_redundant_stream_variables_test, buffer) {
     EXPECT_EQ(r0.columns()[1].source(), t0c2);
     EXPECT_EQ(r0.columns()[0].destination(), c1);
     EXPECT_EQ(r0.columns()[1].destination(), c2);
+}
+
+TEST_F(remove_redundant_stream_variables_test, identify_keep) {
+    /*
+     * scan:r0 - identify:r1 - filter:r2 - emit:ro
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+                    { t0c2, c2 },
+            },
+    });
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r1 = r.insert(relation::identify {
+            x0,
+            t::row_id { 2 },
+    });
+    auto&& r2 = r.insert(relation::filter {
+            scalar::compare {
+                    scalar::comparison_operator::equal,
+                    scalar::variable_reference { x0 },
+                    scalar::variable_reference { x0 },
+            },
+    });
+    auto&& ro = r.insert(relation::emit {
+            c1,
+            c2,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> ro.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 4);
+
+    // scan
+    ASSERT_EQ(r0.columns().size(), 2);
+    EXPECT_EQ(r0.columns()[0].source(), t0c1);
+    EXPECT_EQ(r0.columns()[1].source(), t0c2);
+    EXPECT_EQ(r0.columns()[0].destination(), c1);
+    EXPECT_EQ(r0.columns()[1].destination(), c2);
+
+    // filter
+    ASSERT_EQ(r2.condition(), (scalar::compare {
+            scalar::comparison_operator::equal,
+            scalar::variable_reference { x0 },
+            scalar::variable_reference { x0 },
+    }));
+}
+
+TEST_F(remove_redundant_stream_variables_test, identify_dead) {
+    /*
+     * scan:r0 - identify:r1 - filter:r2 - emit:ro
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+                    { t0c2, c2 },
+            },
+    });
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r1 = r.insert(relation::identify {
+            x0,
+            t::row_id { 2 },
+    });
+    auto&& r2 = r.insert(relation::filter {
+            scalar::compare {
+                    scalar::comparison_operator::equal,
+                    scalar::variable_reference { c1 },
+                    scalar::variable_reference { c2 },
+            },
+    });
+    auto&& ro = r.insert(relation::emit {
+            c2,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> ro.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 3);
+    ASSERT_TRUE(r0.output().is_connected(r2.input()));
+
+    // scan
+    ASSERT_EQ(r0.columns().size(), 2);
+    EXPECT_EQ(r0.columns()[0].source(), t0c1);
+    EXPECT_EQ(r0.columns()[1].source(), t0c2);
+    EXPECT_EQ(r0.columns()[0].destination(), c1);
+    EXPECT_EQ(r0.columns()[1].destination(), c2);
+
+    // filter
+    ASSERT_EQ(r2.condition(), (scalar::compare {
+            scalar::comparison_operator::equal,
+            scalar::variable_reference { c1 },
+            scalar::variable_reference { c2 },
+    }));
 }
 
 TEST_F(remove_redundant_stream_variables_test, aggregate_relation) {

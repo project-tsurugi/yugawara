@@ -14,6 +14,7 @@
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/buffer.h>
+#include <takatori/relation/identify.h>
 #include <takatori/relation/emit.h>
 #include <takatori/relation/write.h>
 
@@ -504,6 +505,41 @@ TEST_F(stream_variable_flow_info_test, buffer) {
     EXPECT_EQ(e1->originator(), r0);
     EXPECT_EQ(e1->find(c1), r0);
     EXPECT_EQ(e1->find(c2), r0);
+}
+
+TEST_F(stream_variable_flow_info_test, identify) {
+    /*
+     * scan:r0 - identify:r1 - ...
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+                    { t0c2, c2 },
+            },
+    });
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r1 = r.insert(relation::identify {
+            x0,
+            t::row_id { 2 },
+    });
+    r0.output() >> r1.input();
+
+    auto&& input = connect(r1.output());
+
+    stream_variable_flow_info info;
+    auto&& entry = info.find(x0, input);
+    ASSERT_TRUE(entry);
+
+    EXPECT_EQ(entry->originator(), r0);
+    EXPECT_EQ(entry->find(c1), r0);
+    EXPECT_EQ(entry->find(c2), r0);
+    EXPECT_EQ(entry->find(x0), r1);
 }
 
 TEST_F(stream_variable_flow_info_test, aggregate_relation) {

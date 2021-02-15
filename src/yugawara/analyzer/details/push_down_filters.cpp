@@ -294,6 +294,18 @@ public:
         pass(expr.input(), std::move(mask));
     }
 
+    void operator()(relation::identify& expr, mask_type&& mask) {
+        for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
+            auto&& predicate = predicates_[i];
+            if (predicate.use(expr.variable())) {
+                // NOTE: predicates may not use row_id column in most cases..
+                flush(expr.output(), predicate);
+                mask.reset(i);
+            }
+        }
+        pass(expr.input(), std::move(mask));
+    }
+
     void operator()(relation::intermediate::aggregate& expr, mask_type&& mask) {
         BOOST_ASSERT(work_.empty()); // NOLINT
         work_.reserve(expr.group_keys().size());
