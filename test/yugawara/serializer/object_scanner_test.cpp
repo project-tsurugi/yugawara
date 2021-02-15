@@ -67,8 +67,37 @@ TEST_F(object_scanner_test, table_column) {
                     {
                             "C0",
                             t::int4 {},
+                    },
+            },
+    };
+    print(bindings(t.columns()[0]));
+}
+
+TEST_F(object_scanner_test, table_column_default_immediate) {
+    storage::table t {
+            "T",
+            {
+                    {
+                            "C0",
+                            t::int4 {},
                             variable::nullable,
-                            v::int4 { 100 },
+                            { v::int4 { 100 } },
+                    },
+            },
+    };
+    print(bindings(t.columns()[0]));
+}
+
+TEST_F(object_scanner_test, table_column_default_sequence) {
+    auto seq = std::make_shared<storage::sequence>("S1");
+    storage::table t {
+            "T",
+            {
+                    {
+                            "C0",
+                            t::int4 {},
+                            variable::nullable,
+                            { seq },
                     },
             },
     };
@@ -265,8 +294,6 @@ TEST_F(object_scanner_test, resolution_table_column) {
                     {
                             "C0",
                             t::int4 {},
-                            variable::nullable,
-                            v::int4 { 100 },
                     },
             },
     };

@@ -7,6 +7,7 @@
 #include "relation.h"
 #include "table.h"
 #include "index.h"
+#include "sequence.h"
 
 namespace yugawara::storage {
 
@@ -33,6 +34,11 @@ public:
      * @brief the index consumer type.
      */
     using index_consumer_type = consumer_type<index>;
+
+    /**
+     * @brief the sequence consumer type.
+     */
+    using sequence_consumer_type = consumer_type<sequence>;
 
     /**
      * @brief creates a new instance.
@@ -74,6 +80,14 @@ public:
     [[nodiscard]] virtual std::shared_ptr<index const> find_index(std::string_view id) const = 0;
 
     /**
+     * @brief returns a sequence.
+     * @param id the sequence ID
+     * @return the corresponded sequence
+     * @return empty if it is absent
+     */
+    [[nodiscard]] virtual std::shared_ptr<sequence const> find_sequence(std::string_view id) const = 0;
+
+    /**
      * @brief provides all relations in this provider.
      * @param consumer the destination consumer, which accepts pairs of element ID and element
      */
@@ -100,6 +114,12 @@ public:
      */
     [[nodiscard]] virtual std::shared_ptr<index const> find_primary_index(class table const& table) const;
 
+    /**
+     * @brief provides all sequences in this provider.
+     * @param consumer the destination consumer, which accepts pairs of element ID and element
+     */
+    virtual void each_sequence(sequence_consumer_type const& consumer) const = 0;
+
 protected:
     /**
      * @brief set this as the given relation's owner.
@@ -118,6 +138,24 @@ protected:
      * @see relation::owner()
      */
     void unbless(relation& element);
+    
+    /**
+     * @brief set this as the given sequence's owner.
+     * @details Subclasses should call this function every sequence was registered.
+     * @param element the target sequence
+     * @throws std::invalid_argument if the target sequence has been already another provider
+     * @see sequence::owner()
+     */
+    void bless(sequence& element);
+
+    /**
+     * @brief clears the given sequence's owner.
+     * @details Subclasses should call this function every sequence goes to unregister.
+     * @param element the target sequence
+     * @throws std::invalid_argument if this does not own the given sequence
+     * @see sequence::owner()
+     */
+    void unbless(sequence& element);
 };
 
 } // namespace yugawara::storage

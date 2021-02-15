@@ -61,4 +61,32 @@ void provider::unbless(relation& element) {
     });
 }
 
+void provider::bless(sequence& element) {
+    if (element.owner_ == nullptr || element.owner_ == this) {
+        element.owner_ = this;
+        return;
+    }
+    using ::takatori::util::throw_exception;
+    using ::takatori::util::string_builder;
+    throw_exception(std::invalid_argument { string_builder {}
+            << "sequence '" << element.simple_name() << "' "
+            << "is already bind to " << element.owner_
+            << string_builder::to_string
+    });
+}
+
+void provider::unbless(sequence& element) {
+    if (element.owner_ == nullptr || element.owner_ == this) {
+        element.owner_ = nullptr;
+        return;
+    }
+    using ::takatori::util::throw_exception;
+    using ::takatori::util::string_builder;
+    throw_exception(std::invalid_argument { string_builder {}
+            << "sequence '" << element.simple_name() << "' "
+            << "is not owned by this provider: " << element.owner_
+            << string_builder::to_string
+    });
+}
+
 } // namespace yugawara::storage
