@@ -34,7 +34,7 @@ public:
     using writer_lock_type = std::unique_lock<mutex_type>;
 
     /// @brief the readers lock type.
-    using reader_lock_type = util::maybe_shared_lock_t<mutex_type>;
+    using reader_lock_type = util::maybe_shared_lock<mutex_type>;
 
     /**
      * @brief creates a new object.
