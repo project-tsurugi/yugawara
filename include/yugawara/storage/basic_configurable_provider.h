@@ -13,13 +13,15 @@
 #include <takatori/util/object_creator.h>
 #include <takatori/util/optional_ptr.h>
 
+#include <yugawara/util/maybe_shared_lock.h>
+
 #include "provider.h"
 
 namespace yugawara::storage {
 
 /**
  * @brief an implementation of provider that can configurable its contents.
- * @tparam Mutex the mutex type, must satisfy *DefaultConstructible* and *BasicLockable*
+ * @tparam Mutex the mutex type, must satisfy *DefaultConstructible* and *BasicLockable*.
  * @note This class works as thread-safe only if the mutex works right
  */
 template<class Mutex>
@@ -27,6 +29,12 @@ class basic_configurable_provider : public provider {
 public:
     /// @brief the mutex type.
     using mutex_type = Mutex;
+
+    /// @brief the writer lock type.
+    using writer_lock_type = std::unique_lock<mutex_type>;
+
+    /// @brief the readers lock type.
+    using reader_lock_type = util::maybe_shared_lock<mutex_type>;
 
     /**
      * @brief creates a new object.
@@ -319,7 +327,7 @@ private:
     [[nodiscard]] std::shared_ptr<element_type<Container> const> internal_find(
             Container& container,
             std::string_view id) const {
-        std::lock_guard lock { mutex_ };
+        reader_lock_type lock { mutex_ };
         // child first
         if (auto iter = container.find(id); iter != container.end()) {
             return iter->second;
@@ -335,7 +343,7 @@ private:
     void internal_each(
             Container& container,
             consumer_type<element_type<Container>> const& consumer) const {
-        std::lock_guard lock { mutex_ };
+        reader_lock_type lock { mutex_ };
         for (auto&& entry : container) {
             consumer(entry.first, entry.second);
         }
@@ -363,7 +371,7 @@ private:
         auto id = element->simple_name();
         key_type key { id, get_object_creator().allocator() };
 
-        std::lock_guard lock { mutex_ };
+        writer_lock_type lock { mutex_ };
         if (overwrite) {
             auto [iter, success] = container.insert_or_assign(std::move(key), std::move(element));
             (void) success;
@@ -388,7 +396,7 @@ private:
     bool internal_remove(
             Container& container,
             std::string_view id) {
-        std::lock_guard lock { mutex_ };
+        writer_lock_type lock { mutex_ };
         if (auto iter = container.find(id); iter != container.end()) {
             using element_type = element_type<Container>;
             if constexpr (is_bless_target_v<element_type>) { // NOLINT
