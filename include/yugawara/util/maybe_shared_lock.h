@@ -22,7 +22,7 @@ struct maybe_shared_lock : ::takatori::util::meta_type<std::unique_lock<Mutex>> 
 template <>
 struct maybe_shared_lock<std::shared_mutex> : ::takatori::util::meta_type<std::shared_lock<std::shared_mutex>> {};
 
-} // namespace details
+} // namespace impl
 
 /**
  * @brief provides shared lock type only if it is std::shared_mutex.
