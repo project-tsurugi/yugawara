@@ -271,6 +271,45 @@ std::shared_ptr<model::data const> binary_character_string_promotion(
     }
 }
 
+std::shared_ptr<model::data const>
+unary_octet_string_promotion(model::data const& type, repository& repo) {
+    if (is_conversion_stop_type(type)) return shared_pending();
+    switch (type.kind()) {
+        case kind::octet:
+            // FIXME: always varying?
+            return repo.get(model::octet {
+                    model::varying,
+                    unsafe_downcast<model::octet>(type).length(),
+            });
+        case kind::unknown:
+            // unknown -> zero-length octet string
+            return repo.get(model::octet {
+                    model::varying,
+                    0,
+            });
+        default:
+            return shared_error();
+    }
+}
+
+std::shared_ptr<model::data const> binary_octet_string_promotion(
+        model::data const& type,
+        model::data const& with,
+        repository& repo) {
+    if (is_conversion_stop_type(type) || is_conversion_stop_type(with)) return shared_pending();
+    switch (npair(type.kind(), with.kind())) {
+        // FIXME: always varying?
+        case npair(kind::octet, kind::octet):
+        case npair(kind::octet, kind::unknown):
+        case npair(kind::unknown, kind::octet):
+        case npair(kind::unknown, kind::unknown):
+            return unary_octet_string_promotion(type, repo);
+
+        default:
+            return shared_error();
+    }
+}
+
 std::shared_ptr<model::data const> unary_bit_string_promotion(model::data const& type, repository& repo) {
     if (is_conversion_stop_type(type)) return shared_pending();
     switch (type.kind()) {
@@ -468,6 +507,9 @@ std::shared_ptr<model::data const> unifying_conversion(model::data const& type, 
         case category::character_string:
             return unary_character_string_promotion(type, repo);
 
+        case category::octet_string:
+            return unary_octet_string_promotion(type, repo);
+
         case category::bit_string:
             return unary_bit_string_promotion(type, repo);
 
@@ -542,6 +584,9 @@ std::shared_ptr<model::data const> unifying_conversion(
 
         case category::character_string:
             return binary_character_string_promotion(type, with);
+
+        case category::octet_string:
+            return binary_octet_string_promotion(type, with);
 
         case category::bit_string:
             return binary_bit_string_promotion(type, with);
@@ -637,6 +682,8 @@ ternary is_assignment_convertible(model::data const& type, model::data const& ta
         case npair(kind::float8, kind::float8):
 
         case npair(kind::character, kind::character):
+
+        case npair(kind::octet, kind::octet):
 
         case npair(kind::bit, kind::bit):
 
@@ -779,6 +826,15 @@ util::ternary is_widening_convertible(takatori::type::data const& type, takatori
         case npair(kind::character, kind::character): {
             auto&& a = unsafe_downcast<model::character>(type);
             auto&& b = unsafe_downcast<model::character>(target);
+            if (a.varying() && !b.varying()) return ternary::no;
+            if (!a.length()) return ternary::no;
+            if (!b.length()) return ternary::yes;
+            return ternary_of(*a.length() <= b.length());
+        }
+
+        case npair(kind::octet, kind::octet): {
+            auto&& a = unsafe_downcast<model::octet>(type);
+            auto&& b = unsafe_downcast<model::octet>(target);
             if (a.varying() && !b.varying()) return ternary::no;
             if (!a.length()) return ternary::no;
             if (!b.length()) return ternary::yes;

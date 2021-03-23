@@ -17,6 +17,7 @@
 #include <takatori/type/primitive.h>
 #include <takatori/type/decimal.h>
 #include <takatori/type/character.h>
+#include <takatori/type/octet.h>
 #include <takatori/type/bit.h>
 
 #include <takatori/util/assertion.h>
@@ -478,6 +479,7 @@ public:
         if (validate_) {
             switch (type::category_of(*operand)) {
                 case category::character_string:
+                case category::octet_string:
                 case category::bit_string:
                 case category::unresolved:
                     break; // ok
@@ -522,6 +524,7 @@ public:
                 case category::boolean:
                 case category::number:
                 case category::character_string:
+                case category::octet_string:
                 case category::bit_string:
                 case category::temporal:
                 case category::datetime_interval:
@@ -535,6 +538,7 @@ public:
                                     category::boolean,
                                     category::number,
                                     category::character_string,
+                                    category::octet_string,
                                     category::bit_string,
                                     category::temporal,
                                     category::datetime_interval,
@@ -783,7 +787,7 @@ public:
                 return raise(code::ambiguous_type,
                         extract_region(expr.left()),
                         *left,
-                        { category::character_string, category::bit_string });
+                        { category::character_string, category::octet_string, category::bit_string });
             case category::character_string:
                 if (rcat == category::character_string) {
                     auto result = type::binary_character_string_promotion(*left, *right, repo_);
@@ -802,6 +806,24 @@ public:
                         extract_region(expr.right()),
                         *right,
                         { category::character_string });
+            case category::octet_string:
+                if (rcat == category::octet_string) {
+                    auto result = type::binary_octet_string_promotion(*left, *right, repo_);
+                    if (left->kind() == ::takatori::type::type_kind::octet
+                            && right->kind() == ::takatori::type::type_kind::octet) {
+                        auto&& lv = unsafe_downcast<::takatori::type::octet>(*left);
+                        auto&& rv = unsafe_downcast<::takatori::type::octet>(*right);
+                        auto&& ret = unsafe_downcast<::takatori::type::octet>(*result);
+                        return repo_.get(::takatori::type::octet(
+                                ::takatori::type::varying_t(ret.varying()),
+                                lv.length() + rv.length()));
+                    }
+                    return result;
+                }
+                return raise(code::inconsistent_type,
+                        extract_region(expr.right()),
+                        *right,
+                        { category::octet_string });
             case category::bit_string:
                 if (rcat == category::bit_string) {
                     auto result = type::binary_bit_string_promotion(*left, *right, repo_);
@@ -826,7 +848,7 @@ public:
                 return raise(code::unsupported_type,
                         extract_region(expr.left()),
                         *left,
-                        { category::character_string, category::bit_string });
+                        { category::character_string, category::octet_string, category::bit_string });
         }
     }
 

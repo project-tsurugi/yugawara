@@ -29,6 +29,9 @@ category category_of(takatori::type::data const& type) noexcept {
         case kind::character:
             return category::character_string;
 
+        case kind::octet:
+            return category::octet_string;
+
         case kind::bit:
             return category::bit_string;
 

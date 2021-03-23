@@ -20,6 +20,8 @@ enum class category {
     number,
     /// @brief the character string type category.
     character_string,
+    /// @brief the octet string type category.
+    octet_string,
     /// @brief the bit string type category.
     bit_string,
     /// @brief the temporal type category.
@@ -78,6 +80,7 @@ inline constexpr std::string_view to_string_view(category value) noexcept {
         case kind::boolean: return "boolean"sv;
         case kind::number: return "number"sv;
         case kind::character_string: return "character_string"sv;
+        case kind::octet_string: return "octet_string"sv;
         case kind::bit_string: return "bit_string"sv;
         case kind::temporal: return "temporal"sv;
         case kind::datetime_interval: return "datetime_interval"sv;
