@@ -111,14 +111,14 @@ public:
 
     /**
      * @brief creates a new instance.
-     * @details this resolution information will marked as `unresolved`.
+     * @details this resolution information will be marked as `unknown`.
      * @param type the resolved type
      */
     variable_resolution(std::shared_ptr<::takatori::type::data const> type) noexcept; // NOLINT
 
     /**
      * @brief creates a new instance.
-     * @details this resolution information will marked as `unresolved`.
+     * @details this resolution information will be marked as `unknown`.
      * @param type the resolved type
      * @param repo the type repository
      */
