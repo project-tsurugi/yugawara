@@ -65,7 +65,7 @@ bool exchange_column_info_map::is_target(::takatori::descriptor::relation const&
 }
 
 ::takatori::util::object_creator exchange_column_info_map::get_object_creator() const {
-    return mappings_.get_allocator().resource();
+    return mappings_.get_allocator();
 }
 
 } // namespace yugawara::analyzer::details

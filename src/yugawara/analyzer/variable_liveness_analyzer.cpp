@@ -266,7 +266,7 @@ public:
 
     void operator()() {
         liveness_map lvs {
-                blocks_.get_allocator().resource()
+                blocks_.get_allocator()
         };
         block const* first {};
         for (auto&& [bp, info] : blocks_) {
@@ -290,7 +290,7 @@ private:
 
     // find use in branches for each defined variable
     std::vector<block const*, ::takatori::util::object_allocator<block const*>> still_live {
-            blocks_.get_allocator().resource()
+            blocks_.get_allocator()
     };
 
     void process(block const* bp, liveness_map& lvs) {
@@ -353,7 +353,7 @@ private:
             }
         } else {
             std::vector<liveness_map, ::takatori::util::object_allocator<liveness_map>> branches {
-                    blocks_.get_allocator().resource()
+                    blocks_.get_allocator()
             };
             branches.reserve(succs.size());
             for (auto&& succ : succs) {

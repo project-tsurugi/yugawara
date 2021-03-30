@@ -50,7 +50,7 @@ public:
     }
 
     [[nodiscard]] ::takatori::util::object_creator get_object_creator() const {
-        return entries_.get_allocator().resource();
+        return entries_.get_allocator();
     }
 
 private:

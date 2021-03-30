@@ -101,7 +101,7 @@ public:
      * @return the object creator
      */
     [[nodiscard]] takatori::util::object_creator get_object_creator() const noexcept {
-        return cache_.get_deleter().creator();
+        return takatori::util::get_object_creator_from_deleter(cache_.get_deleter());
     }
 
 private:

@@ -38,7 +38,7 @@ public:
                 [this](relation::expression& expr) {
                     relation::intermediate::dispatch(*this, expr);
                 },
-                used_.get_allocator().resource());
+                used_.get_allocator());
 
         // remove marked operators to be removed
         for (relation::expression const& target : to_be_removed_) {

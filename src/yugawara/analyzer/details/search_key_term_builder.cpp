@@ -176,7 +176,7 @@ void search_key_term_builder::clear() {
 }
 
 ::takatori::util::object_creator search_key_term_builder::get_object_creator() const {
-    return keys_.get_allocator().resource();
+    return keys_.get_allocator();
 }
 
 void search_key_term_builder::check_before_build() {

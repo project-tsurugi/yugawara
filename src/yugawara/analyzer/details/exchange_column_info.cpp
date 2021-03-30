@@ -81,7 +81,7 @@ void exchange_column_info::clear() {
 }
 
 ::takatori::util::object_creator exchange_column_info::get_object_creator() const noexcept {
-    return entries_.get_allocator().resource();
+    return entries_.get_allocator();
 }
 
 } // namespace yugawara::analyzer::details

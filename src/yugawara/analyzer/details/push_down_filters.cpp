@@ -89,7 +89,7 @@ public:
     }
 
     [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept {
-        return uses_.get_allocator().resource();
+        return uses_.get_allocator();
     }
 
 private:
@@ -378,7 +378,7 @@ public:
     }
 
     [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept {
-        return tasks_.get_allocator().resource();
+        return tasks_.get_allocator();
     }
 
 private:

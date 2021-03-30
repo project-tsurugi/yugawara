@@ -125,7 +125,7 @@ void stream_variable_rewriter_context::clear() {
 }
 
 ::takatori::util::object_creator stream_variable_rewriter_context::get_object_creator() const noexcept {
-    return mappings_.get_allocator().resource();
+    return mappings_.get_allocator();
 }
 
 } // namespace yugawara::analyzer::details

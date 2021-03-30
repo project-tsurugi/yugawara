@@ -60,7 +60,7 @@ void step_plan_builder_options::add(::takatori::relation::intermediate::aggregat
 }
 
 ::takatori::util::object_creator step_plan_builder_options::get_object_creator() const noexcept {
-    return join_hints_.get_allocator().resource();
+    return join_hints_.get_allocator();
 }
 
 } // namespace yugawara::analyzer::details
