@@ -3,7 +3,6 @@
 #include <functional>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <string_view>
 
@@ -12,6 +11,8 @@
 #include <takatori/util/maybe_shared_ptr.h>
 #include <takatori/util/object_creator.h>
 #include <takatori/util/string_builder.h>
+
+#include <yugawara/util/maybe_shared_lock.h>
 
 #include "provider.h"
 
@@ -27,6 +28,12 @@ class basic_configurable_provider : public provider {
 public:
     /// @brief the mutex type.
     using mutex_type = Mutex;
+
+    /// @brief the writer lock type.
+    using writer_lock_type = std::unique_lock<mutex_type>;
+
+    /// @brief the readers lock type.
+    using reader_lock_type = util::maybe_shared_lock<mutex_type>;
 
     /**
      * @brief creates a new object.
@@ -55,7 +62,7 @@ public:
         using ::takatori::util::throw_exception;
         using ::takatori::util::string_builder;
         key_type key { element->name(), get_object_creator().allocator(std::in_place_type<char>) };
-        std::lock_guard lock { mutex_ };
+        writer_lock_type lock { mutex_ };
         if (overwrite) {
             auto [iter, success] = declarations_.insert_or_assign(std::move(key), std::move(element));
             (void) success;
@@ -86,7 +93,7 @@ public:
     bool remove(declaration const& element) {
         auto&& name = element.name();
 
-        std::lock_guard lock { mutex_ };
+        writer_lock_type lock { mutex_ };
         if (auto iter = declarations_.find(name); iter != declarations_.end()) {
             declarations_.erase(iter);
             return true;
@@ -116,7 +123,7 @@ private:
 
     template<class Consumer>
     void internal_each(Consumer const& consumer) const {
-        std::lock_guard lock { mutex_ };
+        reader_lock_type lock { mutex_ };
         for (auto&& [name, declaration] : declarations_) {
             (void) name;
             consumer(declaration);
@@ -124,7 +131,7 @@ private:
     }
 
     std::shared_ptr<declaration> const& internal_find(std::string_view name) const {
-        std::lock_guard lock { mutex_ };
+        reader_lock_type lock { mutex_ };
         if (auto iter = declarations_.find(name); iter != declarations_.end()) {
             return iter->second;
         }

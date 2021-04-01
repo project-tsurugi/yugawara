@@ -3,12 +3,13 @@
 #include <functional>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <string_view>
 
 #include <takatori/util/maybe_shared_ptr.h>
 #include <takatori/util/object_creator.h>
+
+#include <yugawara/util/maybe_shared_lock.h>
 
 #include "provider.h"
 
@@ -24,6 +25,12 @@ class basic_configurable_provider : public provider {
 public:
     /// @brief the mutex type.
     using mutex_type = Mutex;
+
+    /// @brief the writer lock type.
+    using writer_lock_type = std::unique_lock<mutex_type>;
+
+    /// @brief the readers lock type.
+    using reader_lock_type = util::maybe_shared_lock<mutex_type>;
 
     /**
      * @brief creates a new object.
@@ -63,7 +70,7 @@ public:
      */
     std::shared_ptr<declaration> const& add(std::shared_ptr<declaration> element) {
         key_type key { element->name(), get_object_creator().allocator(std::in_place_type<char>) };
-        std::lock_guard lock { mutex_ };
+        writer_lock_type lock { mutex_ };
         auto iter = declarations_.emplace(std::move(key), std::move(element));
         return iter->second;
     }
@@ -84,7 +91,7 @@ public:
         auto&& name = element.name();
         auto&& id = element.definition_id();
 
-        std::lock_guard lock { mutex_ };
+        writer_lock_type lock { mutex_ };
         auto first = declarations_.lower_bound(name);
         auto last = declarations_.upper_bound(name);
         for (auto iter = first; iter != last; ++iter) {
@@ -119,7 +126,7 @@ private:
 
 
     void internal_each(consumer_type const& consumer) const {
-        std::lock_guard lock { mutex_ };
+        reader_lock_type lock { mutex_ };
         for (auto&& [name, declaration] : declarations_) {
             (void) name;
             consumer(declaration);
@@ -130,7 +137,7 @@ private:
             std::string_view name,
             std::size_t parameter_count,
             consumer_type const& consumer) const {
-        std::lock_guard lock { mutex_ };
+        reader_lock_type lock { mutex_ };
         auto first = declarations_.lower_bound(name);
         auto last = declarations_.upper_bound(name);
         for (auto iter = first; iter != last; ++iter) {
