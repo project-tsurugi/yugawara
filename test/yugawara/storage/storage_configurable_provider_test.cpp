@@ -354,6 +354,142 @@ TEST_F(storage_configurable_provider_test, each_index_parent) {
     EXPECT_NE(std::find(saw.begin(), saw.end(), e3), saw.end());
 }
 
+TEST_F(storage_configurable_provider_test, find_primary_index) {
+    auto p1 = std::make_shared<configurable_provider>();
+    auto&& parent = p1->add_table({
+            "TBL",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+    auto&& element = p1->add_index({
+            parent,
+            "IDX",
+            {
+                    parent->columns()[0],
+            },
+            {},
+            {
+                index_feature::primary,
+            },
+    });
+    ASSERT_TRUE(element);
+    EXPECT_EQ(p1->find_primary_index(*parent), element);
+}
+
+TEST_F(storage_configurable_provider_test, find_primary_index_secondary) {
+    auto p1 = std::make_shared<configurable_provider>();
+    auto&& parent = p1->add_table({
+            "TBL",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+    auto&& element = p1->add_index({
+            parent,
+            "IDX",
+            {
+                    parent->columns()[0],
+            },
+            {},
+            {
+            },
+    });
+    ASSERT_TRUE(element);
+    EXPECT_FALSE(p1->find_primary_index(*parent));
+}
+
+TEST_F(storage_configurable_provider_test, find_primary_index_table_inconsistent) {
+    auto p1 = std::make_shared<configurable_provider>();
+    auto&& parent = p1->add_table({
+            "TBL",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+    auto&& element = p1->add_index({
+            origin,
+            "IDX",
+            {
+                    parent->columns()[0],
+            },
+            {},
+            {
+                    index_feature::primary,
+            },
+    });
+    ASSERT_TRUE(element);
+    EXPECT_FALSE(p1->find_primary_index(*parent));
+}
+
+TEST_F(storage_configurable_provider_test, find_primary_index_shortcircuit) {
+    auto p1 = std::make_shared<configurable_provider>();
+    auto&& parent = p1->add_table({
+            "TBL",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+    auto&& element = p1->add_index({
+            parent,
+            parent->simple_name(),
+            {
+                    parent->columns()[0],
+            },
+            {},
+            {
+                    index_feature::primary,
+            },
+    });
+    ASSERT_TRUE(element);
+    EXPECT_EQ(p1->find_primary_index(*parent), element);
+}
+
+TEST_F(storage_configurable_provider_test, find_primary_index_shortcircuit_secondary) {
+    auto p1 = std::make_shared<configurable_provider>();
+    auto&& parent = p1->add_table({
+            "TBL",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+    auto&& element = p1->add_index({
+            parent,
+            parent->simple_name(),
+            {
+                    parent->columns()[0],
+            },
+            {},
+            {
+            },
+    });
+    ASSERT_TRUE(element);
+    EXPECT_FALSE(p1->find_primary_index(*parent));
+}
+
+TEST_F(storage_configurable_provider_test, find_primary_index_shortcircuit_table_inconsistent) {
+    auto p1 = std::make_shared<configurable_provider>();
+    auto&& parent = p1->add_table({
+            "TBL",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+    auto&& element = p1->add_index({
+            origin,
+            parent->simple_name(),
+            {
+                    parent->columns()[0],
+            },
+            {},
+            {
+                    index_feature::primary,
+            },
+    });
+    ASSERT_TRUE(element);
+    EXPECT_FALSE(p1->find_primary_index(*parent));
+}
+
 TEST_F(storage_configurable_provider_test, add_index_conflict) {
     auto p1 = std::make_shared<configurable_provider>();
     auto&& element = p1->add_index({

@@ -178,6 +178,31 @@ public:
         internal_each<&provider::each_index>(indices_, consumer);
     }
 
+    std::shared_ptr<index const> find_primary_index(class table const& table) const override {
+        reader_lock_type lock { mutex_ };
+
+        // NOTE: we assume almost primary index name equals to its table name
+        if (auto it = indices_.find(table.simple_name()); it != indices_.end()) {
+            auto&& idx = *it->second;
+            if (std::addressof(idx.table()) == std::addressof(table)
+                    && idx.features().contains(index_feature::primary)) {
+                return it->second;
+            }
+        }
+        // If there is no such the index, then we find for all indices
+        for (auto&& entry : indices_) {
+            auto&& idx = *entry.second;
+            if (std::addressof(idx.table()) == std::addressof(table)
+                    && idx.features().contains(index_feature::primary)) {
+                return entry.second;
+            }
+        }
+        if (parent_) {
+            return find_primary_index(table);
+        }
+        return {};
+    }
+
     /**
      * @brief adds an index.
      * @param element the index to add
