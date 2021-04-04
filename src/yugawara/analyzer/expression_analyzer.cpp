@@ -23,6 +23,7 @@
 #include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
 #include <takatori/util/exception.h>
+#include <takatori/util/optional_ptr.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/type/category.h>
@@ -49,6 +50,7 @@ using code = diagnostic_type::code_type;
 
 using ::takatori::util::enum_tag;
 using ::takatori::util::enum_tag_t;
+using ::takatori::util::optional_ptr;
 using ::takatori::util::string_builder;
 using ::takatori::util::throw_exception;
 using ::takatori::util::unsafe_downcast;
@@ -231,7 +233,7 @@ public:
     }
 
     type_ptr operator()(scalar::immediate const& expr) {
-        if (validate_ && !allow_unresolved_ && is_unresolved_or_error(expr.shared_type())) {
+        if (validate_ && !allow_unresolved_ && is_unresolved_or_error(expr.optional_type())) {
             return raise({
                     code::unsupported_type,
                     string_builder {}
@@ -263,7 +265,7 @@ public:
 
     type_ptr operator()(scalar::cast const& expr) {
         if (validate_) {
-            if (!allow_unresolved_ && is_unresolved_or_error(expr.shared_type())) {
+            if (!allow_unresolved_ && is_unresolved_or_error(expr.optional_type())) {
                 return raise({
                         code::unsupported_type,
                         string_builder {}
@@ -1444,7 +1446,7 @@ private:
 
     template<class Expr, class F>
     void validate_function_call(Expr const& expr, F const& func) {
-        if (!allow_unresolved_ && is_unresolved_or_error(func.shared_return_type())) {
+        if (!allow_unresolved_ && is_unresolved_or_error(func.optional_return_type())) {
             report({
                     code::unsupported_type,
                     string_builder {}
@@ -1635,7 +1637,7 @@ private:
         switch (binding::kind_of(variable)) {
             case kind::table_column: {
                 auto&& column = binding::extract<storage::column>(variable);
-                if (!allow_unresolved_ && is_unresolved_or_error(column.shared_type())) {
+                if (!allow_unresolved_ && is_unresolved_or_error(column.optional_type())) {
                     report({
                             code::unsupported_type,
                             string_builder {}
@@ -1686,7 +1688,7 @@ private:
 
             case kind::external_variable: {
                 auto&& decl = binding::extract<variable::declaration>(variable);
-                if (!allow_unresolved_ && is_unresolved_or_error(decl.shared_type())) {
+                if (!allow_unresolved_ && is_unresolved_or_error(decl.optional_type())) {
                     report({
                             code::unsupported_type,
                             string_builder{}
@@ -1751,6 +1753,13 @@ private:
     }
 
     static bool is_unresolved_or_error(std::shared_ptr<::takatori::type::data const> const& t) {
+        if (!t) {
+            return true;
+        }
+        return type::category_of(*t) == category::unresolved;
+    }
+
+    static bool is_unresolved_or_error(optional_ptr<::takatori::type::data const> t) {
         if (!t) {
             return true;
         }
