@@ -57,6 +57,18 @@ public:
     [[nodiscard]] ::takatori::type::data const& type_of(::takatori::descriptor::variable const& variable) const;
 
     /**
+     * @brief returns the all expressions analyzed by the compiler.
+     * @return the expression mappings
+     */
+    [[nodiscard]] analyzer::expression_mapping const& expressions() const noexcept;
+
+    /**
+     * @brief returns the all variables analyzed by the compiler.
+     * @return the variable mappings
+     */
+    [[nodiscard]] analyzer::variable_mapping const& variables() const noexcept;
+
+    /**
      * @brief returns an object scanner for the compilation result.
      * @return the object scanner
      */

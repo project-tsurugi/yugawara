@@ -19,6 +19,13 @@ namespace yugawara::analyzer {
 class variable_mapping {
 public:
     /**
+     * @brief the consumer type.
+     * @param variable the target variable
+     * @param resolution the resolution info
+     */
+    using consumer_type = std::function<void(::takatori::descriptor::variable const& variable, variable_resolution const& resolution)>;
+
+    /**
      * @brief creates a new instance.
      */
     variable_mapping() noexcept = default;
@@ -36,6 +43,12 @@ public:
      * @return empty if the target expression has not been resolved yet
      */
     [[nodiscard]] variable_resolution const& find(::takatori::descriptor::variable const& variable) const;
+
+    /**
+     * @brief provides all resolved entries.
+     * @param consumer the entry consumer, which accepts pairs of variable descriptor and its resolution info
+     */
+    void each(consumer_type const& consumer) const;
 
     /**
      * @brief sets the resolved type for the variable.

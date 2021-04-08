@@ -18,6 +18,12 @@ variable_resolution const& variable_mapping::find(::takatori::descriptor::variab
     return unresolved;
 }
 
+void variable_mapping::each(consumer_type const& consumer) const {
+    for (auto&& [descriptor, resolution] : mapping_) {
+        consumer(descriptor, resolution);
+    }
+}
+
 variable_resolution const& variable_mapping::bind(
         ::takatori::descriptor::variable const& variable,
         variable_resolution resolution,

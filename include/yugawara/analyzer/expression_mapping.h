@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <unordered_map>
 
@@ -16,6 +17,13 @@ namespace yugawara::analyzer {
  */
 class expression_mapping {
 public:
+    /**
+     * @brief the consumer type.
+     * @param expression the target expression
+     * @param resolution the resolution info
+     */
+    using consumer_type = std::function<void(::takatori::scalar::expression const& expression, expression_resolution const& resolution)>;
+
     /**
      * @brief creates a new instance.
      */
@@ -34,6 +42,12 @@ public:
      * @return empty if the target expression has not been resolved yet
      */
     [[nodiscard]] expression_resolution const& find(::takatori::scalar::expression const& expression) const;
+
+    /**
+     * @brief provides all resolved entries.
+     * @param consumer the entry consumer, which accepts pairs of expresion and its resolution info
+     */
+    void each(consumer_type const& consumer) const;
 
     /**
      * @brief sets the resolved type for the expression.

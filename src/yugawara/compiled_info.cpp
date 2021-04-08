@@ -52,6 +52,14 @@ yugawara::compiled_info::compiled_info(
     fail();
 }
 
+analyzer::expression_mapping const& compiled_info::expressions() const noexcept {
+    return *expression_mapping_;
+}
+
+analyzer::variable_mapping const& compiled_info::variables() const noexcept {
+    return *variable_mapping_;
+}
+
 serializer::object_scanner compiled_info::object_scanner() const noexcept {
     return serializer::object_scanner {
             variable_mapping_,

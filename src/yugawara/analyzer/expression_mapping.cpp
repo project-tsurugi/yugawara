@@ -20,6 +20,12 @@ expression_resolution const& expression_mapping::find(
     return empty;
 }
 
+void expression_mapping::each(consumer_type const& consumer) const {
+    for (auto&& [expression, resolution] : mapping_) {
+        consumer(*expression, resolution);
+    }
+}
+
 expression_resolution const& expression_mapping::bind(
         ::takatori::scalar::expression const& expression,
         expression_resolution resolution,
