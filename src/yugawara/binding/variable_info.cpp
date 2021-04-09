@@ -16,16 +16,6 @@ std::ostream& operator<<(std::ostream& out, variable_info const& value) {
     return value.print_to(out);
 }
 
-bool variable_info::equals(takatori::util::object const& other) const noexcept {
-    if (this == std::addressof(other)) {
-        return true;
-    }
-    if (auto* that = ::takatori::util::downcast<variable_info>(std::addressof(other)); that != nullptr) {
-        return equals(*that);
-    }
-    return false;
-}
-
 variable_info::descriptor_type wrap(std::shared_ptr<variable_info> info) noexcept {
     return variable_info::descriptor_type { std::move(info) };
 }

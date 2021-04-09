@@ -68,7 +68,7 @@ takatori::util::optional_ptr<takatori::value::data const> criteria::constant() c
 
 std::shared_ptr<takatori::value::data const> const& criteria::shared_constant() const noexcept {
     if (predicate_ && predicate_->kind() == predicate_kind::comparison) {
-        auto& cmp = takatori::util::downcast<comparison>(*predicate_);
+        auto& cmp = takatori::util::unsafe_downcast<comparison>(*predicate_);
         if (cmp.operator_kind() == comparison_operator::equal) {
             return cmp.shared_value();
         }

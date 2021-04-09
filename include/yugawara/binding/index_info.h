@@ -35,6 +35,12 @@ public:
      */
     explicit index_info(index_info&& other, ::takatori::util::object_creator creator);
 
+    /**
+     * @brief returns the class ID.
+     * @return the class ID
+     */
+    [[nodiscard]] std::size_t class_id() const noexcept final;
+
     [[nodiscard]] kind_type kind() const noexcept override;
     [[nodiscard]] index_info* clone(takatori::util::object_creator creator) const& override;
     [[nodiscard]] index_info* clone(takatori::util::object_creator creator) && override;
@@ -73,7 +79,7 @@ public:
     friend std::ostream& operator<<(std::ostream& out, index_info const& value);
 
 protected:
-    [[nodiscard]] bool equals(relation_info const& other) const noexcept override;
+    [[nodiscard]] bool equals(::takatori::descriptor::relation::entity_type const& other) const noexcept override;
     [[nodiscard]] std::size_t hash() const noexcept override;
     std::ostream& print_to(std::ostream& out) const override;
 

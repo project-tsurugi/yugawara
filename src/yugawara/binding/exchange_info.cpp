@@ -1,21 +1,26 @@
 #include <yugawara/binding/exchange_info.h>
 
-#include <takatori/util/downcast.h>
 #include <takatori/util/hash.h>
+
+#include "class_id_util.h"
 
 namespace yugawara::binding {
 
-exchange_info::exchange_info(::takatori::plan::exchange const& declaration) noexcept
-    : declaration_(std::addressof(declaration))
+exchange_info::exchange_info(::takatori::plan::exchange const& declaration) noexcept :
+    declaration_ { std::addressof(declaration) }
 {}
 
-exchange_info::exchange_info(exchange_info const& other, ::takatori::util::object_creator)
-    : exchange_info(*other.declaration_)
+exchange_info::exchange_info(exchange_info const& other, ::takatori::util::object_creator /*unused*/) :
+    exchange_info { *other.declaration_ }
 {}
 
-exchange_info::exchange_info(exchange_info&& other, ::takatori::util::object_creator)
-    : exchange_info(*other.declaration_)
+exchange_info::exchange_info(exchange_info&& other, ::takatori::util::object_creator /*unused*/) :
+    exchange_info { *other.declaration_ }
 {}
+
+std::size_t exchange_info::class_id() const noexcept {
+    return class_id_delegate(*this);
+}
 
 relation_info_kind exchange_info::kind() const noexcept {
     return tag;
@@ -45,8 +50,8 @@ std::ostream& operator<<(std::ostream& out, exchange_info const& value) {
     return out << value.declaration();
 }
 
-bool exchange_info::equals(relation_info const& other) const noexcept {
-    return other.kind() == tag && *this == takatori::util::unsafe_downcast<exchange_info>(other);
+bool exchange_info::equals(::takatori::descriptor::relation::entity_type const& other) const noexcept {
+    return equals_delegate(*this, other);
 }
 
 std::size_t exchange_info::hash() const noexcept {

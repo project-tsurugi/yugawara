@@ -53,7 +53,7 @@ public:
      */
     [[nodiscard]] static bool is_instance(::takatori::type::data const& type) noexcept {
         if (type.kind() == ::takatori::type::type_kind::extension) {
-            return is_instance(::takatori::util::downcast<::takatori::type::extension>(type));
+            return is_instance(::takatori::util::unsafe_downcast<::takatori::type::extension>(type));
         }
         return false;
     }

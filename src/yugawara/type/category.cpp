@@ -61,7 +61,7 @@ category category_of(takatori::type::data const& type) noexcept {
             return category::unique;
 
         case kind::extension:
-            return extension_category_of(takatori::util::downcast<takatori::type::extension>(type));
+            return extension_category_of(takatori::util::unsafe_downcast<takatori::type::extension>(type));
     }
     std::abort();
 }

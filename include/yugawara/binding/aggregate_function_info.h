@@ -11,7 +11,7 @@ namespace yugawara::binding {
 /**
  * @brief refers existing aggregate function declaration.
  */
-class aggregate_function_info : public ::takatori::util::object {
+class aggregate_function_info : public ::takatori::descriptor::aggregate_function::entity_type {
 public:
     /// @brief the corresponded descriptor type.
     using descriptor_type = ::takatori::descriptor::aggregate_function;
@@ -30,6 +30,12 @@ public:
     aggregate_function_info& operator=(aggregate_function_info const& other) = delete;
     aggregate_function_info(aggregate_function_info&& other) noexcept = delete;
     aggregate_function_info& operator=(aggregate_function_info&& other) noexcept = delete;
+
+    /**
+     * @brief returns the class ID.
+     * @return the class ID
+     */
+    [[nodiscard]] std::size_t class_id() const noexcept final;
 
     /**
      * @brief returns the target function declaration.
@@ -83,7 +89,7 @@ protected:
      * @return true if the both are equivalent
      * @return false otherwise
      */
-    [[nodiscard]] bool equals(object const& other) const noexcept override;
+    [[nodiscard]] bool equals(::takatori::descriptor::aggregate_function::entity_type const& other) const noexcept override;
 
     /**
      * @brief returns a hash code of this object.
@@ -123,4 +129,4 @@ private:
  * @brief std::hash specialization for yugawara::binding::aggregate_function_info.
  */
 template<>
-struct std::hash<yugawara::binding::aggregate_function_info> : public std::hash<takatori::util::object> {};
+struct std::hash<yugawara::binding::aggregate_function_info> : public std::hash<::takatori::descriptor::aggregate_function::entity_type> {};

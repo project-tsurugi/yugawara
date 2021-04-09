@@ -16,16 +16,6 @@ std::ostream& operator<<(std::ostream& out, relation_info const& value) {
     return value.print_to(out);
 }
 
-bool relation_info::equals(takatori::util::object const& other) const noexcept {
-    if (this == std::addressof(other)) {
-        return true;
-    }
-    if (auto* that = ::takatori::util::downcast<relation_info>(std::addressof(other)); that != nullptr) {
-        return equals(*that);
-    }
-    return false;
-}
-
 relation_info::descriptor_type wrap(std::shared_ptr<relation_info> info) noexcept {
     return relation_info::descriptor_type { std::move(info) };
 }

@@ -13,6 +13,8 @@
 #include <yugawara/binding/variable_info.h>
 #include <yugawara/binding/variable_info_kind.h>
 
+#include "class_id_util.h"
+
 namespace yugawara::binding {
 
 static constexpr variable_info_kind_set variable_info_impl_supported {
@@ -33,6 +35,10 @@ public:
     explicit variable_info_impl(std::string label = {}) noexcept
         : label_(std::move(label))
     {}
+
+    [[nodiscard]] std::size_t class_id() const noexcept final {
+        return class_id_delegate(*this);
+    }
 
     [[nodiscard]] variable_info_kind kind() const noexcept override {
         return tag;
@@ -58,8 +64,8 @@ public:
     }
 
 protected:
-    [[nodiscard]] bool equals(variable_info const& other) const noexcept override {
-        return other.kind() == tag && *this == takatori::util::unsafe_downcast<variable_info_impl>(other);
+    [[nodiscard]] bool equals(::takatori::descriptor::variable::entity_type const& other) const noexcept override {
+        return equals_delegate(*this, other);
     }
 
     [[nodiscard]] std::size_t hash() const noexcept override {
@@ -99,3 +105,6 @@ template<variable_info_kind Kind>
 }
 
 } // namespace yugawara::binding
+
+template<yugawara::binding::variable_info_kind Kind>
+struct std::hash<yugawara::binding::variable_info_impl<Kind>> : public std::hash<yugawara::binding::variable_info> {};

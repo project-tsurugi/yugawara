@@ -1,13 +1,18 @@
 #include <yugawara/binding/external_variable_info.h>
 
-#include <takatori/util/downcast.h>
 #include <takatori/util/hash.h>
+
+#include "class_id_util.h"
 
 namespace yugawara::binding {
 
-external_variable_info::external_variable_info(declaration_pointer declaration) noexcept
-    : declaration_(std::move(declaration))
+external_variable_info::external_variable_info(declaration_pointer declaration) noexcept :
+    declaration_ { std::move(declaration) }
 {}
+
+std::size_t external_variable_info::class_id() const noexcept {
+    return class_id_delegate(*this);
+}
 
 variable_info_kind external_variable_info::kind() const noexcept {
     return variable_info_kind::external_variable;
@@ -38,8 +43,8 @@ std::ostream& operator<<(std::ostream& out, external_variable_info const& value)
     return out << value.declaration();
 }
 
-bool external_variable_info::equals(variable_info const& other) const noexcept {
-    return other.kind() == tag && *this == takatori::util::unsafe_downcast<external_variable_info>(other);
+bool external_variable_info::equals(::takatori::descriptor::variable::entity_type const& other) const noexcept {
+    return equals_delegate(*this, other);
 }
 
 std::size_t external_variable_info::hash() const noexcept {

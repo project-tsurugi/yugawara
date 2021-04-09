@@ -12,7 +12,7 @@ namespace yugawara::binding {
 /**
  * @brief an abstract interface of binding for external relations.
  */
-class relation_info : public ::takatori::util::object {
+class relation_info : public ::takatori::descriptor::relation::entity_type {
 public:
     /// @brief the corresponded descriptor type.
     using descriptor_type = ::takatori::descriptor::relation;
@@ -79,15 +79,7 @@ protected:
      * @return true if the both are equivalent
      * @return false otherwise
      */
-    [[nodiscard]] bool equals(object const& other) const noexcept override;
-
-    /**
-     * @brief returns whether or not this object is equivalent to the target one.
-     * @param other the target object
-     * @return true if the both are equivalent
-     * @return false otherwise
-     */
-    [[nodiscard]] virtual bool equals(relation_info const& other) const noexcept = 0;
+    [[nodiscard]] bool equals(::takatori::descriptor::relation::entity_type const& other) const noexcept override = 0;
 
     /**
      * @brief returns a hash code of this object.
@@ -124,4 +116,4 @@ protected:
  * @brief std::hash specialization for yugawara::binding::relation_info.
  */
 template<>
-struct std::hash<yugawara::binding::relation_info> : public std::hash<takatori::util::object> {};
+struct std::hash<yugawara::binding::relation_info> : public std::hash<::takatori::descriptor::relation::entity_type> {};

@@ -11,7 +11,7 @@ namespace yugawara::binding {
 /**
  * @brief refers existing (scalar) function declaration.
  */
-class function_info : public ::takatori::util::object {
+class function_info : public ::takatori::descriptor::function::entity_type {
 public:
     /// @brief the corresponded descriptor type.
     using descriptor_type = ::takatori::descriptor::function;
@@ -30,6 +30,12 @@ public:
     function_info& operator=(function_info const& other) = delete;
     function_info(function_info&& other) noexcept = delete;
     function_info& operator=(function_info&& other) noexcept = delete;
+
+    /**
+     * @brief returns the class ID.
+     * @return the class ID
+     */
+    [[nodiscard]] std::size_t class_id() const noexcept final;
 
     /**
      * @brief returns the target function declaration.
@@ -83,7 +89,7 @@ protected:
      * @return true if the both are equivalent
      * @return false otherwise
      */
-    [[nodiscard]] bool equals(object const& other) const noexcept override;
+    [[nodiscard]] bool equals(::takatori::descriptor::function::entity_type const& other) const noexcept override;
 
     /**
      * @brief returns a hash code of this object.
@@ -123,4 +129,4 @@ private:
  * @brief std::hash specialization for yugawara::binding::function_info.
  */
 template<>
-struct std::hash<yugawara::binding::function_info> : public std::hash<takatori::util::object> {};
+struct std::hash<yugawara::binding::function_info> : public std::hash<::takatori::descriptor::function::entity_type> {};

@@ -21,6 +21,12 @@ public:
      */
     explicit table_column_info(storage::column const& column) noexcept;
 
+    /**
+     * @brief returns the class ID.
+     * @return the class ID
+     */
+    [[nodiscard]] std::size_t class_id() const noexcept final;
+
     [[nodiscard]] variable_info_kind kind() const noexcept override;
 
     /**
@@ -56,7 +62,7 @@ public:
     friend std::ostream& operator<<(std::ostream& out, table_column_info const& value);
 
 protected:
-    [[nodiscard]] bool equals(variable_info const& other) const noexcept override;
+    [[nodiscard]] bool equals(::takatori::descriptor::variable::entity_type const& other) const noexcept override;
     [[nodiscard]] std::size_t hash() const noexcept override;
     std::ostream& print_to(std::ostream& out) const override;
 
@@ -65,3 +71,9 @@ private:
 };
 
 } // namespace yugawara::binding
+
+/**
+ * @brief std::hash specialization for yugawara::binding::table_column_info.
+ */
+template<>
+struct std::hash<yugawara::binding::table_column_info> : public std::hash<yugawara::binding::variable_info> {};

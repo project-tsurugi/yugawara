@@ -1,13 +1,18 @@
 #include <yugawara/binding/aggregate_function_info.h>
 
-#include <takatori/util/downcast.h>
 #include <takatori/util/hash.h>
+
+#include "class_id_util.h"
 
 namespace yugawara::binding {
 
-aggregate_function_info::aggregate_function_info(declaration_pointer declaration) noexcept
-    : declaration_(std::move(declaration))
+aggregate_function_info::aggregate_function_info(declaration_pointer declaration) noexcept :
+    declaration_ { std::move(declaration) }
 {}
+
+std::size_t aggregate_function_info::class_id() const noexcept {
+    return class_id_delegate(*this);
+}
 
 aggregate::declaration const& aggregate_function_info::declaration() const noexcept {
     return *declaration_;
@@ -34,14 +39,8 @@ std::ostream& operator<<(std::ostream& out, aggregate_function_info const& value
     return out << value.declaration();
 }
 
-bool aggregate_function_info::equals(takatori::util::object const& other) const noexcept {
-    if (this == std::addressof(other)) {
-        return true;
-    }
-    if (auto* that = ::takatori::util::downcast<aggregate_function_info>(std::addressof(other)); that != nullptr) {
-        return *this == *that;
-    }
-    return false;
+bool aggregate_function_info::equals(::takatori::descriptor::aggregate_function::entity_type const& other) const noexcept {
+    return equals_delegate(*this, other);
 }
 
 std::size_t aggregate_function_info::hash() const noexcept {

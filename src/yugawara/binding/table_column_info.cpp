@@ -1,7 +1,8 @@
 #include <yugawara/binding/table_column_info.h>
 
-#include <takatori/util/downcast.h>
 #include <takatori/util/hash.h>
+
+#include "class_id_util.h"
 
 namespace yugawara::binding {
 
@@ -9,8 +10,12 @@ table_column_info::table_column_info(yugawara::storage::column const& column) no
     : column_(std::addressof(column))
 {}
 
+std::size_t table_column_info::class_id() const noexcept {
+    return class_id_delegate(*this);
+}
+
 variable_info_kind table_column_info::kind() const noexcept {
-    return variable_info_kind::table_column;
+    return tag;
 }
 
 yugawara::storage::column const& table_column_info::column() const noexcept {
@@ -29,8 +34,8 @@ std::ostream& operator<<(std::ostream& out, table_column_info const& value) {
     return out << value.column();
 }
 
-bool table_column_info::equals(variable_info const& other) const noexcept {
-    return other.kind() == tag && *this == takatori::util::unsafe_downcast<table_column_info>(other);
+bool table_column_info::equals(::takatori::descriptor::variable::entity_type const& other) const noexcept {
+    return equals_delegate(*this, other);
 }
 
 std::size_t table_column_info::hash() const noexcept {
