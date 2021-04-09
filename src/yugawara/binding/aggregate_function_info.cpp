@@ -35,6 +35,9 @@ std::ostream& operator<<(std::ostream& out, aggregate_function_info const& value
 }
 
 bool aggregate_function_info::equals(takatori::util::object const& other) const noexcept {
+    if (this == std::addressof(other)) {
+        return true;
+    }
     if (auto* that = ::takatori::util::downcast<aggregate_function_info>(std::addressof(other)); that != nullptr) {
         return *this == *that;
     }

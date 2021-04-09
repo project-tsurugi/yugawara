@@ -17,6 +17,9 @@ std::ostream& operator<<(std::ostream& out, relation_info const& value) {
 }
 
 bool relation_info::equals(takatori::util::object const& other) const noexcept {
+    if (this == std::addressof(other)) {
+        return true;
+    }
     if (auto* that = ::takatori::util::downcast<relation_info>(std::addressof(other)); that != nullptr) {
         return equals(*that);
     }

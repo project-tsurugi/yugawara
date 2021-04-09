@@ -17,6 +17,9 @@ std::ostream& operator<<(std::ostream& out, variable_info const& value) {
 }
 
 bool variable_info::equals(takatori::util::object const& other) const noexcept {
+    if (this == std::addressof(other)) {
+        return true;
+    }
     if (auto* that = ::takatori::util::downcast<variable_info>(std::addressof(other)); that != nullptr) {
         return equals(*that);
     }
