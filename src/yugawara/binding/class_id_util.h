@@ -53,9 +53,7 @@ static bool equals_delegate(T const& self, U const& other) noexcept {
     if (std::addressof(self) == std::addressof(other)) {
         return true;
     }
-    auto acid = self.class_id();
-    auto bcid = other.class_id();
-    return acid == bcid
+    return self.class_id() == other.class_id()
         && self == ::takatori::util::unsafe_downcast<T>(other);
 }
 
