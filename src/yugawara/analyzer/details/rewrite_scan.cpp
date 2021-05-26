@@ -22,27 +22,16 @@ namespace relation = ::takatori::relation;
 using search_key = storage::details::search_key_element;
 using attribute = details::index_estimator_result_attribute;
 
-using ::takatori::util::object_allocator;
-using ::takatori::util::object_creator;
 using ::takatori::util::optional_ptr;
 using ::takatori::util::sequence_view;
 using ::takatori::util::unsafe_downcast;
-
-template<class T>
-using object_vector = std::vector<T, object_allocator<T>>;
 
 namespace {
 
 class engine {
 public:
-    explicit engine(
-            index_estimator const& index_estimator,
-            object_creator creator)
-        : index_estimator_(index_estimator)
-        , collector_(creator)
-        , term_buf_(creator.allocator())
-        , search_key_buf_(creator.allocator())
-        , saved_terms_(creator.allocator())
+    explicit engine(index_estimator const& index_estimator) :
+        index_estimator_ { index_estimator }
     {}
 
     bool process(relation::scan& expr) {
@@ -76,21 +65,17 @@ public:
         return erase;
     }
 
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept {
-        return collector_.get_object_creator();
-    }
-
 private:
     index_estimator const& index_estimator_;
     scan_key_collector collector_;
 
-    object_vector<scan_key_collector::term*> term_buf_;
-    object_vector<search_key> search_key_buf_;
+    std::vector<scan_key_collector::term*> term_buf_;
+    std::vector<search_key> search_key_buf_;
 
     bool saw_best_ { false };
     std::optional<index_estimator::result> saved_result_ {};
     optional_ptr<storage::index const> saved_index_ {};
-    object_vector<scan_key_collector::term*> saved_terms_;
+    std::vector<scan_key_collector::term*> saved_terms_;
 
     void estimate(storage::index const& index) {
         if (saw_best_) {
@@ -104,7 +89,7 @@ private:
                 collector_.referring());
 
         if (is_better(result)) {
-            save_result(index, std::move(result), term_buf_);
+            save_result(index, result, term_buf_);
         }
         term_buf_.clear();
         search_key_buf_.clear();
@@ -157,7 +142,7 @@ private:
             saw_best_ = true;
         }
         saved_index_ = index;
-        saved_result_.emplace(std::move(result));
+        saved_result_.emplace(result);
         saved_terms_.assign(terms.begin(), terms.end());
     }
 
@@ -180,15 +165,14 @@ private:
             sequence_view<scan_key_collector::term*> terms) const {
         BOOST_ASSERT(terms.size() <= index.keys().size()); // NOLINT
 
-        object_vector<relation::find::key> keys { get_object_creator().allocator() };
-        fill_search_key(index, keys, terms, get_object_creator());
+        std::vector<relation::find::key> keys {};
+        fill_search_key(index, keys, terms);
 
-        binding::factory bindings { get_object_creator() };
+        binding::factory bindings {};
         auto&& find = expr.owner().emplace<relation::find>(
                 bindings(index),
                 std::move(expr.columns()),
-                std::move(keys),
-                get_object_creator());
+                std::move(keys));
 
         // reconnect
         BOOST_ASSERT(expr.output().opposite()); // NOLINT
@@ -203,10 +187,10 @@ private:
             sequence_view<scan_key_collector::term*> terms) const {
         BOOST_ASSERT(terms.size() <= index.keys().size()); // NOLINT
 
-        binding::factory bindings { get_object_creator() };
+        binding::factory bindings {};
         expr.source() = bindings(index);
 
-        fill_endpoints(index, expr.lower(), expr.upper(), terms, get_object_creator());
+        fill_endpoints(index, expr.lower(), expr.upper(), terms);
     }
 };
 
@@ -214,9 +198,8 @@ private:
 
 void rewrite_scan(
         ::takatori::relation::graph_type& graph,
-        class index_estimator const& index_estimator,
-        object_creator creator) {
-    engine e { index_estimator, creator };
+        class index_estimator const& index_estimator) {
+    engine e { index_estimator };
     for (auto it = graph.begin(); it != graph.end();) {
         auto&& op = *it;
         if (op.kind() == relation::scan::tag) {

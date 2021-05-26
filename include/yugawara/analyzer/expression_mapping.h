@@ -6,7 +6,6 @@
 
 #include <takatori/scalar/expression.h>
 #include <takatori/type/data.h>
-#include <takatori/util/object_creator.h>
 
 #include "expression_resolution.h"
 
@@ -28,12 +27,6 @@ public:
      * @brief creates a new instance.
      */
     expression_mapping() noexcept = default;
-
-    /**
-     * @brief creates a new instance.
-     * @param creator the object creator
-     */
-    explicit expression_mapping(::takatori::util::object_creator creator) noexcept;
 
     /**
      * @brief returns the resolved type for the expression.
@@ -74,21 +67,12 @@ public:
      */
     void clear() noexcept;
 
-    /**
-     * @brief returns the object creator.
-     * @return the object creator
-     */
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const;
-
 private:
     std::unordered_map<
             ::takatori::scalar::expression const*,
             expression_resolution,
             std::hash<::takatori::scalar::expression const*>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<std::pair<
-                    ::takatori::scalar::expression const* const,
-                    expression_resolution>>> mapping_;
+            std::equal_to<>> mapping_;
 };
 
 } // namespace yugawara::analyzer

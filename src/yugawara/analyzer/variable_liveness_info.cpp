@@ -2,12 +2,6 @@
 
 namespace yugawara::analyzer {
 
-variable_liveness_info::variable_liveness_info(::takatori::util::object_creator creator) noexcept
-    : define_(creator.allocator())
-    , use_(creator.allocator())
-    , kill_(creator.allocator())
-{}
-
 variable_liveness_info::variables& variable_liveness_info::define() noexcept {
     return define_;
 }

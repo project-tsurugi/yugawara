@@ -29,28 +29,28 @@ column::column(
     }
 {}
 
-column::column(column const& other, takatori::util::object_creator creator)
+column::column(::takatori::util::clone_tag_t, column const& other)
     : column(
-            decltype(simple_name_) { other.simple_name_, creator.allocator() },
+            decltype(simple_name_) { other.simple_name_ },
             other.type_,
-            decltype(criteria_) { other.criteria_, creator },
+            decltype(criteria_) { ::takatori::util::clone_tag, other.criteria_ },
             other.default_value_)
 {}
 
-column::column(column&& other, takatori::util::object_creator creator)
+column::column(::takatori::util::clone_tag_t, column&& other)
     : column(
-            decltype(simple_name_) { std::move(other.simple_name_), creator.allocator() },
+            decltype(simple_name_) { std::move(other.simple_name_) },
             std::move(other.type_),
             std::move(other.criteria_),
             std::move(other.default_value_))
 {}
 
-column* column::clone(takatori::util::object_creator creator) const& {
-    return creator.create_object<column>(*this, creator);
+column* column::clone() const& {
+    return new column(::takatori::util::clone_tag, *this); // NOLINT
 }
 
-column* column::clone(takatori::util::object_creator creator) && {
-    return creator.create_object<column>(std::move(*this), creator);
+column* column::clone() && {
+    return new column(::takatori::util::clone_tag, std::move(*this)); // NOLINT;
 }
 
 std::string_view column::simple_name() const noexcept {

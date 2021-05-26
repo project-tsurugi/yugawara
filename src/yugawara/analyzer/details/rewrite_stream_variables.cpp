@@ -75,8 +75,7 @@ public:
                                 << string_builder::to_string));
                     }
                     relation::step::dispatch(*this, expr);
-                },
-                exchange_map_.get_object_creator());
+                });
         context_.clear();
     }
 
@@ -415,17 +414,15 @@ private:
 
 void rewrite_stream_variables(
         exchange_column_info_map& exchange_map,
-        plan::graph_type& graph,
-        ::takatori::util::object_creator creator) {
-    stream_variable_rewriter_context context { creator };
-    scalar_expression_variable_rewriter scalar_rewriter { creator };
+        plan::graph_type& graph) {
+    stream_variable_rewriter_context context {};
+    scalar_expression_variable_rewriter scalar_rewriter {};
     engine e { exchange_map, context, scalar_rewriter };
     plan::sort_from_downstream(
             graph,
             [&](plan::step& step) {
                 plan::dispatch(e, step);
-            },
-            creator);
+            });
 }
 
 } // namespace yugawara::analyzer::details

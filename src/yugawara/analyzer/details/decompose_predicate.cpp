@@ -6,7 +6,7 @@
 namespace yugawara::analyzer::details {
 
 namespace scalar = ::takatori::scalar;
-using ::takatori::util::object_ownership_reference;
+using ::takatori::util::ownership_reference;
 using ::takatori::util::unsafe_downcast;
 
 namespace {
@@ -41,7 +41,7 @@ public:
 private:
     predicate_consumer const& consumer_;
 
-    void accept(object_ownership_reference<scalar::expression>&& ownership) {
+    void accept(ownership_reference<scalar::expression>&& ownership) {
         consumer_(std::move(ownership));
     }
 };
@@ -53,7 +53,7 @@ void decompose_predicate(scalar::expression& expression, predicate_consumer cons
     e.consume(expression);
 }
 
-void decompose_predicate(object_ownership_reference<scalar::expression> expression, predicate_consumer const& consumer) {
+void decompose_predicate(ownership_reference<scalar::expression> expression, predicate_consumer const& consumer) {
     engine e { consumer };
     if (!e.consume(*expression)) {
         consumer(std::move(expression));

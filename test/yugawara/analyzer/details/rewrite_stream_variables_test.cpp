@@ -52,7 +52,6 @@ using namespace ::yugawara::testing;
 
 class rewrite_stream_variables_test : public ::testing::Test {
 protected:
-    ::takatori::util::object_creator creator;
     type::repository types;
     binding::factory bindings;
 
@@ -106,8 +105,8 @@ protected:
 
     void apply(plan::graph_type& graph) {
         details::collect_step_relations(graph);
-        auto map = details::collect_exchange_columns(graph, creator);
-        details::rewrite_stream_variables(map, graph, creator);
+        auto map = details::collect_exchange_columns(graph);
+        details::rewrite_stream_variables(map, graph);
     }
 };
 

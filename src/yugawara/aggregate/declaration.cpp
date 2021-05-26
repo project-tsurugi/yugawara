@@ -11,7 +11,7 @@ declaration::declaration(
         definition_id_type definition_id,
         name_type name,
         type_pointer return_type,
-        std::vector<type_pointer, takatori::util::object_allocator<type_pointer>> parameter_types,
+        std::vector<type_pointer> parameter_types,
         bool incremental) noexcept
     : definition_id_(definition_id)
     , name_(std::move(name))
@@ -86,11 +86,11 @@ declaration::type_list_view declaration::parameter_types() const noexcept {
     return type_list_view { parameter_types_ };
 }
 
-std::vector<declaration::type_pointer, takatori::util::object_allocator<declaration::type_pointer>>& declaration::shared_parameter_types() noexcept {
+std::vector<declaration::type_pointer>& declaration::shared_parameter_types() noexcept {
     return parameter_types_;
 }
 
-std::vector<declaration::type_pointer, takatori::util::object_allocator<declaration::type_pointer>> const& declaration::shared_parameter_types() const noexcept {
+std::vector<declaration::type_pointer> const& declaration::shared_parameter_types() const noexcept {
     return parameter_types_;
 }
 

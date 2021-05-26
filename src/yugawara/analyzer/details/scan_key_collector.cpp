@@ -18,13 +18,13 @@ namespace descriptor = ::takatori::descriptor;
 namespace scalar = ::takatori::scalar;
 namespace relation = ::takatori::relation;
 
-using ::takatori::util::object_ownership_reference;
+using ::takatori::util::ownership_reference;
 using ::takatori::util::optional_ptr;
 using ::takatori::util::sequence_view;
 using ::takatori::util::string_builder;
 using ::takatori::util::throw_exception;
 
-using expression_ref = object_ownership_reference<scalar::expression>;
+using expression_ref = ownership_reference<scalar::expression>;
 
 namespace {
 
@@ -48,7 +48,7 @@ public:
 
     explicit factor_collector(
             search_key_term_builder& builder,
-            std::vector<sort_key, ::takatori::util::object_allocator<sort_key>>& sort_keys,
+            std::vector<sort_key>& sort_keys,
             bool include_join) noexcept
         : builder_(builder)
         , sort_keys_(sort_keys)
@@ -97,20 +97,12 @@ public:
 
 private:
     search_key_term_builder& builder_;
-    std::vector<sort_key, ::takatori::util::object_allocator<sort_key>> sort_keys_;
+    std::vector<sort_key> sort_keys_;
     bool for_join_;
     bool found_join_ { false };
 };
 
 } // namespace
-
-scan_key_collector::scan_key_collector(::takatori::util::object_creator creator)
-    : creator_(creator)
-    , term_builder_(creator)
-    , column_map_(creator.allocator())
-    , sort_keys_(creator.allocator())
-    , referring_(creator.allocator())
-{}
 
 bool scan_key_collector::operator()(relation::scan& expression, bool include_join) {
     clear();
@@ -173,10 +165,6 @@ sequence_view<scan_key_collector::sort_key const> scan_key_collector::sort_keys(
 
 sequence_view<scan_key_collector::column_ref const> scan_key_collector::referring() const {
     return referring_;
-}
-
-::takatori::util::object_creator scan_key_collector::get_object_creator() const noexcept {
-    return creator_;
 }
 
 } // namespace yugawara::analyzer::details

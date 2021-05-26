@@ -20,7 +20,7 @@ declaration::declaration(
         name_type name,
         type_pointer type,
         class criteria criteria) noexcept :
-    definition_id_ { std::move(definition_id) },
+    definition_id_ { definition_id },
     name_(std::move(name)),
     type_(or_pending(std::move(type))),
     criteria_(std::move(criteria))
@@ -63,7 +63,7 @@ std::optional<declaration::definition_id_type> declaration::definition_id() cons
 }
 
 declaration& declaration::definition_id(std::optional<definition_id_type> definition_id) noexcept {
-    definition_id_ = std::move(definition_id);
+    definition_id_ = definition_id;
     return *this;
 }
 

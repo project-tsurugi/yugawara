@@ -11,12 +11,6 @@ namespace yugawara::analyzer::details {
 
 namespace descriptor = ::takatori::descriptor;
 
-exchange_column_info::exchange_column_info(::takatori::util::object_creator creator) noexcept
-    : entries_(creator.allocator())
-    , index_(creator.allocator())
-    , touched_(creator.allocator())
-{}
-
 exchange_column_info::size_type exchange_column_info::count() const noexcept {
     return entries_.size();
 }
@@ -40,7 +34,7 @@ descriptor::variable const& exchange_column_info::allocate(descriptor::variable 
         return *v;
     }
     auto&& info = binding::extract<binding::variable_info_kind::stream_variable>(variable);
-    auto f = binding::factory { get_object_creator() };
+    binding::factory f {};
     auto&& entry = entries_.emplace_back(variable, f.exchange_column(info.label()));
     auto [it, success] = index_.emplace(variable, entries_.size() - 1);
     (void) it;
@@ -78,10 +72,6 @@ void exchange_column_info::clear() {
     entries_.clear();
     index_.clear();
     touched_.clear();
-}
-
-::takatori::util::object_creator exchange_column_info::get_object_creator() const noexcept {
-    return entries_.get_allocator();
 }
 
 } // namespace yugawara::analyzer::details

@@ -66,7 +66,7 @@ template<class T>
 using short_vector = ::boost::container::static_vector<T, short_vector_size>;
 
 template<class T>
-using long_vector = std::vector<T, ::takatori::util::object_allocator<T>>;
+using long_vector = std::vector<T>;
 
 constexpr std::optional<std::size_t> operator+(std::optional<std::size_t> a, std::optional<std::size_t> b) noexcept {
     if (!a || !b) return {};
@@ -104,7 +104,7 @@ public:
             expression_analyzer& ana,
             bool validate,
             bool allow_unresolved,
-            std::vector<diagnostic_type, ::takatori::util::object_allocator<diagnostic_type>>& diagnostics,
+            std::vector<diagnostic_type>& diagnostics,
             type::repository& repo) noexcept
         : ana_(ana)
         , diagnostics_(diagnostics)
@@ -1389,7 +1389,7 @@ public:
 
 private:
     expression_analyzer& ana_;
-    std::vector<diagnostic_type, ::takatori::util::object_allocator<diagnostic_type>>& diagnostics_;
+    std::vector<diagnostic_type>& diagnostics_;
     type::repository& repo_;
     bool validate_;
     bool allow_unresolved_;
@@ -1770,13 +1770,10 @@ private:
 } // namespace
 
 expression_analyzer::expression_analyzer()
-    : expression_analyzer(::takatori::util::object_creator {})
-{}
-
-expression_analyzer::expression_analyzer(::takatori::util::object_creator creator)
-    : expression_analyzer(
-        creator.create_shared<expression_mapping>(creator),
-        creator.create_shared<variable_mapping>(creator))
+    : expression_analyzer {
+        std::make_shared<expression_mapping>(),
+        std::make_shared<variable_mapping>(),
+    }
 {}
 
 expression_analyzer::expression_analyzer(
@@ -1784,7 +1781,6 @@ expression_analyzer::expression_analyzer(
         ::takatori::util::maybe_shared_ptr<variable_mapping> variables) noexcept
     : expressions_(std::move(expressions))
     , variables_(std::move(variables))
-    , diagnostics_(expressions_->get_object_creator().template allocator<decltype(diagnostics_)::value_type>())
 {}
 
 expression_mapping& expression_analyzer::expressions() noexcept {

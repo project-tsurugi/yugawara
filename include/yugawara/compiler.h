@@ -6,7 +6,6 @@
 #include <takatori/relation/graph.h>
 #include <takatori/plan/graph.h>
 #include <takatori/statement/statement.h>
-#include <takatori/util/object_creator.h>
 
 #include <yugawara/util/either.h>
 
@@ -49,7 +48,7 @@ public:
      * @return the compilation result
      * @return an invalid result object if compilation was failed
      */
-    [[nodiscard]] result_type operator()(options_type const& options, ::takatori::util::unique_object_ptr<::takatori::statement::statement> statement);
+    [[nodiscard]] result_type operator()(options_type const& options, std::unique_ptr<::takatori::statement::statement> statement);
 
     /**
      * @brief compiles the given statement.

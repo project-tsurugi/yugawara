@@ -19,10 +19,6 @@ public:
 
     stream_variable_flow_info() = default;
 
-    explicit stream_variable_flow_info(::takatori::util::object_creator creator)
-        : entries_(creator.allocator())
-    {}
-
     [[nodiscard]] entry_type& entry(::takatori::relation::expression::input_port_type const& port);
 
     [[nodiscard]] ::takatori::util::optional_ptr<entry_type> find(
@@ -49,20 +45,13 @@ public:
         entries_.clear();
     }
 
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const {
-        return entries_.get_allocator();
-    }
-
 private:
     // NOTE: use unordered_map to avoid relocation, instead of hopscotch
     std::unordered_map<
             ::takatori::relation::expression::input_port_type const*,
             entry_type,
             std::hash<::takatori::relation::expression::input_port_type const*>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<std::pair<
-                    ::takatori::relation::expression::input_port_type const* const,
-                    entry_type>>> entries_;
+            std::equal_to<>> entries_;
 };
 
 } // namespace yugawara::analyzer::details

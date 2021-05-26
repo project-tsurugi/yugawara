@@ -26,28 +26,28 @@ quantification::quantification(
             decltype(operands_) { operands.begin(), operands.end() })
 {}
 
-quantification::quantification(quantification const& other, takatori::util::object_creator creator) noexcept
+quantification::quantification(::takatori::util::clone_tag_t, quantification const& other) noexcept
     : quantification(
             other.operator_kind_,
-            decltype(operands_) { other.operands_, creator })
+            decltype(operands_) { other.operands_ })
 {}
 
-quantification::quantification(quantification&& other, takatori::util::object_creator creator) noexcept
+quantification::quantification(::takatori::util::clone_tag_t, quantification&& other) noexcept
     : quantification(
             other.operator_kind_,
-            decltype(operands_) { std::move(other.operands_), creator })
+            decltype(operands_) { std::move(other.operands_) })
 {}
 
 predicate_kind quantification::kind() const noexcept {
     return tag;
 }
 
-quantification* quantification::clone(takatori::util::object_creator creator) const& {
-    return creator.create_object<quantification>(*this, creator);
+quantification* quantification::clone() const& {
+    return new quantification(::takatori::util::clone_tag, *this); // NOLINT
 }
 
-quantification* quantification::clone(takatori::util::object_creator creator)&& {
-    return creator.create_object<quantification>(std::move(*this), creator);
+quantification* quantification::clone()&& {
+    return new quantification(::takatori::util::clone_tag, std::move(*this)); // NOLINT;
 }
 
 quantification::operator_kind_type quantification::operator_kind() const noexcept {

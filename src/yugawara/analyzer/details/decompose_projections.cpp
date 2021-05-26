@@ -16,11 +16,8 @@ using ::takatori::util::string_builder;
 using ::takatori::util::throw_exception;
 using ::takatori::util::unsafe_downcast;
 
-void decompose_projections(relation::graph_type& graph, ::takatori::util::object_creator creator) {
-    std::vector<::takatori::util::unique_object_ptr<relation::project>,
-            ::takatori::util::object_allocator<::takatori::util::unique_object_ptr<relation::project>>> added_ {
-        creator.allocator(),
-    };
+void decompose_projections(relation::graph_type& graph) {
+    std::vector<std::unique_ptr<relation::project>> added_ {};
 
     for (auto&& expr : graph) {
         if (expr.kind() != relation::project::tag) {
@@ -39,18 +36,14 @@ void decompose_projections(relation::graph_type& graph, ::takatori::util::object
             }
             last->disconnect_all();
             while (columns.size() >= 2) {
-                std::vector<
-                        relation::project::column,
-                        ::takatori::util::object_allocator<relation::project::column>> new_columns { creator.allocator() };
+                std::vector<relation::project::column> new_columns {};
                 new_columns.reserve(1);
 
                 auto&& last_column = columns.back();
                 new_columns.emplace_back(std::move(last_column.variable()), last_column.release_value());
                 columns.pop_back();
 
-                auto&& tail = added_.emplace_back(graph.get_object_creator().create_unique<relation::project>(
-                        std::move(new_columns),
-                        creator));
+                auto&& tail = added_.emplace_back(std::make_unique<relation::project>(std::move(new_columns)));
                 tail->output().connect_to(*last);
                 last = std::addressof(tail->input());
             }

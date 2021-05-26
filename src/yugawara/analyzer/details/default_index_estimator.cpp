@@ -141,7 +141,7 @@ index_estimator::result default_index_estimator::operator()(
     if (attributes[attribute::index_only]) {
         score *= 2;
     }
-    return { score, std::move(count), attributes, };
+    return { score, count, attributes, };
 }
 
 } // namespace yugawara::analyzer::details

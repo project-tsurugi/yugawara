@@ -10,11 +10,11 @@ exchange_info::exchange_info(::takatori::plan::exchange const& declaration) noex
     declaration_ { std::addressof(declaration) }
 {}
 
-exchange_info::exchange_info(exchange_info const& other, ::takatori::util::object_creator /*unused*/) :
+exchange_info::exchange_info(::takatori::util::clone_tag_t, exchange_info const& other) :
     exchange_info { *other.declaration_ }
 {}
 
-exchange_info::exchange_info(exchange_info&& other, ::takatori::util::object_creator /*unused*/) :
+exchange_info::exchange_info(::takatori::util::clone_tag_t, exchange_info&& other) :
     exchange_info { *other.declaration_ }
 {}
 
@@ -26,12 +26,12 @@ relation_info_kind exchange_info::kind() const noexcept {
     return tag;
 }
 
-exchange_info* exchange_info::clone(takatori::util::object_creator creator) const& {
-    return creator.create_object<exchange_info>(*this, creator);
+exchange_info* exchange_info::clone() const& {
+    return new exchange_info(::takatori::util::clone_tag, *this); // NOLINT
 }
 
-exchange_info* exchange_info::clone(takatori::util::object_creator creator) && {
-    return creator.create_object<exchange_info>(std::move(*this), creator);
+exchange_info* exchange_info::clone() && {
+    return new exchange_info(::takatori::util::clone_tag, std::move(*this)); // NOLINT;
 }
 
 ::takatori::plan::exchange const& exchange_info::declaration() const noexcept {

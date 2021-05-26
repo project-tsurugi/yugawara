@@ -4,7 +4,6 @@
 #include <takatori/relation/details/range_endpoint.h>
 #include <takatori/relation/details/search_key_element.h>
 #include <takatori/util/assertion.h>
-#include <takatori/util/object_creator.h>
 #include <takatori/util/sequence_view.h>
 
 #include <yugawara/storage/index.h>
@@ -17,15 +16,12 @@ namespace yugawara::analyzer::details {
 template<class Parent>
 void fill_search_key(
         storage::index const& index,
-        std::vector<
-                ::takatori::relation::details::search_key_element<Parent>,
-                ::takatori::util::object_allocator<::takatori::relation::details::search_key_element<Parent>>>& keys,
-        ::takatori::util::sequence_view<search_key_term*> terms,
-        ::takatori::util::object_creator creator) {
+        std::vector<::takatori::relation::details::search_key_element<Parent>>& keys,
+        ::takatori::util::sequence_view<search_key_term*> terms) {
     if (terms.empty()) {
         return;
     }
-    binding::factory bindings { creator };
+    binding::factory bindings {};
     keys.reserve(terms.size());
     for (std::size_t i = 0, n = terms.size(); i < n; ++i) {
         auto&& key = index.keys()[i];
@@ -93,15 +89,14 @@ void fill_endpoints(
         storage::index const& index,
         ::takatori::relation::details::range_endpoint<Parent, ::takatori::relation::details::search_key_element<Parent>>& lower,
         ::takatori::relation::details::range_endpoint<Parent, ::takatori::relation::details::search_key_element<Parent>>& upper,
-        ::takatori::util::sequence_view<search_key_term*> terms,
-        ::takatori::util::object_creator creator) {
+        ::takatori::util::sequence_view<search_key_term*> terms) {
     if (terms.empty()) {
         return;
     }
     lower.keys().reserve(terms.size());
     upper.keys().reserve(terms.size());
 
-    binding::factory bindings { creator };
+    binding::factory bindings {};
     for (std::size_t i = 0, n = terms.size(); i < n; ++i) {
         auto&& key = index.keys()[i];
         auto&& term = *terms[i];

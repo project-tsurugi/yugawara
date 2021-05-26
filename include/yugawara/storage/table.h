@@ -6,7 +6,7 @@
 #include <string_view>
 
 #include <takatori/tree/tree_element_vector.h>
-#include <takatori/util/object_creator.h>
+#include <takatori/util/clone_tag.h>
 
 #include "relation.h"
 #include "column.h"
@@ -22,7 +22,7 @@ public:
     using definition_id_type = std::size_t;
 
     /// @brief the simple name type.
-    using simple_name_type = std::basic_string<char, std::char_traits<char>, takatori::util::object_allocator<char>>;
+    using simple_name_type = std::string;
 
     /// @brief the column vector type.
     using column_vector_type = takatori::tree::tree_element_vector<column>;
@@ -64,19 +64,17 @@ public:
     /**
      * @brief creates a new object.
      * @param other the copy source
-     * @param creator the object creator
      */
-    explicit table(table const& other, takatori::util::object_creator creator);
+    explicit table(::takatori::util::clone_tag_t, table const& other);
 
     /**
      * @brief creates a new object.
      * @param other the move source
-     * @param creator the object creator
      */
-    explicit table(table&& other, takatori::util::object_creator creator);
+    explicit table(::takatori::util::clone_tag_t, table&& other);
 
-    [[nodiscard]] table* clone(takatori::util::object_creator creator) const& override;
-    [[nodiscard]] table* clone(takatori::util::object_creator creator) && override;
+    [[nodiscard]] table* clone() const& override;
+    [[nodiscard]] table* clone() && override;
 
     [[nodiscard]] relation_kind kind() const noexcept override;
 

@@ -74,10 +74,6 @@ inline relation::expression& find_back(relation::expression& expr) {
 
 } // namespace
 
-block_builder::block_builder(::takatori::util::object_creator creator) noexcept
-    : blocks_(creator)
-{}
-
 block_builder::block_builder(block_graph blocks) noexcept
     : blocks_(std::move(blocks))
 {}
@@ -96,34 +92,28 @@ block_graph const& block_builder::graph() const noexcept {
 
 block_graph block_builder::release() noexcept {
     auto r = std::move(blocks_);
-    blocks_ = decltype(r) { r.get_object_creator() };
+    blocks_ = decltype(r) {};
     return r;
 }
 
-::takatori::util::object_creator block_builder::get_object_creator() const noexcept {
-    return blocks_.get_object_creator();
-}
-
 block_graph block_builder::build(relation::graph_type& expressions) {
-    std::vector<relation::expression*, ::takatori::util::object_allocator<relation::expression*>> heads;
+    std::vector<relation::expression*> heads;
     ::tsl::hopscotch_set<
             relation::expression*,
             std::hash<relation::expression*>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<relation::expression*>> saw;
+            std::equal_to<>> saw;
 
     relation::enumerate_top(expressions, [&](relation::expression& expr) {
         heads.emplace_back(std::addressof(expr));
         saw.emplace(std::addressof(expr));
     });
 
-    auto creator = expressions.get_object_creator();
-    block_graph result { creator };
+    block_graph result {};
     while (!heads.empty()) {
         auto&& front = *heads.back();
         heads.pop_back();
         auto&& back = find_back(front);
-        result.emplace(front, back, creator);
+        result.emplace(front, back);
 
         for (auto&& output : back.output_ports()) {
             if (!output.opposite()) {

@@ -128,7 +128,7 @@ TEST_F(object_scanner_test, external_variable) {
 }
 
 TEST_F(object_scanner_test, index) {
-    auto t = std::make_shared<storage::table>(storage::table {
+    auto t = std::make_shared<storage::table>(::takatori::util::clone_tag, storage::table {
             "T",
             {
                     {
@@ -144,7 +144,7 @@ TEST_F(object_scanner_test, index) {
                             t::int4 {},
                     },
             },
-    }, ::takatori::util::object_creator {});
+    });
     print(bindings(storage::index {
             t,
             "IDX",

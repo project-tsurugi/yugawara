@@ -2,14 +2,10 @@
 
 #include <memory>
 #include <optional>
-
-#include <memory>
 #include <ostream>
 #include <string>
 
 #include <cstddef>
-
-#include <takatori/util/object_creator.h>
 
 #include <yugawara/storage/provider.h>
 #include <yugawara/variable/provider.h>
@@ -28,7 +24,7 @@ public:
     using definition_id_type = std::size_t;
 
     /// @brief the declaration name type.
-    using name_type = std::basic_string<char, std::char_traits<char>, ::takatori::util::object_allocator<char>>;
+    using name_type = std::string;
 
     /**
      * @brief creates a new object.

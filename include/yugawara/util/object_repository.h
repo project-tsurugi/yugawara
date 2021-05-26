@@ -3,7 +3,6 @@
 #include <utility>
 
 #include <takatori/util/clonable.h>
-#include <takatori/util/object_creator.h>
 
 #include "object_cache.h"
 
@@ -39,29 +38,22 @@ public:
     object_repository() = default;
 
     /**
-     * @brief creates a new instance which does not have cache mechanism.
-     * @param creator the object creator
-     */
-    explicit object_repository(takatori::util::object_creator creator) noexcept
-        : cache_(nullptr, takatori::util::object_deleter { creator })
-    {}
-
-    /**
      * @brief creates a new instance.
-     * @param creator the object creator
      * @param enable_cache whether or not cache mechanism is enabled
      */
-    explicit object_repository(takatori::util::object_creator creator, bool enable_cache)
-        : cache_(enable_cache
-                ? creator.template create_unique<cache_type>()
-                : ::takatori::util::unique_object_ptr<cache_type> {})
+    explicit object_repository(bool enable_cache) :
+        cache_ {
+            enable_cache
+                ? std::make_unique<cache_type>()
+                : std::unique_ptr<cache_type> {}
+        }
     {}
 
     /**
      * @brief creates a new instance with using the given cache table.
      * @param cache the cache table
      */
-    explicit object_repository(takatori::util::unique_object_ptr<cache_type> cache) noexcept
+    explicit object_repository(std::unique_ptr<cache_type> cache) noexcept
         : cache_(std::move(cache))
     {}
 
@@ -70,7 +62,7 @@ public:
      * @param cache the cache table
      */
     explicit object_repository(cache_type cache)
-        : cache_(cache.get_object_creator().template create_unique<cache_type>(std::move(cache)))
+        : cache_(std::make_unique<cache_type>(std::move(cache)))
     {}
 
     /**
@@ -96,23 +88,15 @@ public:
         }
     }
 
-    /**
-     * @brief returns the object creator.
-     * @return the object creator
-     */
-    [[nodiscard]] takatori::util::object_creator get_object_creator() const noexcept {
-        return takatori::util::get_object_creator_from_deleter(cache_.get_deleter());
-    }
-
 private:
-    takatori::util::unique_object_ptr<cache_type> cache_;
+    std::unique_ptr<cache_type> cache_;
 
     template<class U>
     [[nodiscard]] std::shared_ptr<value_type> internal_get(U&& value) {
         if (cache_) {
             return cache_->add(std::forward<U>(value)).lock();
         }
-        return takatori::util::clone_shared(std::forward<U>(value), get_object_creator());
+        return takatori::util::clone_shared(std::forward<U>(value));
     }
 };
 
@@ -123,7 +107,7 @@ private:
  * @tparam KeyEqual the key comparator function object type
  */
 template<class T, class Hash, class KeyEqual>
-object_repository(takatori::util::unique_object_ptr<object_cache<T, Hash, KeyEqual>> cache)
+object_repository(std::unique_ptr<object_cache<T, Hash, KeyEqual>> cache)
 -> object_repository<T, Hash, KeyEqual>;
 
 /**

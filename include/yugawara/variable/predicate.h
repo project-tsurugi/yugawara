@@ -2,8 +2,6 @@
 
 #include <ostream>
 
-#include <takatori/util/object_creator.h>
-
 #include "predicate_kind.h"
 
 namespace yugawara::variable {
@@ -26,13 +24,12 @@ public:
 
     /**
      * @brief returns a clone of this object.
-     * @param creator the object creator
      * @return the created clone
      */
-    [[nodiscard]] virtual predicate* clone(takatori::util::object_creator creator) const& = 0;
+    [[nodiscard]] virtual predicate* clone() const& = 0;
 
     /// @copydoc clone()
-    [[nodiscard]] virtual predicate* clone(takatori::util::object_creator creator) && = 0;
+    [[nodiscard]] virtual predicate* clone() && = 0;
 
     /**
      * @brief returns whether or not the two elements are equivalent.

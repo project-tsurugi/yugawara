@@ -7,11 +7,6 @@ namespace yugawara::analyzer::details {
 
 using ::takatori::util::throw_exception;
 
-step_plan_builder_options::step_plan_builder_options(::takatori::util::object_creator creator) noexcept
-    : join_hints_(creator.allocator())
-    , aggregate_hints_(creator.allocator())
-{}
-
 runtime_feature_set& step_plan_builder_options::runtime_features() noexcept {
     return runtime_features_;
 }
@@ -57,10 +52,6 @@ void step_plan_builder_options::add(::takatori::relation::intermediate::aggregat
         return it->second;
     }
     return {};
-}
-
-::takatori::util::object_creator step_plan_builder_options::get_object_creator() const noexcept {
-    return join_hints_.get_allocator();
 }
 
 } // namespace yugawara::analyzer::details

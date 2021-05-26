@@ -23,26 +23,14 @@ public:
             ::takatori::relation::intermediate::join const*,
             join_info,
             std::hash<::takatori::relation::intermediate::join const*>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<std::pair<
-                    ::takatori::relation::intermediate::join const* const,
-                    join_info>>>;
+            std::equal_to<>>;
 
     /// @brief the aggregation hint map type.
     using aggregate_hint_map = std::unordered_map<
             ::takatori::relation::intermediate::aggregate const*,
             aggregate_info,
             std::hash<::takatori::relation::intermediate::aggregate const*>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<std::pair<
-                    ::takatori::relation::intermediate::aggregate const* const,
-                    aggregate_info>>>;
-
-    /**
-     * @brief creates a new instance.
-     * @param creator the object creator
-     */
-    explicit step_plan_builder_options(::takatori::util::object_creator creator = {}) noexcept;
+            std::equal_to<>>;
 
     /**
      * @brief returns the available feature set of the target environment.
@@ -84,12 +72,6 @@ public:
      * @return empty there are no registered hint for the operation
      */
     ::takatori::util::optional_ptr<aggregate_info const> find(::takatori::relation::intermediate::aggregate const& expr) const;
-
-    /**
-     * @brief returns the object creator.
-     * @return the object creator
-     */
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept;
 
 private:
     join_hint_map join_hints_;

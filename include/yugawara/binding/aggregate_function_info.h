@@ -1,8 +1,9 @@
 #pragma once
 
+#include <memory>
+
 #include <takatori/descriptor/aggregate_function.h>
 #include <takatori/util/object.h>
-#include <takatori/util/object_creator.h>
 
 #include <yugawara/aggregate/declaration.h>
 

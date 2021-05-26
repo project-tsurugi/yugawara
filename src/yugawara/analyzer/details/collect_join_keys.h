@@ -2,7 +2,6 @@
 
 #include <takatori/relation/graph.h>
 #include <takatori/util/enum_set.h>
-#include <takatori/util/object_creator.h>
 
 #include "flow_volume_info.h"
 
@@ -35,12 +34,10 @@ constexpr collect_join_keys_feature_set collect_join_keys_feature_universe {
  * @param graph the target graph
  * @param flow_volume the flow volume information
  * @param features the available feature set, NLJ is always allowed
- * @param creator the object creator
  */
 void collect_join_keys(
         ::takatori::relation::graph_type& graph,
         flow_volume_info const& flow_volume,
-        collect_join_keys_feature_set features,
-        ::takatori::util::object_creator creator);
+        collect_join_keys_feature_set features);
 
 } // namespace yugawara::analyzer::details

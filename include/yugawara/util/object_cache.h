@@ -5,7 +5,6 @@
 #include <utility>
 
 #include <takatori/util/clonable.h>
-#include <takatori/util/object_creator.h>
 
 namespace yugawara::util {
 
@@ -41,14 +40,6 @@ public:
      * @brief creates a new instance.
      */
     object_cache() = default;
-
-    /**
-     * @brief creates a new instance.
-     * @param creator the object creator
-     */
-    explicit object_cache(takatori::util::object_creator creator) noexcept
-        : entries_(creator.allocator())
-    {}
 
     /**
      * @brief returns the cached value of the given one.
@@ -114,27 +105,16 @@ public:
         entries_.clear();
     }
 
-    /**
-     * @brief returns the object creator.
-     * @return the object creator
-     */
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept {
-        return entries_.get_allocator();
-    }
-
 private:
     std::unordered_map<
             std::reference_wrapper<value_type const>,
             std::shared_ptr<value_type>,
             hasher,
-            key_equal,
-            takatori::util::object_allocator<std::pair<
-                    std::reference_wrapper<value_type const> const,
-                    std::shared_ptr<value_type>>>> entries_ {};
+            key_equal> entries_ {};
 
     template<class U>
     std::weak_ptr<value_type> internal_add_cache(U&& value) {
-        auto shared = takatori::util::clone_shared(std::forward<U>(value), get_object_creator());
+        auto shared = takatori::util::clone_shared(std::forward<U>(value));
         return add(std::move(shared));
     }
 };

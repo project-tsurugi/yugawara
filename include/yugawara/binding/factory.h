@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -13,8 +14,6 @@
 #include <takatori/plan/exchange.h>
 
 #include <takatori/util/optional_ptr.h>
-
-#include <takatori/util/object_creator.h>
 
 #include <yugawara/variable/declaration.h>
 #include <yugawara/function/declaration.h>
@@ -32,15 +31,12 @@ namespace yugawara::binding {
 class factory {
 public:
     /// @details a vector of variables.
-    using variable_vector = std::vector<::takatori::descriptor::variable, ::takatori::util::object_allocator<::takatori::descriptor::variable>>;
+    using variable_vector = std::vector<::takatori::descriptor::variable>;
 
     /**
      * @brief creates a new object.
-     * @param creator the object creator
      */
-    explicit constexpr factory(::takatori::util::object_creator creator = {}) noexcept
-        : creator_(creator)
-    {}
+    constexpr factory() noexcept = default;
 
     /**
      * @brief creates a new index descriptor.
@@ -161,9 +157,6 @@ public:
 
     /// @copydoc aggregate_function(aggregate::declaration&&)
     [[nodiscard]] ::takatori::descriptor::aggregate_function operator()(aggregate::declaration&& declaration);
-
-private:
-    ::takatori::util::object_creator creator_;
 };
 
 } // namespace yugawara::binding

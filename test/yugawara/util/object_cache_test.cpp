@@ -10,8 +10,8 @@ class Obj {
 public:
     Obj(int value) noexcept : value_(value) {} // NOLINT
 
-    Obj* clone(takatori::util::object_creator creator) const {
-        return creator.create_object<Obj>(value_);
+    Obj* clone() const {
+         return new Obj(value_); // NOLINT
     }
 
     int value() const noexcept { return value_; }

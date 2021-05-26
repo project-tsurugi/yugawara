@@ -21,12 +21,6 @@ public:
 
     /**
      * @brief creates a new instance.
-     * @param creator the object creator
-     */
-    explicit intermediate_plan_optimizer(::takatori::util::object_creator creator) noexcept;
-
-    /**
-     * @brief creates a new instance.
      * @param options the optimizer options
      */
     explicit intermediate_plan_optimizer(options_type options) noexcept;
@@ -45,14 +39,6 @@ public:
      * @param graph the target intermediate execution plan
      */
     void operator()(::takatori::relation::graph_type& graph);
-
-    /**
-     * @brief returns the object creator.
-     * @return the object creator
-     */
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept {
-        return options_.get_object_creator();
-    }
 
 private:
     options_type options_;

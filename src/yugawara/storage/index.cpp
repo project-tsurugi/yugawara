@@ -9,10 +9,10 @@ index::index(
         std::optional<definition_id_type> definition_id,
         std::shared_ptr<class table const> table,
         simple_name_type simple_name,
-        std::vector<key, takatori::util::object_allocator<key>> keys,
-        std::vector<column_ref, ::takatori::util::object_allocator<column_ref>> values,
+        std::vector<key> keys,
+        std::vector<column_ref> values,
         index_feature_set features) noexcept :
-    definition_id_ { std::move(definition_id) },
+    definition_id_ { definition_id },
     table_ { std::move(table) },
     simple_name_ { std::move(simple_name) },
     keys_ { std::move(keys) },
@@ -23,8 +23,8 @@ index::index(
 index::index(
         std::shared_ptr<class table const> table,
         simple_name_type simple_name,
-        std::vector<key, takatori::util::object_allocator<key>> keys,
-        std::vector<column_ref, ::takatori::util::object_allocator<column_ref>> values,
+        std::vector<key> keys,
+        std::vector<column_ref> values,
         index_feature_set features) noexcept :
     index {
             std::nullopt,
@@ -55,7 +55,7 @@ std::optional<index::definition_id_type> index::definition_id() const noexcept {
 }
 
 index& index::definition_id(std::optional<definition_id_type> definition_id) noexcept {
-    definition_id_ = std::move(definition_id);
+    definition_id_ = definition_id;
     return *this;
 }
 
@@ -81,19 +81,19 @@ index& index::simple_name(simple_name_type simple_name) noexcept {
     return *this;
 }
 
-std::vector<index::key, takatori::util::object_allocator<index::key>>& index::keys() noexcept {
+std::vector<index::key>& index::keys() noexcept {
     return keys_;
 }
 
-std::vector<index::key, takatori::util::object_allocator<index::key>> const& index::keys() const noexcept {
+std::vector<index::key> const& index::keys() const noexcept {
     return keys_;
 }
 
-std::vector<index::column_ref, takatori::util::object_allocator<index::column_ref>>& index::values() noexcept {
+std::vector<index::column_ref>& index::values() noexcept {
     return values_;
 }
 
-std::vector<index::column_ref, takatori::util::object_allocator<index::column_ref>> const& index::values() const noexcept {
+std::vector<index::column_ref> const& index::values() const noexcept {
     return values_;
 }
 

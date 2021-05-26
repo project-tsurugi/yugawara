@@ -18,8 +18,7 @@ using ::takatori::scalar::binary;
 using ::takatori::scalar::unary_operator;
 using ::takatori::scalar::binary_operator;
 
-using ::takatori::util::object_ownership_reference;
-using ::takatori::util::unique_object_ptr;
+using ::takatori::util::ownership_reference;
 using ::takatori::util::clone_unique;
 
 using details::simplify_predicate;
@@ -27,8 +26,8 @@ using details::simplify_predicate_result;
 
 class simplify_predicate_test : public ::testing::Test {
 public:
-    static object_ownership_reference<scalar::expression> make_ref(unique_object_ptr<scalar::expression>& expr) {
-        return object_ownership_reference<scalar::expression> { expr };
+    static ownership_reference<scalar::expression> make_ref(std::unique_ptr<scalar::expression>& expr) {
+        return ownership_reference<scalar::expression> { expr };
     }
 };
 

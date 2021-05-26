@@ -3,7 +3,6 @@
 #include <memory>
 
 #include <takatori/util/maybe_shared_ptr.h>
-#include <takatori/util/object_creator.h>
 
 #include <yugawara/runtime_feature.h>
 #include <yugawara/analyzer/index_estimator.h>
@@ -25,12 +24,10 @@ public:
      * @brief creates a new instance with default options.
      * @param index_estimator the index estimator for index selection
      * @param runtime_features the supported runtime features
-     * @param creator the object creator for building IR elements
      */
     compiler_options( // NOLINT
             ::takatori::util::maybe_shared_ptr<::yugawara::analyzer::index_estimator const> index_estimator = {},
-            runtime_feature_set runtime_features = default_runtime_features,
-            ::takatori::util::object_creator creator = {}) noexcept;
+            runtime_feature_set runtime_features = default_runtime_features) noexcept;
 
     /**
      * @brief returns the available feature set of the target environment.
@@ -54,14 +51,7 @@ public:
      */
     compiler_options& index_estimator(::takatori::util::maybe_shared_ptr<::yugawara::analyzer::index_estimator const> estimator) noexcept;
 
-    /**
-     * @brief returns the object creator.
-     * @return the object creator
-     */
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept;
-
 private:
-    ::takatori::util::object_creator creator_;
     ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> index_estimator_ {};
     runtime_feature_set runtime_features_ { default_runtime_features };
 };

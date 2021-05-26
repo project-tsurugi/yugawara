@@ -1,7 +1,6 @@
 #pragma once
 
 #include <takatori/relation/graph.h>
-#include <takatori/util/object_creator.h>
 
 #include <yugawara/analyzer/index_estimator.h>
 
@@ -14,11 +13,9 @@ namespace yugawara::analyzer::details {
  *      This never rewrite `join_relation` into `join_{scan,find}`.
  * @param graph the target graph
  * @param index_estimator the index cost estimator
- * @param creator the object creator
  */
 void rewrite_scan(
         ::takatori::relation::graph_type& graph,
-        class index_estimator const& index_estimator,
-        ::takatori::util::object_creator creator);
+        class index_estimator const& index_estimator);
 
 } // namespace yugawara::analyzer::details

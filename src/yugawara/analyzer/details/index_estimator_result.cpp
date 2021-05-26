@@ -9,7 +9,7 @@ index_estimator_result::index_estimator_result(
         std::optional<size_type> count,
         attribute_set attributes) noexcept
     : score_(score)
-    , count_(std::move(count))
+    , count_(count)
     , attributes_(attributes)
 {}
 

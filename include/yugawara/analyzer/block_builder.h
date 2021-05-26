@@ -2,7 +2,6 @@
 
 #include <takatori/graph/graph.h>
 #include <takatori/relation/graph.h>
-#include <takatori/util/object_creator.h>
 
 #include "block.h"
 
@@ -17,12 +16,6 @@ public:
      * @brief creates a new empty instance.
      */
     block_builder() = default;
-
-    /**
-     * @brief creates a new empty instance.
-     * @param creator the object creator
-     */
-    explicit block_builder(::takatori::util::object_creator creator) noexcept;
 
     /**
      * @brief creates a new instance.
@@ -50,12 +43,6 @@ public:
      * @return the built graph
      */
     ::takatori::graph::graph<block> release() noexcept;
-
-    /**
-     * @brief returns the object creator.
-     * @return the object creator
-     */
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept;
 
     /**
      * @brief builds a basic block graph from the given relational expression graph.

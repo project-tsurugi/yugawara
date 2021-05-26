@@ -17,8 +17,6 @@ class stream_variable_rewriter_context {
 public:
     using consumer_type = std::function<void(::takatori::descriptor::variable const&)>;
 
-    explicit stream_variable_rewriter_context(::takatori::util::object_creator creator) noexcept;
-
     [[nodiscard]] ::takatori::util::optional_ptr<::takatori::descriptor::variable const> find(
             ::takatori::descriptor::variable const& variable) const;
 
@@ -54,8 +52,6 @@ public:
 
     void clear();
 
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept;
-
 private:
     enum class status_t {
         undefined,
@@ -72,10 +68,7 @@ private:
             ::takatori::descriptor::variable,
             entry,
             std::hash<::takatori::descriptor::variable>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<std::pair<
-                    ::takatori::descriptor::variable,
-                    entry>>> mappings_;
+            std::equal_to<>> mappings_;
 };
 
 } // namespace yugawara::analyzer::details

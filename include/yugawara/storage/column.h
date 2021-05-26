@@ -1,13 +1,13 @@
 #pragma once
 
+#include <memory>
 #include <ostream>
 #include <string>
 #include <string_view>
-#include <memory>
 #include <utility>
 
 #include <takatori/type/data.h>
-#include <takatori/util/object_creator.h>
+#include <takatori/util/clone_tag.h>
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/reference_list_view.h>
 #include <takatori/util/rvalue_ptr.h>
@@ -33,7 +33,7 @@ using column_list_view = takatori::util::reference_list_view<takatori::util::dou
 class column {
 public:
     /// @brief the simple name type.
-    using simple_name_type = std::basic_string<char, std::char_traits<char>, takatori::util::object_allocator<char>>;
+    using simple_name_type = std::string;
 
     /**
      * @brief constructs a new object.
@@ -65,26 +65,23 @@ public:
     /**
      * @brief creates a new object.
      * @param other the copy source
-     * @param creator the object creator
      */
-    explicit column(column const& other, takatori::util::object_creator creator);
+    explicit column(::takatori::util::clone_tag_t, column const& other);
 
     /**
      * @brief creates a new object.
      * @param other the move source
-     * @param creator the object creator
      */
-    explicit column(column&& other, takatori::util::object_creator creator);
+    explicit column(::takatori::util::clone_tag_t, column&& other);
 
     /**
      * @brief returns a clone of this object.
-     * @param creator the object creator
      * @return the created clone
      */
-    [[nodiscard]] column* clone(takatori::util::object_creator creator) const&;
+    [[nodiscard]] column* clone() const&;
 
     /// @copydoc clone()
-    [[nodiscard]] column* clone(takatori::util::object_creator creator) &&;
+    [[nodiscard]] column* clone() &&;
 
     /**
      * @brief returns the column name.

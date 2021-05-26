@@ -26,19 +26,13 @@ namespace {
 
 class engine {
 public:
-    explicit engine(::takatori::util::object_creator creator) :
-        used_ { creator.allocator() },
-        to_be_removed_ { creator.allocator() }
-    {}
-
     void process(relation::graph_type& graph) {
         to_be_removed_.clear();
         relation::sort_from_downstream(
                 graph,
                 [this](relation::expression& expr) {
                     relation::intermediate::dispatch(*this, expr);
-                },
-                used_.get_allocator());
+                });
 
         // remove marked operators to be removed
         for (relation::expression const& target : to_be_removed_) {
@@ -213,12 +207,9 @@ private:
     ::tsl::hopscotch_set<
             descriptor::variable,
             std::hash<descriptor::variable>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<descriptor::variable>> used_;
+            std::equal_to<>> used_;
 
-    std::vector<
-            std::reference_wrapper<relation::expression const>,
-            ::takatori::util::object_allocator<std::reference_wrapper<relation::expression const>>> to_be_removed_;
+    std::vector<std::reference_wrapper<relation::expression const>> to_be_removed_;
 
     void use(descriptor::variable variable) {
         used_.emplace(std::move(variable));
@@ -315,10 +306,8 @@ private:
 
 } // namespace
 
-void remove_redundant_stream_variables(
-        ::takatori::relation::graph_type& graph,
-        ::takatori::util::object_creator creator) {
-    engine e { creator };
+void remove_redundant_stream_variables(::takatori::relation::graph_type& graph) {
+    engine e {};
     e.process(graph);
 }
 

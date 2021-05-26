@@ -55,7 +55,7 @@ class engine {
 private:
     template<class T>
     [[nodiscard]] auto to_descriptor(T&& decl) const noexcept {
-        return binding::factory { get_object_creator() }(std::forward<T>(decl));
+        return binding::factory {}(std::forward<T>(decl));
     }
 
 public:
@@ -67,7 +67,6 @@ public:
         , destination_(destination)
         , options_(options)
         , cursor_(source_.begin())
-        , added_(options.get_object_creator().template allocator<decltype(added_)::value_type>())
     {}
 
     void operator()() {
@@ -153,14 +152,12 @@ public:
                 std::move(expr.group_keys()),
                 empty<plan::group::sort_key>(),
                 1,
-                plan::group_mode::equivalence,
-                get_object_creator());
+                plan::group_mode::equivalence);
         auto&& offer = add_offer(exchange);
 
         auto&& take = add<relation::step::take_group>(
                 to_descriptor(exchange),
-                empty<relation::step::take_group::column>(),
-                get_object_creator());
+                empty<relation::step::take_group::column>());
         auto&& replacement = add<relation::step::flatten>();
         take.output() >> replacement.input();
 
@@ -199,30 +196,23 @@ public:
         ++cursor_;
     }
 
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept {
-        return options_.get_object_creator();
-    }
-
 private:
     relation::graph_type& source_;
     plan::graph_type& destination_;
     step_plan_builder_options const& options_;
 
     relation::graph_type::iterator cursor_;
-    std::vector<
-            ::takatori::util::unique_object_ptr<relation::expression>,
-            ::takatori::util::object_allocator<::takatori::util::unique_object_ptr<relation::expression>>> added_;
+    std::vector<std::unique_ptr<relation::expression>> added_;
 
     template<class T>
-    [[nodiscard]] std::vector<T, ::takatori::util::object_allocator<T>> empty() const noexcept {
-        std::vector<T, ::takatori::util::object_allocator<T>> result { get_object_creator().allocator() };
+    [[nodiscard]] std::vector<T> empty() const noexcept {
+        std::vector<T> result {};
         return result;
     }
 
     template<class T, class... Args>
     T& add(Args&&... args) {
-        // NOTE: must use the source relational operator graph's object creator, to avoid clone
-        auto&& p = source_.get_object_creator().create_unique<T>(std::forward<Args>(args)...);
+        auto&& p = std::make_unique<T>(std::forward<Args>(args)...);
         auto&& r = *p;
         added_.emplace_back(std::move(p));
         return r;
@@ -231,8 +221,7 @@ private:
     relation::step::offer& add_offer(plan::exchange const& declaration) {
         return add<relation::step::offer>(
                 to_descriptor(declaration),
-                empty<relation::step::offer::column>(),
-                get_object_creator());
+                empty<relation::step::offer::column>());
     }
 
     template<class Port>
@@ -289,8 +278,7 @@ private:
                 std::move(left_group_keys),
                 empty<plan::group::sort_key>(),
                 std::nullopt,
-                plan::group_mode::equivalence,
-                get_object_creator());
+                plan::group_mode::equivalence);
         auto&& left_offer = add_offer(left_exchange);
 
         auto&& right_exchange = destination_.emplace<plan::group>(
@@ -298,8 +286,7 @@ private:
                 std::move(right_group_keys),
                 empty<plan::group::sort_key>(),
                 std::nullopt,
-                plan::group_mode::equivalence,
-                get_object_creator());
+                plan::group_mode::equivalence);
         auto&& right_offer = add_offer(right_exchange);
 
         auto groups = empty<relation::step::take_cogroup::group>();
@@ -313,11 +300,10 @@ private:
                 empty<relation::step::take_cogroup::group::column>(),
                 is_right_mandatory(expr.operator_kind()));
 
-        auto&& take = add<relation::step::take_cogroup>(std::move(groups), get_object_creator());
+        auto&& take = add<relation::step::take_cogroup>(std::move(groups));
         auto&& replacement = add<relation::step::join>(
                 expr.operator_kind(),
-                expr.release_condition(),
-                get_object_creator());
+                expr.release_condition());
         take.output() >> replacement.input();
 
         migrate(expr.left(), left_offer.input());
@@ -347,7 +333,6 @@ private:
          *                                    /
          * (right) .. - offer - [broadcast] -/
          */
-        auto creator = get_object_creator();
         auto&& keys = expr.lower().keys();
 
         auto join_key = empty<relation::join_find::key>();
@@ -364,8 +349,7 @@ private:
                 to_descriptor(exchange),
                 empty<relation::join_find::column>(),
                 std::move(join_key),
-                expr.release_condition(),
-                creator);
+                expr.release_condition());
 
         migrate(expr.left(), replacement.left());
         migrate(expr.right(), offer.input());
@@ -393,8 +377,6 @@ private:
          *                                    /
          * (right) .. - offer - [broadcast] -/
          */
-        auto creator = get_object_creator();
-
         auto&& exchange = destination_.emplace<plan::broadcast>();
         auto&& offer = add_offer(exchange);
 
@@ -402,10 +384,9 @@ private:
                 expr.operator_kind(),
                 to_descriptor(exchange),
                 empty<relation::join_scan::column>(),
-                migrate_endpoint<relation::join_scan::endpoint>(std::move(expr.lower()), creator),
-                migrate_endpoint<relation::join_scan::endpoint>(std::move(expr.upper()), creator),
-                expr.release_condition(),
-                creator);
+                migrate_endpoint<relation::join_scan::endpoint>(std::move(expr.lower())),
+                migrate_endpoint<relation::join_scan::endpoint>(std::move(expr.upper())),
+                expr.release_condition());
 
         migrate(expr.left(), replacement.left());
         migrate(expr.right(), offer.input());
@@ -415,9 +396,9 @@ private:
     }
 
     template<class T, class Endpoint>
-    T migrate_endpoint(Endpoint&& endpoint, ::takatori::util::object_creator creator) {
+    T migrate_endpoint(Endpoint&& endpoint) {
         static_assert(!std::is_reference_v<Endpoint>);
-        T destination { creator };
+        T destination {};
         destination.keys().reserve(endpoint.keys().size());
         for (auto&& key : endpoint.keys()) {
             destination.keys().emplace_back(std::move(key.variable()), key.release_value());
@@ -456,14 +437,12 @@ private:
                 empty<descriptor::variable>(),
                 std::move(expr.group_keys()),
                 std::move(expr.columns()),
-                plan::group_mode::equivalence_or_whole,
-                get_object_creator());
+                plan::group_mode::equivalence_or_whole);
         auto&& offer = add_offer(exchange);
 
         auto&& take = add<relation::step::take_group>(
                 to_descriptor(exchange),
-                empty<relation::step::take_group::column>(),
-                get_object_creator());
+                empty<relation::step::take_group::column>());
         auto&& replacement = add<relation::step::flatten>();
         take.output() >> replacement.input();
 
@@ -484,17 +463,14 @@ private:
                 std::move(expr.group_keys()),
                 empty<plan::group::sort_key>(),
                 std::nullopt,
-                plan::group_mode::equivalence_or_whole,
-                get_object_creator());
+                plan::group_mode::equivalence_or_whole);
         auto&& offer = add_offer(exchange);
 
         auto&& take = add<relation::step::take_group>(
                 to_descriptor(exchange),
-                empty<relation::step::take_group::column>(),
-                get_object_creator());
+                empty<relation::step::take_group::column>());
         auto&& replacement = add<relation::step::aggregate>(
-                std::move(expr.columns()),
-                get_object_creator());
+                std::move(expr.columns()));
         take.output() >> replacement.input();
 
         migrate(expr.input(), offer.input());
@@ -509,13 +485,12 @@ private:
          * =>
          * .. - offer -  [forward{limit=N}] - take_flat - ..
          */
-        auto&& exchange = destination_.emplace<plan::forward>(expr.count(), get_object_creator());
+        auto&& exchange = destination_.emplace<plan::forward>(expr.count());
         auto&& offer = add_offer(exchange);
 
         auto&& take = add<relation::step::take_flat>(
                 to_descriptor(exchange),
-                empty<relation::step::take_flat::column>(),
-                get_object_creator());
+                empty<relation::step::take_flat::column>());
 
         migrate(expr.input(), offer.input());
         migrate(expr.output(), take.output());
@@ -534,14 +509,12 @@ private:
                 std::move(expr.group_keys()),
                 std::move(expr.sort_keys()),
                 expr.count(),
-                plan::group_mode::equivalence,
-                get_object_creator());
+                plan::group_mode::equivalence);
         auto&& offer = add_offer(exchange);
 
         auto&& take = add<relation::step::take_group>(
                 to_descriptor(exchange),
-                empty<relation::step::take_group::column>(),
-                get_object_creator());
+                empty<relation::step::take_group::column>());
         auto&& replacement = add<relation::step::flatten>();
         take.output() >> replacement.input();
 
@@ -579,21 +552,17 @@ private:
         }
         auto&& exchange = destination_.emplace<plan::forward>(
                 outputs,
-                std::nullopt,
-                get_object_creator());
+                std::nullopt);
         auto&& left_offer = add<relation::step::offer>(
                 to_descriptor(exchange),
-                std::move(left_columns),
-                get_object_creator());
+                std::move(left_columns));
         auto&& right_offer = add<relation::step::offer>(
                 to_descriptor(exchange),
-                std::move(right_columns),
-                get_object_creator());
+                std::move(right_columns));
 
         auto&& take = add<relation::step::take_flat>(
                 to_descriptor(exchange),
-                empty<relation::step::take_group::column>(),
-                get_object_creator());
+                empty<relation::step::take_group::column>());
 
         migrate(expr.left(), left_offer.input());
         migrate(expr.right(), right_offer.input());
@@ -634,21 +603,17 @@ private:
                 outputs, // all columns are group key
                 empty<plan::group::sort_key>(),
                 1,
-                plan::group_mode::equivalence,
-                get_object_creator());
+                plan::group_mode::equivalence);
         auto&& left_offer = add<relation::step::offer>(
                 to_descriptor(exchange),
-                std::move(left_columns),
-                get_object_creator());
+                std::move(left_columns));
         auto&& right_offer = add<relation::step::offer>(
                 to_descriptor(exchange),
-                std::move(right_columns),
-                get_object_creator());
+                std::move(right_columns));
 
         auto&& take = add<relation::step::take_group>(
                 to_descriptor(exchange),
-                empty<relation::step::take_group::column>(), // FIXME: empty?
-                get_object_creator());
+                empty<relation::step::take_group::column>()); // FIXME: empty?
         auto&& replacement = add<relation::step::flatten>();
         take.output() >> replacement.input();
 
@@ -688,17 +653,15 @@ private:
                 std::move(left_group_key),
                 empty<plan::group::sort_key>(),
                 limit,
-                plan::group_mode::equivalence,
-                get_object_creator());
+                plan::group_mode::equivalence);
         auto&& left_offer = add_offer(left_exchange);
 
         auto&& right_exchange = destination_.emplace<plan::group>(
                 empty<descriptor::variable>(),
                 std::move(right_group_key),
                 empty<plan::group::sort_key>(),
-                std::move(limit),
-                plan::group_mode::equivalence,
-                get_object_creator());
+                limit,
+                plan::group_mode::equivalence);
         auto&& right_offer = add_offer(right_exchange);
 
         auto groups = empty<relation::step::take_cogroup::group>();
@@ -712,8 +675,8 @@ private:
                 empty<relation::step::take_cogroup::group::column>(),
                 false);
 
-        auto&& take = add<relation::step::take_cogroup>(std::move(groups), get_object_creator());
-        auto&& replacement = add<Step>(get_object_creator());
+        auto&& take = add<relation::step::take_cogroup>(std::move(groups));
+        auto&& replacement = add<Step>();
         take.output() >> replacement.input();
 
         migrate(expr.left(), left_offer.input());

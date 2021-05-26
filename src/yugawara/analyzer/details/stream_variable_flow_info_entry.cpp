@@ -12,10 +12,6 @@ using ::takatori::util::optional_ptr;
 using ::takatori::util::string_builder;
 using ::takatori::util::throw_exception;
 
-stream_variable_flow_info_entry::stream_variable_flow_info_entry(::takatori::util::object_creator creator)
-    : declarations_(creator.allocator())
-{}
-
 optional_ptr<relation::expression const> stream_variable_flow_info_entry::originator() const noexcept {
     return originator_;
 }

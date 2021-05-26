@@ -9,7 +9,6 @@
 #include <takatori/util/clonable.h>
 #include <takatori/util/exception.h>
 #include <takatori/util/maybe_shared_ptr.h>
-#include <takatori/util/object_creator.h>
 #include <takatori/util/optional_ptr.h>
 
 #include <yugawara/util/maybe_shared_lock.h>
@@ -38,15 +37,10 @@ public:
     /**
      * @brief creates a new object.
      * @param parent the parent provider (nullable)
-     * @param creator the object creator
      */
     explicit basic_configurable_provider(
-            ::takatori::util::maybe_shared_ptr<provider const> parent = {},
-            ::takatori::util::object_creator creator = {}) noexcept :
-        parent_ { std::move(parent) },
-        relations_ { creator.allocator() },
-        indices_ { creator.allocator() },
-        sequences_ { creator.allocator() }
+            ::takatori::util::maybe_shared_ptr<provider const> parent = {}) noexcept :
+        parent_ { std::move(parent) }
     {}
 
     std::shared_ptr<relation const> find_relation(std::string_view id) const override {
@@ -217,7 +211,7 @@ public:
 
     /// @copydoc add_index(std::shared_ptr<index>, bool)
     std::shared_ptr<index> const& add_index(index&& element, bool overwrite = false) {
-        auto shared = get_object_creator().template create_shared<index>(std::move(element));
+        auto shared = std::make_shared<index>(std::move(element));
         return add_index(std::move(shared), overwrite);
     }
 
@@ -243,7 +237,7 @@ public:
     /// @copydoc add_index(std::string_view id, std::shared_ptr<index>, bool)
     [[deprecated]]
     std::shared_ptr<index> const& add_index(std::string_view id, index&& element, bool overwrite = false) {
-        auto shared = get_object_creator().template create_shared<index>(std::move(element));
+        auto shared = std::make_shared<index>(std::move(element));
         return add_index(id, std::move(shared), overwrite);
     }
 
@@ -284,7 +278,7 @@ public:
 
     /// @copydoc add_sequence(std::shared_ptr<sequence>, bool)
     std::shared_ptr<sequence> const& add_sequence(sequence&& element, bool overwrite = false) {
-        auto shared = get_object_creator().template create_shared<sequence>(std::move(element));
+        auto shared = std::make_shared<sequence>(std::move(element));
         return add_sequence(std::move(shared), overwrite);
     }
 
@@ -307,36 +301,25 @@ public:
         return takatori::util::optional_ptr<provider const> { parent_.get() };
     }
 
-    /**
-     * @brief returns the object creator.
-     * @return the object creator
-     */
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const {
-        return relations_.get_allocator();
-    }
-
 private:
-    using key_type = std::basic_string<char, std::char_traits<char>, takatori::util::object_allocator<char>>;
+    using key_type = std::string;
     using relation_value_type = std::shared_ptr<relation>;
     using relation_map_type = std::map<
             key_type,
             relation_value_type,
-            std::less<>,
-            takatori::util::object_allocator<std::pair<key_type const, relation_value_type>>>;
+            std::less<>>;
 
     using index_value_type = std::shared_ptr<index>;
     using index_map_type = std::map<
             key_type,
             index_value_type,
-            std::less<>,
-            takatori::util::object_allocator<std::pair<key_type const, index_value_type>>>;
+            std::less<>>;
 
     using sequence_value_type = std::shared_ptr<sequence>;
     using sequence_map_type = std::map<
             key_type,
             sequence_value_type,
-            std::less<>,
-            takatori::util::object_allocator<std::pair<key_type const, sequence_value_type>>>;
+            std::less<>>;
 
     ::takatori::util::maybe_shared_ptr<provider const> parent_;
     relation_map_type relations_;
@@ -393,7 +376,7 @@ private:
 
         using ::takatori::util::throw_exception;
         auto id = element->simple_name();
-        key_type key { id, get_object_creator().allocator() };
+        key_type key { id };
 
         writer_lock_type lock { mutex_ };
         if (overwrite) {

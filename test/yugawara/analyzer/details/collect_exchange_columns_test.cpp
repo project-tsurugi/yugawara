@@ -49,7 +49,6 @@ using namespace ::yugawara::testing;
 
 class collect_exchange_columns_test : public ::testing::Test {
 protected:
-    ::takatori::util::object_creator creator;
     type::repository types;
     binding::factory bindings;
 
@@ -94,15 +93,13 @@ protected:
 
     details::exchange_column_info_map apply(plan::graph_type& graph) {
         details::collect_step_relations(graph);
-        return details::collect_exchange_columns(graph, creator);
+        return details::collect_exchange_columns(graph);
     }
 
     plan::exchange& create_source(
             std::initializer_list<descriptor::variable> variables,
             plan::exchange& exchange) {
-        std::vector<
-                relation::scan::column,
-                ::takatori::util::object_allocator<relation::scan::column>> mappings;
+        std::vector<relation::scan::column> mappings;
 
         std::size_t index = 0;
         for (auto&& variable : variables) {

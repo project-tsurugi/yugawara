@@ -25,10 +25,9 @@ namespace relation = ::takatori::relation;
 using ::takatori::util::clone_unique;
 using ::takatori::util::enum_tag;
 using ::takatori::util::enum_tag_t;
-using ::takatori::util::object_ownership_reference;
+using ::takatori::util::ownership_reference;
 using ::takatori::util::string_builder;
 using ::takatori::util::throw_exception;
-using ::takatori::util::unique_object_ptr;
 
 namespace {
 
@@ -39,11 +38,9 @@ public:
 
     explicit predicate_info(
             index_type index,
-            object_ownership_reference<scalar::expression> expression,
-            ::takatori::util::object_creator creator)
-        : index_(index)
-        , expression_(std::move(expression))
-        , uses_(creator.allocator())
+            ownership_reference<scalar::expression> expression) :
+        index_(index),
+        expression_(std::move(expression))
     {
         collect_stream_variables(*expression_, [this](descriptor::variable const& v) {
             uses_.emplace(v);
@@ -79,34 +76,29 @@ public:
         --reference_count_;
     }
 
-    [[nodiscard]] unique_object_ptr<scalar::expression> release() {
+    [[nodiscard]] std::unique_ptr<scalar::expression> release() {
         BOOST_ASSERT(available()); // NOLINT
         if (--reference_count_ == 0) {
-            return expression_.exchange(boolean_expression(true, get_object_creator()));
+            return expression_.exchange(make_boolean_expression(true));
         }
         uses_.clear();
-        return clone_unique(*expression_, get_object_creator());
-    }
-
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept {
-        return uses_.get_allocator();
+        return clone_unique(*expression_);
     }
 
 private:
     index_type index_;
-    object_ownership_reference<scalar::expression> expression_;
+    ownership_reference<scalar::expression> expression_;
     ::tsl::hopscotch_set<
             descriptor::variable,
             std::hash<descriptor::variable>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<descriptor::variable>> uses_;
+            std::equal_to<>> uses_;
     reference_count_type reference_count_ { 1 };
 };
 
 // NOTE: avoid error of Boost polymorphic_allocator, this is equivalent to std::pair
 class task_info {
 public:
-    using mask_type = ::boost::dynamic_bitset<std::uintptr_t, ::takatori::util::object_allocator<std::uintptr_t>>;
+    using mask_type = ::boost::dynamic_bitset<std::uintptr_t>;
 
     explicit task_info(relation::expression& expression, mask_type&& mask)
         : expression_(std::addressof(expression))
@@ -131,11 +123,8 @@ public:
     using mask_type = task_info::mask_type;
     using task_type = task_info;
 
-    explicit engine(relation::graph_type& graph, ::takatori::util::object_creator creator) noexcept
-        : graph_(graph)
-        , tasks_(creator.allocator())
-        , predicates_(creator.allocator())
-        , flow_info_(creator)
+    explicit engine(relation::graph_type& graph) noexcept :
+        graph_(graph)
     {}
 
     void process() {
@@ -377,20 +366,15 @@ public:
                 << string_builder::to_string));
     }
 
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept {
-        return tasks_.get_allocator();
-    }
-
 private:
     relation::graph_type& graph_;
-    std::vector<task_type, ::takatori::util::object_allocator<task_type>> tasks_;
-    std::vector<predicate_info, ::takatori::util::object_allocator<predicate_info>> predicates_;
+    std::vector<task_type> tasks_;
+    std::vector<predicate_info> predicates_;
     stream_variable_flow_info flow_info_; // FIXME: reuse flow info?
     ::tsl::hopscotch_set<
             descriptor::variable,
             std::hash<descriptor::variable>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<descriptor::variable>> work_;
+            std::equal_to<>> work_;
 
 
     void schedule(relation::expression& expr, mask_type&& mask) {
@@ -417,14 +401,14 @@ private:
     }
 
     mask_type empty_mask() const {
-        return mask_type { get_object_creator().allocator() };
+        return mask_type {};
     }
 
-    void analyze_predicates(object_ownership_reference<scalar::expression>&& expr, mask_type& mask) {
+    void analyze_predicates(ownership_reference<scalar::expression>&& expr, mask_type& mask) {
         if (expr) {
             mask.resize(predicates_.size(), false);
-            decompose_predicate(std::move(expr), [this](object_ownership_reference<scalar::expression>&& term) {
-                predicates_.emplace_back(predicates_.size(), std::move(term), get_object_creator());
+            decompose_predicate(std::move(expr), [this](ownership_reference<scalar::expression>&& term) {
+                predicates_.emplace_back(predicates_.size(), std::move(term));
             });
             mask.resize(predicates_.size(), true);
         }
@@ -450,15 +434,15 @@ private:
         mask.clear();
     }
 
-    void merge_predicates(object_ownership_reference<scalar::expression> expr, mask_type&& mask) {
+    void merge_predicates(ownership_reference<scalar::expression> expr, mask_type&& mask) {
         if (mask.none()) {
             return;
         }
-        unique_object_ptr<scalar::expression> result;
+        std::unique_ptr<scalar::expression> result;
         for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
             auto&& predicate = predicates_[i];
             if (result) {
-                result = get_object_creator().create_unique<scalar::binary>(
+                result = std::make_unique<scalar::binary>(
                         scalar::binary_operator::conditional_and,
                         std::move(result),
                         predicate.release());
@@ -512,8 +496,8 @@ private:
 
 } // namespace
 
-void push_down_selections(relation::graph_type& graph, ::takatori::util::object_creator creator) {
-    engine e { graph, creator };
+void push_down_selections(relation::graph_type& graph) {
+    engine e { graph };
     e.process();
 }
 

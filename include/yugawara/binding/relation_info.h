@@ -3,7 +3,6 @@
 #include <takatori/descriptor/relation.h>
 
 #include <takatori/util/object.h>
-#include <takatori/util/object_creator.h>
 
 #include "relation_info_kind.h"
 
@@ -38,13 +37,12 @@ public:
 
     /**
      * @brief returns a clone of this object.
-     * @param creator the object creator
      * @return the created clone
      */
-    [[nodiscard]] virtual relation_info* clone(takatori::util::object_creator creator) const& = 0;
+    [[nodiscard]] virtual relation_info* clone() const& = 0;
 
     /// @copydoc clone()
-    [[nodiscard]] virtual relation_info* clone(takatori::util::object_creator creator) && = 0;
+    [[nodiscard]] virtual relation_info* clone() && = 0;
 
     /**
      * @brief returns whether or not the two relations are equivalent.

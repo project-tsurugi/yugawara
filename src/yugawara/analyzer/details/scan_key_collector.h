@@ -8,7 +8,6 @@
 
 #include <takatori/relation/scan.h>
 
-#include <takatori/util/object_creator.h>
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/ownership_reference.h>
 #include <takatori/util/sequence_view.h>
@@ -33,8 +32,6 @@ public:
 
     /// @brief the column reference type.
     using column_ref = std::reference_wrapper<storage::column const>;
-
-    explicit scan_key_collector(::takatori::util::object_creator creator);
 
     /**
      * @brief collect scan key terms for the target scan expression.
@@ -66,28 +63,17 @@ public:
 
     [[nodiscard]] ::takatori::util::sequence_view<column_ref const> referring() const;
 
-    /**
-     * @brief returns the object creator to create/delete objects in this container.
-     * @return the object creator for this container
-     */
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept;
-
 private:
-    ::takatori::util::object_creator creator_;
-
     search_key_term_builder term_builder_;
     ::tsl::hopscotch_map<
             storage::column const*,
             ::takatori::descriptor::variable,
             std::hash<storage::column const*>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<std::pair<
-                    storage::column const* const,
-                    ::takatori::descriptor::variable>>> column_map_;
+            std::equal_to<>> column_map_;
 
     ::takatori::util::optional_ptr<storage::table const> table_ {};
-    std::vector<sort_key, ::takatori::util::object_allocator<sort_key>> sort_keys_;
-    std::vector<column_ref, ::takatori::util::object_allocator<column_ref>> referring_;
+    std::vector<sort_key> sort_keys_;
+    std::vector<column_ref> referring_;
 };
 
 } // namespace yugawara::analyzer::details

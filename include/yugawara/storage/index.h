@@ -9,8 +9,6 @@
 #include <string_view>
 #include <vector>
 
-#include <takatori/util/object_creator.h>
-
 #include "table.h"
 #include "index_feature.h"
 #include "details/index_key_element.h"
@@ -26,7 +24,7 @@ public:
     using definition_id_type = std::size_t;
 
     /// @brief the simple name type.
-    using simple_name_type = std::basic_string<char, std::char_traits<char>, takatori::util::object_allocator<char>>;
+    using simple_name_type = std::string;
 
     /// @brief the key piece type.
     using key = details::index_key_element;
@@ -47,8 +45,8 @@ public:
             std::optional<definition_id_type> definition_id,
             std::shared_ptr<class table const> table,
             simple_name_type simple_name,
-            std::vector<key, takatori::util::object_allocator<key>> keys,
-            std::vector<column_ref, takatori::util::object_allocator<column_ref>> values,
+            std::vector<key> keys,
+            std::vector<column_ref> values,
             index_feature_set features) noexcept;
 
     /**
@@ -62,8 +60,8 @@ public:
     explicit index(
             std::shared_ptr<class table const> table,
             simple_name_type simple_name,
-            std::vector<key, takatori::util::object_allocator<key>> keys,
-            std::vector<column_ref, takatori::util::object_allocator<column_ref>> values,
+            std::vector<key> keys,
+            std::vector<column_ref> values,
             index_feature_set features) noexcept;
 
     /**
@@ -132,19 +130,19 @@ public:
      * @brief returns the index key elements.
      * @return the index key elements
      */
-    [[nodiscard]] std::vector<key, takatori::util::object_allocator<key>>& keys() noexcept;
+    [[nodiscard]] std::vector<key>& keys() noexcept;
 
     /// @copydoc keys()
-    [[nodiscard]] std::vector<key, takatori::util::object_allocator<key>> const& keys() const noexcept;
+    [[nodiscard]] std::vector<key> const& keys() const noexcept;
 
     /**
      * @brief returns the extra columns.
      * @return the extra columns
      */
-    [[nodiscard]] std::vector<column_ref, takatori::util::object_allocator<column_ref>>& values() noexcept;
+    [[nodiscard]] std::vector<column_ref>& values() noexcept;
 
     /// @copydoc values()
-    [[nodiscard]] std::vector<column_ref, takatori::util::object_allocator<column_ref>> const& values() const noexcept;
+    [[nodiscard]] std::vector<column_ref> const& values() const noexcept;
 
     /**
      * @brief returns the available features of this index.
@@ -167,8 +165,8 @@ private:
     std::optional<definition_id_type> definition_id_ {};
     std::shared_ptr<class table const> table_;
     simple_name_type simple_name_;
-    std::vector<key, takatori::util::object_allocator<key>> keys_;
-    std::vector<column_ref, takatori::util::object_allocator<column_ref>> values_;
+    std::vector<key> keys_;
+    std::vector<column_ref> values_;
     index_feature_set features_;
 };
 

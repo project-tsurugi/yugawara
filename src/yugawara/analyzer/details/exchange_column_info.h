@@ -30,8 +30,6 @@ public:
             ::takatori::descriptor::variable const& origin,
             ::takatori::descriptor::variable const& exchange_column)>;
 
-    explicit exchange_column_info(::takatori::util::object_creator creator) noexcept;
-
     [[nodiscard]] ::takatori::util::optional_ptr<::takatori::descriptor::variable const> find(
             ::takatori::descriptor::variable const& variable) const;
 
@@ -81,29 +79,23 @@ public:
 
     void clear();
 
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept;
-
 private:
     using mapping_type = std::pair<
             ::takatori::descriptor::variable,
             ::takatori::descriptor::variable>;
 
-    std::vector<mapping_type, ::takatori::util::object_allocator<mapping_type>> entries_;
+    std::vector<mapping_type> entries_;
 
     ::tsl::hopscotch_map<
             ::takatori::descriptor::variable,
             decltype(entries_)::size_type,
             std::hash<::takatori::descriptor::variable>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<std::pair<
-                    ::takatori::descriptor::variable,
-                    decltype(entries_)::size_type>>> index_;
+            std::equal_to<>> index_;
 
     ::tsl::hopscotch_set<
             ::takatori::descriptor::variable,
             std::hash<::takatori::descriptor::variable>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<::takatori::descriptor::variable>> touched_;
+            std::equal_to<>> touched_;
 };
 
 } // namespace yugawara::analyzer::details

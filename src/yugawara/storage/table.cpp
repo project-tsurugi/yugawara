@@ -9,7 +9,7 @@ table::table(
         std::optional<definition_id_type> definition_id,
         simple_name_type simple_name,
         ::takatori::util::reference_vector<column> columns) noexcept :
-    definition_id_ { std::move(definition_id) },
+    definition_id_ { definition_id },
     simple_name_ { std::move(simple_name) },
     columns_ { *this, std::move(columns) }
 {}
@@ -30,28 +30,28 @@ table::table(
     }
 {}
 
-table::table(table const& other, takatori::util::object_creator creator)
+table::table(::takatori::util::clone_tag_t, table const& other)
     : table {
             other.definition_id_,
-            decltype(simple_name_) { other.simple_name_, creator.allocator() },
-            ::takatori::tree::forward(creator, other.columns_),
+            decltype(simple_name_) { other.simple_name_ },
+            ::takatori::tree::forward(other.columns_),
     }
 {}
 
-table::table(table&& other, takatori::util::object_creator creator)
+table::table(::takatori::util::clone_tag_t, table&& other)
     : table {
-            std::move(other.definition_id_),
-            decltype(simple_name_) { std::move(other.simple_name_), creator.allocator() },
-            takatori::tree::forward(creator, std::move(other.columns_)),
+            other.definition_id_,
+            decltype(simple_name_) { std::move(other.simple_name_) },
+            takatori::tree::forward(std::move(other.columns_)),
     }
 {}
 
-table* table::clone(takatori::util::object_creator creator) const& {
-    return creator.create_object<table>(*this, creator);
+table* table::clone() const& {
+    return new table(::takatori::util::clone_tag, *this); // NOLINT
 }
 
-table* table::clone(takatori::util::object_creator creator) && {
-    return creator.create_object<table>(std::move(*this), creator);
+table* table::clone() && {
+    return new table(::takatori::util::clone_tag, std::move(*this)); // NOLINT;
 }
 
 relation_kind table::kind() const noexcept {
@@ -67,7 +67,7 @@ std::optional<table::definition_id_type> table::definition_id() const noexcept {
 }
 
 table& table::definition_id(std::optional<definition_id_type> definition_id) noexcept {
-    definition_id_ = std::move(definition_id);
+    definition_id_ = definition_id;
     return *this;
 }
 

@@ -5,7 +5,6 @@
 #include <tsl/hopscotch_map.h>
 
 #include <takatori/relation/expression.h>
-#include <takatori/util/object_creator.h>
 
 namespace yugawara::analyzer::details {
 
@@ -22,9 +21,7 @@ public:
         double column_size;
     };
 
-    explicit flow_volume_info(::takatori::util::object_creator creator)
-        : entries_(creator.allocator())
-    {}
+    explicit flow_volume_info() = default;
 
     [[nodiscard]] std::optional<volume_info> find(input_type const& port) const {
         if (port.opposite()) {
@@ -50,8 +47,7 @@ private:
             output_type const*, // NOTE: use output port: input will be relocated during join optimization
             volume_info,
             std::hash<output_type const*>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<std::pair<output_type const*, volume_info>>> entries_;
+            std::equal_to<>> entries_;
 };
 
 } // namespace yugawara::analyzer::details

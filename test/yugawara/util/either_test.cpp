@@ -120,7 +120,7 @@ TEST_F(either_test, value_normal) {
 
 TEST_F(either_test, value_error) {
     either<bool, int> e { true };
-    EXPECT_ANY_THROW(e.value());
+    EXPECT_ANY_THROW((void) e.value());
 }
 
 TEST_F(either_test, get_normal) {
@@ -138,7 +138,7 @@ TEST_F(either_test, get_error) {
 
 TEST_F(either_test, error_normal) {
     either<bool, int> e { 100 };
-    EXPECT_ANY_THROW(e.error());
+    EXPECT_ANY_THROW((void) e.error());
 }
 
 TEST_F(either_test, error_error) {

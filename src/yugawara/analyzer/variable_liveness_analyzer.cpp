@@ -255,19 +255,14 @@ using liveness_map = std::unordered_map<
         std::reference_wrapper<::takatori::descriptor::variable const>,
         liveness,
         std::hash<::takatori::descriptor::variable>,
-        std::equal_to<::takatori::descriptor::variable>, // NOLINT
-        ::takatori::util::object_allocator<std::pair<
-                std::reference_wrapper<::takatori::descriptor::variable const> const,
-                liveness>>>;
+        std::equal_to<::takatori::descriptor::variable>>; // NOLINT(modernize-use-transparent-functors)
 
 class kill_analyzer {
 public:
     explicit kill_analyzer(block_info_map& blocks) noexcept : blocks_(blocks) {}
 
     void operator()() {
-        liveness_map lvs {
-                blocks_.get_allocator()
-        };
+        liveness_map lvs {};
         block const* first {};
         for (auto&& [bp, info] : blocks_) {
             (void) info;
@@ -289,9 +284,7 @@ private:
     block_info_map& blocks_;
 
     // find use in branches for each defined variable
-    std::vector<block const*, ::takatori::util::object_allocator<block const*>> still_live {
-            blocks_.get_allocator()
-    };
+    std::vector<block const*> still_live {};
 
     void process(block const* bp, liveness_map& lvs) {
         auto&& info = get_info(bp);
@@ -352,9 +345,7 @@ private:
                 }
             }
         } else {
-            std::vector<liveness_map, ::takatori::util::object_allocator<liveness_map>> branches {
-                    blocks_.get_allocator()
-            };
+            std::vector<liveness_map> branches {};
             branches.reserve(succs.size());
             for (auto&& succ : succs) {
                 auto* succp = std::addressof(succ);
@@ -419,17 +410,10 @@ private:
 } // namespace
 
 variable_liveness_analyzer::variable_liveness_analyzer(::takatori::graph::graph<block> const& blocks)
-    : variable_liveness_analyzer(blocks, blocks.get_object_creator())
-{}
-
-variable_liveness_analyzer::variable_liveness_analyzer(
-        ::takatori::graph::graph<block> const& blocks,
-        ::takatori::util::object_creator creator)
-    : blocks_(creator.allocator())
 {
     blocks_.reserve(blocks.size());
     for (auto&& block : blocks) {
-        blocks_.emplace(std::addressof(block), info { creator });
+        blocks_.emplace(std::addressof(block), info {});
     }
 }
 

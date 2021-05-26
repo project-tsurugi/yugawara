@@ -1,7 +1,6 @@
 #pragma once
 
 #include <takatori/util/maybe_shared_ptr.h>
-#include <takatori/util/object_creator.h>
 
 #include <yugawara/analyzer/index_estimator.h>
 #include <yugawara/runtime_feature.h>
@@ -17,12 +16,6 @@ public:
      * @brief creates a new instance with default options.
      */
     intermediate_plan_optimizer_options() = default;
-
-    /**
-     * @brief creates a new instance with default options.
-     * @param creator the object creator
-     */
-    explicit intermediate_plan_optimizer_options(::takatori::util::object_creator creator) noexcept;
 
     /**
      * @brief returns the available feature set of the target environment.
@@ -47,14 +40,7 @@ public:
     intermediate_plan_optimizer_options& index_estimator(
             ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> estimator) noexcept;
 
-    /**
-     * @brief returns the object creator.
-     * @return the object creator
-     */
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept;
-
 private:
-    ::takatori::util::object_creator creator_ {};
     ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> index_estimator_ {};
     runtime_feature_set runtime_features_ { runtime_feature_all };
 };

@@ -5,7 +5,7 @@
 
 #include <takatori/value/data.h>
 #include <takatori/scalar/comparison_operator.h>
-#include <takatori/util/object_creator.h>
+#include <takatori/util/clone_tag.h>
 #include <takatori/util/optional_ptr.h>
 
 #include "predicate.h"
@@ -51,20 +51,18 @@ public:
     /**
      * @brief creates a new object.
      * @param other the copy source
-     * @param creator the object creator
      */
-    explicit comparison(comparison const& other, takatori::util::object_creator creator) noexcept;
+    explicit comparison(::takatori::util::clone_tag_t, comparison const& other) noexcept;
 
     /**
      * @brief creates a new object.
      * @param other the move source
-     * @param creator the object creator
      */
-    explicit comparison(comparison&& other, takatori::util::object_creator creator) noexcept;
+    explicit comparison(::takatori::util::clone_tag_t, comparison&& other) noexcept;
 
     [[nodiscard]] predicate_kind kind() const noexcept override;
-    [[nodiscard]] comparison* clone(takatori::util::object_creator creator) const& override;
-    [[nodiscard]] comparison* clone(takatori::util::object_creator creator) && override;
+    [[nodiscard]] comparison* clone() const& override;
+    [[nodiscard]] comparison* clone() && override;
 
     /**
      * @brief returns the operator kind.

@@ -2,8 +2,6 @@
 
 #include <takatori/plan/graph.h>
 
-#include <takatori/util/object_creator.h>
-
 #include "exchange_column_info_map.h"
 
 namespace yugawara::analyzer::details {
@@ -33,11 +31,8 @@ namespace yugawara::analyzer::details {
  *      (the succeeding stream_variable_rewriter will remove).
  *
  * @param graph the target incomplete step plan
- * @param creator the object creator
  * @return the exchange column information for the individual exchange operations
  */
-exchange_column_info_map collect_exchange_columns(
-        ::takatori::plan::graph_type& graph,
-        ::takatori::util::object_creator creator);
+exchange_column_info_map collect_exchange_columns(::takatori::plan::graph_type& graph);
 
 } // namespace yugawara::analyzer::details

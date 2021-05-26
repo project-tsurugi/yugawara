@@ -4,8 +4,8 @@
 
 #include <takatori/relation/expression.h>
 #include <takatori/graph/graph.h>
+#include <takatori/util/clone_tag.h>
 #include <takatori/util/reference_list_view.h>
-#include <takatori/util/object_creator.h>
 
 #include "details/block_expression_iterator.h"
 
@@ -50,9 +50,8 @@ public:
      * @brief creates a new instance.
      * @param front the first relational expression of the block
      * @param back the last relational expression of the block
-     * @param creator the object creator
      */
-    block(reference front, reference back, ::takatori::util::object_creator creator = {}) noexcept;
+    block(reference front, reference back) noexcept;
     
     ~block();
 
@@ -64,26 +63,23 @@ public:
     /**
      * @brief creates a new object.
      * @param other the copy source
-     * @param creator the object creator
      */
-    explicit block(block const& other, ::takatori::util::object_creator creator);
+    explicit block(::takatori::util::clone_tag_t, block const& other);
 
     /**
      * @brief creates a new object.
      * @param other the move source
-     * @param creator the object creator
      */
-    explicit block(block&& other, ::takatori::util::object_creator creator);
+    explicit block(::takatori::util::clone_tag_t, block&& other);
 
     /**
      * @brief returns a clone of this object.
-     * @param creator the object creator
      * @return the created clone
      */
-    [[nodiscard]] block* clone(::takatori::util::object_creator creator) const&;
+    [[nodiscard]] block* clone() const&;
 
     /// @copydoc clone()
-    [[nodiscard]] block* clone(::takatori::util::object_creator creator) &&;
+    [[nodiscard]] block* clone() &&;
 
     /**
      * @brief returns the graph which owns this vertex.
@@ -194,8 +190,8 @@ private:
     pointer front_;
     pointer back_;
     graph_type* owner_ {};
-    mutable ::boost::container::small_vector<block*, neighbor_buffer_size, ::takatori::util::object_allocator<block*>> upstreams_;
-    mutable ::boost::container::small_vector<block*, neighbor_buffer_size, ::takatori::util::object_allocator<block*>> downstreams_;
+    mutable ::boost::container::small_vector<block*, neighbor_buffer_size> upstreams_;
+    mutable ::boost::container::small_vector<block*, neighbor_buffer_size> downstreams_;
 
     block& find(::takatori::relation::expression::input_port_type const& port) const;
     block& find(::takatori::relation::expression::output_port_type const& port) const;

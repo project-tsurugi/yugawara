@@ -8,7 +8,6 @@
 
 #include <cstdint>
 
-#include <takatori/util/object_creator.h>
 #include <takatori/util/optional_ptr.h>
 
 namespace yugawara::storage {
@@ -24,7 +23,7 @@ public:
     using definition_id_type = std::size_t;
 
     /// @brief the simple name type.
-    using simple_name_type = std::basic_string<char, std::char_traits<char>, takatori::util::object_allocator<char>>;
+    using simple_name_type = std::string;
 
     /// @brief the value type of sequences.
     using value_type = std::int64_t;

@@ -4,7 +4,6 @@
 #include <unordered_set>
 
 #include <takatori/descriptor/variable.h>
-#include <takatori/util/object_creator.h>
 
 namespace yugawara::analyzer {
 
@@ -19,19 +18,12 @@ public:
     using variables = std::unordered_set<
             ::takatori::descriptor::variable,
             std::hash<::takatori::descriptor::variable>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<::takatori::descriptor::variable>>;
+            std::equal_to<>>;
 
     /**
      * @brief creates a new instance.
      */
     variable_liveness_info() = default;
-
-    /**
-     * @brief creates a new instance.
-     * @param creator the object creator
-     */
-    explicit variable_liveness_info(::takatori::util::object_creator creator) noexcept;
 
     /**
      * @brief returns the variables defined in this block.

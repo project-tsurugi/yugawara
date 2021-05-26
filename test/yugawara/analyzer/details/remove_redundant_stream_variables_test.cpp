@@ -40,7 +40,6 @@ using namespace ::yugawara::testing;
 
 class remove_redundant_stream_variables_test : public ::testing::Test {
 protected:
-    ::takatori::util::object_creator creator;
     type::repository types;
     binding::factory bindings;
 
@@ -93,7 +92,7 @@ protected:
     });
 
     void apply(relation::graph_type& graph) {
-        details::remove_redundant_stream_variables(graph, creator);
+        details::remove_redundant_stream_variables(graph);
     }
 };
 

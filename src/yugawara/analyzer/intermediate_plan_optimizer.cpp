@@ -12,10 +12,6 @@
 
 namespace yugawara::analyzer {
 
-intermediate_plan_optimizer::intermediate_plan_optimizer(::takatori::util::object_creator creator) noexcept
-    : options_(creator)
-{}
-
 intermediate_plan_optimizer::intermediate_plan_optimizer(options_type options) noexcept
     : options_(std::move(options))
 {}
@@ -41,16 +37,16 @@ static constexpr details::collect_join_keys_feature_set compute_join_keys_featur
 }
 
 void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& graph) {
-    // details::decompose_projections(graph, get_object_creator());
-    details::remove_redundant_stream_variables(graph, get_object_creator());
-    details::push_down_selections(graph, get_object_creator());
+    // details::decompose_projections(graph);
+    details::remove_redundant_stream_variables(graph);
+    details::push_down_selections(graph);
     // FIXME: auto flow_volume = details::reorder_join(...);
-    details::flow_volume_info flow_volume { get_object_creator() };
+    details::flow_volume_info flow_volume {};
     if (options_.runtime_features().contains(runtime_feature::index_join)) {
-        details::rewrite_join(graph, options_.index_estimator(), flow_volume, get_object_creator());
+        details::rewrite_join(graph, options_.index_estimator(), flow_volume);
     }
-    details::collect_join_keys(graph, flow_volume, compute_join_keys_features(options_.runtime_features()), get_object_creator());
-    details::rewrite_scan(graph, options_.index_estimator(), get_object_creator());
+    details::collect_join_keys(graph, flow_volume, compute_join_keys_features(options_.runtime_features()));
+    details::rewrite_scan(graph, options_.index_estimator());
     details::remove_redundant_conditions(graph);
 }
 

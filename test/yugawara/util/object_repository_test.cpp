@@ -13,8 +13,8 @@ public:
     explicit Obj(int value) noexcept : value_(value) {}
     virtual ~Obj() = default;
 
-    virtual Obj* clone(takatori::util::object_creator creator) const {
-        return creator.create_object<Obj>(value_);
+    virtual Obj* clone() const {
+         return new Obj(value_); // NOLINT
     }
 
     int value() const noexcept { return value_; }
@@ -28,8 +28,8 @@ public:
     explicit Sub(int value) noexcept : Obj(value) {}
     ~Sub() override = default;
 
-    Sub* clone(takatori::util::object_creator creator) const override {
-        return creator.create_object<Sub>(value());
+    Sub* clone() const override {
+         return new Sub(value()); // NOLINT
     }
 };
 

@@ -13,12 +13,12 @@ namespace yugawara::analyzer::details {
 namespace descriptor = ::takatori::descriptor;
 namespace scalar = ::takatori::scalar;
 
-using ::takatori::util::object_ownership_reference;
+using ::takatori::util::ownership_reference;
 using ::takatori::util::optional_ptr;
 using ::takatori::util::throw_exception;
 using ::takatori::util::unsafe_downcast;
 
-using expression_ref = object_ownership_reference<scalar::expression>;
+using expression_ref = ownership_reference<scalar::expression>;
 
 namespace {
 
@@ -134,12 +134,6 @@ private:
 
 } // namespace
 
-search_key_term_builder::search_key_term_builder(::takatori::util::object_creator creator)
-    : keys_(creator.allocator())
-    , factors_(creator.allocator())
-    , terms_(creator.allocator())
-{}
-
 void search_key_term_builder::reserve_keys(std::size_t count) {
     keys_.reserve(count);
 }
@@ -175,10 +169,6 @@ void search_key_term_builder::clear() {
     terms_.clear();
 }
 
-::takatori::util::object_creator search_key_term_builder::get_object_creator() const {
-    return keys_.get_allocator();
-}
-
 void search_key_term_builder::check_before_build() {
     if (!terms_.empty()) {
         throw_exception(std::domain_error("cannot reconfigure after build"));
@@ -211,7 +201,6 @@ void search_key_term_builder::build_term(factor_info_map::iterator begin, factor
                 terms_.emplace(
                         it->first,
                         search_key_term {
-                                get_object_creator(),
                                 std::move(info.term),
                                 std::move(info.factor),
                         });
@@ -252,7 +241,6 @@ void search_key_term_builder::build_term(factor_info_map::iterator begin, factor
         terms_.emplace(
                 *key_variable,
                 search_key_term {
-                        get_object_creator(),
                         std::move(lower_term),
                         std::move(lower_factor),
                         lower_inclusive,

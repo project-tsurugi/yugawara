@@ -8,7 +8,6 @@
 #include <takatori/descriptor/variable.h>
 #include <takatori/scalar/expression.h>
 #include <takatori/scalar/comparison_operator.h>
-#include <takatori/util/object_creator.h>
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/ownership_reference.h>
 
@@ -21,8 +20,6 @@ namespace yugawara::analyzer::details {
  */
 class search_key_term_builder {
 public:
-    explicit search_key_term_builder(::takatori::util::object_creator creator);
-
     /**
      * @brief reserve the key variables space.
      * @param count the number of key variables
@@ -40,7 +37,7 @@ public:
      * @note You should register key variables before this operation.
      * @param predicate the predicate expression
      */
-    void add_predicate(::takatori::util::object_ownership_reference<::takatori::scalar::expression> predicate);
+    void add_predicate(::takatori::util::ownership_reference<::takatori::scalar::expression> predicate);
 
     [[nodiscard]] bool empty() const noexcept;
 
@@ -55,38 +52,32 @@ public:
 
     struct factor_info {
         ::takatori::scalar::comparison_operator operator_kind {};
-        ::takatori::util::object_ownership_reference<::takatori::scalar::expression> term;
-        ::takatori::util::object_ownership_reference<::takatori::scalar::expression> factor;
+        ::takatori::util::ownership_reference<::takatori::scalar::expression> term;
+        ::takatori::util::ownership_reference<::takatori::scalar::expression> factor;
     };
 
     using term_map = ::tsl::hopscotch_map<
             ::takatori::descriptor::variable,
             search_key_term,
             std::hash<::takatori::descriptor::variable>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<std::pair<::takatori::descriptor::variable, search_key_term>>>;
+            std::equal_to<>>;
 
     using variable_set = ::tsl::hopscotch_set<
             ::takatori::descriptor::variable,
             std::hash<::takatori::descriptor::variable>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<::takatori::descriptor::variable>>;
+            std::equal_to<>>;
 
     using factor_info_map = std::unordered_multimap<
             ::takatori::descriptor::variable,
             factor_info,
             std::hash<::takatori::descriptor::variable>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<std::pair<
-                    ::takatori::descriptor::variable const,
-                    factor_info>>>;
+            std::equal_to<>>;
 
 private:
     variable_set keys_;
     factor_info_map factors_;
     term_map terms_;
 
-    ::takatori::util::object_creator get_object_creator() const;
     void check_before_build();
     void build_terms();
     void build_term(factor_info_map::iterator begin, factor_info_map::iterator end);

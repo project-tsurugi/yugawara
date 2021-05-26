@@ -18,7 +18,7 @@ declaration::declaration(
         std::shared_ptr<function::provider> function_provider,
         std::shared_ptr<aggregate::provider> set_function_provider,
         std::shared_ptr<type::provider> type_provider) noexcept :
-    definition_id_ { std::move(definition_id) },
+    definition_id_ { definition_id },
     name_ { std::move(name) },
     storage_provider_ { std::move(storage_provider) },
     variable_provider_ { std::move(variable_provider) },
@@ -36,7 +36,7 @@ declaration::declaration(
         std::shared_ptr<aggregate::provider> set_function_provider,
         std::shared_ptr<type::provider> type_provider) :
     declaration {
-            std::move(definition_id),
+            definition_id,
             name_type { name },
             std::move(storage_provider),
             std::move(variable_provider),
@@ -51,7 +51,7 @@ std::optional<declaration::definition_id_type> declaration::definition_id() cons
 }
 
 declaration& declaration::definition_id(std::optional<definition_id_type> definition_id) noexcept {
-    definition_id_ = std::move(definition_id);
+    definition_id_ = definition_id;
     return *this;
 }
 

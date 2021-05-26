@@ -17,11 +17,11 @@ namespace scalar = ::takatori::scalar;
 using scalar::unary_operator;
 using scalar::binary_operator;
 
-using ::takatori::util::object_ownership_reference;
+using ::takatori::util::ownership_reference;
 using ::takatori::util::unsafe_downcast;
 using ::takatori::util::enum_tag_t;
 
-using expression_ref = object_ownership_reference<scalar::expression>;
+using expression_ref = ownership_reference<scalar::expression>;
 
 namespace {
 

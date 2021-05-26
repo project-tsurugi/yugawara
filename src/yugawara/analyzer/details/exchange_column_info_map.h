@@ -18,8 +18,6 @@ public:
     using key_type = ::takatori::plan::exchange const*;
     using element_type = exchange_column_info;
 
-    explicit exchange_column_info_map(::takatori::util::object_creator creator) noexcept;
-
     [[nodiscard]] bool empty() const noexcept;
 
     [[nodiscard]] size_type size() const noexcept;
@@ -34,15 +32,12 @@ public:
 
     [[nodiscard]] static bool is_target(::takatori::descriptor::relation const& relation);
 
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const;
-
 private:
     ::tsl::hopscotch_map<
             key_type,
             element_type,
             std::hash<key_type>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<std::pair<key_type, element_type>>> mappings_;
+            std::equal_to<>> mappings_;
 };
 
 } // namespace yugawara::analyzer::details

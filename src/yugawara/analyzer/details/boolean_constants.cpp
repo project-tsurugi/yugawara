@@ -10,10 +10,6 @@ namespace type = ::takatori::type;
 namespace value = ::takatori::value;
 namespace scalar = ::takatori::scalar;
 
-using ::takatori::util::object_creator;
-using ::takatori::util::unique_object_ptr;
-
-
 std::shared_ptr<type::data const> boolean_type() {
     static std::shared_ptr<type::data const> result
             = std::allocate_shared<type::boolean>(std::allocator<type::boolean>());
@@ -46,8 +42,8 @@ std::shared_ptr<::takatori::value::data const> boolean_value(bool value) {
     return result;
 }
 
-unique_object_ptr<scalar::expression> boolean_expression(bool value, object_creator creator) {
-    return creator.create_unique<scalar::immediate>(boolean_value(value), boolean_type());
+std::unique_ptr<scalar::expression> make_boolean_expression(bool value) {
+    return std::make_unique<scalar::immediate>(boolean_value(value), boolean_type());
 }
 
 } // namespace yugawara::analyzer::details

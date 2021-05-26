@@ -16,8 +16,6 @@ public:
 
     stream_variable_flow_info_entry() = default;
 
-    explicit stream_variable_flow_info_entry(::takatori::util::object_creator creator);
-
     [[nodiscard]] ::takatori::util::optional_ptr<::takatori::relation::expression const> originator() const noexcept;
 
     void originator(::takatori::util::optional_ptr<::takatori::relation::expression const> originator) noexcept;
@@ -37,10 +35,7 @@ private:
             ::takatori::descriptor::variable,
             ::takatori::relation::expression const*,
             std::hash<::takatori::descriptor::variable>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<std::pair<
-                    ::takatori::descriptor::variable,
-                    ::takatori::relation::expression const*>>> declarations_;
+            std::equal_to<>> declarations_;
 };
 
 } // namespace yugawara::analyzer::details

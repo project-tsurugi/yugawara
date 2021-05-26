@@ -12,7 +12,6 @@
 #include <takatori/scalar/expression.h>
 #include <takatori/type/data.h>
 #include <takatori/util/maybe_shared_ptr.h>
-#include <takatori/util/object_creator.h>
 #include <takatori/util/sequence_view.h>
 
 #include "expression_analyzer_code.h"
@@ -36,12 +35,6 @@ public:
      * @brief creates a new instance.
      */
     expression_analyzer();
-
-    /**
-     * @brief creates a new instance.
-     * @param creator the object creator
-     */
-    explicit expression_analyzer(::takatori::util::object_creator creator);
 
     /**
      * @brief creates a new instance.
@@ -231,7 +224,7 @@ private:
     ::takatori::util::maybe_shared_ptr<expression_mapping> expressions_;
     ::takatori::util::maybe_shared_ptr<variable_mapping> variables_;
     bool allow_unresolved_ { true };
-    std::vector<diagnostic_type, ::takatori::util::object_allocator<diagnostic_type>> diagnostics_;
+    std::vector<diagnostic_type> diagnostics_;
 };
 
 } // namespace yugawara::analyzer

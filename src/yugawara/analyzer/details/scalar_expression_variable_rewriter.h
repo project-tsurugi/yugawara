@@ -5,7 +5,6 @@
 #include <tsl/hopscotch_map.h>
 
 #include <takatori/scalar/expression.h>
-#include <takatori/util/object_creator.h>
 
 #include "stream_variable_rewriter_context.h"
 
@@ -22,16 +21,9 @@ public:
             ::takatori::descriptor::variable,
             ::takatori::descriptor::variable,
             std::hash<::takatori::descriptor::variable>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<std::pair<
-                    ::takatori::descriptor::variable,
-                    ::takatori::descriptor::variable>>>;
+            std::equal_to<>>;
 
-    using local_stack_type = std::vector<
-            ::takatori::descriptor::variable,
-            ::takatori::util::object_allocator<::takatori::descriptor::variable>>;
-
-    explicit scalar_expression_variable_rewriter(::takatori::util::object_creator creator) noexcept;
+    using local_stack_type = std::vector<::takatori::descriptor::variable>;
 
     void operator()(context_type& context, ::takatori::scalar::expression& expr);
 

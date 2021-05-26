@@ -30,8 +30,7 @@ using ::takatori::relation::endpoint_kind;
 
 class collect_join_keys_test: public ::testing::Test {
 protected:
-    ::takatori::util::object_creator creator;
-    binding::factory bindings { creator };
+    binding::factory bindings {};
 
     storage::configurable_provider storages;
 
@@ -66,8 +65,8 @@ protected:
     void apply(
             relation::graph_type& graph,
             collect_join_keys_feature_set features = collect_join_keys_feature_universe) {
-        flow_volume_info vinfo { creator };
-        collect_join_keys(graph, vinfo, features, creator);
+        flow_volume_info vinfo {};
+        collect_join_keys(graph, vinfo, features);
         remove_redundant_conditions(graph);
     }
 };

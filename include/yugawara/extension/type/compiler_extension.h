@@ -26,16 +26,15 @@ public:
 
     /**
      * @brief returns a clone of this object.
-     * @param creator the object creator
      * @return the created clone
      */
-    [[nodiscard]] compiler_extension* clone(::takatori::util::object_creator creator) const& override {
-        return creator.create_object<compiler_extension>();
+    [[nodiscard]] compiler_extension* clone() const& override {
+         return new compiler_extension(); // NOLINT
     }
 
     /// @copydoc clone()
-    [[nodiscard]] compiler_extension* clone(::takatori::util::object_creator creator) && override {
-        return creator.create_object<compiler_extension>();
+    [[nodiscard]] compiler_extension* clone() && override {
+         return new compiler_extension(); // NOLINT
     }
 
     /**

@@ -3,8 +3,6 @@
 #include <takatori/descriptor/variable.h>
 #include <takatori/scalar/expression.h>
 
-#include <takatori/util/object_creator.h>
-
 namespace yugawara::analyzer::details {
 
 using variable_consumer = std::function<void(::takatori::descriptor::variable const&)>;

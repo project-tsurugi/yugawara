@@ -9,7 +9,6 @@
 
 #include <takatori/type/data.h>
 #include <takatori/value/data.h>
-#include <takatori/util/object_creator.h>
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/rvalue_ptr.h>
 
@@ -26,7 +25,7 @@ public:
     using definition_id_type = std::size_t;
 
     /// @brief the declaration name type.
-    using name_type = std::basic_string<char, std::char_traits<char>, takatori::util::object_allocator<char>>;
+    using name_type = std::string;
 
     /// @brief the smart pointer of variable type.
     using type_pointer = std::shared_ptr<takatori::type::data const>;

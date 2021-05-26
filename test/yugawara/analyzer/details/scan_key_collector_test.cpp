@@ -21,8 +21,7 @@ using ::takatori::scalar::comparison_operator;
 
 class scan_key_collector_test: public ::testing::Test {
 protected:
-    ::takatori::util::object_creator creator;
-    binding::factory bindings { creator };
+    binding::factory bindings {};
 
     storage::configurable_provider storages;
 
@@ -75,7 +74,7 @@ TEST_F(scan_key_collector_test, simple) {
     in.output() >> f0.input();
     f0.output() >> out.input();
 
-    scan_key_collector collector { creator };
+    scan_key_collector collector {};
     ASSERT_TRUE(collector(in));
 
     auto&& s0 = collector.find(t0c0);
@@ -110,7 +109,7 @@ TEST_F(scan_key_collector_test, referring) {
     in.output() >> f0.input();
     f0.output() >> out.input();
 
-    scan_key_collector collector { creator };
+    scan_key_collector collector {};
     ASSERT_TRUE(collector(in));
 
     EXPECT_TRUE(eq(collector.referring(), {
@@ -149,7 +148,7 @@ TEST_F(scan_key_collector_test, multiple) {
     f1.output() >> f2.input();
     f2.output() >> out.input();
 
-    scan_key_collector collector { creator };
+    scan_key_collector collector {};
     ASSERT_TRUE(collector(in));
 
     EXPECT_EQ(collector.table(), *t0);

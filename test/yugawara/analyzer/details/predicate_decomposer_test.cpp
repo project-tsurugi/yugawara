@@ -18,15 +18,15 @@ using ::takatori::scalar::binary;
 using ::takatori::scalar::unary_operator;
 using ::takatori::scalar::binary_operator;
 
-using ::takatori::util::object_ownership_reference;
+using ::takatori::util::ownership_reference;
 using ::takatori::util::rvalue_reference_wrapper;
 
 using details::decompose_predicate;
 
 class predicate_decomposer_test : public ::testing::Test {
 protected:
-    std::vector<object_ownership_reference<scalar::expression>> results;
-    details::predicate_consumer consumer = [this](object_ownership_reference<scalar::expression>&& expr) {
+    std::vector<ownership_reference<scalar::expression>> results;
+    details::predicate_consumer consumer = [this](ownership_reference<scalar::expression>&& expr) {
         results.emplace_back(std::move(expr));
     };
 

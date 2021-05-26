@@ -11,11 +11,6 @@ namespace yugawara::analyzer::details {
 using ::takatori::util::string_builder;
 using ::takatori::util::throw_exception;
 
-exchange_column_info_map::exchange_column_info_map(
-        ::takatori::util::object_creator creator) noexcept
-    : mappings_(creator.allocator())
-{}
-
 bool exchange_column_info_map::empty() const noexcept {
     return mappings_.empty();
 }
@@ -51,7 +46,7 @@ exchange_column_info_map::element_type& exchange_column_info_map::get(
 
 exchange_column_info_map::element_type& exchange_column_info_map::create_or_get(
         ::takatori::descriptor::relation const& relation) {
-    auto [it, success] = mappings_.emplace(extract(relation), get_object_creator());
+    auto [it, success] = mappings_.emplace(extract(relation), element_type {});
     (void) success;
     return it.value();
 }
@@ -62,10 +57,6 @@ void exchange_column_info_map::erase(::takatori::descriptor::relation const& rel
 
 bool exchange_column_info_map::is_target(::takatori::descriptor::relation const& relation) {
     return binding::kind_of(relation) == binding::relation_info_kind::exchange;
-}
-
-::takatori::util::object_creator exchange_column_info_map::get_object_creator() const {
-    return mappings_.get_allocator();
 }
 
 } // namespace yugawara::analyzer::details

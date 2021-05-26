@@ -3,7 +3,6 @@
 #include <ostream>
 #include <string_view>
 
-#include <takatori/util/object_creator.h>
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/reference_list_view.h>
 
@@ -56,13 +55,12 @@ public:
 
     /**
      * @brief returns a clone of this object.
-     * @param creator the object creator
      * @return the created clone
      */
-    [[nodiscard]] virtual relation* clone(takatori::util::object_creator creator) const& = 0;
+    [[nodiscard]] virtual relation* clone() const& = 0;
 
     /// @copydoc clone()
-    [[nodiscard]] virtual relation* clone(takatori::util::object_creator creator) && = 0;
+    [[nodiscard]] virtual relation* clone() && = 0;
 
     /**
      * @brief returns the owner of this relation.

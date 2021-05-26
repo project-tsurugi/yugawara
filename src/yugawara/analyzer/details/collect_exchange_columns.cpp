@@ -17,10 +17,7 @@
 
 namespace yugawara::analyzer::details {
 
-using buffer_pool_type = container_pool<
-        std::vector<
-                ::takatori::descriptor::variable,
-                ::takatori::util::object_allocator<::takatori::descriptor::variable>>>;
+using buffer_pool_type = container_pool<std::vector<::takatori::descriptor::variable>>;
 
 namespace descriptor = ::takatori::descriptor;
 namespace relation = ::takatori::relation;
@@ -364,9 +361,7 @@ public:
 private:
     exchange_column_info_map& exchange_map_;
     buffer_pool_type& buffer_pool_;
-    std::vector<
-            relation::details::mapping_element,
-            ::takatori::util::object_allocator<relation::details::mapping_element>> mapping_buffer_;
+    std::vector<relation::details::mapping_element> mapping_buffer_;
 
     void scan(relation::expression* current, buffer_type& available_columns) {
         while (true) {
@@ -503,16 +498,13 @@ private:
 
 } // namespace
 
-exchange_column_info_map collect_exchange_columns(
-        ::takatori::plan::graph_type& graph,
-        ::takatori::util::object_creator creator) {
-    exchange_column_info_map exchange_map { creator };
-    buffer_pool_type buffer_pool { creator.allocator() };
+exchange_column_info_map collect_exchange_columns(::takatori::plan::graph_type& graph) {
+    exchange_column_info_map exchange_map {};
+    buffer_pool_type buffer_pool {};
     engine e { exchange_map, buffer_pool };
     plan::sort_from_upstream(
             graph,
-            [&](plan::step& step) { plan::dispatch(e, step); },
-            creator);
+            [&](plan::step& step) { plan::dispatch(e, step); });
     return exchange_map;
 }
 

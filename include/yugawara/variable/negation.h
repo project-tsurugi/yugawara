@@ -1,9 +1,9 @@
 #pragma once
 
-#include <ostream>
 #include <memory>
+#include <ostream>
 
-#include <takatori/util/object_creator.h>
+#include <takatori/util/clone_tag.h>
 #include <takatori/util/optional_ptr.h>
 
 #include "predicate.h"
@@ -23,7 +23,7 @@ public:
      * @brief creates a new object.
      * @param operand the negation target
      */
-    explicit negation(takatori::util::unique_object_ptr<predicate> operand) noexcept;
+    explicit negation(std::unique_ptr<predicate> operand) noexcept;
 
     /**
      * @brief creates a new object.
@@ -35,20 +35,18 @@ public:
     /**
      * @brief creates a new object.
      * @param other the copy source
-     * @param creator the object creator
      */
-    explicit negation(negation const& other, takatori::util::object_creator creator) noexcept;
+    explicit negation(::takatori::util::clone_tag_t, negation const& other) noexcept;
 
     /**
      * @brief creates a new object.
      * @param other the move source
-     * @param creator the object creator
      */
-    explicit negation(negation&& other, takatori::util::object_creator creator) noexcept;
+    explicit negation(::takatori::util::clone_tag_t, negation&& other) noexcept;
 
     [[nodiscard]] predicate_kind kind() const noexcept override;
-    [[nodiscard]] negation* clone(takatori::util::object_creator creator) const& override;
-    [[nodiscard]] negation* clone(takatori::util::object_creator creator) && override;
+    [[nodiscard]] negation* clone() const& override;
+    [[nodiscard]] negation* clone() && override;
 
     /**
      * @brief returns the negation target.
@@ -79,14 +77,14 @@ public:
      * @return the negation target
      * @return empty if the operand is absent
      */
-    [[nodiscard]] takatori::util::unique_object_ptr<predicate> release_operand() noexcept;
+    [[nodiscard]] std::unique_ptr<predicate> release_operand() noexcept;
 
     /**
      * @brief sets the negation target.
      * @param operand the replacement
      * @return this
      */
-    negation& operand(takatori::util::unique_object_ptr<predicate> operand) noexcept;
+    negation& operand(std::unique_ptr<predicate> operand) noexcept;
 
     /**
      * @brief returns whether or not the two elements are equivalent.
@@ -125,7 +123,7 @@ protected:
     std::ostream& print_to(std::ostream& out) const override;
 
 private:
-    takatori::util::unique_object_ptr<predicate> operand_;
+    std::unique_ptr<predicate> operand_;
 };
 
 } // namespace yugawara::variable

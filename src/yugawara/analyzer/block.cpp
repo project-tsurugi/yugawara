@@ -11,31 +11,29 @@ namespace yugawara::analyzer {
 using ::takatori::util::string_builder;
 using ::takatori::util::throw_exception;
 
-block::block(block::value_type& front, block::value_type& back, ::takatori::util::object_creator creator) noexcept
-    : front_(std::addressof(front))
-    , back_(std::addressof(back))
-    , upstreams_(decltype(upstreams_)::allocator_type(creator.allocator<decltype(upstreams_)::value_type>()))
-    , downstreams_(decltype(downstreams_)::allocator_type(creator.allocator<decltype(downstreams_)::value_type>()))
+block::block(block::value_type& front, block::value_type& back) noexcept :
+    front_ { std::addressof(front) },
+    back_ { std::addressof(back) }
 {}
 
 block::~block() {
     cleanup_connections();
 }
 
-block::block(block const& other, ::takatori::util::object_creator creator)
-    : block(*other.front_, *other.back_, creator)
+block::block(::takatori::util::clone_tag_t, block const& other)
+    : block(*other.front_, *other.back_)
 {}
 
-block::block(block&& other, ::takatori::util::object_creator creator)
-    : block(*other.front_, *other.back_, creator)
+block::block(::takatori::util::clone_tag_t, block&& other)
+    : block(*other.front_, *other.back_)
 {}
 
-block* block::clone(::takatori::util::object_creator creator) const& {
-    return creator.create_object<block>(*this, creator);
+block* block::clone() const& {
+    return new block(::takatori::util::clone_tag, *this); // NOLINT
 }
 
-block* block::clone(::takatori::util::object_creator creator) && {
-    return creator.create_object<block>(std::move(*this), creator);
+block* block::clone() && {
+    return new block(::takatori::util::clone_tag, std::move(*this)); // NOLINT;
 }
 
 block::graph_type& block::owner() {

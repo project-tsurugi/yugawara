@@ -107,7 +107,7 @@ TEST_F(step_relation_collector_test, simple) {
      * [scan:r0 - emit:r1]:p0
      */
     details::collect_exchange_steps(r, p, info);
-    details::collect_process_steps(std::move(r), p, info.get_object_creator());
+    details::collect_process_steps(std::move(r), p);
     details::collect_step_relations(p);
 
     ASSERT_EQ(p.size(), 1);
@@ -147,7 +147,7 @@ TEST_F(step_relation_collector_test, straight) {
     details::collect_exchange_steps(r, p, info);
     auto&& r3 = next<offer>(r0.output());
 
-    details::collect_process_steps(std::move(r), p, info.get_object_creator());
+    details::collect_process_steps(std::move(r), p);
     details::collect_step_relations(p);
 
     ASSERT_EQ(p.size(), 3);
@@ -215,7 +215,7 @@ TEST_F(step_relation_collector_test, gather) {
     auto&& r7 = next<relation::step::join>(r3.input());
     auto&& r6 = next<take_cogroup>(r7.input());
 
-    details::collect_process_steps(std::move(r), p, info.get_object_creator());
+    details::collect_process_steps(std::move(r), p);
     details::collect_step_relations(p);
 
     ASSERT_EQ(p.size(), 5);

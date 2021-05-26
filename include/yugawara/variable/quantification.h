@@ -1,11 +1,11 @@
 #pragma once
 
 #include <initializer_list>
-#include <ostream>
 #include <memory>
+#include <ostream>
 
 #include <takatori/scalar/quantifier.h>
-#include <takatori/util/object_creator.h>
+#include <takatori/util/clone_tag.h>
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/reference_list_view.h>
 #include <takatori/util/reference_vector.h>
@@ -63,20 +63,18 @@ public:
     /**
      * @brief creates a new object.
      * @param other the copy source
-     * @param creator the object creator
      */
-    explicit quantification(quantification const& other, takatori::util::object_creator creator) noexcept;
+    explicit quantification(::takatori::util::clone_tag_t, quantification const& other) noexcept;
 
     /**
      * @brief creates a new object.
      * @param other the move source
-     * @param creator the object creator
      */
-    explicit quantification(quantification&& other, takatori::util::object_creator creator) noexcept;
+    explicit quantification(::takatori::util::clone_tag_t, quantification&& other) noexcept;
 
     [[nodiscard]] predicate_kind kind() const noexcept override;
-    [[nodiscard]] quantification* clone(takatori::util::object_creator creator) const& override;
-    [[nodiscard]] quantification* clone(takatori::util::object_creator creator) && override;
+    [[nodiscard]] quantification* clone() const& override;
+    [[nodiscard]] quantification* clone() && override;
 
     /**
      * @brief returns the operator kind.

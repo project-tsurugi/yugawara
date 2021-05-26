@@ -14,10 +14,6 @@ namespace yugawara::analyzer::details {
 using ::takatori::util::string_builder;
 using ::takatori::util::throw_exception;
 
-stream_variable_rewriter_context::stream_variable_rewriter_context(::takatori::util::object_creator creator) noexcept
-    : mappings_(creator.allocator())
-{}
-
 ::takatori::util::optional_ptr<::takatori::descriptor::variable const>
 stream_variable_rewriter_context::find(::takatori::descriptor::variable const& variable) const {
     if (auto it = mappings_.find(variable); it != mappings_.end()) {
@@ -80,7 +76,7 @@ void stream_variable_rewriter_context::rewrite_use(::takatori::descriptor::varia
                 break;
             }
             auto&& info = binding::extract<kind::stream_variable>(variable);
-            auto f = binding::factory { get_object_creator() };
+            binding::factory f {};
             auto [it, success] = mappings_.emplace(
                     variable,
                     entry {
@@ -122,10 +118,6 @@ void stream_variable_rewriter_context::alias(
 
 void stream_variable_rewriter_context::clear() {
     mappings_.clear();
-}
-
-::takatori::util::object_creator stream_variable_rewriter_context::get_object_creator() const noexcept {
-    return mappings_.get_allocator();
 }
 
 } // namespace yugawara::analyzer::details

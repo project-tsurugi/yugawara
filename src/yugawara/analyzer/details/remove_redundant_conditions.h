@@ -2,8 +2,6 @@
 
 #include <takatori/relation/graph.h>
 
-#include <takatori/util/object_creator.h>
-
 namespace yugawara::analyzer::details {
 
 /**

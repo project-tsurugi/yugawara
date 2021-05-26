@@ -9,7 +9,6 @@
 #include <cstddef>
 
 #include <takatori/type/data.h>
-#include <takatori/util/object_creator.h>
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/reference_list_view.h>
 #include <takatori/util/rvalue_reference_wrapper.h>
@@ -38,7 +37,7 @@ public:
     static constexpr definition_id_type minimum_user_function_id = 20'000;
 
     /// @brief the declaration name type.
-    using name_type = std::basic_string<char, std::char_traits<char>, takatori::util::object_allocator<char>>;
+    using name_type = std::string;
 
     /// @brief the smart pointer of parameter/result type.
     using type_pointer = std::shared_ptr<takatori::type::data const>;
@@ -57,7 +56,7 @@ public:
             definition_id_type definition_id,
             name_type name,
             type_pointer return_type,
-            std::vector<type_pointer, takatori::util::object_allocator<type_pointer>> parameter_types) noexcept;
+            std::vector<type_pointer> parameter_types) noexcept;
 
     /**
      * @brief creates a new object.
@@ -142,10 +141,10 @@ public:
      * @brief returns the parameter types of the function as individual shared pointers.
      * @return the parameter types
      */
-    [[nodiscard]] std::vector<type_pointer, takatori::util::object_allocator<type_pointer>>& shared_parameter_types() noexcept;
+    [[nodiscard]] std::vector<type_pointer>& shared_parameter_types() noexcept;
 
     /// @copydoc parameter_types()
-    [[nodiscard]] std::vector<type_pointer, takatori::util::object_allocator<type_pointer>> const& shared_parameter_types() const noexcept;
+    [[nodiscard]] std::vector<type_pointer> const& shared_parameter_types() const noexcept;
 
     /**
      * @brief returns whether or not this function has wider parameters than the given one.
@@ -167,7 +166,7 @@ private:
     definition_id_type definition_id_;
     name_type name_;
     type_pointer return_type_;
-    std::vector<type_pointer, takatori::util::object_allocator<type_pointer>> parameter_types_;
+    std::vector<type_pointer> parameter_types_;
 
     // FIXME: multi-output functions
 };

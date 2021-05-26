@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <unordered_map>
 
 #include <takatori/graph/graph.h>
@@ -7,7 +8,6 @@
 #include <takatori/descriptor/variable.h>
 
 #include <takatori/util/enum_set.h>
-#include <takatori/util/object_creator.h>
 
 #include "variable_liveness_kind.h"
 #include "variable_liveness_info.h"
@@ -39,8 +39,7 @@ public:
             block const*,
             info,
             ::std::hash<block const*>,
-            ::std::equal_to<>,
-            ::takatori::util::object_allocator<std::pair<block const* const, info>>>;
+            ::std::equal_to<>>;
 
     /**
      * @brief creates a new instance.
@@ -48,16 +47,6 @@ public:
      * @attention the specified graph must not modify nor be disposed while analyzing
      */
     explicit variable_liveness_analyzer(::takatori::graph::graph<block> const& blocks);
-
-    /**
-     * @brief creates a new instance.
-     * @param blocks the analysis target blocks, which must be built by block_builder
-     * @param creator the object creator
-     * @attention the specified graph must not modify nor be disposed while analyzing
-     */
-    explicit variable_liveness_analyzer(
-            ::takatori::graph::graph<block> const& blocks,
-            ::takatori::util::object_creator creator);
 
     /**
      * @brief inspects the given block and returns its liveness information.

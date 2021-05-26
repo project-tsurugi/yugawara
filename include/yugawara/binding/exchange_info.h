@@ -2,6 +2,8 @@
 
 #include <takatori/plan/exchange.h>
 
+#include <takatori/util/clone_tag.h>
+
 #include "relation_info.h"
 #include "relation_info_kind.h"
 
@@ -24,16 +26,14 @@ public:
     /**
      * @brief creates a new object.
      * @param other the copy source
-     * @param creator the object creator
      */
-    explicit exchange_info(exchange_info const& other, ::takatori::util::object_creator creator);
+    explicit exchange_info(::takatori::util::clone_tag_t, exchange_info const& other);
 
     /**
      * @brief creates a new object.
      * @param other the move source
-     * @param creator the object creator
      */
-    explicit exchange_info(exchange_info&& other, ::takatori::util::object_creator creator);
+    explicit exchange_info(::takatori::util::clone_tag_t, exchange_info&& other);
 
     /**
      * @brief returns the class ID.
@@ -42,8 +42,8 @@ public:
     [[nodiscard]] std::size_t class_id() const noexcept final;
 
     [[nodiscard]] kind_type kind() const noexcept override;
-    [[nodiscard]] exchange_info* clone(takatori::util::object_creator creator) const& override;
-    [[nodiscard]] exchange_info* clone(takatori::util::object_creator creator) && override;
+    [[nodiscard]] exchange_info* clone() const& override;
+    [[nodiscard]] exchange_info* clone() && override;
 
     /**
      * @brief returns the origin of the exchange step.

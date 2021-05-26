@@ -1,7 +1,6 @@
 #pragma once
 
 #include <takatori/scalar/expression.h>
-#include <takatori/util/object_creator.h>
 #include <takatori/util/ownership_reference.h>
 
 namespace yugawara::analyzer::details {
@@ -33,6 +32,6 @@ enum class simplify_predicate_result {
  * @return the evaluation result
  */
 simplify_predicate_result simplify_predicate(
-        ::takatori::util::object_ownership_reference<::takatori::scalar::expression> expression);
+        ::takatori::util::ownership_reference<::takatori::scalar::expression> expression);
 
 } // namespace yugawara::analyzer::details

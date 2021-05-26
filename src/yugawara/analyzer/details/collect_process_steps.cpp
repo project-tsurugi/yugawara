@@ -19,9 +19,8 @@ namespace {
 
 class engine {
 public:
-    explicit engine(relation::graph_type& source, ::takatori::util::object_creator creator) noexcept
-        : source_(source)
-        , work_(creator.allocator())
+    explicit engine(relation::graph_type& source) noexcept :
+        source_ { source }
     {}
 
     static bool is_entry(relation::expression const& expr) noexcept {
@@ -50,7 +49,7 @@ public:
 private:
     relation::graph_type& source_;
 
-    std::vector<relation::expression const*, ::takatori::util::object_allocator<relation::expression const*>> work_;
+    std::vector<relation::expression const*> work_;
 
     void do_collect(relation::expression const& first) {
         relation::expression const* current = std::addressof(first);
@@ -95,9 +94,8 @@ private:
 
 void collect_process_steps(
         ::takatori::relation::graph_type&& source,
-        ::takatori::plan::graph_type& destination,
-        ::takatori::util::object_creator creator) {
-    engine collector { source, creator };
+        ::takatori::plan::graph_type& destination) {
+    engine collector { source };
     while (collector) {
         bool found = false;
         for (auto&& e : source) {

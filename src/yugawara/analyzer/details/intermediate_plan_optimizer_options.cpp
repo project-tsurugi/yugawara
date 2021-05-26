@@ -6,11 +6,6 @@ namespace yugawara::analyzer::details {
 
 using ::takatori::util::maybe_shared_ptr;
 
-intermediate_plan_optimizer_options::intermediate_plan_optimizer_options(
-        ::takatori::util::object_creator creator) noexcept
-    : creator_(creator)
-{}
-
 runtime_feature_set& intermediate_plan_optimizer_options::runtime_features() noexcept {
     return runtime_features_;
 }
@@ -31,10 +26,6 @@ intermediate_plan_optimizer_options& intermediate_plan_optimizer_options::index_
         maybe_shared_ptr<analyzer::index_estimator const> estimator) noexcept {
     index_estimator_ = std::move(estimator);
     return *this;
-}
-
-::takatori::util::object_creator intermediate_plan_optimizer_options::get_object_creator() const noexcept {
-    return creator_;
 }
 
 } // namespace yugawara::analyzer::details

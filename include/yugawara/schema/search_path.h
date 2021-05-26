@@ -3,7 +3,6 @@
 #include <vector>
 
 #include <takatori/util/maybe_shared_ptr.h>
-#include <takatori/util/object_creator.h>
 
 #include "declaration.h"
 
@@ -21,7 +20,7 @@ public:
     using pointer = ::takatori::util::maybe_shared_ptr<element_type>;
 
     /// @brief the vector of element pointer type.
-    using vector_type = std::vector<pointer, ::takatori::util::object_allocator<pointer>>;
+    using vector_type = std::vector<pointer>;
 
     /**
      * @brief creates a new instance.

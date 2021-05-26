@@ -18,12 +18,11 @@ using namespace ::yugawara::testing;
 
 using ::takatori::scalar::comparison_operator;
 
-using ::takatori::util::object_ownership_reference;
+using ::takatori::util::ownership_reference;
 
 class search_key_term_builder_test: public ::testing::Test {
 protected:
-    ::takatori::util::object_creator creator;
-    binding::factory bindings { creator };
+    binding::factory bindings {};
 };
 
 TEST_F(search_key_term_builder_test, equal) {
@@ -32,7 +31,7 @@ TEST_F(search_key_term_builder_test, equal) {
             compare(varref(k0), constant(0), comparison_operator::equal),
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -53,7 +52,7 @@ TEST_F(search_key_term_builder_test, not_equal) {
             compare(varref(k0), constant(0), comparison_operator::not_equal)
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -67,7 +66,7 @@ TEST_F(search_key_term_builder_test, less) {
             compare(varref(k0), constant(0), comparison_operator::less),
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -88,7 +87,7 @@ TEST_F(search_key_term_builder_test, less_equal) {
             compare(varref(k0), constant(0), comparison_operator::less_equal),
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -109,7 +108,7 @@ TEST_F(search_key_term_builder_test, greater) {
             compare(varref(k0), constant(0), comparison_operator::greater),
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -130,7 +129,7 @@ TEST_F(search_key_term_builder_test, greater_equal) {
             compare(varref(k0), constant(0), comparison_operator::greater_equal),
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -151,7 +150,7 @@ TEST_F(search_key_term_builder_test, equal_not) {
             lnot(compare(varref(k0), constant(0), comparison_operator::equal))
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -165,7 +164,7 @@ TEST_F(search_key_term_builder_test, not_equal_not) {
             lnot(compare(varref(k0), constant(0), comparison_operator::not_equal)),
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -185,7 +184,7 @@ TEST_F(search_key_term_builder_test, less_not) {
             lnot(compare(varref(k0), constant(0), comparison_operator::less)),
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -206,7 +205,7 @@ TEST_F(search_key_term_builder_test, less_equal_not) {
             lnot(compare(varref(k0), constant(0), comparison_operator::less_equal)),
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -227,7 +226,7 @@ TEST_F(search_key_term_builder_test, greater_not) {
             lnot(compare(varref(k0), constant(0), comparison_operator::greater)),
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -248,7 +247,7 @@ TEST_F(search_key_term_builder_test, greater_equal_not) {
             lnot(compare(varref(k0), constant(0), comparison_operator::greater_equal)),
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -269,7 +268,7 @@ TEST_F(search_key_term_builder_test, equal_trans) {
             compare(constant(0), varref(k0), comparison_operator::equal)
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -289,7 +288,7 @@ TEST_F(search_key_term_builder_test, not_equal_trans) {
             compare(constant(0), varref(k0), comparison_operator::not_equal),
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -303,7 +302,7 @@ TEST_F(search_key_term_builder_test, less_trans) {
             compare(constant(0), varref(k0), comparison_operator::less),
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -324,7 +323,7 @@ TEST_F(search_key_term_builder_test, less_equal_trans) {
             compare(constant(0), varref(k0), comparison_operator::less_equal),
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -345,7 +344,7 @@ TEST_F(search_key_term_builder_test, greater_trans) {
             compare(constant(0), varref(k0), comparison_operator::greater),
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -366,7 +365,7 @@ TEST_F(search_key_term_builder_test, greater_equal_trans) {
             compare(constant(0), varref(k0), comparison_operator::greater_equal),
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -389,7 +388,7 @@ TEST_F(search_key_term_builder_test, range) {
                 compare(varref(k0), constant(100), comparison_operator::less))
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 
@@ -419,7 +418,7 @@ TEST_F(search_key_term_builder_test, dependent) {
             compare(k0, k1),
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_key(k1);
     b.add_predicate(r.ownership_condition());
@@ -435,7 +434,7 @@ TEST_F(search_key_term_builder_test, independent) {
             compare(k0, v1),
     };
 
-    search_key_term_builder b { creator };
+    search_key_term_builder b {};
     b.add_key(k0);
     b.add_predicate(r.ownership_condition());
 

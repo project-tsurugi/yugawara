@@ -7,7 +7,7 @@
 
 namespace yugawara::analyzer::details {
 
-using predicate_consumer = std::function<void(::takatori::util::object_ownership_reference<::takatori::scalar::expression>&&)>;
+using predicate_consumer = std::function<void(::takatori::util::ownership_reference<::takatori::scalar::expression>&&)>;
 
 /**
  * @brief decomposes conjunctive predicate terms.
@@ -26,7 +26,7 @@ void decompose_predicate(
  * @param consumer the consumer
  */
 void decompose_predicate(
-        ::takatori::util::object_ownership_reference<::takatori::scalar::expression> expression,
+        ::takatori::util::ownership_reference<::takatori::scalar::expression> expression,
         predicate_consumer const& consumer);
 
 } // namespace yugawara::analyzer::details

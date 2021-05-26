@@ -8,7 +8,6 @@
 #include <takatori/scalar/expression.h>
 #include <takatori/statement/statement.h>
 #include <takatori/serializer/object_scanner.h>
-#include <takatori/util/object_creator.h>
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/sequence_view.h>
 
@@ -49,7 +48,7 @@ public:
      * @param info the compiled information
      */
     compiler_result(
-            ::takatori::util::unique_object_ptr<::takatori::statement::statement> statement,
+            std::unique_ptr<::takatori::statement::statement> statement,
             info_type info) noexcept;
 
     /**
@@ -94,7 +93,7 @@ public:
      * @return the compiled statement
      * @return empty if this compilation was failed
      */
-    [[nodiscard]] ::takatori::util::unique_object_ptr<::takatori::statement::statement> release_statement() noexcept;
+    [[nodiscard]] std::unique_ptr<::takatori::statement::statement> release_statement() noexcept;
 
     /**
      * @brief returns the compiled information.
@@ -133,7 +132,7 @@ public:
 
 private:
     // successfully information
-    ::takatori::util::unique_object_ptr<::takatori::statement::statement> statement_ {};
+    std::unique_ptr<::takatori::statement::statement> statement_ {};
     info_type info_ {};
 
     // erroneous information

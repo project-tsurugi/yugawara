@@ -41,7 +41,7 @@ public:
      */
     value_type acquire() {
         if (entries_.empty()) {
-            return value_type { allocator_type { entries_.get_allocator() }};
+            return {};
         }
         auto result = entries_.back();
         entries_.pop_back();

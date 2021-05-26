@@ -13,10 +13,9 @@ using info_type = compiler_result::info_type;
 
 using ::takatori::util::optional_ptr;
 using ::takatori::util::sequence_view;
-using ::takatori::util::unique_object_ptr;
 
 yugawara::compiler_result::compiler_result(
-        unique_object_ptr<statement::statement> statement,
+        std::unique_ptr<statement::statement> statement,
         info_type info) noexcept :
     statement_ { std::move(statement) },
     info_ { std::move(info) }
@@ -50,7 +49,7 @@ optional_ptr<statement::statement const> compiler_result::optional_statement() c
     return optional_ptr { statement_.get() };
 }
 
-unique_object_ptr<statement::statement> compiler_result::release_statement() noexcept {
+std::unique_ptr<statement::statement> compiler_result::release_statement() noexcept {
     return std::move(statement_);
 }
 

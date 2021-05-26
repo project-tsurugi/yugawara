@@ -22,28 +22,28 @@ aggregate_function_call::aggregate_function_call(
             { arguments.begin(), arguments.end() })
 {}
 
-aggregate_function_call::aggregate_function_call(aggregate_function_call const& other, util::object_creator creator)
+aggregate_function_call::aggregate_function_call(::takatori::util::clone_tag_t, aggregate_function_call const& other)
     : aggregate_function_call(
             other.function_,
-            tree::forward(creator, other.arguments_))
+            tree::forward(other.arguments_))
 {}
 
-aggregate_function_call::aggregate_function_call(aggregate_function_call&& other, util::object_creator creator)
+aggregate_function_call::aggregate_function_call(::takatori::util::clone_tag_t, aggregate_function_call&& other)
     : aggregate_function_call(
             std::move(other.function_),
-            tree::forward(creator, std::move(other.arguments_)))
+            tree::forward(std::move(other.arguments_)))
 {}
 
 aggregate_function_call::extension_id_type aggregate_function_call::extension_id() const noexcept {
     return extension_tag;
 }
 
-aggregate_function_call* aggregate_function_call::clone(util::object_creator creator) const& {
-    return creator.create_object<aggregate_function_call>(*this, creator);
+aggregate_function_call* aggregate_function_call::clone() const& {
+    return new aggregate_function_call(::takatori::util::clone_tag, *this); // NOLINT
 }
 
-aggregate_function_call* aggregate_function_call::clone(util::object_creator creator) && {
-    return creator.create_object<aggregate_function_call>(std::move(*this), creator);
+aggregate_function_call* aggregate_function_call::clone() && {
+    return new aggregate_function_call(::takatori::util::clone_tag, std::move(*this)); // NOLINT;
 }
 
 descriptor::aggregate_function& aggregate_function_call::function() noexcept {

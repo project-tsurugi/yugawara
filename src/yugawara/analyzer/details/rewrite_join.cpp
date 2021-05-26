@@ -32,18 +32,12 @@ using attribute = details::index_estimator_result_attribute;
 
 using ::takatori::relation::join_kind;
 using ::takatori::relation::join_kind_set;
-using ::takatori::util::object_allocator;
-using ::takatori::util::object_creator;
-using ::takatori::util::object_ownership_reference;
+using ::takatori::util::ownership_reference;
 using ::takatori::util::optional_ptr;
 using ::takatori::util::sequence_view;
-using ::takatori::util::unique_object_ptr;
 using ::takatori::util::unsafe_downcast;
 
-using expression_ref = object_ownership_reference<scalar::expression>;
-
-template<class T>
-using object_vector = std::vector<T, object_allocator<T>>;
+using expression_ref = ownership_reference<scalar::expression>;
 
 namespace {
 
@@ -52,18 +46,10 @@ public:
     explicit engine(
             relation::graph_type& graph,
             index_estimator const& index_estimator,
-            flow_volume_info const& flow_volume,
-            object_creator creator)
-        : graph_(graph)
-        , index_estimator_(index_estimator)
-        , flow_volume_(flow_volume)
-        , left_collector_(creator)
-        , right_collector_(creator)
-        , term_buf_(creator.allocator())
-        , search_key_buf_(creator.allocator())
-        , filter_buf_(creator.allocator())
-        , saved_terms_(creator.allocator())
-        , saved_filters_(creator.allocator())
+            flow_volume_info const& flow_volume) :
+        graph_(graph),
+        index_estimator_(index_estimator),
+        flow_volume_(flow_volume)
     {}
 
     bool process(relation::intermediate::join& expr) {
@@ -92,10 +78,6 @@ public:
         return erase;
     }
 
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept {
-        return left_collector_.get_object_creator();
-    }
-
 private:
     relation::graph_type& graph_;
     index_estimator const& index_estimator_;
@@ -104,16 +86,16 @@ private:
     scan_key_collector left_collector_;
     scan_key_collector right_collector_;
 
-    object_vector<search_key_term*> term_buf_;
-    object_vector<search_key> search_key_buf_;
-    object_vector<relation::filter*> filter_buf_;
+    std::vector<search_key_term*> term_buf_;
+    std::vector<search_key> search_key_buf_;
+    std::vector<relation::filter*> filter_buf_;
 
     optional_ptr<relation::scan> saved_scan_ {};
     optional_ptr<storage::index const> saved_index_ {};
     bool saved_left_ {};
     std::optional<index_estimator::result> saved_result_ {};
-    object_vector<search_key_term*> saved_terms_;
-    object_vector<relation::filter*> saved_filters_;
+    std::vector<search_key_term*> saved_terms_;
+    std::vector<relation::filter*> saved_filters_;
 
     void process_left(relation::intermediate::join& expr) {
         static constexpr join_kind_set allow {
@@ -223,7 +205,7 @@ private:
 
         // FIXME: use more statistics of individual join inputs
         if (is_better(expr, result, left)) {
-            save_result(scan, index, left, std::move(result), term_buf_, filter_buf_);
+            save_result(scan, index, left, result, term_buf_, filter_buf_);
         }
         term_buf_.clear();
         search_key_buf_.clear();
@@ -288,7 +270,7 @@ private:
         saved_scan_ = expr;
         saved_index_ = index;
         saved_left_ = left;
-        saved_result_.emplace(std::move(result));
+        saved_result_.emplace(result);
         saved_terms_.assign(terms.begin(), terms.end());
         saved_filters_.assign(filters.begin(), filters.end());
     }
@@ -316,17 +298,16 @@ private:
             sequence_view<scan_key_collector::term*> terms) {
         BOOST_ASSERT(terms.size() <= index.keys().size()); // NOLINT
 
-        object_vector<relation::join_find::key> keys { get_object_creator().allocator() };
-        fill_search_key(index, keys, terms, get_object_creator());
+        std::vector<relation::join_find::key> keys {};
+        fill_search_key(index, keys, terms);
 
-        binding::factory bindings { get_object_creator() };
+        binding::factory bindings {};
         auto&& result = expr.owner().emplace<relation::join_find>(
                 expr.operator_kind(),
                 bindings(index),
                 std::move(source.columns()),
                 std::move(keys),
-                expr.release_condition(),
-                get_object_creator());
+                expr.release_condition());
 
         // reconnect
         BOOST_ASSERT(expr.left().opposite()); // NOLINT
@@ -352,11 +333,11 @@ private:
             sequence_view<scan_key_collector::term*> terms) {
         BOOST_ASSERT(terms.size() <= index.keys().size()); // NOLINT
 
-        binding::factory bindings { get_object_creator() };
-        relation::join_scan::endpoint lower { get_object_creator() };
-        relation::join_scan::endpoint upper { get_object_creator() };
+        binding::factory bindings {};
+        relation::join_scan::endpoint lower {};
+        relation::join_scan::endpoint upper {};
 
-        fill_endpoints(index, lower, upper, terms, get_object_creator());
+        fill_endpoints(index, lower, upper, terms);
 
         auto&& result = expr.owner().emplace<relation::join_scan>(
                 expr.operator_kind(),
@@ -364,8 +345,7 @@ private:
                 std::move(source.columns()),
                 std::move(lower),
                 std::move(upper),
-                expr.release_condition(),
-                get_object_creator());
+                expr.release_condition());
 
         // reconnect
         BOOST_ASSERT(expr.left().opposite()); // NOLINT
@@ -385,7 +365,7 @@ private:
     }
 
     void merge_filters(expression_ref condition, sequence_view<relation::filter*> filters) {
-        unique_object_ptr<scalar::expression> result;
+        std::unique_ptr<scalar::expression> result;
         if (auto&& current = condition.find();
                 current
                 && current != boolean_expression(true)) {
@@ -394,7 +374,7 @@ private:
         for (auto* filter : filters) {
             if (filter->condition() != boolean_expression(true)) {
                 if (result) {
-                    result = get_object_creator().create_unique<scalar::binary>(
+                    result = std::make_unique<scalar::binary>(
                             scalar::binary_operator::conditional_and,
                             std::move(result),
                             filter->release_condition());
@@ -415,9 +395,8 @@ private:
 void rewrite_join(
         relation::graph_type& graph,
         analyzer::index_estimator const& index_estimator,
-        flow_volume_info const& flow_volume,
-        object_creator creator) {
-    engine e { graph, index_estimator, flow_volume, creator };
+        flow_volume_info const& flow_volume) {
+    engine e { graph, index_estimator, flow_volume };
     for (auto it = graph.begin(); it != graph.end();) {
         auto&& expr = *it;
         if (expr.kind() == relation::intermediate::join::tag) {

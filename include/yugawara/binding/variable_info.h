@@ -2,7 +2,6 @@
 
 #include <takatori/descriptor/variable.h>
 #include <takatori/util/object.h>
-#include <takatori/util/object_creator.h>
 
 #include "variable_info_kind.h"
 

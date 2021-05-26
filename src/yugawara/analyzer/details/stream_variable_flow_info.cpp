@@ -179,7 +179,7 @@ private:
 
 stream_variable_flow_info::entry_type& stream_variable_flow_info::entry(
         relation::expression::input_port_type const& port) {
-    auto [it, success] = entries_.emplace(std::addressof(port), get_object_creator());
+    auto [it, success] = entries_.emplace(std::addressof(port), entry_type {});
     if (success) {
         engine e { it->second };
         e.build(port);

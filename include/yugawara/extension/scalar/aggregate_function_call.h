@@ -9,8 +9,8 @@
 #include <takatori/tree/tree_element_vector.h>
 #include <takatori/descriptor/aggregate_function.h>
 
+#include <takatori/util/clone_tag.h>
 #include <takatori/util/meta_type.h>
-#include <takatori/util/object_creator.h>
 #include <takatori/util/reference_vector.h>
 #include <takatori/util/rvalue_reference_wrapper.h>
 
@@ -48,26 +48,23 @@ public:
     /**
      * @brief creates a new object.
      * @param other the copy source
-     * @param creator the object creator
      */
-    explicit aggregate_function_call(aggregate_function_call const& other, ::takatori::util::object_creator creator);
+    explicit aggregate_function_call(::takatori::util::clone_tag_t, aggregate_function_call const& other);
 
     /**
      * @brief creates a new object.
      * @param other the move source
-     * @param creator the object creator
      */
-    explicit aggregate_function_call(aggregate_function_call&& other, ::takatori::util::object_creator creator);
+    explicit aggregate_function_call(::takatori::util::clone_tag_t, aggregate_function_call&& other);
 
     /**
      * @brief returns a clone of this object.
-     * @param creator the object creator
      * @return the created clone
      */
-    [[nodiscard]] aggregate_function_call* clone(::takatori::util::object_creator creator) const& override;
+    [[nodiscard]] aggregate_function_call* clone() const& override;
 
     /// @copydoc clone()
-    [[nodiscard]] aggregate_function_call* clone(::takatori::util::object_creator creator) && override;
+    [[nodiscard]] aggregate_function_call* clone() && override;
 
     /**
      * @brief returns the extension ID of this type.

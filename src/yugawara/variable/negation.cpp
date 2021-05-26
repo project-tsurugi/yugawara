@@ -5,7 +5,7 @@
 
 namespace yugawara::variable {
 
-negation::negation(takatori::util::unique_object_ptr<predicate> operand) noexcept
+negation::negation(std::unique_ptr<predicate> operand) noexcept
     : operand_(std::move(operand))
 {}
 
@@ -14,26 +14,26 @@ negation::negation(predicate&& operand)
             takatori::util::clone_unique(std::move(operand)))
 {}
 
-negation::negation(negation const& other, takatori::util::object_creator creator) noexcept
+negation::negation(::takatori::util::clone_tag_t, negation const& other) noexcept
     : negation(
-            takatori::util::clone_unique(other.operand_, creator))
+            takatori::util::clone_unique(other.operand_))
 {}
 
-negation::negation(negation&& other, takatori::util::object_creator creator) noexcept
+negation::negation(::takatori::util::clone_tag_t, negation&& other) noexcept
     : negation(
-            takatori::util::clone_unique(std::move(other.operand_), creator))
+            takatori::util::clone_unique(std::move(other.operand_)))
 {}
 
 predicate_kind negation::kind() const noexcept {
     return tag;
 }
 
-negation* negation::clone(takatori::util::object_creator creator) const& {
-    return creator.create_object<negation>(*this, creator);
+negation* negation::clone() const& {
+    return new negation(::takatori::util::clone_tag, *this); // NOLINT
 }
 
-negation* negation::clone(takatori::util::object_creator creator)&& {
-    return creator.create_object<negation>(std::move(*this), creator);
+negation* negation::clone()&& {
+    return new negation(::takatori::util::clone_tag, std::move(*this)); // NOLINT;
 }
 
 predicate& negation::operand() noexcept {
@@ -52,11 +52,11 @@ takatori::util::optional_ptr<predicate const> negation::optional_operand() const
     return takatori::util::optional_ptr { operand_.get() };
 }
 
-takatori::util::unique_object_ptr<predicate> negation::release_operand() noexcept {
+std::unique_ptr<predicate> negation::release_operand() noexcept {
     return std::move(operand_);
 }
 
-negation& negation::operand(takatori::util::unique_object_ptr<predicate> operand) noexcept {
+negation& negation::operand(std::unique_ptr<predicate> operand) noexcept {
     operand_ = std::move(operand);
     return *this;
 }

@@ -79,17 +79,11 @@ private:
     scalar_expression_variable_rewriter::local_stack_type& stack_;
 
     binding::factory factory() noexcept {
-        return binding::factory { exchange_map_.get_object_creator() };
+        return {};
     }
 };
 
 } // namespace
-
-scalar_expression_variable_rewriter::scalar_expression_variable_rewriter(
-        ::takatori::util::object_creator creator) noexcept
-    : locals_(creator.allocator())
-    , stack_(creator.allocator())
-{}
 
 void scalar_expression_variable_rewriter::operator()(context_type& context, scalar::expression& expr) {
     engine e { context, locals_, stack_ };

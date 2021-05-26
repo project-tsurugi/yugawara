@@ -18,11 +18,11 @@ comparison::comparison(comparison::operator_kind_type operator_kind, takatori::v
             takatori::util::clone_unique(std::move(value)))
 {}
 
-comparison::comparison(comparison const& other, takatori::util::object_creator) noexcept
+comparison::comparison(::takatori::util::clone_tag_t, comparison const& other) noexcept
     : comparison(other.operator_kind_, other.value_)
 {}
 
-comparison::comparison(comparison&& other, takatori::util::object_creator) noexcept
+comparison::comparison(::takatori::util::clone_tag_t, comparison&& other) noexcept
     : comparison(other.operator_kind_, std::move(other.value_))
 {}
 
@@ -30,12 +30,12 @@ predicate_kind comparison::kind() const noexcept {
     return tag;
 }
 
-comparison* comparison::clone(takatori::util::object_creator creator) const& {
-    return creator.create_object<comparison>(*this, creator);
+comparison* comparison::clone() const& {
+    return new comparison(::takatori::util::clone_tag, *this); // NOLINT
 }
 
-comparison* comparison::clone(takatori::util::object_creator creator)&& {
-    return creator.create_object<comparison>(std::move(*this), creator);
+comparison* comparison::clone()&& {
+    return new comparison(::takatori::util::clone_tag, std::move(*this)); // NOLINT;
 }
 
 comparison::operator_kind_type comparison::operator_kind() const noexcept {

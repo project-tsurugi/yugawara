@@ -2,14 +2,10 @@
 
 #include <memory>
 #include <optional>
-
-#include <memory>
 #include <ostream>
 #include <string>
 
 #include <cstddef>
-
-#include <takatori/util/object_creator.h>
 
 #include <yugawara/util/move_only.h>
 
@@ -26,7 +22,7 @@ public:
     using definition_id_type = std::size_t;
 
     /// @brief the catalog name type.
-    using name_type = std::basic_string<char, std::char_traits<char>, ::takatori::util::object_allocator<char>>;
+    using name_type = std::string;
 
     /**
      * @brief creates a new object.

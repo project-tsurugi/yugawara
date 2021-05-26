@@ -7,7 +7,7 @@
 
 namespace yugawara::variable {
 
-criteria::criteria(class nullity nullity, takatori::util::unique_object_ptr<class predicate> predicate) noexcept
+criteria::criteria(class nullity nullity, std::unique_ptr<class predicate> predicate) noexcept
     : nullity_(nullity)
     , predicate_(std::move(predicate))
 {}
@@ -18,12 +18,10 @@ criteria::criteria(class nullity nullity, class predicate&& predicate)
             takatori::util::clone_unique(predicate))
 {}
 
-static takatori::util::unique_object_ptr<class predicate> wrap_constant(
-        takatori::value::data&& constant,
-        takatori::util::object_creator creator = {}) {
-    return creator.create_unique<comparison>(
+static std::unique_ptr<class predicate> wrap_constant(takatori::value::data&& constant) {
+    return std::make_unique<comparison>(
             comparison_operator::equal,
-            takatori::util::clone_unique(std::move(constant), creator));
+            takatori::util::clone_unique(std::move(constant)));
 }
 
 criteria::criteria(takatori::value::data&& constant)
@@ -32,16 +30,16 @@ criteria::criteria(takatori::value::data&& constant)
             wrap_constant(std::move(constant)))
 {}
 
-criteria::criteria(criteria const& other, takatori::util::object_creator creator)
+criteria::criteria(::takatori::util::clone_tag_t, criteria const& other)
     : criteria(
             other.nullity_,
-            takatori::util::clone_unique(other.predicate_, creator))
+            takatori::util::clone_unique(other.predicate_))
 {}
 
-criteria::criteria(criteria&& other, takatori::util::object_creator creator)
+criteria::criteria(::takatori::util::clone_tag_t, criteria&& other)
     : criteria(
             other.nullity_,
-            takatori::util::clone_unique(std::move(other.predicate_), creator))
+            takatori::util::clone_unique(std::move(other.predicate_)))
 {}
 
 class nullity criteria::nullity() const noexcept {
@@ -57,7 +55,7 @@ takatori::util::optional_ptr<class predicate const> criteria::predicate() const 
     return takatori::util::optional_ptr<class predicate const> { predicate_.get() };
 }
 
-criteria& criteria::predicate(takatori::util::unique_object_ptr<class predicate> predicate) noexcept {
+criteria& criteria::predicate(std::unique_ptr<class predicate> predicate) noexcept {
     predicate_ = std::move(predicate);
     return *this;
 }

@@ -6,10 +6,6 @@ namespace yugawara::analyzer {
 
 using ::takatori::util::throw_exception;
 
-variable_mapping::variable_mapping(::takatori::util::object_creator creator) noexcept
-    : mapping_(creator.allocator())
-{}
-
 variable_resolution const& variable_mapping::find(::takatori::descriptor::variable const& variable) const {
     if (auto it = mapping_.find(variable); it != mapping_.end()) {
         return it->second;
@@ -45,10 +41,6 @@ void variable_mapping::unbind(takatori::descriptor::variable const& variable) {
 
 void variable_mapping::clear() noexcept {
     mapping_.clear();
-}
-
-takatori::util::object_creator variable_mapping::get_object_creator() const {
-    return mapping_.get_allocator();
 }
 
 } // namespace yugawara::analyzer

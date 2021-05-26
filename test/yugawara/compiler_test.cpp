@@ -31,8 +31,7 @@ using ::takatori::scalar::comparison_operator;
 
 class compiler_test: public ::testing::Test {
 protected:
-    ::takatori::util::object_creator creator;
-    binding::factory bindings { creator };
+    binding::factory bindings {};
 
     runtime_feature_set runtime_features { compiler_options::default_runtime_features };
     std::shared_ptr<storage::configurable_provider> storages = std::make_shared<storage::configurable_provider>();
@@ -56,7 +55,6 @@ protected:
         return {
                 indices,
                 runtime_features,
-                creator,
         };
     }
 

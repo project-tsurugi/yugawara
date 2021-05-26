@@ -22,7 +22,6 @@ using namespace ::yugawara::testing;
 
 class scalar_expression_variable_rewriter_test : public ::testing::Test {
 protected:
-    ::takatori::util::object_creator creator;
     type::repository types;
     binding::factory bindings;
 };
@@ -32,8 +31,8 @@ TEST_F(scalar_expression_variable_rewriter_test, simple) {
             v::int4 {},
             t::int4 {},
     };
-    stream_variable_rewriter_context context { creator };
-    scalar_expression_variable_rewriter rewriter { creator };
+    stream_variable_rewriter_context context {};
+    scalar_expression_variable_rewriter rewriter {};
     rewriter(context, expr);
     // ok.
 }
@@ -41,8 +40,8 @@ TEST_F(scalar_expression_variable_rewriter_test, simple) {
 TEST_F(scalar_expression_variable_rewriter_test, variable_reference) {
     auto c0 = bindings.stream_variable("c0");
     scalar::variable_reference e0 { c0 };
-    stream_variable_rewriter_context context { creator };
-    scalar_expression_variable_rewriter rewriter { creator };
+    stream_variable_rewriter_context context {};
+    scalar_expression_variable_rewriter rewriter {};
     rewriter(context, e0);
 
     auto c0m = context.find(c0);
@@ -56,8 +55,8 @@ TEST_F(scalar_expression_variable_rewriter_test, variable_reference_multiple) {
     scalar::variable_reference e0 { c0 };
     scalar::variable_reference e1 { c1 };
     scalar::variable_reference e2 { c0 };
-    stream_variable_rewriter_context context { creator };
-    scalar_expression_variable_rewriter rewriter { creator };
+    stream_variable_rewriter_context context {};
+    scalar_expression_variable_rewriter rewriter {};
     rewriter(context, e0);
     rewriter(context, e1);
     rewriter(context, e2);
@@ -81,8 +80,8 @@ TEST_F(scalar_expression_variable_rewriter_test, let) {
             },
             scalar::variable_reference { l0 },
     };
-    stream_variable_rewriter_context context { creator };
-    scalar_expression_variable_rewriter rewriter { creator };
+    stream_variable_rewriter_context context {};
+    scalar_expression_variable_rewriter rewriter {};
     rewriter(context, e0);
 
     auto&& l0m = e0.variables()[0].variable();
@@ -114,8 +113,8 @@ TEST_F(scalar_expression_variable_rewriter_test, let_multiple) {
             },
             scalar::variable_reference { l2 },
     };
-    stream_variable_rewriter_context context { creator };
-    scalar_expression_variable_rewriter rewriter { creator };
+    stream_variable_rewriter_context context {};
+    scalar_expression_variable_rewriter rewriter {};
     rewriter(context, e0);
 
     auto c0m = context.find(c0);
@@ -148,8 +147,8 @@ TEST_F(scalar_expression_variable_rewriter_test, nesting) {
             scalar::variable_reference { c0 },
             scalar::variable_reference { c1 },
     };
-    stream_variable_rewriter_context context { creator };
-    scalar_expression_variable_rewriter rewriter { creator };
+    stream_variable_rewriter_context context {};
+    scalar_expression_variable_rewriter rewriter {};
     rewriter(context, e0);
 
     auto&& v0 = downcast<scalar::variable_reference>(e0.left());

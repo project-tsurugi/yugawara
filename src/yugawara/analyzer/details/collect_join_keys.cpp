@@ -19,13 +19,8 @@ namespace relation = ::takatori::relation;
 
 using ::takatori::relation::join_kind;
 
-using ::takatori::util::object_allocator;
-using ::takatori::util::object_creator;
 using ::takatori::util::sequence_view;
 using ::takatori::util::unsafe_downcast;
-
-template<class T>
-using object_vector = std::vector<T, object_allocator<T>>;
 
 using feature = collect_join_keys_feature;
 using volume_info = flow_volume_info::volume_info;
@@ -36,18 +31,9 @@ class engine {
 public:
     explicit engine(
             flow_volume_info const& flow_volume,
-            collect_join_keys_feature_set features,
-            object_creator creator)
-        : flow_volume_(flow_volume)
-        , features_(features)
-        , flow_info_(creator)
-        , left_term_builder_(creator)
-        , right_term_builder_(creator)
-        , left_key_buf_(creator.allocator())
-        , right_key_buf_(creator.allocator())
-        , left_term_buf_(creator.allocator())
-        , right_term_buf_(creator.allocator())
-        , temp_term_buf_(creator.allocator())
+            collect_join_keys_feature_set features) :
+        flow_volume_ { flow_volume },
+        features_ { features }
     {}
 
     void process(relation::intermediate::join& expr) {
@@ -65,21 +51,17 @@ public:
         right_term_buf_.clear();
     }
 
-    [[nodiscard]] object_creator get_object_creator() const {
-        return flow_info_.get_object_creator();
-    }
-
 private:
     flow_volume_info const& flow_volume_;
     collect_join_keys_feature_set features_;
     stream_variable_flow_info flow_info_;
     search_key_term_builder left_term_builder_;
     search_key_term_builder right_term_builder_;
-    object_vector<descriptor::variable> left_key_buf_;
-    object_vector<descriptor::variable> right_key_buf_;
-    object_vector<std::pair<descriptor::variable const*, search_key_term*>> left_term_buf_;
-    object_vector<std::pair<descriptor::variable const*, search_key_term*>> right_term_buf_;
-    mutable object_vector<std::pair<descriptor::variable const*, search_key_term*>> temp_term_buf_;
+    std::vector<descriptor::variable> left_key_buf_;
+    std::vector<descriptor::variable> right_key_buf_;
+    std::vector<std::pair<descriptor::variable const*, search_key_term*>> left_term_buf_;
+    std::vector<std::pair<descriptor::variable const*, search_key_term*>> right_term_buf_;
+    mutable std::vector<std::pair<descriptor::variable const*, search_key_term*>> temp_term_buf_;
 
     static bool enable_broadcast(collect_join_keys_feature_set features) noexcept {
         return features.contains(feature::broadcast_find);
@@ -184,7 +166,7 @@ private:
     }
 
     std::size_t build_terms(
-            object_vector<std::pair<descriptor::variable const*, search_key_term*>>& results,
+            std::vector<std::pair<descriptor::variable const*, search_key_term*>>& results,
             relation::intermediate::join& expr,
             sequence_view<descriptor::variable const> build_key,
             sequence_view<descriptor::variable const> probe_key,
@@ -265,12 +247,11 @@ private:
 void collect_join_keys(
         relation::graph_type& graph,
         flow_volume_info const& flow_volume,
-        collect_join_keys_feature_set features,
-        object_creator creator) {
+        collect_join_keys_feature_set features) {
     if (features.contains(feature::broadcast_scan)) {
         features.insert(feature::broadcast_find);
     }
-    engine e { flow_volume, features, creator };
+    engine e { flow_volume, features };
     for (auto&& expr : graph) {
         if (expr.kind() == relation::intermediate::join::tag) {
             auto&& join = unsafe_downcast<relation::intermediate::join>(expr);

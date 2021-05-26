@@ -23,7 +23,6 @@ namespace plan = ::takatori::plan;
 namespace statement = ::takatori::statement;
 
 using ::takatori::util::clone_unique;
-using ::takatori::util::unique_object_ptr;
 
 using ::yugawara::util::either;
 
@@ -77,7 +76,7 @@ public:
                 expression_mapping_,
                 variable_mapping_,
         }
-        , type_repository_ { options.get_object_creator(), true }
+        , type_repository_ { true }
     {
         expression_analyzer_.allow_unresolved(false);
     }
@@ -92,11 +91,11 @@ public:
 
         auto steps = do_compile(std::move(plan));
 
-        auto stmt = options_.get_object_creator().create_unique<statement::execute>(std::move(steps));
+        auto stmt = std::make_unique<statement::execute>(std::move(steps));
         return compile(std::move(stmt));
     }
 
-    result_type compile(unique_object_ptr<statement::statement> stmt) {
+    result_type compile(std::unique_ptr<statement::statement> stmt) {
         expression_analyzer_.resolve(*stmt, true, type_repository_);
         if (expression_analyzer_.has_diagnostics()) {
             return result_type { build_error(expression_analyzer_) };
@@ -111,7 +110,7 @@ private:
     analyzer::expression_analyzer expression_analyzer_;
     type::repository type_repository_;
 
-    result_type build_success(unique_object_ptr<statement::statement> result) {
+    result_type build_success(std::unique_ptr<statement::statement> result) {
         BOOST_ASSERT(!expression_analyzer_.has_diagnostics()); // NOLINT
         return {
                 std::move(result),
@@ -128,14 +127,14 @@ private:
     }
 
     void do_optimize(relation::graph_type& graph) {
-        analyzer::intermediate_plan_optimizer sub { options_.get_object_creator() };
+        analyzer::intermediate_plan_optimizer sub {};
         sub.options().runtime_features() = options_.runtime_features();
         sub.options().index_estimator(options_.index_estimator());
         sub(graph);
     }
 
     plan::graph_type do_plan(relation::graph_type&& graph) {
-        analyzer::step_plan_builder sub { options_.get_object_creator() };
+        analyzer::step_plan_builder sub {};
         sub.options().runtime_features() = options_.runtime_features();
         return sub(std::move(graph));
     }
@@ -149,19 +148,19 @@ result_type compiler::operator()(compiler_options const& options, relation::grap
     return e.compile(std::move(plan));
 }
 
-result_type compiler::operator()(options_type const& options, unique_object_ptr<statement::statement> statement) {
+result_type compiler::operator()(options_type const& options, std::unique_ptr<statement::statement> statement) {
     engine e { options };
     return e.compile(std::move(statement));
 }
 
 result_type compiler::operator()(options_type const& options, statement::statement&& statement) {
-    return operator()(options, clone_unique(std::move(statement), options.get_object_creator()));
+    return operator()(options, clone_unique(std::move(statement)));
 }
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 either<std::vector<diagnostic_type>, info_type> compiler::inspect(scalar::expression const& expression) {
     return do_inspect([&](analyzer::expression_analyzer& a) {
-        type::repository repo { {}, true };
+        type::repository repo { true };
         a.resolve(expression, true, repo);
     });
 }
@@ -169,7 +168,7 @@ either<std::vector<diagnostic_type>, info_type> compiler::inspect(scalar::expres
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 either<std::vector<diagnostic_type>, info_type> compiler::inspect(relation::graph_type const& graph) {
     return do_inspect([&](analyzer::expression_analyzer& a) {
-        type::repository repo { {}, true };
+        type::repository repo { true };
         a.resolve(graph, true, repo);
     });
 }
@@ -177,7 +176,7 @@ either<std::vector<diagnostic_type>, info_type> compiler::inspect(relation::grap
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 either<std::vector<diagnostic_type>, info_type> compiler::inspect(plan::graph_type const& graph) {
     return do_inspect([&](analyzer::expression_analyzer& a) {
-        type::repository repo { {}, true };
+        type::repository repo { true };
         a.resolve(graph, true, repo);
     });
 }
@@ -185,7 +184,7 @@ either<std::vector<diagnostic_type>, info_type> compiler::inspect(plan::graph_ty
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 either<std::vector<diagnostic_type>, info_type> compiler::inspect(statement::statement const& statement) {
     return do_inspect([&](analyzer::expression_analyzer& a) {
-        type::repository repo { {}, true };
+        type::repository repo { true };
         a.resolve(statement, true, repo);
     });
 }

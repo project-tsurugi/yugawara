@@ -24,8 +24,7 @@ using ::takatori::scalar::comparison_operator;
 
 class rewrite_scan_test: public ::testing::Test {
 protected:
-    ::takatori::util::object_creator creator;
-    binding::factory bindings { creator };
+    binding::factory bindings {};
 
     storage::configurable_provider storages;
 
@@ -45,7 +44,7 @@ protected:
 
     void apply(relation::graph_type& graph) {
         default_index_estimator estimator;
-        rewrite_scan(graph, estimator, creator);
+        rewrite_scan(graph, estimator);
     }
 };
 

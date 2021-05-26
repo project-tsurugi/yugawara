@@ -6,7 +6,6 @@
 
 #include <takatori/descriptor/variable.h>
 #include <takatori/type/data.h>
-#include <takatori/util/object_creator.h>
 #include <takatori/util/optional_ptr.h>
 
 #include "variable_resolution.h"
@@ -29,12 +28,6 @@ public:
      * @brief creates a new instance.
      */
     variable_mapping() noexcept = default;
-
-    /**
-     * @brief creates a new instance.
-     * @param creator the object creator
-     */
-    explicit variable_mapping(::takatori::util::object_creator creator) noexcept;
 
     /**
      * @brief returns the resolved type for the variable.
@@ -75,21 +68,12 @@ public:
      */
     void clear() noexcept;
 
-    /**
-     * @brief returns the object creator.
-     * @return the object creator
-     */
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const;
-
 private:
     std::unordered_map<
             ::takatori::descriptor::variable,
             variable_resolution,
             std::hash<::takatori::descriptor::variable>,
-            std::equal_to<>,
-            ::takatori::util::object_allocator<std::pair<
-                    ::takatori::descriptor::variable const,
-                    variable_resolution>>> mapping_;
+            std::equal_to<>> mapping_;
 };
 
 } // namespace yugawara::analyzer

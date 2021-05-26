@@ -10,7 +10,7 @@ catalog::catalog(
         std::optional<definition_id_type> definition_id,
         name_type name,
         std::shared_ptr<provider> schema_provider) noexcept :
-    definition_id_ { std::move(definition_id) },
+    definition_id_ { definition_id },
     name_ { std::move(name) },
     schema_provider_ { std::move(schema_provider) }
 {}
@@ -20,7 +20,7 @@ catalog::catalog(
         std::optional<definition_id_type> definition_id,
         std::shared_ptr<provider> schema_provider) :
     catalog {
-            std::move(definition_id),
+            definition_id,
             name_type { name },
             std::move(schema_provider),
     }
@@ -31,7 +31,7 @@ std::optional<catalog::definition_id_type> catalog::definition_id() const noexce
 }
 
 catalog& catalog::definition_id(std::optional<definition_id_type> definition_id) noexcept {
-    definition_id_ = std::move(definition_id);
+    definition_id_ = definition_id;
     return *this;
 }
 

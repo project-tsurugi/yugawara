@@ -18,7 +18,6 @@ using namespace ::yugawara::testing;
 
 class decompose_predicate_test : public ::testing::Test {
 protected:
-    ::takatori::util::object_creator creator;
     binding::factory bindings;
     storage::configurable_provider storages;
 
@@ -37,7 +36,7 @@ protected:
     std::shared_ptr<storage::index> i0 = storages.add_index({ t0, "I0", });
 
     void apply(relation::graph_type& graph) {
-        details::decompose_projections(graph, creator);
+        details::decompose_projections(graph);
     }
 };
 

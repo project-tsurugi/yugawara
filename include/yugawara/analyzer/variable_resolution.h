@@ -15,7 +15,6 @@
 #include <yugawara/aggregate/declaration.h>
 #include <yugawara/variable/declaration.h>
 #include <takatori/type/data.h>
-#include <takatori/util/object_creator.h>
 #include <yugawara/type/repository.h>
 
 namespace yugawara::analyzer {

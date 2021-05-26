@@ -40,7 +40,6 @@ using namespace ::yugawara::testing;
 
 class stream_variable_flow_info_test : public ::testing::Test {
 protected:
-    ::takatori::util::object_creator creator;
     type::repository types;
     binding::factory bindings;
 

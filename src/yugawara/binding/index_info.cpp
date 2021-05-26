@@ -10,11 +10,11 @@ index_info::index_info(storage::index const& declaration) noexcept :
     declaration_ { std::addressof(declaration) }
 {}
 
-index_info::index_info(index_info const& other, ::takatori::util::object_creator) :
+index_info::index_info(::takatori::util::clone_tag_t, index_info const& other) :
     index_info { *other.declaration_ }
 {}
 
-index_info::index_info(index_info&& other, ::takatori::util::object_creator) :
+index_info::index_info(::takatori::util::clone_tag_t, index_info&& other) :
     index_info { *other.declaration_ }
 {}
 
@@ -26,12 +26,12 @@ relation_info_kind index_info::kind() const noexcept {
     return tag;
 }
 
-index_info* index_info::clone(takatori::util::object_creator creator) const& {
-    return creator.create_object<index_info>(*this, creator);
+index_info* index_info::clone() const& {
+    return new index_info(::takatori::util::clone_tag, *this); // NOLINT
 }
 
-index_info* index_info::clone(takatori::util::object_creator creator) && {
-    return creator.create_object<index_info>(std::move(*this), creator);
+index_info* index_info::clone() && {
+    return new index_info(::takatori::util::clone_tag, std::move(*this)); // NOLINT;
 }
 
 storage::index const& index_info::declaration() const noexcept {

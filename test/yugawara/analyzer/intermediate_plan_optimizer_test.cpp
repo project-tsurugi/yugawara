@@ -29,8 +29,7 @@ using ::takatori::relation::endpoint_kind;
 
 class intermediate_plan_optimizer_test: public ::testing::Test {
 protected:
-    ::takatori::util::object_creator creator;
-    binding::factory bindings { creator };
+    binding::factory bindings {};
 
     std::shared_ptr<storage::configurable_provider> storages = std::make_shared<storage::configurable_provider>();
 

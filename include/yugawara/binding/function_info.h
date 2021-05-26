@@ -1,8 +1,9 @@
 #pragma once
 
+#include <memory>
+
 #include <takatori/descriptor/function.h>
 #include <takatori/util/object.h>
-#include <takatori/util/object_creator.h>
 
 #include <yugawara/function/declaration.h>
 

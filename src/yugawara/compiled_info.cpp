@@ -14,7 +14,6 @@ namespace scalar = ::takatori::scalar;
 using ::takatori::util::fail;
 using ::takatori::util::string_builder;
 using ::takatori::util::throw_exception;
-using ::takatori::util::unique_object_ptr;
 
 yugawara::compiled_info::compiled_info(
         std::shared_ptr<analyzer::expression_mapping const> expression_mapping,

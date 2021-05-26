@@ -28,12 +28,6 @@ public:
 
     /**
      * @brief creates a new instance.
-     * @param creator the object creator
-     */
-    explicit step_plan_builder(::takatori::util::object_creator creator) noexcept;
-
-    /**
-     * @brief creates a new instance.
      * @param options planning options
      */
     explicit step_plan_builder(options_type options) noexcept;
@@ -59,12 +53,6 @@ public:
      */
     [[nodiscard]] ::takatori::graph::graph<::takatori::plan::step> operator()(
             ::takatori::graph::graph<::takatori::relation::expression>&& graph) const;
-
-    /**
-     * @brief returns the object creator.
-     * @return the object creator
-     */
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const noexcept;
 
 private:
     options_type options_;

@@ -16,7 +16,7 @@ sequence::sequence(
         value_type min_value,
         value_type max_value,
         bool cycle) noexcept :
-    definition_id_ { std::move(definition_id) },
+    definition_id_ { definition_id },
     simple_name_ { std::move(simple_name) },
     initial_value_ { initial_value },
     increment_value_ { increment_value },
@@ -48,7 +48,7 @@ std::optional<sequence::definition_id_type> sequence::definition_id() const noex
 }
 
 sequence& sequence::definition_id(std::optional<definition_id_type> definition_id) noexcept {
-    definition_id_ = std::move(definition_id);
+    definition_id_ = definition_id;
     return *this;
 }
 

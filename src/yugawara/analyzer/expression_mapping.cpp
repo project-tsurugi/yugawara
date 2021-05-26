@@ -7,10 +7,6 @@ namespace yugawara::analyzer {
 
 using ::takatori::util::throw_exception;
 
-expression_mapping::expression_mapping(::takatori::util::object_creator creator) noexcept
-    : mapping_(creator.allocator())
-{}
-
 expression_resolution const& expression_mapping::find(
         ::takatori::scalar::expression const& expression) const {
     if (auto it = mapping_.find(std::addressof(expression)); it != mapping_.end()) {
@@ -48,10 +44,6 @@ void expression_mapping::unbind(takatori::scalar::expression const& expression) 
 
 void expression_mapping::clear() noexcept {
     mapping_.clear();
-}
-
-takatori::util::object_creator expression_mapping::get_object_creator() const {
-    return mapping_.get_allocator();
 }
 
 } // namespace yugawara::analyzer

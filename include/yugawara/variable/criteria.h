@@ -1,11 +1,12 @@
 #pragma once
 
+#include <memory>
 #include <ostream>
 #include <string>
 #include <string_view>
 
 #include <takatori/value/data.h>
-#include <takatori/util/object_creator.h>
+#include <takatori/util/clone_tag.h>
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/rvalue_ptr.h>
 
@@ -26,7 +27,7 @@ public:
      */
     criteria( // NOLINT
             class nullity nullity = nullable,
-            takatori::util::unique_object_ptr<class predicate> predicate = {}) noexcept;
+            std::unique_ptr<class predicate> predicate = {}) noexcept;
 
     /**
      * @brief creates a new object.
@@ -63,16 +64,14 @@ public:
     /**
      * @brief creates a new object.
      * @param other the copy source
-     * @param creator the object creator
      */
-    explicit criteria(criteria const& other, takatori::util::object_creator creator);
+    explicit criteria(::takatori::util::clone_tag_t, criteria const& other);
 
     /**
      * @brief creates a new object.
      * @param other the move source
-     * @param creator the object creator
      */
-    explicit criteria(criteria&& other, takatori::util::object_creator creator);
+    explicit criteria(::takatori::util::clone_tag_t, criteria&& other);
 
     /**
      * @brief returns the nullity of the target variable.
@@ -99,7 +98,7 @@ public:
      * @param predicate the structured predicate
      * @return this
      */
-    criteria& predicate(takatori::util::unique_object_ptr<class predicate> predicate) noexcept;
+    criteria& predicate(std::unique_ptr<class predicate> predicate) noexcept;
 
     /**
      * @brief returns the constant value of the variable.
@@ -125,7 +124,7 @@ public:
 
 private:
     class nullity nullity_ { nullable };
-    takatori::util::unique_object_ptr<class predicate> predicate_ {};
+    std::unique_ptr<class predicate> predicate_ {};
 };
 
 } // namespace yugawara::variable

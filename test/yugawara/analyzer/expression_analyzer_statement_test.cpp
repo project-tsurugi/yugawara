@@ -65,7 +65,7 @@ public:
 
 protected:
     expression_analyzer analyzer;
-    type::repository repo { {}, true };
+    type::repository repo { true };
     binding::factory bindings;
 
     storage::configurable_provider storages_;

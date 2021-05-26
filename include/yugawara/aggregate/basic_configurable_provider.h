@@ -7,7 +7,6 @@
 #include <string_view>
 
 #include <takatori/util/maybe_shared_ptr.h>
-#include <takatori/util/object_creator.h>
 
 #include <yugawara/util/maybe_shared_lock.h>
 
@@ -35,13 +34,10 @@ public:
     /**
      * @brief creates a new object.
      * @param parent the parent provider (nullable)
-     * @param creator the object creator
      */
     explicit basic_configurable_provider(
-            ::takatori::util::maybe_shared_ptr<provider const> parent = {},
-            ::takatori::util::object_creator creator = {}) noexcept :
-        parent_ { std::move(parent) },
-        declarations_ { creator.allocator() }
+            ::takatori::util::maybe_shared_ptr<provider const> parent = {}) noexcept :
+        parent_ { std::move(parent) }
     {}
 
     using provider::each;
@@ -69,7 +65,7 @@ public:
      * @return the added element
      */
     std::shared_ptr<declaration> const& add(std::shared_ptr<declaration> element) {
-        key_type key { element->name(), get_object_creator().allocator(std::in_place_type<char>) };
+        key_type key { element->name() };
         writer_lock_type lock { mutex_ };
         auto iter = declarations_.emplace(std::move(key), std::move(element));
         return iter->second;
@@ -77,7 +73,7 @@ public:
 
     /// @copydoc add()
     std::shared_ptr<declaration> const& add(declaration&& element) {
-        auto ptr = get_object_creator().template create_shared<declaration>(std::move(element));
+        auto ptr = std::make_shared<declaration>(std::move(element));
         return add(std::move(ptr));
     }
 
@@ -103,27 +99,17 @@ public:
         return false;
     }
 
-    /**
-     * @brief returns the object creator.
-     * @return the object creator
-     */
-    [[nodiscard]] ::takatori::util::object_creator get_object_creator() const {
-        return declarations_.get_allocator();
-    }
-
 private:
-    using key_type = std::basic_string<char, std::char_traits<char>, takatori::util::object_allocator<char>>;
+    using key_type = std::string;
     using value_type = std::shared_ptr<declaration>;
     using map_type = std::multimap<
             key_type,
             value_type,
-            std::less<>,
-            takatori::util::object_allocator<std::pair<key_type const, value_type>>>;
+            std::less<>>;
 
     ::takatori::util::maybe_shared_ptr<provider const> parent_;
     map_type declarations_;
     mutable mutex_type mutex_ {};
-
 
     void internal_each(consumer_type const& consumer) const {
         reader_lock_type lock { mutex_ };
