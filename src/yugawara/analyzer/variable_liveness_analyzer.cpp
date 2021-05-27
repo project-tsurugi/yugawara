@@ -232,13 +232,13 @@ private:
     bool record_define_;
     bool record_use_;
 
-    void define(::takatori::descriptor::variable const& variable, block_info& info) {
+    void define(::takatori::descriptor::variable const& variable, block_info& info) const {
         if (record_define_ && is_definable(variable)) {
             info.define().emplace(variable);
         }
     }
 
-    void use(::takatori::descriptor::variable const& variable, block_info& info) {
+    void use(::takatori::descriptor::variable const& variable, block_info& info) const {
         if (record_use_) {
             info.use().emplace(variable);
         }
@@ -330,7 +330,7 @@ private:
             }
         } else if (succs.size() == 1) {
             // NOTE: continue to the succeeding block
-            auto succp = std::addressof(succs[0]);
+            auto const* succp = std::addressof(succs[0]);
             process(succp, lvs);
 
             // kill used blocks
@@ -348,7 +348,7 @@ private:
             std::vector<liveness_map> branches {};
             branches.reserve(succs.size());
             for (auto&& succ : succs) {
-                auto* succp = std::addressof(succ);
+                auto const* succp = std::addressof(succ);
                 process(succp, branches.emplace_back(lvs));
             }
             still_live.reserve(succs.size());
@@ -369,7 +369,7 @@ private:
                     it = lvs.erase(it);
                 } else if (still_live.size() < branches.size()) {
                     // kill the first block of branches, ...
-                    for (auto* bp_branch : still_live) {
+                    for (auto const* bp_branch : still_live) {
                         auto&& info_branch = get_info(bp_branch);
                         info_branch.kill().emplace(v);
                     }

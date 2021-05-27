@@ -27,6 +27,7 @@ llvm-*,\
 -llvm-include-order,\
 -llvm-header-guard,\
 -llvm-namespace-comment,\
+-llvm-qualified-auto,\
 misc-*,\
 -misc-unused-parameters,\
 modernize-*,\
@@ -34,6 +35,7 @@ modernize-*,\
 performance-*,\
 readability-*,\
 -readability-braces-around-statements,\
+-readability-convert-member-functions-to-static,\
 -readability-named-parameter,\
 -readability-magic-numbers,\
 "
