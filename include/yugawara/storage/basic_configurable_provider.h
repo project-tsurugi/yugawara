@@ -314,11 +314,11 @@ private:
             const_value_ { value_ }
         {}
 
-        std::shared_ptr<T> const& ref() const {
+        [[nodiscard]] std::shared_ptr<T> const& ref() const {
             return value_;
         }
         
-        std::shared_ptr<T const> const& const_ref() const {
+        [[nodiscard]] std::shared_ptr<T const> const& const_ref() const {
             return const_value_;
         }
         
