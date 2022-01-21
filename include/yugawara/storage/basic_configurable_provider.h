@@ -177,18 +177,18 @@ public:
 
         // NOTE: we assume almost primary index name equals to its table name
         if (auto it = indices_.find(table.simple_name()); it != indices_.end()) {
-            auto&& idx = *it->second;
+            auto&& idx = *it->second.ref();
             if (std::addressof(idx.table()) == std::addressof(table)
                     && idx.features().contains(index_feature::primary)) {
-                return it->second;
+                return it->second.ref();
             }
         }
         // If there is no such the index, then we find for all indices
         for (auto&& entry : indices_) {
-            auto&& idx = *entry.second;
+            auto&& idx = *entry.second.ref();
             if (std::addressof(idx.table()) == std::addressof(table)
                     && idx.features().contains(index_feature::primary)) {
-                return entry.second;
+                return entry.second.ref();
             }
         }
         if (parent_) {
@@ -302,20 +302,45 @@ public:
     }
 
 private:
+    template<class T>
+    class shared_ptr_container {
+    public:
+        using element_type = T;
+
+        constexpr shared_ptr_container() noexcept = default;
+
+        shared_ptr_container(std::shared_ptr<T> value) noexcept : // NOLINT
+            value_ { std::move(value) },
+            const_value_ { value_ }
+        {}
+
+        std::shared_ptr<T> const& ref() const {
+            return value_;
+        }
+        
+        std::shared_ptr<T const> const& const_ref() const {
+            return const_value_;
+        }
+        
+    private:
+        std::shared_ptr<T> value_;
+        std::shared_ptr<T const> const_value_;
+    };
+    
     using key_type = std::string;
-    using relation_value_type = std::shared_ptr<relation>;
+    using relation_value_type = shared_ptr_container<relation>;
     using relation_map_type = std::map<
             key_type,
             relation_value_type,
             std::less<>>;
 
-    using index_value_type = std::shared_ptr<index>;
+    using index_value_type = shared_ptr_container<index>;
     using index_map_type = std::map<
             key_type,
             index_value_type,
             std::less<>>;
 
-    using sequence_value_type = std::shared_ptr<sequence>;
+    using sequence_value_type = shared_ptr_container<sequence>;
     using sequence_map_type = std::map<
             key_type,
             sequence_value_type,
@@ -337,7 +362,7 @@ private:
         reader_lock_type lock { mutex_ };
         // child first
         if (auto iter = container.find(id); iter != container.end()) {
-            return iter->second;
+            return iter->second.const_ref();
         }
         if (parent_) {
             // then parent if exists
@@ -352,7 +377,7 @@ private:
             consumer_type<element_type<Container>> const& consumer) const {
         reader_lock_type lock { mutex_ };
         for (auto&& entry : container) {
-            consumer(entry.first, entry.second);
+            consumer(entry.first, entry.second.const_ref());
         }
         if (parent_) {
             ((*parent_).*Each)([&](std::string_view id, auto& element) {
@@ -383,18 +408,18 @@ private:
             auto [iter, success] = container.insert_or_assign(std::move(key), std::move(element));
             (void) success;
             if constexpr (is_bless_target_v<element_type>) { // NOLINT
-                bless(*iter->second);
+                bless(*iter->second.ref());
             }
-            return iter->second;
+            return iter->second.ref();
         }
         if (parent_ && ((*parent_).*Find)(id)) {
             throw_exception(std::invalid_argument(std::string("already exists in parent provider: ") += id));
         }
         if (auto [iter, success] = container.try_emplace(std::move(key), std::move(element)); success) {
             if constexpr (is_bless_target_v<element_type>) { // NOLINT
-                bless(*iter->second);
+                bless(*iter->second.ref());
             }
-            return iter->second;
+            return iter->second.ref();
         }
         throw_exception(std::invalid_argument(std::string("already exists: ") += id));
     }
@@ -407,7 +432,7 @@ private:
         if (auto iter = container.find(id); iter != container.end()) {
             using element_type = element_type<Container>;
             if constexpr (is_bless_target_v<element_type>) { // NOLINT
-                unbless(*iter->second);
+                unbless(*iter->second.ref());
             }
             // NOTE: container.erase(id) does not work
             container.erase(iter);
