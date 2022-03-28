@@ -11,7 +11,7 @@ column_value::column_value(std::shared_ptr<::takatori::value::data const> elemen
     entity_ { std::move(element) }
 {}
 
-column_value::column_value(::takatori::util::rvalue_ptr<::takatori::value::data> element) :
+column_value::column_value(::takatori::value::data&& element) :
     column_value {
         clone_shared(element),
     }
@@ -24,7 +24,7 @@ column_value::column_value(std::shared_ptr<storage::sequence const> source) noex
 namespace {
 
 template<column_value::kind_type>
-bool eq(column_value const& a, column_value const& b) = delete;
+bool eq(column_value const&, column_value const&) = delete;
 
 template<>
 bool eq<column_value::kind_type::immediate>(column_value const& a, column_value const& b) {

@@ -54,6 +54,7 @@ add_test_executable(yugawara/storage/column_value_test.cpp)
 add_test_executable(yugawara/storage/table_test.cpp)
 add_test_executable(yugawara/storage/index_test.cpp)
 add_test_executable(yugawara/storage/sequence_test.cpp)
+add_test_executable(yugawara/storage/storage_basic_prototype_processor_test.cpp)
 add_test_executable(yugawara/storage/storage_configurable_provider_test.cpp)
 
 # schema information

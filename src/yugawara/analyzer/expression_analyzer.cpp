@@ -19,6 +19,10 @@
 #include <takatori/type/character.h>
 #include <takatori/type/octet.h>
 #include <takatori/type/bit.h>
+#include <takatori/type/date.h>
+#include <takatori/type/time_of_day.h>
+#include <takatori/type/time_point.h>
+#include <takatori/type/datetime_interval.h>
 
 #include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
@@ -233,17 +237,70 @@ public:
     }
 
     type_ptr operator()(scalar::immediate const& expr) {
-        if (validate_ && !allow_unresolved_ && is_unresolved_or_error(expr.optional_type())) {
-            return raise({
-                    code::unsupported_type,
-                    string_builder {}
-                            << "immediate expression type is unsupported: "
-                            << expr.optional_type()
-                            << string_builder::to_string,
-                    extract_region(expr),
-            });
+        if (validate_) {
+            if (!allow_unresolved_ && is_unresolved_or_error(expr.optional_type())) {
+                return raise({
+                        code::unsupported_type,
+                        string_builder {}
+                                << "immediate expression type is unsupported: "
+                                << expr.optional_type()
+                                << string_builder::to_string,
+                        extract_region(expr),
+                });
+            }
+            auto vtype = literal_type(expr.value());
+            if (vtype) {
+                auto r = type::is_assignment_convertible(*vtype, expr.type());
+                if (r != ternary::yes) {
+                    return raise(code::inconsistent_type,
+                            expr.region(),
+                            expr.type(),
+                            { type::category_of(*vtype) });
+                }
+            }
         }
         return expr.shared_type();
+    }
+
+    type_ptr literal_type(::takatori::value::data const& value) {
+        using k = ::takatori::value::value_kind;
+        switch (value.kind()) {
+            case k::unknown:
+                return repo_.get(::takatori::type::unknown {});
+            case k::boolean:
+                return repo_.get(::takatori::type::boolean {});
+            case k::int4:
+                return repo_.get(::takatori::type::int4 {});
+            case k::int8:
+                return repo_.get(::takatori::type::int8 {});
+            case k::float4:
+                return repo_.get(::takatori::type::float4 {});
+            case k::float8:
+                return repo_.get(::takatori::type::float8 {});
+            case k::decimal:
+                return repo_.get(::takatori::type::decimal {});
+            case k::character:
+                return repo_.get(::takatori::type::character { ::takatori::type::varying });
+            case k::octet:
+                return repo_.get(::takatori::type::octet { ::takatori::type::varying });
+            case k::bit:
+                return repo_.get(::takatori::type::bit { ::takatori::type::varying });
+            case k::date:
+                return repo_.get(::takatori::type::date {});
+            case k::time_of_day:
+                return repo_.get(::takatori::type::time_of_day {});
+            case k::time_point:
+                return repo_.get(::takatori::type::time_point {});
+            case k::datetime_interval:
+                return repo_.get(::takatori::type::datetime_interval {});
+
+            case k::array:
+            case k::record:
+            case k::extension:
+                // FIXME: support
+                return {};
+        }
+        std::abort();
     }
 
     type_ptr operator()(scalar::variable_reference const& expr) {
@@ -1387,6 +1444,66 @@ public:
         return true;
     }
 
+    bool operator()(statement::create_table const& stmt) {
+        if (validate_) {
+            bool success = true;
+            auto&& table = binding::extract(stmt.definition());
+            for (auto&& column : table.columns()) {
+                auto&& value = column.default_value();
+                if (value.kind() == storage::column_value_kind::immediate) {
+                    if (auto vtype = literal_type(*value.element<storage::column_value_kind::immediate>())) {
+                        if (auto r = type::is_assignment_convertible(*vtype, column.type()); r != ternary::yes) {
+                            report({
+                                    code::inconsistent_type,
+                                    string_builder {}
+                                        << "column \"" << column.simple_name() << "\" "
+                                        << "has inconsistent type for its default value"
+                                        << string_builder::to_string,
+                                    first_region(stmt.definition(), stmt),
+                            });
+                            success = false;
+                        }
+                    }
+                } else if (value.kind() == storage::column_value_kind::sequence) {
+                    using k = ::takatori::type::type_kind;
+                    if (column.type().kind() != k::int4 && column.type().kind() != k::int8) {
+                        report({
+                                code::inconsistent_type,
+                                string_builder {}
+                                        << "column \"" << column.simple_name() << "\" "
+                                        << "must be more than 32-bit int for storing sequence values."
+                                        << string_builder::to_string,
+                                first_region(stmt.definition(), stmt),
+                        });
+                        success = false;
+                    }
+                }
+            }
+            return success;
+        }
+        return true;
+    }
+
+    bool operator()(statement::drop_table const& stmt) {
+        (void) stmt;
+        return true;
+    }
+
+    bool operator()(statement::create_index const& stmt) {
+        (void) stmt;
+        return true;
+    }
+
+    bool operator()(statement::drop_index const& stmt) {
+        (void) stmt;
+        return true;
+    }
+
+    bool operator()(statement::empty const& stmt) {
+        (void) stmt;
+        return true;
+    }
+
 private:
     expression_analyzer& ana_;
     std::vector<diagnostic_type>& diagnostics_;
@@ -1406,8 +1523,20 @@ private:
                 r.kind() == variable_resolution::kind_type::scalar_expression) {
             return extract_region(r.element<variable_resolution::kind_type::scalar_expression>());
         }
-        static ::takatori::document::region undefined;
+        static ::takatori::document::region const undefined;
         return undefined;
+    }
+
+    [[nodiscard]] static ::takatori::document::region first_region() noexcept {
+        return {};
+    }
+
+    template<class T, class...Rest>
+    [[nodiscard]] static ::takatori::document::region first_region(T const& first, Rest&&... rest) noexcept {
+        if (first.region()) {
+            return first.region();
+        }
+        return first_region(std::forward<Rest>(rest)...);
     }
 
     void report(diagnostic_type diagnostic) {

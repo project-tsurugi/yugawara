@@ -28,7 +28,7 @@ enum class index_estimator_result_attribute {
     range_scan,
 
     /**
-     * @brief the fetch target row is upto one.
+     * @brief the fetch target row is upto one, in almost cases.
      */
     single_row,
 

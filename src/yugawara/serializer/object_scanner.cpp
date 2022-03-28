@@ -1,13 +1,17 @@
 #include <yugawara/serializer/object_scanner.h>
 
 #include <takatori/type/extension.h>
+#include <takatori/statement/extension.h>
 #include <takatori/util/downcast.h>
+#include <takatori/util/finalizer.h>
 #include <takatori/util/optional_ptr.h>
 
 #include <yugawara/binding/variable_info.h>
 #include <yugawara/binding/relation_info.h>
 #include <yugawara/binding/function_info.h>
 #include <yugawara/binding/aggregate_function_info.h>
+#include <yugawara/binding/schema_info.h>
+#include <yugawara/binding/table_info.h>
 
 #include <yugawara/extension/type/extension_id.h>
 #include <yugawara/extension/scalar/aggregate_function_call.h>
@@ -63,6 +67,14 @@ void object_scanner::properties(descriptor::aggregate_function const& element, o
     accept_properties(element, acceptor);
 }
 
+void object_scanner::properties(descriptor::schema const& element, object_acceptor& acceptor) const {
+    accept_properties(element, acceptor);
+}
+
+void object_scanner::properties(descriptor::storage const& element, object_acceptor& acceptor) const {
+    accept_properties(element, acceptor);
+}
+
 void object_scanner::properties(takatori::type::data const& element, object_acceptor& acceptor) const {
     ::takatori::serializer::object_scanner::properties(element, acceptor);
     if (element.kind() == ::takatori::type::extension::tag) {
@@ -91,6 +103,10 @@ void object_scanner::properties(scalar::expression const& element, object_accept
 
     ::takatori::serializer::object_scanner::properties(element, acceptor);
     accept_resolution(element, acceptor);
+}
+
+void object_scanner::properties(::takatori::statement::statement const& element, object_acceptor& acceptor) const {
+    ::takatori::serializer::object_scanner::properties(element, acceptor);
 }
 
 template<::takatori::descriptor::descriptor_kind Kind>

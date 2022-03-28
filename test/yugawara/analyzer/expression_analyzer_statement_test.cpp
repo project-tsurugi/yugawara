@@ -5,7 +5,9 @@
 #include <takatori/document/basic_document.h>
 
 #include <takatori/type/primitive.h>
+#include <takatori/type/date.h>
 #include <takatori/value/primitive.h>
+#include <takatori/value/character.h>
 #include <takatori/util/optional_ptr.h>
 
 #include <takatori/scalar/variable_reference.h>
@@ -20,6 +22,7 @@
 
 #include <takatori/statement/execute.h>
 #include <takatori/statement/write.h>
+#include <takatori/statement/create_table.h>
 
 #include <yugawara/binding/factory.h>
 #include <yugawara/extension/type/error.h>
@@ -169,6 +172,140 @@ TEST_F(expression_analyzer_statement_test, write) {
     auto b = analyzer.resolve(stmt, true);
     ASSERT_TRUE(b);
     EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_statement_test, create_table) {
+    auto schema = std::make_shared<schema::declaration>("s");
+    statement::create_table stmt {
+            bindings(schema),
+            bindings(t0),
+            bindings(i0),
+    };
+    auto b = analyzer.resolve(stmt, true);
+    ASSERT_TRUE(b);
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_statement_test, create_table_default_value_immediate) {
+    auto schema = std::make_shared<schema::declaration>("s");
+    auto table = std::make_shared<storage::table>(::takatori::util::clone_tag, storage::table {
+            "T0",
+            {
+                    { "C0", t::int4() },
+                    {
+                            "C1",
+                            t::int4(),
+                            variable::nullable,
+                            v::int4 { 100 },
+                    },
+                    { "C2", t::int4() },
+            },
+    });
+    auto index = std::make_shared<storage::index>(storage::index {
+            table,
+            "I0",
+    });
+    statement::create_table stmt {
+            bindings(schema),
+            bindings(table),
+            bindings(index),
+    };
+    auto b = analyzer.resolve(stmt, true);
+    ASSERT_TRUE(b);
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_statement_test, create_table_default_value_sequence) {
+    auto schema = std::make_shared<schema::declaration>("s");
+    auto sequence = std::make_shared<storage::sequence>(storage::sequence {
+            "S0",
+    });
+    auto table = std::make_shared<storage::table>(::takatori::util::clone_tag, storage::table {
+            "T0",
+            {
+                    { "C0", t::int4() },
+                    {
+                            "C1",
+                            t::int4(),
+                            variable::nullable,
+                            { sequence },
+                    },
+                    { "C2", t::int4() },
+            },
+    });
+    auto index = std::make_shared<storage::index>(storage::index {
+            table,
+            "I0",
+    });
+    statement::create_table stmt {
+            bindings(schema),
+            bindings(table),
+            bindings(index),
+    };
+    auto b = analyzer.resolve(stmt, true);
+    ASSERT_TRUE(b);
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_statement_test, create_table_default_value_immediate_inconsistent) {
+    auto schema = std::make_shared<schema::declaration>("s");
+    auto table = std::make_shared<storage::table>(::takatori::util::clone_tag, storage::table {
+            "T0",
+            {
+                    { "C0", t::int4() },
+                    {
+                        "C1",
+                        t::int4(),
+                        variable::nullable,
+                        v::character { "X" },
+                    },
+                    { "C2", t::int4() },
+            },
+    });
+    auto index = std::make_shared<storage::index>(storage::index {
+            table,
+            "I0",
+    });
+    statement::create_table stmt {
+            bindings(schema),
+            bindings(table),
+            bindings(index),
+    };
+    auto b = analyzer.resolve(stmt, true);
+    EXPECT_FALSE(b);
+    EXPECT_FALSE(ok());
+}
+
+TEST_F(expression_analyzer_statement_test, create_table_default_value_sequence_inconsistent) {
+    auto schema = std::make_shared<schema::declaration>("s");
+    auto sequence = std::make_shared<storage::sequence>(storage::sequence {
+            "S0",
+    });
+    auto table = std::make_shared<storage::table>(::takatori::util::clone_tag, storage::table {
+            "T0",
+            {
+                    { "C0", t::int4() },
+                    {
+                            "C1",
+                            t::date {},
+                            variable::nullable,
+                            { sequence },
+                    },
+                    { "C2", t::int4() },
+            },
+    });
+    auto index = std::make_shared<storage::index>(storage::index {
+            table,
+            "I0",
+    });
+    statement::create_table stmt {
+            bindings(schema),
+            bindings(table),
+            bindings(index),
+    };
+    auto b = analyzer.resolve(stmt, true);
+    EXPECT_FALSE(b);
+    EXPECT_FALSE(ok());
 }
 
 } // namespace yugawara::analyzer

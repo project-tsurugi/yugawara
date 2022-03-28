@@ -17,14 +17,29 @@ table::table(
 table::table(
         simple_name_type simple_name,
         ::takatori::util::reference_vector<column> columns) noexcept :
-    simple_name_ { std::move(simple_name) },
-    columns_ { *this, std::move(columns) }
+    table {
+            std::nullopt,
+            std::move(simple_name),
+            std::move(columns),
+    }
 {}
 
 table::table(
         std::string_view simple_name,
-        std::initializer_list<column> columns)
-    : table {
+        std::initializer_list<column> columns) :
+    table {
+            std::nullopt,
+            decltype(simple_name_) { simple_name },
+            { columns.begin(), columns.end() }
+    }
+{}
+
+table::table(
+        std::optional<definition_id_type> definition_id,
+        std::string_view simple_name,
+        std::initializer_list<column> columns) :
+    table {
+            definition_id,
             decltype(simple_name_) { simple_name },
             { columns.begin(), columns.end() }
     }

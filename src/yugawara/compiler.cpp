@@ -9,6 +9,10 @@
 #include <yugawara/analyzer/intermediate_plan_optimizer.h>
 #include <yugawara/analyzer/step_plan_builder.h>
 
+#include <yugawara/storage/basic_prototype_processor.h>
+
+#include "storage/resolve_prototype.h"
+
 namespace yugawara {
 
 using options_type = compiler::options_type;
@@ -96,6 +100,17 @@ public:
     }
 
     result_type compile(std::unique_ptr<statement::statement> stmt) {
+        {
+            storage::prototype_processor* proc = options_.storage_processor().get();
+            if (proc == nullptr) {
+                static storage::basic_prototype_processor default_storage_processor {};
+                proc = std::addressof(default_storage_processor);
+            }
+            if (auto diagnostics = storage::resolve_prototype(*stmt, *proc); !diagnostics.empty()) {
+                return result_type { diagnostics };
+            }
+        }
+
         expression_analyzer_.resolve(*stmt, true, type_repository_);
         if (expression_analyzer_.has_diagnostics()) {
             return result_type { build_error(expression_analyzer_) };

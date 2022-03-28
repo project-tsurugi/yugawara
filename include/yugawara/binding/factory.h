@@ -8,6 +8,8 @@
 #include <takatori/descriptor/variable.h>
 #include <takatori/descriptor/function.h>
 #include <takatori/descriptor/aggregate_function.h>
+#include <takatori/descriptor/schema.h>
+#include <takatori/descriptor/storage.h>
 #include <takatori/descriptor/declared_type.h>
 #include <takatori/descriptor/relation.h>
 
@@ -18,6 +20,8 @@
 #include <yugawara/variable/declaration.h>
 #include <yugawara/function/declaration.h>
 #include <yugawara/aggregate/declaration.h>
+#include <yugawara/schema/declaration.h>
+#include <yugawara/storage/table.h>
 #include <yugawara/storage/index.h>
 #include <yugawara/storage/column.h>
 
@@ -43,6 +47,12 @@ public:
      * @param declaration the original declaration
      */
     [[nodiscard]] ::takatori::descriptor::relation index(storage::index const& declaration);
+
+    /**
+     * @brief creates a new index descriptor.
+     * @param declaration the original declaration
+     */
+    [[nodiscard]] ::takatori::descriptor::relation index(std::shared_ptr<storage::index const> declaration);
 
     /**
      * @brief creates a new exchange descriptor.
@@ -131,8 +141,37 @@ public:
      */
     [[nodiscard]] ::takatori::descriptor::aggregate_function aggregate_function(aggregate::declaration&& declaration);
 
-    /// @copydoc index()
+    /**
+     * @brief creates a new schema descriptor.
+     * @param declaration the original declaration
+     */
+    [[nodiscard]] ::takatori::descriptor::schema schema(std::shared_ptr<schema::declaration const> declaration);
+
+    /**
+     * @brief creates a new schema descriptor.
+     * @param declaration the original declaration
+     * @attention this may take a copy of argument
+     */
+    [[nodiscard]] ::takatori::descriptor::schema schema(schema::declaration&& declaration);
+
+    /**
+     * @brief creates a new storage descriptor.
+     * @param declaration the original declaration
+     */
+    [[nodiscard]] ::takatori::descriptor::storage storage(std::shared_ptr<storage::table const> declaration);
+
+    /**
+     * @brief creates a new storage descriptor.
+     * @param declaration the original declaration
+     * @attention this may take a copy of argument
+     */
+    [[nodiscard]] ::takatori::descriptor::storage storage(storage::table&& declaration);
+
+    /// @copydoc index(storage::index const&)
     [[nodiscard]] ::takatori::descriptor::relation operator()(storage::index const& declaration);
+
+    /// @copydoc index(std::shared_ptr<storage::index const>)
+    [[nodiscard]] ::takatori::descriptor::relation operator()(std::shared_ptr<storage::index const> declaration);
 
     /// @copydoc exchange()
     [[nodiscard]] ::takatori::descriptor::relation operator()(::takatori::plan::exchange const& declaration);
@@ -157,6 +196,18 @@ public:
 
     /// @copydoc aggregate_function(aggregate::declaration&&)
     [[nodiscard]] ::takatori::descriptor::aggregate_function operator()(aggregate::declaration&& declaration);
+
+    /// @copydoc schema(std::shared_ptr<schema::declaration const>)
+    [[nodiscard]] ::takatori::descriptor::schema operator()(std::shared_ptr<schema::declaration const> declaration);
+
+    /// @copydoc schema(schema::declaration&&)
+    [[nodiscard]] ::takatori::descriptor::schema operator()(schema::declaration&& declaration);
+
+    /// @copydoc storage(std::shared_ptr<storage::table const>)
+    [[nodiscard]] ::takatori::descriptor::storage operator()(std::shared_ptr<storage::table const> declaration);
+
+    /// @copydoc storage(storage::table&&)
+    [[nodiscard]] ::takatori::descriptor::storage operator()(storage::table&& declaration);
 };
 
 } // namespace yugawara::binding

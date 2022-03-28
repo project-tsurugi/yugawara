@@ -54,7 +54,8 @@ attribute_set check_keys(
             && index.keys().size() == search_keys.size()
             && !saw_proper) {
         result.insert(attribute::find);
-        if (index.features().contains(index_feature::unique)) {
+        if (index.features().contains(index_feature::unique)
+                || index.features().contains(index_feature::unique_constraint)) {
             result.insert(attribute::single_row);
         }
     }

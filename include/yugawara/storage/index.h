@@ -66,6 +66,23 @@ public:
 
     /**
      * @brief creates a new object.
+     * @param definition_id the table definition ID
+     * @param table the origin table
+     * @param simple_name the simple name, may be empty string
+     * @param keys the index keys
+     * @param values the extra columns
+     * @param features the index features
+     */
+    index(
+            std::optional<definition_id_type> definition_id,
+            std::shared_ptr<class table const> table,
+            std::string_view simple_name,
+            std::initializer_list<key> keys = {},
+            std::initializer_list<column_ref> values = {},
+            index_feature_set features = { index_feature::find, index_feature::scan });
+
+    /**
+     * @brief creates a new object.
      * @param table the origin table
      * @param simple_name the simple name, may be empty string
      * @param keys the index keys

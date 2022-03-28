@@ -7,6 +7,8 @@
 #include <yugawara/binding/variable_info.h>
 #include <yugawara/binding/function_info.h>
 #include <yugawara/binding/aggregate_function_info.h>
+#include <yugawara/binding/schema_info.h>
+#include <yugawara/binding/table_info.h>
 #include <yugawara/binding/relation_info.h>
 
 #include <yugawara/binding/table_column_info.h>
@@ -57,6 +59,13 @@ external_variable_extract::result_type external_variable_extract::extract(descri
     return {};
 }
 
+external_variable_extract::pointer_type external_variable_extract::extract_shared(descriptor_type const& desc, bool fail_if_mismatch) {
+    if (auto info = unwrap_as<external_variable_info>(desc, fail_if_mismatch)) {
+        return info->shared_declaration();
+    }
+    return {};
+}
+
 using table_column_extract = impl::descriptor_extract<descriptor::variable, storage::column>;
 table_column_extract::result_type table_column_extract::extract(descriptor_type const& desc, bool fail_if_mismatch) {
     if (auto info = unwrap_as<table_column_info>(desc, fail_if_mismatch)) {
@@ -70,15 +79,48 @@ function_extract::result_type function_extract::extract(descriptor_type const& d
     return unwrap(desc).declaration();
 }
 
+function_extract::pointer_type function_extract::extract_shared(descriptor_type const& desc, bool) {
+    return unwrap(desc).shared_declaration();
+}
+
 using aggregate_function_extract = impl::descriptor_extract<descriptor::aggregate_function, aggregate::declaration>;
 aggregate_function_extract::result_type aggregate_function_extract::extract(descriptor_type const& desc, bool) {
     return unwrap(desc).declaration();
+}
+
+aggregate_function_extract::pointer_type aggregate_function_extract::extract_shared(descriptor_type const& desc, bool) {
+    return unwrap(desc).shared_declaration();
+}
+
+using schema_extract = impl::descriptor_extract<descriptor::schema, schema::declaration>;
+schema_extract::result_type schema_extract::extract(descriptor_type const& desc, bool) {
+    return unwrap(desc).declaration();
+}
+
+schema_extract::pointer_type schema_extract::extract_shared(descriptor_type const& desc, bool) {
+    return unwrap(desc).shared_declaration();
+}
+
+using storage_extract = impl::descriptor_extract<descriptor::storage, storage::table>;
+storage_extract::result_type storage_extract::extract(descriptor_type const& desc, bool) {
+    return unwrap(desc).declaration();
+}
+
+storage_extract::pointer_type storage_extract::extract_shared(descriptor_type const& desc, bool) {
+    return unwrap(desc).shared_declaration();
 }
 
 using index_extract = impl::descriptor_extract<descriptor::relation, storage::index>;
 index_extract::result_type index_extract::extract(descriptor_type const& desc, bool fail_if_mismatch) {
     if (auto info = unwrap_as<index_info>(desc, fail_if_mismatch)) {
         return info->declaration();
+    }
+    return {};
+}
+
+index_extract::pointer_type index_extract::extract_shared(descriptor_type const& desc, bool fail_if_mismatch) {
+    if (auto info = unwrap_as<index_info>(desc, fail_if_mismatch)) {
+        return info->maybe_shared_declaration();
     }
     return {};
 }

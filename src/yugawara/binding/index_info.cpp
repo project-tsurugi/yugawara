@@ -6,16 +6,22 @@
 
 namespace yugawara::binding {
 
+using ::takatori::util::maybe_shared_ptr;
+
 index_info::index_info(storage::index const& declaration) noexcept :
-    declaration_ { std::addressof(declaration) }
+    index_info { maybe_shared_ptr { std::addressof(declaration) } }
+{}
+
+index_info::index_info(maybe_shared_ptr<storage::index const> declaration) noexcept :
+    declaration_ { std::move(declaration) }
 {}
 
 index_info::index_info(::takatori::util::clone_tag_t, index_info const& other) :
-    index_info { *other.declaration_ }
+    index_info { other.declaration_ }
 {}
 
 index_info::index_info(::takatori::util::clone_tag_t, index_info&& other) :
-    index_info { *other.declaration_ }
+    index_info { std::move(other.declaration_) }
 {}
 
 std::size_t index_info::class_id() const noexcept {
@@ -36,6 +42,10 @@ index_info* index_info::clone() && {
 
 storage::index const& index_info::declaration() const noexcept {
     return *declaration_;
+}
+
+::takatori::util::maybe_shared_ptr<storage::index const> index_info::maybe_shared_declaration() const noexcept {
+    return declaration_;
 }
 
 bool operator==(index_info const& a, index_info const& b) noexcept {

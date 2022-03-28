@@ -6,6 +6,7 @@
 
 #include <yugawara/runtime_feature.h>
 #include <yugawara/analyzer/index_estimator.h>
+#include <yugawara/storage/prototype_processor.h>
 
 namespace yugawara {
 
@@ -22,12 +23,14 @@ public:
 
     /**
      * @brief creates a new instance with default options.
-     * @param index_estimator the index estimator for index selection
      * @param runtime_features the supported runtime features
+     * @param storage_processor the storage element prototype processor for accepting storage element definitions
+     * @param index_estimator the index estimator for index selection
      */
     compiler_options( // NOLINT
-            ::takatori::util::maybe_shared_ptr<::yugawara::analyzer::index_estimator const> index_estimator = {},
-            runtime_feature_set runtime_features = default_runtime_features) noexcept;
+            runtime_feature_set runtime_features = default_runtime_features,
+            ::takatori::util::maybe_shared_ptr<::yugawara::storage::prototype_processor> storage_processor = {},
+            ::takatori::util::maybe_shared_ptr<::yugawara::analyzer::index_estimator const> index_estimator = {}) noexcept;
 
     /**
      * @brief returns the available feature set of the target environment.
@@ -39,8 +42,23 @@ public:
     [[nodiscard]] runtime_feature_set const& runtime_features() const noexcept;
 
     /**
+     * @brief returns the storage element processor for handling storage element definitions.
+     * @return the storage element prototype processor
+     * @return empty if it is absent
+     */
+    [[nodiscard]] ::takatori::util::maybe_shared_ptr<::yugawara::storage::prototype_processor> storage_processor() const noexcept;
+
+    /**
+     * @brief sets the storage element processor.
+     * @param storage_processor the storage element processor.
+     * @return this
+     */
+    compiler_options& storage_processor( ::takatori::util::maybe_shared_ptr<::yugawara::storage::prototype_processor> storage_processor) noexcept;
+
+    /**
      * @brief returns the index estimator for index selection.
      * @return the index estimator
+     * @return empty if it is absent
      */
     [[nodiscard]] ::takatori::util::maybe_shared_ptr<::yugawara::analyzer::index_estimator const> index_estimator() const noexcept;
 
@@ -52,8 +70,9 @@ public:
     compiler_options& index_estimator(::takatori::util::maybe_shared_ptr<::yugawara::analyzer::index_estimator const> estimator) noexcept;
 
 private:
-    ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> index_estimator_ {};
     runtime_feature_set runtime_features_ { default_runtime_features };
+    ::takatori::util::maybe_shared_ptr<::yugawara::storage::prototype_processor> storage_processor_ {};
+    ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> index_estimator_ {};
 };
 
 } // namespace yugawara

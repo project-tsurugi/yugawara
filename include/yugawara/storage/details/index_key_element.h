@@ -20,6 +20,9 @@ namespace yugawara::storage::details {
  */
 class index_key_element {
 public:
+    /// @brief the sort direction type
+    using direction_type = sort_direction;
+
     /**
      * @brief creates a new instance.
      * @param column the index key column
@@ -28,9 +31,9 @@ public:
      */
     constexpr index_key_element( // NOLINT
             class column const& column,
-            sort_direction direction = sort_direction::ascendant) noexcept
-        : column_(std::addressof(column))
-        , direction_(direction)
+            direction_type direction = direction_type::ascendant) noexcept :
+        column_ { std::addressof(column) },
+        direction_ { direction }
     {}
 
     /**
@@ -45,7 +48,7 @@ public:
      * @brief returns the sort direction of this key element.
      * @return the sort direction
      */
-    [[nodiscard]] constexpr sort_direction direction() const noexcept {
+    [[nodiscard]] constexpr direction_type direction() const noexcept {
         return direction_;
     }
 
@@ -59,7 +62,7 @@ public:
 
 private:
     class column const* column_;
-    sort_direction direction_;
+    direction_type direction_;
 };
 
 /**

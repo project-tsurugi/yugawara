@@ -53,6 +53,19 @@ public:
     /**
      * @brief creates a new object.
      * @details This is designed for DSL (mainly used in testing).
+     * @param definition_id the table definition ID
+     * @param simple_name the simple name
+     * @param columns the table columns
+     * @attention this may take copy of arguments
+     */
+    table(
+            std::optional<definition_id_type> definition_id,
+            std::string_view simple_name,
+            std::initializer_list<column> columns);
+
+    /**
+     * @brief creates a new object.
+     * @details This is designed for DSL (mainly used in testing).
      * @param simple_name the simple name
      * @param columns the table columns
      * @attention this may take copy of arguments

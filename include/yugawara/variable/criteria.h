@@ -127,4 +127,22 @@ private:
     std::unique_ptr<class predicate> predicate_ {};
 };
 
+/**
+ * @brief returns whether or not the two criteria are equivalent.
+ * @param a the first criteria
+ * @param b the second criteria
+ * @return true if the both are equivalent
+ * @return false otherwise
+ */
+bool operator==(criteria const& a, criteria const& b) noexcept;
+
+/**
+ * @brief returns whether or not the two criteria are different.
+ * @param a the first criteria
+ * @param b the second criteria
+ * @return true if the both are different
+ * @return false otherwise
+ */
+bool operator!=(criteria const& a, criteria const& b) noexcept;
+
 } // namespace yugawara::variable

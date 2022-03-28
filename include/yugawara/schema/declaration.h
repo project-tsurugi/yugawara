@@ -7,6 +7,8 @@
 
 #include <cstddef>
 
+#include <takatori/util/optional_ptr.h>
+
 #include <yugawara/storage/provider.h>
 #include <yugawara/variable/provider.h>
 #include <yugawara/function/provider.h>
@@ -14,6 +16,8 @@
 #include <yugawara/type/provider.h>
 
 namespace yugawara::schema {
+
+class provider;
 
 /**
  * @brief represents a schema declaration.
@@ -95,7 +99,7 @@ public:
      * @brief returns the provider of storage elements in this schema.
      * @return the provider
      */
-    [[nodiscard]] storage::provider const& storage_provider() const noexcept;
+    [[nodiscard]] storage::provider& storage_provider() const noexcept;
 
     /**
      * @brief returns the provider of storage elements in this schema.
@@ -115,7 +119,7 @@ public:
      * @brief returns the provider of variable declarations in this schema.
      * @return the provider
      */
-    [[nodiscard]] variable::provider const& variable_provider() const noexcept;
+    [[nodiscard]] variable::provider& variable_provider() const noexcept;
 
     /**
      * @brief returns the provider of variable declarations in this schema.
@@ -135,7 +139,7 @@ public:
      * @brief returns the provider of function declarations in this schema.
      * @return the provider
      */
-    [[nodiscard]] function::provider const& function_provider() const noexcept;
+    [[nodiscard]] function::provider& function_provider() const noexcept;
 
     /**
      * @brief returns the provider of function declarations in this schema.
@@ -155,7 +159,7 @@ public:
      * @brief returns the provider of set function declarations in this schema.
      * @return the provider
      */
-    [[nodiscard]] aggregate::provider const& set_function_provider() const noexcept;
+    [[nodiscard]] aggregate::provider& set_function_provider() const noexcept;
 
     /**
      * @brief returns the provider of set function declarations in this schema.
@@ -175,7 +179,7 @@ public:
      * @brief returns the provider of user-defined type declarations in this schema.
      * @return the provider
      */
-    [[nodiscard]] type::provider const& type_provider() const noexcept;
+    [[nodiscard]] type::provider& type_provider() const noexcept;
 
     /**
      * @brief returns the provider of user-defined type declarations in this schema.
@@ -190,6 +194,13 @@ public:
      * @return this
      */
     declaration& type_provider(std::shared_ptr<type::provider> provider) noexcept;
+
+    /**
+     * @brief returns the owner of this schema.
+     * @return the owner
+     * @return empty if there are no provides that can provide this schema
+     */
+    [[nodiscard]] ::takatori::util::optional_ptr<provider const> owner() const noexcept;
 
     /**
      * @brief appends string representation of the given value.
@@ -207,6 +218,9 @@ private:
     std::shared_ptr<function::provider> function_provider_;
     std::shared_ptr<aggregate::provider> set_function_provider_;
     std::shared_ptr<type::provider> type_provider_;
+    provider const* owner_ {};
+
+    friend provider;
 };
 
 /**

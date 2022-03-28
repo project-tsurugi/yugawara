@@ -14,8 +14,11 @@ add_library(yugawara
     yugawara/storage/index.cpp
     yugawara/storage/sequence.cpp
     yugawara/storage/provider.cpp
+    yugawara/storage/basic_prototype_processor.cpp
     yugawara/storage/details/index_key_element.cpp
     yugawara/storage/details/search_key_element.cpp
+
+    yugawara/storage/resolve_prototype.cpp
 
     # type system
     yugawara/type/category.cpp
@@ -38,6 +41,8 @@ add_library(yugawara
     yugawara/binding/external_variable_info.cpp
     yugawara/binding/function_info.cpp
     yugawara/binding/aggregate_function_info.cpp
+    yugawara/binding/schema_info.cpp
+    yugawara/binding/table_info.cpp
     yugawara/binding/extract.cpp
     yugawara/binding/factory.cpp
 

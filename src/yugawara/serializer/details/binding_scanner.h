@@ -11,6 +11,8 @@
 #include <yugawara/binding/relation_info.h>
 #include <yugawara/binding/function_info.h>
 #include <yugawara/binding/aggregate_function_info.h>
+#include <yugawara/binding/schema_info.h>
+#include <yugawara/binding/table_info.h>
 
 #include <yugawara/binding/table_column_info.h>
 #include <yugawara/binding/external_variable_info.h>
@@ -43,13 +45,17 @@ public:
     void scan(binding::relation_info const& element);
     void scan(binding::function_info const& element);
     void scan(binding::aggregate_function_info const& element);
+    void scan(binding::schema_info const& element);
+    void scan(binding::table_info const& element);
 
+    void properties(storage::table const& element);
     void properties(storage::column const& element);
     void properties(storage::index const& element);
     void properties(::takatori::plan::exchange const& element);
     void properties(variable::declaration const& element);
     void properties(function::declaration const& element);
     void properties(aggregate::declaration const& element);
+    void properties(schema::declaration const& element);
 
 private:
     ::takatori::serializer::object_scanner const& scanner_;

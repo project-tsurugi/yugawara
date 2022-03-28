@@ -35,9 +35,18 @@ enum class index_feature {
     scan,
 
     /**
-     * @brief the index key can distinguish individual entries.
+     * @brief the index key must distinguish individual entries.
      */
     unique,
+
+    /**
+     * @brief the index key must be unique in the target index.
+     * @note `unique` and `unique_constraint` have different requirements:
+     *   * `unique` - AS A RESULT, the index key is always always unique
+     *   * `unique_constraint` - if the index key is not unique, transaction should be failed until its end:
+     *          it allows duplicated keys while transaction is running
+     */
+    unique_constraint,
 };
 
 /**
@@ -46,7 +55,7 @@ enum class index_feature {
 using index_feature_set = ::takatori::util::enum_set<
         index_feature,
         index_feature::primary,
-        index_feature::unique>;
+        index_feature::unique_constraint>;
 
 /**
  * @brief returns string representation of the value.
@@ -61,6 +70,7 @@ inline constexpr std::string_view to_string_view(index_feature value) noexcept {
         case kind::find: return "find"sv;
         case kind::scan: return "scan"sv;
         case kind::unique: return "unique"sv;
+        case kind::unique_constraint: return "unique_constraint"sv;
     }
     std::abort();
 }

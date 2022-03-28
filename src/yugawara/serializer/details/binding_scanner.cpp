@@ -70,6 +70,40 @@ void binding_scanner::scan(binding::aggregate_function_info const& element) {
     acceptor_.struct_end();
 }
 
+void binding_scanner::scan(binding::schema_info const& element) {
+    acceptor_.struct_begin();
+    properties(element.declaration());
+    acceptor_.struct_end();
+}
+
+void binding_scanner::scan(binding::table_info const& element) {
+    acceptor_.struct_begin();
+    properties(element.declaration());
+    acceptor_.struct_end();
+}
+
+void binding_scanner::properties(storage::table const& element) {
+    acceptor_.property_begin("definition_id"sv);
+    if (auto const& v = element.definition_id()) {
+        acceptor_.unsigned_integer(*v);
+    }
+    acceptor_.property_end();
+
+    acceptor_.property_begin("simple_name"sv);
+    acceptor_.string(element.simple_name());
+    acceptor_.property_end();
+
+    acceptor_.property_begin("columns"sv);
+    acceptor_.array_begin();
+    for (auto&& value : element.columns()) {
+        acceptor_.struct_begin();
+        properties(value);
+        acceptor_.struct_end();
+    }
+    acceptor_.array_end();
+    acceptor_.property_end();
+}
+
 void binding_scanner::properties(storage::column const& element) {
     acceptor_.property_begin("simple_name"sv);
     acceptor_.string(element.simple_name());
@@ -108,6 +142,12 @@ void binding_scanner::properties(storage::column const& element) {
 }
 
 void binding_scanner::properties(storage::index const& element) {
+    acceptor_.property_begin("definition_id"sv);
+    if (auto const& v = element.definition_id()) {
+        acceptor_.unsigned_integer(*v);
+    }
+    acceptor_.property_end();
+
     acceptor_.property_begin("table"sv);
     acceptor_.string(element.table().simple_name());
     acceptor_.property_end();
@@ -217,6 +257,20 @@ void binding_scanner::properties(aggregate::declaration const& element) {
     acceptor_.property_begin("incremental"sv);
     if (element) {
         acceptor_.boolean(element.incremental());
+    }
+    acceptor_.property_end();
+}
+
+void binding_scanner::properties(schema::declaration const& element) {
+    acceptor_.property_begin("definition_id"sv);
+    if (auto&& v = element.definition_id()) {
+        acceptor_.unsigned_integer(*v);
+    }
+    acceptor_.property_end();
+
+    acceptor_.property_begin("name"sv);
+    if (auto&& n = element.name(); !n.empty()) {
+        acceptor_.string(element.name());
     }
     acceptor_.property_end();
 }

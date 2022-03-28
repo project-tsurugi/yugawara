@@ -75,6 +75,15 @@ std::shared_ptr<takatori::value::data const> const& criteria::shared_constant() 
     return empty;
 }
 
+bool operator==(criteria const& a, criteria const& b) noexcept {
+    return a.nullity() == b.nullity()
+        && a.predicate() == b.predicate();
+}
+
+bool operator!=(criteria const& a, criteria const& b) noexcept {
+    return !(a == b);
+}
+
 std::ostream& operator<<(std::ostream& out, criteria const& value) {
     return out << "criteria("
                << "nullity=" << value.nullity() << ", "

@@ -192,10 +192,10 @@ constexpr bool operator==(column const& a, column const& b) noexcept {
 }
 
 /**
- * @brief returns whether or not the two columns are different.
+ * @brief returns whether or not the two columns are not same.
  * @param a the first column
  * @param b the second column
- * @return true if the both are different
+ * @return true if the both are not same
  * @return false otherwise
  */
 constexpr bool operator!=(column const& a, column const& b) noexcept {

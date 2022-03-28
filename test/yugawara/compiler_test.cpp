@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+#include <takatori/value/character.h>
+
 #include <takatori/relation/scan.h>
 #include <takatori/relation/emit.h>
 #include <takatori/relation/write.h>
@@ -12,6 +14,11 @@
 
 #include <takatori/statement/execute.h>
 #include <takatori/statement/write.h>
+#include <takatori/statement/create_table.h>
+#include <takatori/statement/drop_table.h>
+#include <takatori/statement/create_index.h>
+#include <takatori/statement/drop_index.h>
+#include <takatori/statement/empty.h>
 
 #include <takatori/serializer/json_printer.h>
 
@@ -53,8 +60,9 @@ protected:
 
     compiler_options options() {
         return {
-                indices,
                 runtime_features,
+                {},
+                indices,
         };
     }
 
@@ -326,6 +334,115 @@ TEST_F(compiler_test, write_error) {
     });
     EXPECT_FALSE(result);
     EXPECT_TRUE(find_diagnostic(compiler_code::inconsistent_type, result));
+}
+
+TEST_F(compiler_test, create_table) {
+    auto sch = std::make_shared<schema::declaration>("SC");
+    auto tbl = std::make_shared<storage::table>(::takatori::util::clone_tag, storage::table {
+            "T",
+            {
+                    { "C0", t::int4() },
+                    { "C1", t::int4() },
+                    { "C2", t::int4() },
+            },
+    });
+    auto idx = std::make_shared<storage::index>(storage::index {
+            tbl,
+            "I",
+            {
+                    { tbl->columns()[0] }
+            }
+    });
+    auto result = compiler()(options(), statement::create_table {
+            bindings(sch),
+            bindings(tbl),
+            bindings(idx),
+            {},
+    });
+    ASSERT_TRUE(result);
+
+    auto&& c = downcast<statement::create_table>(result.statement());
+    auto&& rt = binding::extract(c.definition());
+    EXPECT_NE(std::addressof(rt), tbl.get());
+    EXPECT_EQ(rt.simple_name(), tbl->simple_name());
+
+    auto&& rk = binding::extract<storage::index>(c.primary_key());
+    EXPECT_NE(std::addressof(rk), idx.get());
+    EXPECT_EQ(rk.simple_name(), idx->simple_name());
+    EXPECT_EQ(std::addressof(rk.table()), std::addressof(rt));
+}
+
+TEST_F(compiler_test, create_table_default_value_immediate_inconsistent) {
+    auto sch = std::make_shared<schema::declaration>("SC");
+    auto tbl = std::make_shared<storage::table>(::takatori::util::clone_tag, storage::table {
+            "T",
+            {
+                    { "C0", t::int4() },
+                    { "C1", t::int4(), variable::nullable, v::character { "X" } },
+                    { "C2", t::int4() },
+            },
+    });
+    auto idx = std::make_shared<storage::index>(storage::index {
+            tbl,
+            "I",
+            {
+                    { tbl->columns()[0] }
+            }
+    });
+    auto result = compiler()(options(), statement::create_table {
+            bindings(sch),
+            bindings(tbl),
+            bindings(idx),
+            {},
+    });
+    EXPECT_FALSE(result);
+    EXPECT_TRUE(find_diagnostic(compiler_code::inconsistent_type, result));
+}
+
+TEST_F(compiler_test, drop_table) {
+    auto sch = std::make_shared<schema::declaration>("SC");
+    auto result = compiler()(options(), statement::drop_table {
+            bindings(sch),
+            bindings(t0),
+    });
+    ASSERT_TRUE(result);
+
+    auto&& c = downcast<statement::drop_table>(result.statement());
+    auto&& r = binding::extract(c.target());
+    EXPECT_EQ(std::addressof(r), t0.get());
+}
+
+TEST_F(compiler_test, create_index) {
+    auto sch = std::make_shared<schema::declaration>("SC");
+    auto result = compiler()(options(), statement::create_index {
+            bindings(sch),
+            bindings(i0),
+    });
+    ASSERT_TRUE(result);
+
+    auto&& c = downcast<statement::create_index>(result.statement());
+    auto&& r = binding::extract<storage::index>(c.definition());
+    EXPECT_NE(std::addressof(r), i0.get());
+    EXPECT_EQ(r.simple_name(), i0->simple_name());
+    EXPECT_EQ(r.shared_table(), t0);
+}
+
+TEST_F(compiler_test, drop_index) {
+    auto sch = std::make_shared<schema::declaration>("SC");
+    auto result = compiler()(options(), statement::drop_index {
+            bindings(sch),
+            bindings(i0),
+    });
+    ASSERT_TRUE(result);
+
+    auto&& c = downcast<statement::drop_index>(result.statement());
+    auto&& r = binding::extract<storage::index>(c.target());
+    EXPECT_EQ(std::addressof(r), i0.get());
+}
+
+TEST_F(compiler_test, empty) {
+    auto result = compiler()(options(), statement::empty {});
+    ASSERT_TRUE(result);
 }
 
 TEST_F(compiler_test, inspect_scalar) {

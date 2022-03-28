@@ -107,7 +107,7 @@ TEST_F(expression_analyzer_plan_test, process) {
     p::process step;
     auto&& g = step.operators();
     auto&& e1 = g.insert(r::scan {
-            bindings.index(*i1),
+            bindings(i1),
             {
                     r::scan::column {
                             bindings.table_column(cols[0]),
@@ -116,7 +116,7 @@ TEST_F(expression_analyzer_plan_test, process) {
             },
     });
     auto&& e2 = g.insert(rs::offer {
-            bindings.exchange(exchange),
+            bindings(exchange),
             {
                     { c1, x1, },
             },

@@ -3,6 +3,8 @@
 #include <yugawara/binding/variable_info.h>
 #include <yugawara/binding/function_info.h>
 #include <yugawara/binding/aggregate_function_info.h>
+#include <yugawara/binding/schema_info.h>
+#include <yugawara/binding/table_info.h>
 #include <yugawara/binding/relation_info.h>
 
 #include <yugawara/binding/table_column_info.h>
@@ -17,6 +19,10 @@ namespace yugawara::binding {
 
 ::takatori::descriptor::relation factory::index(storage::index const& declaration) {
     return wrap(std::make_shared<index_info>(declaration));
+}
+
+::takatori::descriptor::relation factory::index(std::shared_ptr<storage::index const> declaration) {
+    return wrap(std::make_shared<index_info>(std::move(declaration)));
 }
 
 ::takatori::descriptor::relation factory::exchange(::takatori::plan::exchange const& declaration) {
@@ -83,8 +89,28 @@ takatori::descriptor::variable factory::exchange_column(std::string_view label) 
     return aggregate_function(std::make_shared<aggregate::declaration>(std::move(declaration)));
 }
 
+::takatori::descriptor::schema factory::schema(std::shared_ptr<schema::declaration const> declaration) {
+    return wrap(std::make_shared<schema_info>(std::move(declaration)));
+}
+
+::takatori::descriptor::schema factory::schema(schema::declaration&& declaration) {
+    return schema(std::make_shared<schema::declaration>(std::move(declaration)));
+}
+
+::takatori::descriptor::storage factory::storage(std::shared_ptr<storage::table const> declaration) {
+    return wrap(std::make_shared<table_info>(std::move(declaration)));
+}
+
+::takatori::descriptor::storage factory::storage(storage::table&& declaration) {
+    return storage(std::make_shared<storage::table>(::takatori::util::clone_tag, std::move(declaration)));
+}
+
 ::takatori::descriptor::relation factory::operator()(storage::index const& declaration) {
     return index(declaration);
+}
+
+::takatori::descriptor::relation factory::operator()(std::shared_ptr<storage::index const> declaration) {
+    return index(std::move(declaration));
 }
 
 ::takatori::descriptor::relation factory::operator()(::takatori::plan::exchange const& declaration) {
@@ -118,6 +144,22 @@ takatori::descriptor::variable factory::exchange_column(std::string_view label) 
 
 ::takatori::descriptor::aggregate_function factory::operator()(aggregate::declaration&& declaration) {
     return aggregate_function(std::move(declaration));
+}
+
+::takatori::descriptor::schema factory::operator()(std::shared_ptr<schema::declaration const> declaration) {
+    return schema(std::move(declaration));
+}
+
+::takatori::descriptor::schema factory::operator()(schema::declaration&& declaration) {
+    return schema(std::move(declaration));
+}
+
+::takatori::descriptor::storage factory::operator()(std::shared_ptr<storage::table const> declaration) {
+    return storage(std::move(declaration));
+}
+
+::takatori::descriptor::storage factory::operator()(storage::table&& declaration) {
+    return storage(std::move(declaration));
 }
 
 } // namespace yugawara::binding

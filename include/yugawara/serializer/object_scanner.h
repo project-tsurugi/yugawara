@@ -47,6 +47,13 @@ public:
      */
     object_scanner& expression_mapping(::takatori::util::maybe_shared_ptr<analyzer::expression_mapping const> mapping) noexcept;
 
+    /**
+     * @brief scans an element and pass its structural elements into the given acceptor.
+     * @param element the target element
+     * @param acceptor the acceptor
+     */
+    using ::takatori::serializer::object_scanner::operator();
+
 protected:
     using ::takatori::serializer::object_scanner::properties;
 
@@ -67,6 +74,12 @@ protected:
     /// @copydoc properties(::takatori::descriptor::variable const&, ::takatori::serializer::object_acceptor&) const
     void properties(::takatori::descriptor::aggregate_function const& element, ::takatori::serializer::object_acceptor& acceptor) const override;
 
+    /// @copydoc properties(::takatori::descriptor::variable const&, ::takatori::serializer::object_acceptor&) const
+    void properties(::takatori::descriptor::schema const& element, ::takatori::serializer::object_acceptor& acceptor) const override;
+
+    /// @copydoc properties(::takatori::descriptor::variable const&, ::takatori::serializer::object_acceptor&) const
+    void properties(::takatori::descriptor::storage const& element, ::takatori::serializer::object_acceptor& acceptor) const override;
+
     /**
      * @brief scans properties of the given type.
      * @param element the target element
@@ -80,6 +93,13 @@ protected:
      * @param acceptor the acceptor
      */
     void properties(::takatori::scalar::expression const& element, ::takatori::serializer::object_acceptor& acceptor) const override;
+
+    /**
+     * @brief scans properties of the given statement.
+     * @param element the target element
+     * @param acceptor the acceptor
+     */
+    void properties(::takatori::statement::statement const& element, ::takatori::serializer::object_acceptor& acceptor) const override;
 
 private:
     ::takatori::util::maybe_shared_ptr<analyzer::variable_mapping const> variable_mapping_ {};

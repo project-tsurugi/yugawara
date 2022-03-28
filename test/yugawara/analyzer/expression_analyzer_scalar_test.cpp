@@ -12,6 +12,7 @@
 #include <takatori/type/time_point.h>
 #include <takatori/type/datetime_interval.h>
 #include <takatori/value/primitive.h>
+#include <takatori/value/character.h>
 
 #include <takatori/scalar/immediate.h>
 #include <takatori/scalar/variable_reference.h>
@@ -101,6 +102,17 @@ TEST_F(expression_analyzer_scalar_test, immediate) {
     auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, immediate_inconsistent) {
+    s::immediate expr {
+            v::character { "X" },
+            t::int4 {},
+    };
+    bless(expr);
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, ex::error());
+    EXPECT_TRUE(find(expr, code::inconsistent_type));
 }
 
 TEST_F(expression_analyzer_scalar_test, variable_reference) {

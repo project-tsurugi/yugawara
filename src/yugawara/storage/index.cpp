@@ -41,13 +41,32 @@ index::index(
         std::string_view simple_name,
         std::initializer_list<key> keys,
         std::initializer_list<column_ref> values,
-        index_feature_set features)
-    : index(
+        index_feature_set features) :
+    index {
+            std::nullopt,
             std::move(table),
             decltype(simple_name_) { simple_name },
             decltype(keys_) { keys },
             decltype(values_) { values },
-            features)
+            features,
+    }
+{}
+
+index::index(
+        std::optional<definition_id_type> definition_id,
+        std::shared_ptr<class table const> table,
+        std::string_view simple_name,
+        std::initializer_list<key> keys,
+        std::initializer_list<column_ref> values,
+        index_feature_set features) :
+    index {
+            definition_id,
+            std::move(table),
+            decltype(simple_name_) { simple_name },
+            decltype(keys_) { keys },
+            decltype(values_) { values },
+            features,
+    }
 {}
 
 std::optional<index::definition_id_type> index::definition_id() const noexcept {

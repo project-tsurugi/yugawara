@@ -2,13 +2,15 @@
 
 #include <takatori/util/optional_print_support.h>
 
-#include <yugawara/storage/configurable_provider.h>
-#include <yugawara/variable/configurable_provider.h>
-#include <yugawara/function/configurable_provider.h>
-#include <yugawara/aggregate/configurable_provider.h>
-#include <yugawara/type/configurable_provider.h>
+#include <yugawara/storage/null_provider.h>
+#include <yugawara/variable/null_provider.h>
+#include <yugawara/function/null_provider.h>
+#include <yugawara/aggregate/null_provider.h>
+#include <yugawara/type/null_provider.h>
 
 namespace yugawara::schema {
+
+using ::takatori::util::optional_ptr;
 
 declaration::declaration(
         std::optional<definition_id_type> definition_id,
@@ -64,11 +66,11 @@ declaration& declaration::name(declaration::name_type name) noexcept {
     return *this;
 }
 
-storage::provider const& declaration::storage_provider() const noexcept {
-    if (auto const* p = storage_provider_.get(); p != nullptr) {
+storage::provider& declaration::storage_provider() const noexcept {
+    if (auto* p = storage_provider_.get(); p != nullptr) {
         return *p;
     }
-    static storage::configurable_provider const empty;
+    static storage::null_provider empty;
     return empty;
 }
 
@@ -81,11 +83,11 @@ declaration& declaration::storage_provider(std::shared_ptr<storage::provider> pr
     return *this;
 }
 
-variable::provider const& declaration::variable_provider() const noexcept {
-    if (auto const* p = variable_provider_.get(); p != nullptr) {
+variable::provider& declaration::variable_provider() const noexcept {
+    if (auto* p = variable_provider_.get(); p != nullptr) {
         return *p;
     }
-    static variable::configurable_provider const empty;
+    static variable::null_provider empty;
     return empty;
 }
 
@@ -98,11 +100,11 @@ declaration& declaration::variable_provider(std::shared_ptr<variable::provider> 
     return *this;
 }
 
-function::provider const& declaration::function_provider() const noexcept {
-    if (auto const* p = function_provider_.get(); p != nullptr) {
+function::provider& declaration::function_provider() const noexcept {
+    if (auto* p = function_provider_.get(); p != nullptr) {
         return *p;
     }
-    static function::configurable_provider const empty;
+    static function::null_provider empty;
     return empty;
 }
 
@@ -115,11 +117,11 @@ declaration& declaration::function_provider(std::shared_ptr<function::provider> 
     return *this;
 }
 
-aggregate::provider const& declaration::set_function_provider() const noexcept {
-    if (auto const* p = set_function_provider_.get(); p != nullptr) {
+aggregate::provider& declaration::set_function_provider() const noexcept {
+    if (auto* p = set_function_provider_.get(); p != nullptr) {
         return *p;
     }
-    static aggregate::configurable_provider const empty;
+    static aggregate::null_provider empty;
     return empty;
 }
 
@@ -132,11 +134,11 @@ declaration& declaration::set_function_provider(std::shared_ptr<aggregate::provi
     return *this;
 }
 
-type::provider const& declaration::type_provider() const noexcept {
-    if (auto const* p = type_provider_.get(); p != nullptr) {
+type::provider& declaration::type_provider() const noexcept {
+    if (auto* p = type_provider_.get(); p != nullptr) {
         return *p;
     }
-    static type::configurable_provider const empty;
+    static type::null_provider empty;
     return empty;
 }
 
@@ -147,6 +149,10 @@ std::shared_ptr<type::provider> declaration::shared_type_provider() const noexce
 declaration& declaration::type_provider(std::shared_ptr<type::provider> provider) noexcept {
     type_provider_ = std::move(provider);
     return *this;
+}
+
+optional_ptr<provider const> declaration::owner() const noexcept {
+    return optional_ptr { owner_ };
 }
 
 std::ostream& operator<<(std::ostream& out, declaration const& value) {

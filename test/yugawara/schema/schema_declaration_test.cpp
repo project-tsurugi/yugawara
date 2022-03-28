@@ -4,6 +4,12 @@
 
 #include <takatori/util/downcast.h>
 
+#include <yugawara/storage/null_provider.h>
+#include <yugawara/variable/null_provider.h>
+#include <yugawara/function/null_provider.h>
+#include <yugawara/aggregate/null_provider.h>
+#include <yugawara/type/null_provider.h>
+
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/variable/configurable_provider.h>
 #include <yugawara/function/configurable_provider.h>
@@ -19,11 +25,11 @@ class schema_declaration_test : public ::testing::Test {};
 TEST_F(schema_declaration_test, default) {
     declaration d { 1, "s" };
 
-    EXPECT_TRUE(downcast<storage::configurable_provider>(&d.storage_provider()));
-    EXPECT_TRUE(downcast<variable::configurable_provider>(&d.variable_provider()));
-    EXPECT_TRUE(downcast<function::configurable_provider>(&d.function_provider()));
-    EXPECT_TRUE(downcast<aggregate::configurable_provider>(&d.set_function_provider()));
-    EXPECT_TRUE(downcast<type::configurable_provider>(&d.type_provider()));
+    EXPECT_TRUE(downcast<storage::null_provider>(&d.storage_provider()));
+    EXPECT_TRUE(downcast<variable::null_provider>(&d.variable_provider()));
+    EXPECT_TRUE(downcast<function::null_provider>(&d.function_provider()));
+    EXPECT_TRUE(downcast<aggregate::null_provider>(&d.set_function_provider()));
+    EXPECT_TRUE(downcast<type::null_provider>(&d.type_provider()));
 
     EXPECT_FALSE(d.shared_storage_provider());
     EXPECT_FALSE(d.shared_variable_provider());

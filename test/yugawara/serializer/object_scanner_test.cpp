@@ -12,6 +12,9 @@
 
 #include <takatori/plan/forward.h>
 
+#include <takatori/statement/create_table.h>
+#include <takatori/statement/drop_table.h>
+
 #include <yugawara/binding/factory.h>
 
 #include <yugawara/extension/type/error.h>
@@ -210,6 +213,43 @@ TEST_F(object_scanner_test, scalar_expression_resolution) {
     };
     expressions().bind(expr, t::int4 {});
     print(expr);
+}
+
+TEST_F(object_scanner_test, create_table_resolution) {
+    auto s = std::make_shared<schema::declaration>("S");
+    auto t = std::make_shared<storage::table>(::takatori::util::clone_tag, storage::table {
+            "T",
+            {
+                    {
+                            "C0",
+                            t::int4 {},
+                    },
+                    {
+                            "C1",
+                            t::int4 {},
+                    },
+                    {
+                            "C2",
+                            t::int4 {},
+                    },
+            },
+    });
+    storage::index index {
+            t,
+            "IDX",
+            {
+                    { t->columns()[0], storage::sort_direction::ascendant },
+                    { t->columns()[1], storage::sort_direction::descendant },
+            },
+            {
+                    t->columns()[2],
+            },
+    };
+    print(::takatori::statement::create_table {
+            bindings(s),
+            bindings(index.shared_table()),
+            bindings(index),
+    });
 }
 
 TEST_F(object_scanner_test, predicate_comparison) {

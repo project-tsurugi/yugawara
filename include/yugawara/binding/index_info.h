@@ -5,6 +5,8 @@
 #include "relation_info.h"
 #include "relation_info_kind.h"
 
+#include <takatori/util/maybe_shared_ptr.h>
+
 #include <yugawara/storage/index.h>
 
 namespace yugawara::binding {
@@ -22,6 +24,12 @@ public:
      * @param declaration the original declaration
      */
     explicit index_info(storage::index const& declaration) noexcept;
+
+    /**
+     * @brief creates a new object.
+     * @param declaration the original declaration
+     */
+    explicit index_info(::takatori::util::maybe_shared_ptr<storage::index const> declaration) noexcept;
 
     /**
      * @brief creates a new object.
@@ -47,10 +55,17 @@ public:
 
     /**
      * @brief returns the origin of the index.
-     * @details If the target index step was disposed, this object will become invalid.
+     * @details If the target index step was disposed, this object may become invalid.
      * @return the index
      */
     [[nodiscard]] storage::index const& declaration() const noexcept;
+
+    /**
+     * @brief returns the origin of the index.
+     * @details If the target index step was disposed, this object may become invalid.
+     * @return the index
+     */
+    [[nodiscard]] ::takatori::util::maybe_shared_ptr<storage::index const> maybe_shared_declaration() const noexcept;
 
     /**
      * @brief returns whether or not the both indices are identical.
@@ -84,7 +99,7 @@ protected:
     std::ostream& print_to(std::ostream& out) const override;
 
 private:
-    storage::index const* declaration_;
+    ::takatori::util::maybe_shared_ptr<storage::index const> declaration_;
 };
 
 } // namespace yugawara::binding
