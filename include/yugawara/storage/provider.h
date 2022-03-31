@@ -128,7 +128,7 @@ protected:
      * @throws std::invalid_argument if the target relation has been already another provider
      * @see relation::owner()
      */
-    void bless(relation& element);
+    void bless(relation const& element);
 
     /**
      * @brief clears the given relation's owner.
@@ -137,7 +137,7 @@ protected:
      * @throws std::invalid_argument if this does not own the given relation
      * @see relation::owner()
      */
-    void unbless(relation& element);
+    void unbless(relation const& element);
     
     /**
      * @brief set this as the given sequence's owner.
@@ -146,7 +146,7 @@ protected:
      * @throws std::invalid_argument if the target sequence has been already another provider
      * @see sequence::owner()
      */
-    void bless(sequence& element);
+    void bless(sequence const& element);
 
     /**
      * @brief clears the given sequence's owner.
@@ -155,7 +155,7 @@ protected:
      * @throws std::invalid_argument if this does not own the given sequence
      * @see sequence::owner()
      */
-    void unbless(sequence& element);
+    void unbless(sequence const& element);
 };
 
 } // namespace yugawara::storage
