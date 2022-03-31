@@ -65,14 +65,16 @@ public:
      * @throws std::invalid_argument if the target entry has been already owned another provider
      * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
      */
-    std::shared_ptr<relation> const& add_relation(std::shared_ptr<relation> element, bool overwrite = false) {
-        return internal_add<&provider::find_relation>(relations_, std::move(element), overwrite);
+    std::shared_ptr<relation const> add_relation(std::shared_ptr<relation const> element, bool overwrite = false) {
+        internal_add<&provider::find_relation>(relations_, element, overwrite);
+        return element;
     }
 
     /// @copydoc add_relation(std::shared_ptr<relation>, bool)
-    std::shared_ptr<relation> const& add_relation(relation&& element, bool overwrite = false) {
+    std::shared_ptr<relation> add_relation(relation&& element, bool overwrite = false) {
         auto shared = takatori::util::clone_shared(std::move(element));
-        return add_relation(std::move(shared), overwrite);
+        internal_add<&provider::find_relation>(relations_, shared, overwrite);
+        return shared;
     }
 
     /**
@@ -85,6 +87,12 @@ public:
      * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
      */
     std::shared_ptr<table> add_table(std::shared_ptr<table> element, bool overwrite = false) {
+        internal_add<&provider::find_table>(relations_, element, overwrite);
+        return element;
+    }
+
+    /// @copydoc add_table(std::shared_ptr<table>, bool)
+    std::shared_ptr<table const> add_table(std::shared_ptr<table const> element, bool overwrite = false) {
         internal_add<&provider::find_table>(relations_, element, overwrite);
         return element;
     }
@@ -177,18 +185,18 @@ public:
 
         // NOTE: we assume almost primary index name equals to its table name
         if (auto it = indices_.find(table.simple_name()); it != indices_.end()) {
-            auto&& idx = *it->second.ref();
+            auto&& idx = *it->second;
             if (std::addressof(idx.table()) == std::addressof(table)
                     && idx.features().contains(index_feature::primary)) {
-                return it->second.ref();
+                return it->second;
             }
         }
         // If there is no such the index, then we find for all indices
         for (auto&& entry : indices_) {
-            auto&& idx = *entry.second.ref();
+            auto&& idx = *entry.second;
             if (std::addressof(idx.table()) == std::addressof(table)
                     && idx.features().contains(index_feature::primary)) {
-                return entry.second.ref();
+                return entry.second;
             }
         }
         if (parent_) {
@@ -205,12 +213,19 @@ public:
      * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
      * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
      */
-    std::shared_ptr<index> const& add_index(std::shared_ptr<index> element, bool overwrite = false) {
-        return internal_add<&provider::find_index>(indices_, std::move(element), overwrite);
+    std::shared_ptr<index> add_index(std::shared_ptr<index> element, bool overwrite = false) {
+        internal_add<&provider::find_index>(indices_, element, overwrite);
+        return element;
     }
 
     /// @copydoc add_index(std::shared_ptr<index>, bool)
-    std::shared_ptr<index> const& add_index(index&& element, bool overwrite = false) {
+    std::shared_ptr<index const> add_index(std::shared_ptr<index const> element, bool overwrite = false) {
+        internal_add<&provider::find_index>(indices_, element, overwrite);
+        return element;
+    }
+
+    /// @copydoc add_index(std::shared_ptr<index>, bool)
+    std::shared_ptr<index> add_index(index&& element, bool overwrite = false) {
         auto shared = std::make_shared<index>(std::move(element));
         return add_index(std::move(shared), overwrite);
     }
@@ -272,12 +287,19 @@ public:
      * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
      * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
      */
-    std::shared_ptr<sequence> const& add_sequence(std::shared_ptr<sequence> element, bool overwrite = false) {
-        return internal_add<&provider::find_sequence>(sequences_, std::move(element), overwrite);
+    std::shared_ptr<sequence> add_sequence(std::shared_ptr<sequence> element, bool overwrite = false) {
+        internal_add<&provider::find_sequence>(sequences_, element, overwrite);
+        return element;
     }
 
     /// @copydoc add_sequence(std::shared_ptr<sequence>, bool)
-    std::shared_ptr<sequence> const& add_sequence(sequence&& element, bool overwrite = false) {
+    std::shared_ptr<sequence const> add_sequence(std::shared_ptr<sequence const> element, bool overwrite = false) {
+        internal_add<&provider::find_sequence>(sequences_, element, overwrite);
+        return element;
+    }
+
+    /// @copydoc add_sequence(std::shared_ptr<sequence>, bool)
+    std::shared_ptr<sequence> add_sequence(sequence&& element, bool overwrite = false) {
         auto shared = std::make_shared<sequence>(std::move(element));
         return add_sequence(std::move(shared), overwrite);
     }
@@ -302,48 +324,20 @@ public:
     }
 
 private:
-    template<class T>
-    class shared_ptr_container {
-    public:
-        using element_type = T;
-
-        constexpr shared_ptr_container() noexcept = default;
-
-        shared_ptr_container(std::shared_ptr<T> value) noexcept : // NOLINT
-            value_ { std::move(value) },
-            const_value_ { value_ }
-        {}
-
-        [[nodiscard]] std::shared_ptr<T> const& ref() const {
-            return value_;
-        }
-        
-        [[nodiscard]] std::shared_ptr<T const> const& const_ref() const {
-            return const_value_;
-        }
-        
-    private:
-        std::shared_ptr<T> value_;
-        std::shared_ptr<T const> const_value_;
-    };
-    
     using key_type = std::string;
-    using relation_value_type = shared_ptr_container<relation>;
     using relation_map_type = std::map<
             key_type,
-            relation_value_type,
+            std::shared_ptr<relation const>,
             std::less<>>;
 
-    using index_value_type = shared_ptr_container<index>;
     using index_map_type = std::map<
             key_type,
-            index_value_type,
+            std::shared_ptr<index const>,
             std::less<>>;
 
-    using sequence_value_type = shared_ptr_container<sequence>;
     using sequence_map_type = std::map<
             key_type,
-            sequence_value_type,
+            std::shared_ptr<sequence const>,
             std::less<>>;
 
     ::takatori::util::maybe_shared_ptr<provider const> parent_;
@@ -362,7 +356,7 @@ private:
         reader_lock_type lock { mutex_ };
         // child first
         if (auto iter = container.find(id); iter != container.end()) {
-            return iter->second.const_ref();
+            return iter->second;
         }
         if (parent_) {
             // then parent if exists
@@ -377,7 +371,7 @@ private:
             consumer_type<element_type<Container>> const& consumer) const {
         reader_lock_type lock { mutex_ };
         for (auto&& entry : container) {
-            consumer(entry.first, entry.second.const_ref());
+            consumer(entry.first, entry.second);
         }
         if (parent_) {
             ((*parent_).*Each)([&](std::string_view id, auto& element) {
@@ -390,12 +384,14 @@ private:
     }
 
     template<class E>
-    static constexpr bool is_bless_target_v = std::is_base_of_v<relation, E> || std::is_same_v<sequence, E>;
+    static constexpr bool is_bless_target_v = std::is_base_of_v<relation, std::remove_const_t<E>>
+                                           || std::is_same_v<sequence, std::remove_const_t<E>>
+                                            ;
 
     template<auto Find, class Container>
-    std::shared_ptr<element_type<Container>> const& internal_add(
+    void internal_add(
             Container& container,
-            std::shared_ptr<element_type<Container>> element,
+            std::shared_ptr<element_type<Container> const> element,
             bool overwrite) {
         using element_type = element_type<Container>;
 
@@ -408,18 +404,18 @@ private:
             auto [iter, success] = container.insert_or_assign(std::move(key), std::move(element));
             (void) success;
             if constexpr (is_bless_target_v<element_type>) { // NOLINT
-                bless(*iter->second.ref());
+                bless(*iter->second);
             }
-            return iter->second.ref();
+            return;
         }
         if (parent_ && ((*parent_).*Find)(id)) {
             throw_exception(std::invalid_argument(std::string("already exists in parent provider: ") += id));
         }
         if (auto [iter, success] = container.try_emplace(std::move(key), std::move(element)); success) {
             if constexpr (is_bless_target_v<element_type>) { // NOLINT
-                bless(*iter->second.ref());
+                bless(*iter->second);
             }
-            return iter->second.ref();
+            return;
         }
         throw_exception(std::invalid_argument(std::string("already exists: ") += id));
     }
@@ -432,7 +428,7 @@ private:
         if (auto iter = container.find(id); iter != container.end()) {
             using element_type = element_type<Container>;
             if constexpr (is_bless_target_v<element_type>) { // NOLINT
-                unbless(*iter->second.ref());
+                unbless(*iter->second);
             }
             // NOTE: container.erase(id) does not work
             container.erase(iter);

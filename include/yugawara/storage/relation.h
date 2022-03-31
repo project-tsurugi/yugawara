@@ -86,7 +86,8 @@ protected:
     virtual std::ostream& print_to(std::ostream& out) const = 0;
 
 private:
-    provider const* owner_ {};
+    // FIXME: ugly
+    mutable provider const* owner_ {};
 
     friend provider;
 };

@@ -198,7 +198,9 @@ private:
     value_type min_value_;
     value_type max_value_;
     bool cycle_;
-    provider const* owner_ {};
+
+    // FIXME: ugly
+    mutable provider const* owner_ {};
 
     friend provider;
 };

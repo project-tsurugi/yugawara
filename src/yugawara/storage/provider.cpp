@@ -31,7 +31,7 @@ std::shared_ptr<index const> provider::find_primary_index(class table const& tab
     return result;
 }
 
-void provider::bless(relation& element) {
+void provider::bless(relation const& element) {
     if (element.owner_ == nullptr || element.owner_ == this) {
         element.owner_ = this;
         return;
@@ -46,7 +46,7 @@ void provider::bless(relation& element) {
     });
 }
 
-void provider::unbless(relation& element) {
+void provider::unbless(relation const& element) {
     if (element.owner_ == nullptr || element.owner_ == this) {
         element.owner_ = nullptr;
         return;
@@ -61,7 +61,7 @@ void provider::unbless(relation& element) {
     });
 }
 
-void provider::bless(sequence& element) {
+void provider::bless(sequence const& element) {
     if (element.owner_ == nullptr || element.owner_ == this) {
         element.owner_ = this;
         return;
@@ -75,7 +75,7 @@ void provider::bless(sequence& element) {
     });
 }
 
-void provider::unbless(sequence& element) {
+void provider::unbless(sequence const& element) {
     if (element.owner_ == nullptr || element.owner_ == this) {
         element.owner_ = nullptr;
         return;
