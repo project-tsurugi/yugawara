@@ -7,9 +7,3 @@
 [submodule "third_party/hopscotch-map"]
 	path = third_party/hopscotch-map
 	url = https://github.com/Tessil/hopscotch-map.git
-[submodule ".github/actions/tsurugi-annotations-action"]
-	path = .github/actions/tsurugi-annotations-action
-	url = git@github.com:project-tsurugi/tsurugi-annotations-action.git
-[submodule ".github/actions/tsurugi-slack-action"]
-	path = .github/actions/tsurugi-slack-action
-	url = git@github.com:project-tsurugi/tsurugi-slack-action.git
