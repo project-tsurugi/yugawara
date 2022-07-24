@@ -19,7 +19,7 @@ include(GNUInstallDirs)
 
 find_package(takatori REQUIRED)
 
-find_package(fpdecimal 3.68 REQUIRED)
+find_package(mpdecpp REQUIRED)
 
 find_package(tsl-hopscotch-map 2.2 REQUIRED)
 
