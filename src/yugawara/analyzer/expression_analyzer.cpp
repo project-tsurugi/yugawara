@@ -77,17 +77,6 @@ constexpr std::optional<std::size_t> operator+(std::optional<std::size_t> a, std
     return *a + *b;
 }
 
-constexpr std::optional<std::size_t> operator-(std::optional<std::size_t> a, std::optional<std::size_t> b) noexcept {
-    if (!a || !b) return {};
-    if (*a < *b) return 0;
-    return *a - *b;
-}
-
-constexpr std::optional<std::size_t> max(std::optional<std::size_t> a, std::optional<std::size_t> b) noexcept {
-    if (!a || !b) return {};
-    return std::max(*a, *b);
-}
-
 template<class T>
 constexpr T& unwrap(std::reference_wrapper<T> wrapper) noexcept {
     return wrapper;
@@ -667,10 +656,8 @@ public:
                             && right->kind() == ::takatori::type::type_kind::decimal) {
                         auto&& ld = unsafe_downcast<::takatori::type::decimal>(*left);
                         auto&& rd = unsafe_downcast<::takatori::type::decimal>(*right);
-                        // left:decimal(p, s) * right:decimal(q, t) => decimal(max(p-s, q-t) + max(s,t) + 1, max(s,t))
-                        return repo_.get(::takatori::type::decimal(
-                                max(ld.precision() - ld.scale(), rd.precision() - rd.scale()) + std::max(ld.scale(), rd.scale()) + 1,
-                                std::max(ld.scale(), rd.scale())));
+                        // left:decimal(p, s) * right:decimal(q, t) => decimal(*, max(s,t))
+                        return repo_.get(::takatori::type::decimal({}, std::max(ld.scale(), rd.scale())));
                     }
                     return result;
                 }
@@ -716,10 +703,8 @@ public:
                         && right->kind() == ::takatori::type::type_kind::decimal) {
                         auto&& ld = unsafe_downcast<::takatori::type::decimal>(*left);
                         auto&& rd = unsafe_downcast<::takatori::type::decimal>(*right);
-                        // left:decimal(p, s) * right:decimal(q, t) => decimal(max(p-s, q-t) + max(s,t) + 1, max(s,t))
-                        return repo_.get(::takatori::type::decimal(
-                                max(ld.precision() - ld.scale(), rd.precision() - rd.scale()) + std::max(ld.scale(), rd.scale()) + 1,
-                                std::max(ld.scale(), rd.scale())));
+                        // left:decimal(p, s) * right:decimal(q, t) => decimal(*, max(s,t))
+                        return repo_.get(::takatori::type::decimal({}, std::max(ld.scale(), rd.scale())));
                     }
                     return result;
                 }
@@ -763,12 +748,8 @@ public:
                     auto result = type::binary_numeric_promotion(*left, *right, repo_);
                     if (left->kind() == ::takatori::type::type_kind::decimal
                         && right->kind() == ::takatori::type::type_kind::decimal) {
-                        auto&& ld = unsafe_downcast<::takatori::type::decimal>(*left);
-                        auto&& rd = unsafe_downcast<::takatori::type::decimal>(*right);
-                        // left:decimal(p, s) * right:decimal(q, t) => decimal(p + q, s + t)
-                        return repo_.get(::takatori::type::decimal(
-                                ld.precision() + rd.precision(),
-                                ld.scale() + rd.scale()));
+                        // left:decimal(p, s) * right:decimal(q, t) => decimal(*, *)
+                        return repo_.get(::takatori::type::decimal({}, {}));
                     }
                     return result;
                 }
@@ -806,12 +787,8 @@ public:
                     auto result = type::binary_numeric_promotion(*left, *right, repo_);
                     if (left->kind() == ::takatori::type::type_kind::decimal
                         && right->kind() == ::takatori::type::type_kind::decimal) {
-                        auto&& ld = unsafe_downcast<::takatori::type::decimal>(*left);
-                        auto&& rd = unsafe_downcast<::takatori::type::decimal>(*right);
-                        // left:decimal(p, s) * right:decimal(q, t) => decimal(p + q, s + t)
-                        return repo_.get(::takatori::type::decimal(
-                                ld.precision() + rd.precision(),
-                                ld.scale() + rd.scale()));
+                        // left:decimal(p, s) * right:decimal(q, t) => decimal(*, *)
+                        return repo_.get(::takatori::type::decimal({}, {}));
                     }
                     return result;
                 }
@@ -970,7 +947,7 @@ public:
     }
 
     bool operator()(relation::values const& expr) {
-        // first, we check number of columns whether or not validate is enabled
+        // first, we check number of columns whether validate is enabled
         for (auto&& row : expr.rows()) {
             if (expr.columns().size() < row.elements().size()) {
                 report({

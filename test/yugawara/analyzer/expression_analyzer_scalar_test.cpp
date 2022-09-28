@@ -584,7 +584,7 @@ TEST_F(expression_analyzer_scalar_test, binary_add_decimal) {
             vref { decl(t::decimal { 20, 0 }) },
     };
     auto r = analyzer.resolve(expr, true, repo);
-    EXPECT_EQ(*r, t::decimal(23, 2));
+    EXPECT_EQ(*r, t::decimal({}, 2));
     EXPECT_TRUE(ok());
 }
 
@@ -699,7 +699,7 @@ TEST_F(expression_analyzer_scalar_test, binary_subtract_decimal) {
             vref { decl(t::decimal { 20, 0 }) },
     };
     auto r = analyzer.resolve(expr, true, repo);
-    EXPECT_EQ(*r, t::decimal(23, 2));
+    EXPECT_EQ(*r, t::decimal({}, 2));
     EXPECT_TRUE(ok());
 }
 
@@ -815,7 +815,7 @@ TEST_F(expression_analyzer_scalar_test, binary_multiply_decimal) {
             vref { decl(t::decimal { 20, 5 }) },
     };
     auto r = analyzer.resolve(expr, true, repo);
-    EXPECT_EQ(*r, t::decimal(30, 7));
+    EXPECT_EQ(*r, t::decimal({}, {}));
     EXPECT_TRUE(ok());
 }
 
@@ -907,7 +907,7 @@ TEST_F(expression_analyzer_scalar_test, binary_divide_decimal) {
             vref { decl(t::decimal { 20, 5 }) },
     };
     auto r = analyzer.resolve(expr, true, repo);
-    EXPECT_EQ(*r, t::decimal(30, 7));
+    EXPECT_EQ(*r, t::decimal({}, {}));
     EXPECT_TRUE(ok());
 }
 
@@ -1000,7 +1000,7 @@ TEST_F(expression_analyzer_scalar_test, binary_remainder_decimal) {
             vref { decl(t::decimal { 20, 5 }) },
     };
     auto r = analyzer.resolve(expr, true, repo);
-    EXPECT_EQ(*r, t::decimal(30, 7));
+    EXPECT_EQ(*r, t::decimal({}, {}));
     EXPECT_TRUE(ok());
 }
 

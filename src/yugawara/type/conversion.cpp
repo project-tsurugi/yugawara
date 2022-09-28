@@ -109,13 +109,13 @@ std::shared_ptr<model::data const> unary_decimal_promotion(model::data const& ty
     switch (type.kind()) {
         case kind::unknown:
         case kind::int1:
-            return repo.get(model::decimal { decimal_precision_int1 });
+            return repo.get(model::decimal { decimal_precision_int1, 0 });
         case kind::int2:
-            return repo.get(model::decimal { decimal_precision_int2 });
+            return repo.get(model::decimal { decimal_precision_int2, 0 });
         case kind::int4:
-            return repo.get(model::decimal { decimal_precision_int4 });
+            return repo.get(model::decimal { decimal_precision_int4, 0 });
         case kind::int8:
-            return repo.get(model::decimal { decimal_precision_int8 });
+            return repo.get(model::decimal { decimal_precision_int8, 0 });
         case kind::decimal:
             return repo.get(type);
         default:
@@ -134,7 +134,7 @@ binary_numeric_promotion(model::data const& type, model::data const& with, repos
         case npair(kind::int1, kind::int8):
             return repo.get(model::int8 {});
         case npair(kind::int1, kind::decimal):
-            return repo.get(model::decimal { decimal_precision_int1 });
+            return repo.get(model::decimal { decimal_precision_int1, 0 });
         case npair(kind::int1, kind::float4):
             return repo.get(model::float4 {});
         case npair(kind::int1, kind::float8):
@@ -147,7 +147,7 @@ binary_numeric_promotion(model::data const& type, model::data const& with, repos
         case npair(kind::int2, kind::int8):
             return repo.get(model::int8 {});
         case npair(kind::int2, kind::decimal):
-            return repo.get(model::decimal { decimal_precision_int2 });
+            return repo.get(model::decimal { decimal_precision_int2, 0 });
         case npair(kind::int2, kind::float4):
             return repo.get(model::float4 {});
         case npair(kind::int2, kind::float8):
@@ -160,7 +160,7 @@ binary_numeric_promotion(model::data const& type, model::data const& with, repos
         case npair(kind::int4, kind::int8):
             return repo.get(model::int8 {});
         case npair(kind::int4, kind::decimal):
-            return repo.get(model::decimal { decimal_precision_int4 });
+            return repo.get(model::decimal { decimal_precision_int4, 0 });
         case npair(kind::int4, kind::float4):
             return repo.get(model::float8 {});
         case npair(kind::int4, kind::float8):
@@ -172,7 +172,7 @@ binary_numeric_promotion(model::data const& type, model::data const& with, repos
         case npair(kind::int8, kind::int8):
             return repo.get(model::int8 {});
         case npair(kind::int8, kind::decimal):
-            return repo.get(model::decimal { decimal_precision_int8 });
+            return repo.get(model::decimal { decimal_precision_int8, 0 });
         case npair(kind::int8, kind::float4):
             return repo.get(model::float8 {});
         case npair(kind::int8, kind::float8):
@@ -801,29 +801,32 @@ util::ternary is_widening_convertible(takatori::type::data const& type, takatori
             return ternary::yes;
 
         case npair(kind::int1, kind::decimal):
-            return is_widening_convertible(model::decimal { decimal_precision_int1 }, target);
+            return is_widening_convertible(model::decimal { decimal_precision_int1, 0 }, target);
         case npair(kind::int2, kind::decimal):
-            return is_widening_convertible(model::decimal { decimal_precision_int2 }, target);
+            return is_widening_convertible(model::decimal { decimal_precision_int2, 0 }, target);
         case npair(kind::int4, kind::decimal):
-            return is_widening_convertible(model::decimal { decimal_precision_int4 }, target);
+            return is_widening_convertible(model::decimal { decimal_precision_int4, 0 }, target);
         case npair(kind::int8, kind::decimal):
-            return is_widening_convertible(model::decimal { decimal_precision_int8 }, target);
+            return is_widening_convertible(model::decimal { decimal_precision_int8, 0 }, target);
 
         case npair(kind::decimal, kind::int1):
-            return is_widening_convertible(type, model::decimal { decimal_precision_int1 - 1 });
+            return is_widening_convertible(type, model::decimal { decimal_precision_int1 - 1, 0 });
         case npair(kind::decimal, kind::int2):
-            return is_widening_convertible(type, model::decimal { decimal_precision_int2 - 1 });
+            return is_widening_convertible(type, model::decimal { decimal_precision_int2 - 1, 0 });
         case npair(kind::decimal, kind::int4):
-            return is_widening_convertible(type, model::decimal { decimal_precision_int4 - 1 });
+            return is_widening_convertible(type, model::decimal { decimal_precision_int4 - 1, 0 });
         case npair(kind::decimal, kind::int8):
-            return is_widening_convertible(type, model::decimal { decimal_precision_int8 - 1 });
+            return is_widening_convertible(type, model::decimal { decimal_precision_int8 - 1, 0 });
 
         case npair(kind::decimal, kind::decimal): {
             auto&& a = unsafe_downcast<model::decimal>(type);
             auto&& b = unsafe_downcast<model::decimal>(target);
-            return ternary_of(
-                    compare_flexible(a.precision(), b.precision()) <= 0
-                    && compare_flexible(a.scale(), b.scale()) <= 0);
+            if (compare_flexible(a.scale(), b.scale()) > 0) return ternary::no;
+            if (!b.precision()) return ternary::yes;
+            if (!a.precision()) return ternary::no;
+            auto ai = static_cast<std::int64_t>(*a.precision()) - a.scale().value_or(0);
+            auto bi = static_cast<std::int64_t>(*b.precision()) - b.scale().value_or(0);
+            return ternary_of(ai <= bi);
         }
 
         case npair(kind::character, kind::character): {
