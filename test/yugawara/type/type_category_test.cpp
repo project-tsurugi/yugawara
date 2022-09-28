@@ -21,7 +21,6 @@ namespace yugawara::type {
 class type_category_test : public ::testing::Test {};
 
 namespace tt = ::takatori::type;
-using ::takatori::datetime::time_zone;
 
 TEST_F(type_category_test, basics) {
     EXPECT_EQ(category_of(tt::boolean()), category::boolean);
@@ -45,9 +44,9 @@ TEST_F(type_category_test, basics) {
 
     EXPECT_EQ(category_of(tt::date()), category::temporal);
     EXPECT_EQ(category_of(tt::time_of_day()), category::temporal);
-    EXPECT_EQ(category_of(tt::time_of_day(time_zone::UTC)), category::temporal);
+    EXPECT_EQ(category_of(tt::time_of_day(tt::with_time_zone)), category::temporal);
     EXPECT_EQ(category_of(tt::time_point()), category::temporal);
-    EXPECT_EQ(category_of(tt::time_point(time_zone::UTC)), category::temporal);
+    EXPECT_EQ(category_of(tt::time_point(tt::with_time_zone)), category::temporal);
 
     EXPECT_EQ(category_of(tt::datetime_interval()), category::datetime_interval);
 }

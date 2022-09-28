@@ -20,6 +20,7 @@ using kind = model::type_kind;
 using takatori::util::unsafe_downcast;
 using yugawara::util::ternary;
 using yugawara::util::ternary_of;
+using ::takatori::type::with_time_zone_t;
 
 constexpr std::size_t decimal_precision_int1 = 3;
 constexpr std::size_t decimal_precision_int2 = 5;
@@ -362,32 +363,24 @@ std::shared_ptr<model::data const> unary_temporal_promotion(model::data const& t
     }
 }
 
-static std::optional<takatori::datetime::time_zone> const&
-get_time_zone(model::data const& type) {
+static with_time_zone_t get_time_zone(model::data const& type) {
     switch (type.kind()) {
         case model::time_of_day::tag:
-            return unsafe_downcast<model::time_of_day>(type).time_zone();
+            return with_time_zone_t { unsafe_downcast<model::time_of_day>(type).with_time_zone() };
         case model::time_point::tag:
-            return unsafe_downcast<model::time_point>(type).time_zone();
+            return with_time_zone_t { unsafe_downcast<model::time_point>(type).with_time_zone() };
         default:
             std::abort();
     }
 }
 
-static std::optional<takatori::datetime::time_zone>
-promote_time_zone(model::data const& a, model::data const& b) {
+static with_time_zone_t promote_time_zone(model::data const& a, model::data const& b) {
     auto&& tz1 = get_time_zone(a);
     auto&& tz2 = get_time_zone(b);
     if (tz1 == tz2) {
         return tz1;
     }
-    if (!tz1) {
-        return tz2;
-    }
-    if (!tz2) {
-        return tz1;
-    }
-    return takatori::datetime::time_zone::UTC;
+    return with_time_zone_t { true };
 }
 
 std::shared_ptr<model::data const> binary_temporal_promotion(
@@ -742,6 +735,19 @@ ternary is_cast_convertible(takatori::type::data const& type, takatori::type::da
     }
 }
 
+static constexpr int compare_flexible(std::optional<std::size_t> left, std::optional<std::size_t> right) {
+    if (left == right) {
+        return 0;
+    }
+    if (!left) {
+        return +1;
+    }
+    if (!right) {
+        return -1;
+    }
+    return *left < *right ? -1 : +1;
+}
+
 util::ternary is_widening_convertible(takatori::type::data const& type, takatori::type::data const& target) noexcept {
     if (is_conversion_stop_type(type) || is_conversion_stop_type(target)) return ternary::unknown;
 
@@ -815,12 +821,9 @@ util::ternary is_widening_convertible(takatori::type::data const& type, takatori
         case npair(kind::decimal, kind::decimal): {
             auto&& a = unsafe_downcast<model::decimal>(type);
             auto&& b = unsafe_downcast<model::decimal>(target);
-            if (a.scale() > b.scale()) return ternary::no;
-            if (!b.precision()) return ternary::yes;
-            if (!a.precision()) return ternary::no;
-            auto ai = static_cast<std::int64_t>(*a.precision()) - a.scale();
-            auto bi = static_cast<std::int64_t>(*b.precision()) - b.scale();
-            return ternary_of(ai <= bi);
+            return ternary_of(
+                    compare_flexible(a.precision(), b.precision()) <= 0
+                    && compare_flexible(a.scale(), b.scale()) <= 0);
         }
 
         case npair(kind::character, kind::character): {
