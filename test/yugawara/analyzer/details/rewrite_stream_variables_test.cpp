@@ -80,8 +80,64 @@ protected:
     descriptor::variable t1c1 = bindings(t1->columns()[1]);
     descriptor::variable t1c2 = bindings(t1->columns()[2]);
 
-    std::shared_ptr<storage::index> i0 = storages.add_index({ t0, "I0", });
-    std::shared_ptr<storage::index> i1 = storages.add_index({ t1, "I1" });
+    std::shared_ptr<storage::index> i0 = storages.add_index({
+            t0,
+            "I0",
+            {
+                    t0->columns()[0],
+            },
+            {
+                    t0->columns()[1],
+                    t0->columns()[2],
+            },
+            {
+                    storage::index_feature::primary,
+                    storage::index_feature::find,
+                    storage::index_feature::scan,
+                    storage::index_feature::unique,
+            }
+    });
+    std::shared_ptr<storage::index> i0s = storages.add_index({
+            t0,
+            "I0S",
+            {
+                    t0->columns()[1],
+            },
+            {},
+            {
+                    storage::index_feature::find,
+                    storage::index_feature::scan,
+            }
+    });
+    std::shared_ptr<storage::index> i1 = storages.add_index({
+            t1,
+            "I1",
+            {
+                    t1->columns()[0],
+            },
+            {
+                    t1->columns()[1],
+                    t1->columns()[2],
+            },
+            {
+                    storage::index_feature::primary,
+                    storage::index_feature::find,
+                    storage::index_feature::scan,
+                    storage::index_feature::unique,
+            }
+    });
+    std::shared_ptr<storage::index> i1s = storages.add_index({
+            t1,
+            "I1S",
+            {
+                    t1->columns()[1],
+            },
+            {},
+            {
+                    storage::index_feature::find,
+                    storage::index_feature::scan,
+            }
+    });
 
     aggregate::configurable_provider aggregates;
     std::shared_ptr<aggregate::declaration> agg0 = aggregates.add(aggregate::declaration {
@@ -107,6 +163,8 @@ protected:
         details::collect_step_relations(graph);
         auto map = details::collect_exchange_columns(graph);
         details::rewrite_stream_variables(map, graph);
+        std::cout << ::testing::UnitTest::GetInstance()->current_test_info()->name() << ": ";
+        dump(graph, std::cout);
     }
 };
 
@@ -248,7 +306,7 @@ TEST_F(rewrite_stream_variables_test, join_find_index) {
     });
     auto&& r1 = p0.operators().insert(relation::join_find {
             relation::join_kind::inner,
-            bindings(*i0),
+            bindings(*i1),
             {
                     { t1c0, j0 },
                     { t1c1, j1 },
@@ -425,7 +483,7 @@ TEST_F(rewrite_stream_variables_test, join_scan_index) {
     });
     auto&& r1 = p0.operators().insert(relation::join_scan {
             relation::join_kind::inner,
-            bindings(*i0),
+            bindings(*i1),
             {
                     { t1c0, j0 },
                     { t1c1, j1 },
@@ -521,7 +579,7 @@ TEST_F(rewrite_stream_variables_test, join_scan_broadcast) {
     r1.output() >> ro.input();
 
     auto&& r2 = p1.operators().insert(relation::scan {
-            bindings(*i0),
+            bindings(*i1),
             {
                     { t1c0, j0 },
                     { t1c1, j1 },
@@ -1694,7 +1752,7 @@ TEST_F(rewrite_stream_variables_test, aggregate) {
     auto&& e0 = p.insert(plan::aggregate {
             {},
             {},
-            { c0, },
+            { c0 },
             {
                     {
                             bindings(agg0),
