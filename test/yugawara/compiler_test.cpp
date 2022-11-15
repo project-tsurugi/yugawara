@@ -78,6 +78,7 @@ protected:
     }
 
     static void dump(compiler_result const& r) {
+        std::cout << ::testing::UnitTest::GetInstance()->current_test_info()->name() << ": ";
         ::takatori::serializer::json_printer printer { std::cout };
         r.object_scanner()(
                 r.statement(),
@@ -289,6 +290,7 @@ TEST_F(compiler_test, write) {
             },
     });
     ASSERT_TRUE(result);
+    dump(result);
 
     auto&& c = downcast<statement::write>(result.statement());
 
@@ -360,8 +362,10 @@ TEST_F(compiler_test, create_table) {
             {},
     });
     ASSERT_TRUE(result);
+    dump(result);
 
     auto&& c = downcast<statement::create_table>(result.statement());
+
     auto&& rt = binding::extract(c.definition());
     EXPECT_NE(std::addressof(rt), tbl.get());
     EXPECT_EQ(rt.simple_name(), tbl->simple_name());
@@ -406,6 +410,7 @@ TEST_F(compiler_test, drop_table) {
             bindings(t0),
     });
     ASSERT_TRUE(result);
+    dump(result);
 
     auto&& c = downcast<statement::drop_table>(result.statement());
     auto&& r = binding::extract(c.target());
@@ -419,6 +424,7 @@ TEST_F(compiler_test, create_index) {
             bindings(i0),
     });
     ASSERT_TRUE(result);
+    dump(result);
 
     auto&& c = downcast<statement::create_index>(result.statement());
     auto&& r = binding::extract<storage::index>(c.definition());
@@ -434,6 +440,7 @@ TEST_F(compiler_test, drop_index) {
             bindings(i0),
     });
     ASSERT_TRUE(result);
+    dump(result);
 
     auto&& c = downcast<statement::drop_index>(result.statement());
     auto&& r = binding::extract<storage::index>(c.target());
@@ -443,6 +450,7 @@ TEST_F(compiler_test, drop_index) {
 TEST_F(compiler_test, empty) {
     auto result = compiler()(options(), statement::empty {});
     ASSERT_TRUE(result);
+    dump(result);
 }
 
 TEST_F(compiler_test, inspect_scalar) {

@@ -123,6 +123,14 @@ void binding_scanner::properties(storage::column const& element) {
     accept(element.default_value());
     acceptor_.property_end();
 
+    acceptor_.property_begin("features"sv);
+    acceptor_.array_begin();
+    for (auto&& feature : element.features()) {
+        acceptor_.string(to_string_view(feature));
+    }
+    acceptor_.array_end();
+    acceptor_.property_end();
+
     acceptor_.property_begin("owner"sv);
     if (auto owner = element.optional_owner()) {
         acceptor_.struct_begin();
@@ -136,7 +144,6 @@ void binding_scanner::properties(storage::column const& element) {
         acceptor_.property_end();
 
         acceptor_.struct_end();
-
     }
     acceptor_.property_end();
 }

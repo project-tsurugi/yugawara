@@ -45,12 +45,28 @@ TEST_F(column_test, default_value) {
     EXPECT_EQ(c.default_value(), column_value { v::int4(100) });
 }
 
+TEST_F(column_test, column_feature) {
+    column_feature_set features {
+            column_feature::synthesized,
+    };
+    column c {
+            "C1",
+            t::int4(),
+            {},
+            {},
+            features,
+    };
+
+    EXPECT_EQ(c.features(), features);
+}
+
 TEST_F(column_test, output) {
     column c {
             "C1",
             t::int4(),
             ~variable::nullable,
             { v::int4(100) },
+            { column_feature::synthesized, },
     };
     std::cout << c << std::endl;
 }

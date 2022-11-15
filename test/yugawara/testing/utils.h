@@ -25,10 +25,14 @@
 #include <takatori/util/downcast.h>
 #include <takatori/util/string_builder.h>
 
+#include <takatori/serializer/json_printer.h>
+
 #include <yugawara/binding/factory.h>
 #include <yugawara/binding/extract.h>
 
-namespace yugawara::testing{
+#include <yugawara/serializer/object_scanner.h>
+
+namespace yugawara::testing {
 
 namespace t = ::takatori::type;
 namespace v = ::takatori::value;
@@ -172,6 +176,16 @@ find(plan::graph_type& g, relation::expression const& e) {
 template<class T>
 std::vector<T> empty() {
     return std::vector<T>{};
+}
+
+template<class T>
+void dump(T const& object, std::ostream& out) {
+    ::takatori::serializer::json_printer printer { out };
+    ::yugawara::serializer::object_scanner scanner {
+        std::make_shared<analyzer::variable_mapping>(),
+        std::make_shared<analyzer::expression_mapping>(),
+    };
+    scanner(object, printer);
 }
 
 } // namespace yugawara::testing
