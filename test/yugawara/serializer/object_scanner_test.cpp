@@ -85,6 +85,7 @@ TEST_F(object_scanner_test, table_column_default_immediate) {
                             t::int4 {},
                             variable::nullable,
                             { v::int4 { 100 } },
+                            { storage::column_feature::synthesized, },
                     },
             },
     };

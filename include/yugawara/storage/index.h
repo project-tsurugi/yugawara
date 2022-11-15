@@ -32,6 +32,9 @@ public:
     /// @brief the column reference type.
     using column_ref = std::reference_wrapper<column const>;
 
+    /// @brief the index feature set type.
+    using feature_set_type = index_feature_set;
+
     /**
      * @brief creates a new object.
      * @param definition_id the table definition ID
@@ -47,7 +50,7 @@ public:
             simple_name_type simple_name,
             std::vector<key> keys,
             std::vector<column_ref> values,
-            index_feature_set features) noexcept;
+            feature_set_type features) noexcept;
 
     /**
      * @brief creates a new object.
@@ -62,7 +65,7 @@ public:
             simple_name_type simple_name,
             std::vector<key> keys,
             std::vector<column_ref> values,
-            index_feature_set features) noexcept;
+            feature_set_type features) noexcept;
 
     /**
      * @brief creates a new object.
@@ -79,7 +82,7 @@ public:
             std::string_view simple_name,
             std::initializer_list<key> keys = {},
             std::initializer_list<column_ref> values = {},
-            index_feature_set features = { index_feature::find, index_feature::scan });
+            feature_set_type features = { index_feature::find, index_feature::scan });
 
     /**
      * @brief creates a new object.
@@ -94,7 +97,7 @@ public:
             std::string_view simple_name,
             std::initializer_list<key> keys = {},
             std::initializer_list<column_ref> values = {},
-            index_feature_set features = { index_feature::find, index_feature::scan });
+            feature_set_type features = { index_feature::find, index_feature::scan });
 
     /**
      * @brief returns the index definition ID.
@@ -165,10 +168,10 @@ public:
      * @brief returns the available features of this index.
      * @return the available features
      */
-    [[nodiscard]] index_feature_set& features() noexcept;
+    [[nodiscard]] feature_set_type& features() noexcept;
 
     /// @copydoc features()
-    [[nodiscard]] index_feature_set const& features() const noexcept;
+    [[nodiscard]] feature_set_type const& features() const noexcept;
 
     /**
      * @brief appends string representation of the given value.
@@ -184,7 +187,7 @@ private:
     simple_name_type simple_name_;
     std::vector<key> keys_;
     std::vector<column_ref> values_;
-    index_feature_set features_;
+    feature_set_type features_;
 };
 
 /**

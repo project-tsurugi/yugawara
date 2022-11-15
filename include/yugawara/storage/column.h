@@ -15,6 +15,7 @@
 #include <yugawara/variable/criteria.h>
 
 #include "column_value.h"
+#include "column_feature.h"
 
 namespace yugawara::storage {
 
@@ -35,18 +36,23 @@ public:
     /// @brief the simple name type.
     using simple_name_type = std::string;
 
+    /// @brief the column feature set type.
+    using feature_set_type = column_feature_set;
+
     /**
      * @brief constructs a new object.
      * @param simple_name the simple name
      * @param type the column data type
      * @param criteria the column value criteria
      * @param default_value the column default value
+     * @param features the column features
      */
     explicit column(
             simple_name_type simple_name,
             std::shared_ptr<takatori::type::data const> type,
             variable::criteria criteria,
-            column_value default_value) noexcept;
+            column_value default_value,
+            feature_set_type features) noexcept;
 
     /**
      * @brief constructs a new object.
@@ -54,13 +60,15 @@ public:
      * @param type the column data type
      * @param criteria the column value criteria
      * @param default_value the column default value (nullable)
+     * @param features the column features
      * @attention this may take copy of the arguments
      */
     column(
             std::string_view simple_name,
             takatori::type::data&& type,
             variable::criteria criteria = {},
-            column_value default_value = {});
+            column_value default_value = {},
+            feature_set_type features = {});
 
     /**
      * @brief creates a new object.
@@ -143,6 +151,15 @@ public:
     [[nodiscard]] column_value const& default_value() const noexcept;
 
     /**
+     * @brief returns the available features of this index.
+     * @return the available features
+     */
+    [[nodiscard]] feature_set_type& features() noexcept;
+
+    /// @copydoc features()
+    [[nodiscard]] feature_set_type const& features() const noexcept;
+
+    /**
      * @brief returns what declares this column.
      * @return the column declarator
      * @attention undefined behavior if this column is orphaned from the owner relations
@@ -177,6 +194,7 @@ private:
     std::shared_ptr<takatori::type::data const> type_;
     variable::criteria criteria_;
     column_value default_value_;
+    feature_set_type features_;
     relation* owner_ {};
 };
 

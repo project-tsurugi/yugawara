@@ -11,7 +11,7 @@ index::index(
         simple_name_type simple_name,
         std::vector<key> keys,
         std::vector<column_ref> values,
-        index_feature_set features) noexcept :
+        feature_set_type features) noexcept :
     definition_id_ { definition_id },
     table_ { std::move(table) },
     simple_name_ { std::move(simple_name) },
@@ -25,7 +25,7 @@ index::index(
         simple_name_type simple_name,
         std::vector<key> keys,
         std::vector<column_ref> values,
-        index_feature_set features) noexcept :
+        feature_set_type features) noexcept :
     index {
             std::nullopt,
             std::move(table),
@@ -41,7 +41,7 @@ index::index(
         std::string_view simple_name,
         std::initializer_list<key> keys,
         std::initializer_list<column_ref> values,
-        index_feature_set features) :
+        feature_set_type features) :
     index {
             std::nullopt,
             std::move(table),
@@ -58,7 +58,7 @@ index::index(
         std::string_view simple_name,
         std::initializer_list<key> keys,
         std::initializer_list<column_ref> values,
-        index_feature_set features) :
+        feature_set_type features) :
     index {
             definition_id,
             std::move(table),
@@ -116,11 +116,11 @@ std::vector<index::column_ref> const& index::values() const noexcept {
     return values_;
 }
 
-index_feature_set& index::features() noexcept {
+index::feature_set_type& index::features() noexcept {
     return features_;
 }
 
-index_feature_set const& index::features() const noexcept {
+index::feature_set_type const& index::features() const noexcept {
     return features_;
 }
 
