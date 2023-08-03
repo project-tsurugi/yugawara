@@ -23,7 +23,7 @@ public:
         source_ { source }
     {}
 
-    static bool is_entry(relation::expression const& expr) noexcept {
+    static bool is_entry(relation::expression const& expr) {
         static constexpr relation::expression_kind_set head_operators {
                 relation::expression_kind::find,
                 relation::expression_kind::scan,

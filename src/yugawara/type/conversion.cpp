@@ -748,6 +748,7 @@ static constexpr int compare_flexible(std::optional<std::size_t> left, std::opti
     return *left < *right ? -1 : +1;
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 util::ternary is_widening_convertible(takatori::type::data const& type, takatori::type::data const& target) noexcept {
     if (is_conversion_stop_type(type) || is_conversion_stop_type(target)) return ternary::unknown;
 

@@ -31,6 +31,7 @@ llvm-*,\
 -llvm-namespace-comment,\
 -llvm-qualified-auto,\
 misc-*,\
+-misc-no-recursion,\
 -misc-unused-parameters,\
 modernize-*,\
 -modernize-use-trailing-return-type,\
@@ -41,6 +42,7 @@ readability-*,\
 -readability-convert-member-functions-to-static,\
 -readability-named-parameter,\
 -readability-magic-numbers,\
+-readability-qualified-auto,\
 "
 CheckOptions:
   - key: readability-implicit-bool-conversion.AllowPointerConditions

@@ -147,7 +147,7 @@ public:
     }
 
     simplify_predicate_result operator()(scalar::binary& expr, expression_ref& ref) {
-        using kind = scalar::binary_operator;
+        using kind = binary_operator;
         switch (expr.operator_kind()) {
             case kind::conditional_and:
                 return process_conditional_and(expr, ref);

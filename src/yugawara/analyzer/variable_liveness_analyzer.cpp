@@ -286,6 +286,7 @@ private:
     // find use in branches for each defined variable
     std::vector<block const*> still_live {};
 
+    // NOLINTNEXTLINE(readability-function-cognitive-complexity)
     void process(block const* bp, liveness_map& lvs) {
         auto&& info = get_info(bp);
 

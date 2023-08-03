@@ -407,7 +407,7 @@ private:
         return destination;
     }
 
-    static bool is_left_mandatory(relation::join_kind k) noexcept {
+    static bool is_left_mandatory(relation::join_kind k) {
         static constexpr relation::join_kind_set left_mandatory {
                 relation::join_kind::inner,
                 relation::join_kind::left_outer,
@@ -417,7 +417,7 @@ private:
         return left_mandatory.contains(k);
     }
 
-    static bool is_right_mandatory(relation::join_kind k) noexcept {
+    static bool is_right_mandatory(relation::join_kind k) {
         static constexpr relation::join_kind_set right_mandatory {
                 relation::join_kind::inner,
                 relation::join_kind::semi,
