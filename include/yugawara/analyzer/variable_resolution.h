@@ -13,7 +13,6 @@
 #include <yugawara/variable/declaration.h>
 #include <yugawara/function/declaration.h>
 #include <yugawara/aggregate/declaration.h>
-#include <yugawara/variable/declaration.h>
 #include <takatori/type/data.h>
 #include <yugawara/type/repository.h>
 

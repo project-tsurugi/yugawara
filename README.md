@@ -14,7 +14,7 @@ git submodule update --init --recursive
 ### Dockerfile
 
 ```dockerfile
-FROM ubuntu:18.04
+FROM ubuntu:22.04
 
 RUN apt update -y && apt install -y git build-essential cmake ninja-build
 ```
@@ -23,7 +23,7 @@ optional packages:
 
 * `doxygen`
 * `graphviz`
-* `clang-tidy-8`
+* `clang-tidy-14`
 
 ### Install sub-modules
 

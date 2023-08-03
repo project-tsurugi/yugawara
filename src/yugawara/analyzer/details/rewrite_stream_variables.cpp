@@ -116,7 +116,7 @@ public:
                 auto&& es = row.elements();
                 // NOTE: maybe redundant guard
                 if (index < es.size()) {
-                    es.erase(es.cbegin() + index);
+                    es.erase(es.cbegin() + index); // NOLINT
                 }
             }
             it = columns.erase(it);
@@ -159,7 +159,7 @@ public:
                 rewrite(column.value());
                 ++i;
             } else {
-                columns.erase(columns.begin() + index);
+                columns.erase(columns.begin() + index); // NOLINT
             }
         }
     }

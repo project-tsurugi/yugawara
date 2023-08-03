@@ -104,7 +104,7 @@ private:
                 right_key_buf_, left_key_buf_,
                 right_term_builder_, local_features);
         if (cmp == volume_cmp::right_large) {
-            right_term_buf_.erase(right_term_buf_.begin() + right_kp, right_term_buf_.end());
+            right_term_buf_.erase(right_term_buf_.begin() + right_kp, right_term_buf_.end()); // NOLINT
         }
 
         if (commutative(expr) && enable_broadcast(local_features) && cmp != volume_cmp::left_large) {
@@ -165,6 +165,7 @@ private:
         return result;
     }
 
+    //NOLINTNEXTLINE(readability-function-cognitive-complexity)
     std::size_t build_terms(
             std::vector<std::pair<descriptor::variable const*, search_key_term*>>& results,
             relation::intermediate::join& expr,

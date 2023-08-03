@@ -123,7 +123,7 @@ public:
     using mask_type = task_info::mask_type;
     using task_type = task_info;
 
-    explicit engine(relation::graph_type& graph) noexcept :
+    explicit engine(relation::graph_type& graph) : // NOTE: initialization of hopscotch set may throw exception
         graph_(graph)
     {}
 

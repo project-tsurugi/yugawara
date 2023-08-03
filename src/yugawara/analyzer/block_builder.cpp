@@ -22,7 +22,7 @@ using block_graph = ::takatori::graph::graph<block>;
 
 namespace {
 
-inline bool is_front(relation::expression const& expr) noexcept {
+inline bool is_front(relation::expression const& expr) {
     static constexpr expression_kind_set force_front {
             relation::expression_kind::find,
             relation::expression_kind::scan,
@@ -41,7 +41,7 @@ inline bool is_front(relation::expression const& expr) noexcept {
     return expr.input_ports().size() != 1 || force_front.contains(expr.kind());
 }
 
-inline bool is_back(relation::expression const& expr) noexcept {
+inline bool is_back(relation::expression const& expr) {
     static constexpr expression_kind_set force_back {
             relation::expression_kind::buffer,
 

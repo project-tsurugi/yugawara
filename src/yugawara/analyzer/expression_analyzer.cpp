@@ -39,7 +39,6 @@
 #include <yugawara/binding/extract.h>
 
 #include <yugawara/storage/table.h>
-#include <takatori/util/string_builder.h>
 
 namespace yugawara::analyzer {
 
@@ -946,6 +945,7 @@ public:
         return true;
     }
 
+    // NOLINTNEXTLINE(readability-function-cognitive-complexity)
     bool operator()(relation::values const& expr) {
         // first, we check number of columns whether validate is enabled
         for (auto&& row : expr.rows()) {
@@ -1070,7 +1070,7 @@ public:
     }
 
     bool operator()(relation::project const& expr) {
-        for (auto&& column : expr.columns()) {
+        for (auto&& column : expr.columns()) { // NOLINT(readability-use-anyofallof) misdetection?
             auto source = resolve(column.value());
             if (is_error(*source)) {
                 return false;
@@ -1267,7 +1267,7 @@ public:
     }
 
     bool operator()(relation::step::take_cogroup const& expr) {
-        for (auto&& group : expr.groups()) {
+        for (auto&& group : expr.groups()) { // NOLINT(readability-use-anyofallof) w/ side effects
             if (!resolve_exchange_columns(expr, group.columns())) {
                 return false;
             }
@@ -1276,7 +1276,7 @@ public:
     }
 
     bool operator()(relation::step::offer const& expr) {
-        for (auto&& column : expr.columns()) {
+        for (auto&& column : expr.columns()) { // NOLINT(readability-use-anyofallof) w/ side effects
             auto&& source = resolve_stream_column(column.source());
             if (is_unresolved_or_error(source)) {
                 return false;
@@ -1367,6 +1367,7 @@ public:
         return resolve(stmt.execution_plan());
     }
 
+    // NOLINTNEXTLINE(readability-function-cognitive-complexity)
     bool operator()(statement::write const& stmt) {
         if (validate_) {
             auto&& index = binding::extract<storage::index>(stmt.destination());
@@ -1591,7 +1592,7 @@ private:
 
     template<class Expr, class Keys>
     [[nodiscard]] bool validate_keys(Expr const&, Keys const& keys) {
-        for (auto&& key : keys) {
+        for (auto&& key : keys) { // NOLINT(readability-use-anyofallof) w/ side effects
             auto&& varres = resolve_external_relation_column(key.variable());
             auto var = ana_.inspect(varres);
             auto val = resolve(key.value());
@@ -1632,7 +1633,7 @@ private:
 
     template<class Expr, class Keys>
     [[nodiscard]] bool validate_group_keys(Expr const&, Keys const& keys) {
-        for (auto&& key : keys) {
+        for (auto&& key : keys) { // NOLINT(readability-use-anyofallof) w/ side effects
             auto&& r = resolve_stream_column(key);
             if (is_unresolved_or_error(r)) {
                 return false;
@@ -1643,7 +1644,7 @@ private:
 
     template<class Expr, class Keys>
     [[nodiscard]] bool validate_sort_keys(Expr const&, Keys const& keys) {
-        for (auto&& key : keys) {
+        for (auto&& key : keys) { // NOLINT(readability-use-anyofallof) w/ side effects
             auto&& r = resolve_stream_column(key.variable());
             if (is_unresolved_or_error(r)) {
                 return false;
@@ -1685,7 +1686,7 @@ private:
 
     template<class ReadLike>
     [[nodiscard]] bool resolve_read_like(ReadLike const& expr) {
-        for (auto&& column : expr.columns()) {
+        for (auto&& column : expr.columns()) { // NOLINT(readability-use-anyofallof) w/ side effects
             auto&& resolution = resolve_external_relation_column(column.source());
             if (is_unresolved_or_error(resolution)) {
                 return false;
@@ -1697,7 +1698,7 @@ private:
 
     template<class Expr, class Seq>
     [[nodiscard]] bool resolve_exchange_columns(Expr const&, Seq const& columns) {
-        for (auto&& column : columns) {
+        for (auto&& column : columns) { // NOLINT(readability-use-anyofallof) w/ side effects
             auto&& resolution = resolve_exchange_column(column.source());
             if (is_unresolved_or_error(resolution)) {
                 return false;
