@@ -9,6 +9,8 @@ jobs:
       matrix:
         os: [ubuntu-20.04, ubuntu-22.04]
     runs-on: [self-hosted, docker]
+    permissions:
+      checks: write
     timeout-minutes: 30
     container:
       image: ghcr.io/project-tsurugi/oltp-sandbox:${{ matrix.os }}
@@ -29,6 +31,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: true
+          token: ${{ secrets.GHA_PAT }}
 
       - name: Install_Dependencies
         uses: ./.github/actions/install-dependencies
@@ -58,6 +61,8 @@ jobs:
 
   Analysis:
     runs-on: [self-hosted, docker]
+    permissions:
+      checks: write
     timeout-minutes: 30
     container:
       image: ghcr.io/project-tsurugi/oltp-sandbox:ubuntu-22.04
@@ -78,6 +83,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: true
+          token: ${{ secrets.GHA_PAT }}
 
       - name: Install_Dependencies
         uses: ./.github/actions/install-dependencies
