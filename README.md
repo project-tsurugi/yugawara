@@ -27,9 +27,11 @@ optional packages:
 
 ### Install sub-modules
 
-#### takatori
+#### tsurugidb modules
 
-see [README](third_party/takatori/README.md).
+This requires below [tsurugidb](https://github.com/project-tsurugi/tsurugidb) modules to be installed.
+
+* [takatori](https://github.com/project-tsurugi/takatori)
 
 #### hopscotch-map
 
