@@ -438,7 +438,7 @@ private:
         if (mask.none()) {
             return;
         }
-        std::unique_ptr<scalar::expression> result;
+        auto result = expr.exchange({});
         for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
             auto&& predicate = predicates_[i];
             if (result) {
