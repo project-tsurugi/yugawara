@@ -21,6 +21,8 @@
 #include <takatori/relation/intermediate/difference.h>
 #include <takatori/relation/intermediate/escape.h>
 
+#include <takatori/util/downcast.h>
+
 #include <yugawara/binding/factory.h>
 #include <yugawara/type/repository.h>
 #include <yugawara/storage/configurable_provider.h>
@@ -32,6 +34,8 @@ namespace yugawara::analyzer::details {
 
 // import test utils
 using namespace ::yugawara::testing;
+
+using ::takatori::util::downcast;
 
 class push_down_filters_test : public ::testing::Test {
 protected:
@@ -1237,6 +1241,100 @@ TEST_F(push_down_filters_test, escape) {
 
     EXPECT_EQ(f0.condition(), compare(varref(x0), constant(0)));
     EXPECT_EQ(rf.condition(), boolean(true));
+}
+
+TEST_F(push_down_filters_test, fix_left_join_cond) {
+    auto t_tb1 = storages.add_table({
+            "tb1",
+            {
+                    { "pk", t::int4()} ,
+                    { "c1", t::int4()} ,
+            },
+    });
+    auto t_tb2 = storages.add_table({
+            "tb2",
+            {
+                    { "pk", t::int4()} ,
+                    { "c2", t::int4()} ,
+            },
+    });
+    auto i_tb1 = storages.add_index({
+            t_tb1,
+            "i_tb1",
+            {
+                    t_tb1->columns()[0],
+            },
+            {},
+            {
+                    ::yugawara::storage::index_feature::find,
+                    ::yugawara::storage::index_feature::scan,
+                    ::yugawara::storage::index_feature::unique,
+                    ::yugawara::storage::index_feature::primary,
+            },
+    });
+    auto i_tb2 = storages.add_index({
+            t_tb2,
+            "i_tb2",
+            {
+                    t_tb2->columns()[0],
+            },
+            {},
+            {
+                    ::yugawara::storage::index_feature::find,
+                    ::yugawara::storage::index_feature::scan,
+                    ::yugawara::storage::index_feature::unique,
+                    ::yugawara::storage::index_feature::primary,
+            },
+    });
+
+    /*
+    "SELECT pk FROM tb1 "
+    "LEFT OUTER JOIN tb2 ON tb1.pk = tb2.pk "
+    "WHERE tb2.pk = 1"
+    */
+    relation::graph_type r;
+
+    auto tb1_pk = bindings.stream_variable("tb1_pk");
+    auto tb1_c1 = bindings.stream_variable("tb1_c1");
+    auto tb2_pk = bindings.stream_variable("tb2_pk");
+    auto tb2_c2 = bindings.stream_variable("tb2_c2");
+    auto&& in_tb1 = r.insert(relation::scan {
+            bindings(*i_tb1),
+            {
+                    { bindings(t_tb1->columns()[0]), tb1_pk },
+                    { bindings(t_tb1->columns()[1]), tb1_c1 },
+            },
+    });
+    auto&& in_tb2 = r.insert(relation::scan {
+            bindings(*i_tb2),
+            {
+                    { bindings(t_tb2->columns()[0]), tb2_pk },
+                    { bindings(t_tb2->columns()[1]), tb2_c2 },
+            },
+    });
+
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+            compare(varref(tb1_pk), varref(tb2_pk))
+    });
+
+    auto&& filter = r.insert(relation::filter {
+            compare(varref(tb2_pk), constant(1))
+    });
+
+    auto&& out = r.insert(relation::emit { tb1_pk, tb2_pk });
+
+    in_tb1.output() >> join.left();
+    in_tb2.output() >> join.right();
+    join.output() >> filter.input();
+    filter.output() >> out.input();
+
+    apply(r);
+    ASSERT_TRUE(join.condition());
+    auto&& cond = downcast<scalar::binary>(*join.condition());
+    EXPECT_EQ(cond.operator_kind(), scalar::binary_operator::conditional_and);
+    EXPECT_EQ(cond.left(), compare(varref(tb1_pk), varref(tb2_pk)));
+    EXPECT_EQ(cond.right(), compare(varref(tb2_pk), constant(1)));
 }
 
 } // namespace yugawara::analyzer::details
