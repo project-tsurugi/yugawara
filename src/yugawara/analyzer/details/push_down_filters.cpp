@@ -214,12 +214,11 @@ public:
                 // L - just carry to left
                 mask.reset(i);
             } else {
-                // schedule push down into the condition, and also keep the original one
-                flush_copy(expr.output(), predicate);
+                // never pass the right-term conditions
+                flush(expr.output(), predicate);
+                mask.reset(i);
             }
         }
-        // merge all incoming terms into join condition
-        merge_predicates(expr.ownership_condition(), std::move(mask));
 
         // carry to left
         pass(expr.left(), std::move(left_mask));
@@ -228,16 +227,7 @@ public:
 
     void operator()(enum_tag_t<relation::join_kind::full_outer>, relation::intermediate::join& expr, mask_type&& mask) {
         // NOTE: outer join does not decompose the join condition
-
-        // push down incoming terms to the join condition
-        for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
-            auto&& predicate = predicates_[i];
-            // schedule push down into the condition, and also keep the original one
-            flush_copy(expr.output(), predicate);
-        }
-        // merge all incoming terms into join condition
-        merge_predicates(expr.ownership_condition(), std::move(mask));
-
+        flush_all(expr.output(), mask);
         pass(expr.left(), empty_mask());
         pass(expr.right(), empty_mask());
     }
