@@ -136,11 +136,6 @@ target_link_libraries(yugawara
     PRIVATE tsl::hopscotch_map
 )
 
-set_target_properties(yugawara
-    PROPERTIES
-        SOVERSION ${PROJECT_VERSION}
-)
-
 # Add INSTALL_RPATH from CMAKE_INSTALL_PREFIX and CMAKE_PREFIX_PATH
 # The default behavior of CMake omits RUNPATH if it is already in CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES.
 if (FORCE_INSTALL_RPATH)
