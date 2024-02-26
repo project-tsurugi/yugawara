@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(yugawara-project
-    VERSION 0.1.0
+    VERSION 1.0.0
     DESCRIPTION "Yugawara - A fundamental language toolkit for SQL IR"
     LANGUAGES C CXX)
 
