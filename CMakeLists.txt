@@ -23,6 +23,8 @@ find_package(mpdecpp REQUIRED)
 
 find_package(tsl-hopscotch-map 2.2 REQUIRED)
 
+find_package(glog REQUIRED)
+
 set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_RUNTIME OFF)

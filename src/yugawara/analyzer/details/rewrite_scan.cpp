@@ -1,5 +1,7 @@
 #include "rewrite_scan.h"
 
+#include <glog/logging.h>
+
 #include <optional>
 
 #include <takatori/relation/scan.h>
@@ -88,6 +90,7 @@ private:
                 collector_.sort_keys(),
                 collector_.referring());
 
+        VLOG(50) << "index " << index.simple_name() << ": " << result;
         if (is_better(result)) {
             save_result(index, result, term_buf_);
         }

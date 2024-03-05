@@ -134,6 +134,7 @@ target_link_libraries(yugawara
     PUBLIC yugawara-api
     PUBLIC takatori
     PRIVATE tsl::hopscotch_map
+    PRIVATE glog::glog
 )
 
 # Add INSTALL_RPATH from CMAKE_INSTALL_PREFIX and CMAKE_PREFIX_PATH
