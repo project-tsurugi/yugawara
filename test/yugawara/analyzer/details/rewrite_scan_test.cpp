@@ -40,7 +40,11 @@ protected:
     storage::column const& t0c1 = t0->columns()[1];
     storage::column const& t0c2 = t0->columns()[2];
 
-    std::shared_ptr<storage::index> i0 = storages.add_index({ t0, "I0", });
+    std::shared_ptr<storage::index> i0 = storages.add_index(
+            {
+                    t0,
+                    "I0",
+            });
 
     void apply(relation::graph_type& graph) {
         default_index_estimator estimator;
@@ -318,6 +322,62 @@ TEST_F(rewrite_scan_test, index_only) {
 
     auto&& result = next<relation::scan>(f0.input());
     EXPECT_EQ(result.source(), bindings(*x0));
+}
+
+TEST_F(rewrite_scan_test, scores) {
+    auto pi = storages.add_index(storage::index {
+            t0,
+            "pi",
+            {
+                    t0->columns()[0],
+            },
+            {},
+            {
+                    storage::index_feature::primary,
+                    storage::index_feature::scan,
+                    storage::index_feature::find,
+                    storage::index_feature::unique,
+            },
+    });
+    auto si = storages.add_index(storage::index {
+            t0,
+            "se",
+            {
+                    t0->columns()[1],
+            },
+            {},
+            {
+                    storage::index_feature::scan,
+                    storage::index_feature::find,
+            },
+    });
+
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+                    { bindings(t0c1), c1 },
+                    { bindings(t0c2), c2 },
+            },
+    });
+    auto&& out = r.insert(relation::emit { c0, c1, c2 });
+
+    auto&& f0 = r.insert(relation::filter {
+            // C1 > 0 AND C1 < 100
+            land(
+                    compare(varref(c1), constant(0), comparison_operator::greater),
+                    compare(varref(c1), constant(100), comparison_operator::less)),
+    });
+    in.output() >> f0.input();
+    f0.output() >> out.input();
+    apply(r);
+
+    auto&& result = next<relation::scan>(f0.input());
+    EXPECT_EQ(result.source(), bindings(*si));
 }
 
 } // namespace yugawara::analyzer::details

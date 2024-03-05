@@ -101,9 +101,9 @@ bool is_index_only(
 
 double key_selectivity(sequence_view<index_estimator::search_key const> search_keys) {
     constexpr double base_selectivity = 1.0;
-    constexpr double equivalent_selectivity = 0.25;
-    constexpr double full_bound_selectivity = 0.5;
-    constexpr double half_bound_selectivity = 0.75;
+    constexpr double equivalent_selectivity = 0.1;
+    constexpr double full_bound_selectivity = 0.3;
+    constexpr double half_bound_selectivity = 0.6;
     double result = base_selectivity;
     if (search_keys.empty()) {
         return result;
