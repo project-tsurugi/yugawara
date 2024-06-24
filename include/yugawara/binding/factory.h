@@ -15,6 +15,7 @@
 
 #include <takatori/plan/exchange.h>
 
+#include <takatori/util/maybe_shared_ptr.h>
 #include <takatori/util/optional_ptr.h>
 
 #include <yugawara/variable/declaration.h>
@@ -52,7 +53,7 @@ public:
      * @brief creates a new index descriptor.
      * @param declaration the original declaration
      */
-    [[nodiscard]] ::takatori::descriptor::relation index(std::shared_ptr<storage::index const> declaration);
+    [[nodiscard]] ::takatori::descriptor::relation index(::takatori::util::maybe_shared_ptr<storage::index const> declaration);
 
     /**
      * @brief creates a new exchange descriptor.
@@ -145,7 +146,7 @@ public:
      * @brief creates a new schema descriptor.
      * @param declaration the original declaration
      */
-    [[nodiscard]] ::takatori::descriptor::schema schema(std::shared_ptr<schema::declaration const> declaration);
+    [[nodiscard]] ::takatori::descriptor::schema schema(::takatori::util::maybe_shared_ptr<schema::declaration const> declaration);
 
     /**
      * @brief creates a new schema descriptor.
@@ -170,8 +171,8 @@ public:
     /// @copydoc index(storage::index const&)
     [[nodiscard]] ::takatori::descriptor::relation operator()(storage::index const& declaration);
 
-    /// @copydoc index(std::shared_ptr<storage::index const>)
-    [[nodiscard]] ::takatori::descriptor::relation operator()(std::shared_ptr<storage::index const> declaration);
+    /// @copydoc index(::takatori::util::maybe_shared_ptr<storage::index const>)
+    [[nodiscard]] ::takatori::descriptor::relation operator()(::takatori::util::maybe_shared_ptr<storage::index const> declaration);
 
     /// @copydoc exchange()
     [[nodiscard]] ::takatori::descriptor::relation operator()(::takatori::plan::exchange const& declaration);
@@ -197,8 +198,8 @@ public:
     /// @copydoc aggregate_function(aggregate::declaration&&)
     [[nodiscard]] ::takatori::descriptor::aggregate_function operator()(aggregate::declaration&& declaration);
 
-    /// @copydoc schema(std::shared_ptr<schema::declaration const>)
-    [[nodiscard]] ::takatori::descriptor::schema operator()(std::shared_ptr<schema::declaration const> declaration);
+    /// @copydoc schema(::takatori::util::maybe_shared_ptr<schema::declaration const>)
+    [[nodiscard]] ::takatori::descriptor::schema operator()(::takatori::util::maybe_shared_ptr<schema::declaration const> declaration);
 
     /// @copydoc schema(schema::declaration&&)
     [[nodiscard]] ::takatori::descriptor::schema operator()(schema::declaration&& declaration);
