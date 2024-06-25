@@ -91,7 +91,7 @@ struct descriptor_extract<::takatori::descriptor::schema, schema::declaration> :
     using descriptor_type = ::takatori::descriptor::schema;
     using entity_type = schema::declaration;
     using result_type = ::takatori::util::optional_ptr<entity_type const>;
-    using pointer_type = std::shared_ptr<entity_type const>;
+    using pointer_type = ::takatori::util::maybe_shared_ptr<entity_type const>;
     [[nodiscard]] static result_type extract(descriptor_type const& desc, bool fail_if_mismatch);
     [[nodiscard]] static pointer_type extract_shared(descriptor_type const& desc, bool fail_if_mismatch);
 };

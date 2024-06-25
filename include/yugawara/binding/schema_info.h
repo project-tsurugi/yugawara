@@ -4,6 +4,7 @@
 
 #include <takatori/descriptor/schema.h>
 #include <takatori/util/object.h>
+#include <takatori/util/maybe_shared_ptr.h>
 
 #include <yugawara/schema/declaration.h>
 
@@ -18,7 +19,7 @@ public:
     using descriptor_type = ::takatori::descriptor::schema;
 
     /// @brief the pointer type of schema declaration.
-    using declaration_pointer = std::shared_ptr<schema::declaration const>;
+    using declaration_pointer = ::takatori::util::maybe_shared_ptr<schema::declaration const>;
 
     /**
      * @brief creates a new instance.
