@@ -1926,4 +1926,59 @@ TEST_F(rewrite_stream_variables_test, broadcast) {
     EXPECT_EQ(r4.columns()[1].source(), p1c2m);
 }
 
+TEST_F(rewrite_stream_variables_test, forward_zero_columns) {
+    /*
+     * [values:r0 - offer:r1]:p0 - [forward]:e0 - [take_flat:r2 - project:r3 - emit:r4]:p1
+     */
+    plan::graph_type p;
+    auto&& p0 = p.insert(plan::process {});
+    auto&& p1 = p.insert(plan::process {});
+    auto&& e0 = p.insert(plan::forward {});
+
+    auto&& r0 = p0.operators().insert(relation::values {
+            {},
+            {},
+    });
+    auto&& r1 = p0.operators().insert(offer {
+            bindings(e0),
+    });
+    auto&& r2 = p1.operators().insert(take_flat {
+            bindings(e0),
+    });
+    auto v0 = bindings.stream_variable("p0");
+    auto&& r3 = p1.operators().insert(relation::project {
+            relation::project::column {
+                    constant(0),
+                    v0,
+            }
+    });
+    auto&& r4 = p1.operators().insert(relation::emit {
+            v0,
+    });
+    r0.output() >> r1.input();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    apply(p);
+    ASSERT_EQ(e0.columns().size(), 0);
+
+    // values
+    ASSERT_EQ(r0.columns().size(), 0);
+
+    // offer
+    ASSERT_EQ(r1.columns().size(), 0);
+
+    // take
+    ASSERT_EQ(r2.columns().size(), 0);
+
+    // project
+    ASSERT_EQ(r3.columns().size(), 1);
+    EXPECT_EQ(r3.columns()[0].value(), constant(0));
+    auto&& p1v0 = r3.columns()[0].variable();
+
+    // emit
+    ASSERT_EQ(r4.columns().size(), 1);
+    EXPECT_EQ(r4.columns()[0].source(), p1v0);
+}
+
 } // namespace yugawara::analyzer::details

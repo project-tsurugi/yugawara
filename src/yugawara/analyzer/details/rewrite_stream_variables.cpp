@@ -363,7 +363,6 @@ private:
 
     template<class Columns>
     void define_used_columns(exchange_column_info& info, Columns& columns) {
-        BOOST_ASSERT(!columns.empty()); // NOLINT
         for (auto&& it = columns.begin(); it != columns.end();) {
             auto&& column = *it;
             if (context_.try_rewrite_define(column.destination())) {
