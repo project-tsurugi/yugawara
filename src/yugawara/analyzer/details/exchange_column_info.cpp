@@ -1,7 +1,5 @@
 #include "exchange_column_info.h"
 
-#include <takatori/util/assertion.h>
-
 #include <yugawara/binding/factory.h>
 #include <yugawara/binding/extract.h>
 
@@ -38,8 +36,7 @@ descriptor::variable const& exchange_column_info::allocate(descriptor::variable 
     auto&& entry = entries_.emplace_back(variable, f.exchange_column(info.label()));
     auto [it, success] = index_.emplace(variable, entries_.size() - 1);
     (void) it;
-    (void) success;
-    BOOST_ASSERT(success); // NOLINT
+    (void) success; // may be false if the variable is already bound
     return entry.second;
 }
 
@@ -51,8 +48,7 @@ void exchange_column_info::bind(
     entries_.emplace_back(variable, std::move(replacement));
     auto [it, success] = index_.emplace(std::move(variable), entries_.size() - 1);
     (void) it;
-    (void) success;
-    BOOST_ASSERT(success); // NOLINT
+    (void) success; // may be false if the variable is already bound
 }
 
 void exchange_column_info::touch(descriptor::variable const& variable) {

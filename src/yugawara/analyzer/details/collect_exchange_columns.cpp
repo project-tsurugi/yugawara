@@ -472,8 +472,6 @@ private:
     void analyze_join_read_like(Expr& expr, buffer_type& available_columns) {
         if (is_exchange(expr.source())) {
             fill_source_exchange_columns(expr.source(), expr.columns());
-        } else {
-            BOOST_ASSERT(!expr.columns().empty()); // NOLINT
         }
         auto kind = expr.operator_kind();
         if (kind != relation::join_kind::semi && kind != relation::join_kind::anti) {

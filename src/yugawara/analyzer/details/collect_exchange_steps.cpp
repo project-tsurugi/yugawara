@@ -1,5 +1,7 @@
 #include "collect_exchange_steps.h"
 
+#include <tsl/hopscotch_set.h>
+
 #include <takatori/scalar/variable_reference.h>
 
 #include <takatori/relation/intermediate/dispatch.h>
@@ -117,6 +119,8 @@ public:
     }
 
     void operator()(relation::intermediate::aggregate& expr) {
+        shrink_duplicated_variables(expr.group_keys());
+
         if (!options_.runtime_features().contains(runtime_feature::aggregate_exchange)) {
             process_aggregate_group(expr);
             return;
@@ -142,6 +146,8 @@ public:
     }
 
     void operator()(relation::intermediate::distinct& expr) {
+        shrink_duplicated_variables(expr.group_keys());
+
         /*
          * .. - distinct_relation{k} - ..
          * =>
@@ -168,6 +174,8 @@ public:
     }
 
     void operator()(relation::intermediate::limit& expr) {
+        shrink_duplicated_variables(expr.group_keys());
+
         if (expr.group_keys().empty() && expr.sort_keys().empty()) {
             process_limit_flat(expr);
         } else {
@@ -424,6 +432,24 @@ private:
                 relation::join_kind::anti,
         };
         return right_mandatory.contains(k);
+    }
+
+    void shrink_duplicated_variables(std::vector<descriptor::variable>& variables) {
+        if (variables.empty()) {
+            return;
+        }
+        ::tsl::hopscotch_set<descriptor::variable::entity_type*> saw {};
+        saw.reserve(variables.size());
+        for (auto iter = variables.begin(); iter != variables.end();) {
+            auto key_ptr = iter->shared_entity().get();
+            auto [inserted, result] = saw.insert(key_ptr);
+            (void) inserted;
+            if (result) {
+                ++iter;
+            } else {
+                iter = variables.erase(iter);
+            }
+        }
     }
 
     void process_aggregate_exchange(relation::intermediate::aggregate& expr) {
