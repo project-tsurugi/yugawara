@@ -26,6 +26,7 @@ endfunction (add_test_executable)
 
 # root
 add_test_executable(yugawara/compiler_test.cpp)
+add_test_executable(yugawara/details/collect_restricted_features_test.cpp)
 
 # type system
 add_test_executable(yugawara/type/type_category_test.cpp)

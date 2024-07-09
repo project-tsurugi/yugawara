@@ -10,8 +10,9 @@
 #include <yugawara/analyzer/step_plan_builder.h>
 
 #include <yugawara/storage/basic_prototype_processor.h>
+#include <yugawara/storage/resolve_prototype.h>
 
-#include "storage/resolve_prototype.h"
+#include "details/collect_restricted_features.h"
 
 namespace yugawara {
 
@@ -108,6 +109,12 @@ public:
             }
             if (auto diagnostics = storage::resolve_prototype(*stmt, *proc); !diagnostics.empty()) {
                 return result_type { diagnostics };
+            }
+        }
+        if (!options_.restricted_features().empty()) {
+            auto diagnostics = details::collect_restricted_features(options_.restricted_features(), *stmt);
+            if (!diagnostics.empty()) {
+                return result_type { std::move(diagnostics) };
             }
         }
 

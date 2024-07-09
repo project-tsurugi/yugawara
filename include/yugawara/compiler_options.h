@@ -4,9 +4,11 @@
 
 #include <takatori/util/maybe_shared_ptr.h>
 
-#include <yugawara/runtime_feature.h>
 #include <yugawara/analyzer/index_estimator.h>
 #include <yugawara/storage/prototype_processor.h>
+
+#include "runtime_feature.h"
+#include "restricted_feature.h"
 
 namespace yugawara {
 
@@ -22,6 +24,24 @@ public:
     static constexpr runtime_feature_set default_runtime_features { runtime_feature_all };
 
     /**
+     * @brief the default list of restricted features.
+     * @see restricted_features()
+     */
+    static constexpr restricted_feature_set default_restricted_features {};
+
+    /**
+     * @brief creates a new instance with default options.
+     * @param runtime_features the supported runtime features
+     * @param storage_processor the storage element prototype processor for accepting storage element definitions
+     * @param index_estimator the index estimator for index selection
+     * @see runtime_features()
+     * @see restricted_features()
+     */
+    compiler_options( // NOLINT(*-explicit-constructor, *-explicit-conversions)
+            ::takatori::util::maybe_shared_ptr<::yugawara::storage::prototype_processor> storage_processor,
+            ::takatori::util::maybe_shared_ptr<::yugawara::analyzer::index_estimator const> index_estimator = {}) noexcept;
+
+    /**
      * @brief creates a new instance with default options.
      * @param runtime_features the supported runtime features
      * @param storage_processor the storage element prototype processor for accepting storage element definitions
@@ -35,11 +55,22 @@ public:
     /**
      * @brief returns the available feature set of the target environment.
      * @return the available features
+     * @see restricted_features()
      */
     [[nodiscard]] runtime_feature_set& runtime_features() noexcept;
 
     /// @copydoc runtime_features()
     [[nodiscard]] runtime_feature_set const& runtime_features() const noexcept;
+
+    /**
+     * @brief returns the restricted feature set of the target environment.
+     * @return the restricted features
+     * @see runtime_feature()
+     */
+    [[nodiscard]] restricted_feature_set& restricted_features() noexcept;
+
+    /// @copydoc restricted_features()
+    [[nodiscard]] restricted_feature_set const& restricted_features() const noexcept;
 
     /**
      * @brief returns the storage element processor for handling storage element definitions.
@@ -71,6 +102,7 @@ public:
 
 private:
     runtime_feature_set runtime_features_ { default_runtime_features };
+    restricted_feature_set restricted_features_ { default_restricted_features };
     ::takatori::util::maybe_shared_ptr<::yugawara::storage::prototype_processor> storage_processor_ {};
     ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> index_estimator_ {};
 };

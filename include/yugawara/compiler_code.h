@@ -12,6 +12,8 @@ namespace yugawara {
 enum class compiler_code {
     /// @brief unknown diagnostic.
     unknown = 0,
+    /// @brief the runtime does not support such target.
+    unsupported_feature,
     /// @brief input type is not supported in this operation.
     unsupported_type,
     /// @brief input type is not distinguished for the overloaded operations.
@@ -34,6 +36,7 @@ inline constexpr std::string_view to_string_view(compiler_code value) noexcept {
     using kind = compiler_code;
     switch (value) {
         case kind::unknown: return "unknown"sv;
+        case kind::unsupported_feature: return "unsupported_feature"sv;
         case kind::unsupported_type: return "unsupported_type"sv;
         case kind::ambiguous_type: return "ambiguous_type"sv;
         case kind::inconsistent_type: return "inconsistent_type"sv;

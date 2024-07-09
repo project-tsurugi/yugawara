@@ -7,6 +7,13 @@ namespace yugawara {
 using ::takatori::util::maybe_shared_ptr;
 
 compiler_options::compiler_options(
+        maybe_shared_ptr<storage::prototype_processor> storage_processor,
+        maybe_shared_ptr<analyzer::index_estimator const> index_estimator) noexcept :
+    storage_processor_ { std::move(storage_processor) },
+    index_estimator_ { std::move(index_estimator) }
+{}
+
+compiler_options::compiler_options(
         runtime_feature_set  runtime_features,
         maybe_shared_ptr<storage::prototype_processor> storage_processor,
         maybe_shared_ptr<analyzer::index_estimator const> index_estimator) noexcept :
@@ -21,6 +28,14 @@ runtime_feature_set& compiler_options::runtime_features() noexcept {
 
 runtime_feature_set const& compiler_options::runtime_features() const noexcept {
     return runtime_features_;
+}
+
+restricted_feature_set& compiler_options::restricted_features() noexcept {
+    return restricted_features_;
+}
+
+restricted_feature_set const& compiler_options::restricted_features() const noexcept {
+    return restricted_features_;
 }
 
 maybe_shared_ptr<storage::prototype_processor> compiler_options::storage_processor() const noexcept {
