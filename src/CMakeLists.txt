@@ -5,6 +5,7 @@ add_library(yugawara
     yugawara/compiler_options.cpp
     yugawara/compiled_info.cpp
     yugawara/compiler_result.cpp
+    yugawara/details/collect_restricted_features.cpp
 
     # storage information
     yugawara/storage/relation.cpp

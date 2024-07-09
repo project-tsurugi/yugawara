@@ -10,6 +10,7 @@
 #include <takatori/relation/filter.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/find.h>
+#include <takatori/relation/values.h>
 #include <takatori/relation/intermediate/join.h>
 
 #include <takatori/statement/execute.h>
@@ -33,8 +34,6 @@ namespace yugawara {
 using namespace ::yugawara::testing;
 
 namespace statement = ::takatori::statement;
-
-using ::takatori::scalar::comparison_operator;
 
 class compiler_test: public ::testing::Test {
 protected:
@@ -694,6 +693,29 @@ TEST_F(compiler_test, fix_left_join_cond) {
     ASSERT_TRUE(result);
 
     dump(result);
+}
+
+TEST_F(compiler_test, restricted_feature) {
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto&& in = r.insert(relation::values {
+            { c0, c1 },
+            {},
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+    in.output() >> out.input();
+
+    auto opts = options();
+    opts.restricted_features() += {
+            restricted_feature::relation_values
+    };
+    auto result = compiler()(opts, std::move(r));
+    EXPECT_FALSE(result);
+
+    auto diagnostics = result.diagnostics();
+    ASSERT_EQ(diagnostics.size(), 1);
+    EXPECT_EQ(diagnostics[0].code(), compiler_code::unsupported_feature);
 }
 
 } // namespace yugawara
