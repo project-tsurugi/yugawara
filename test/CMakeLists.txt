@@ -30,6 +30,7 @@ add_test_executable(yugawara/details/collect_restricted_features_test.cpp)
 
 # type system
 add_test_executable(yugawara/type/type_category_test.cpp)
+add_test_executable(yugawara/type/type_conversion_overload_test.cpp)
 
 # variable models
 add_test_executable(yugawara/variable/variable_declaration_test.cpp)

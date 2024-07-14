@@ -870,4 +870,131 @@ util::ternary is_widening_convertible(takatori::type::data const& type, takatori
     }
 }
 
+util::ternary is_most_upperbound_compatible_type(const takatori::type::data &type) noexcept {
+    if (is_conversion_stop_type(type)) return ternary::unknown;
+
+    switch (type.kind()) {
+        case kind::int1:
+        case kind::int2:
+            return util::ternary::no;
+
+        case kind::decimal:
+        {
+            auto&& t = unsafe_downcast<model::decimal>(type);
+            return util::ternary_of(t.precision() == std::nullopt && t.scale() == std::nullopt);
+        }
+
+        case kind::character:
+        {
+            auto&& t = unsafe_downcast<model::character>(type);
+            return util::ternary_of(t.varying() && t.length() == std::nullopt);
+        }
+
+        case kind::bit:
+        {
+            auto&& t = unsafe_downcast<model::bit>(type);
+            return util::ternary_of(t.varying() && t.length() == std::nullopt);
+        }
+
+        case kind::octet:
+        {
+            auto&& t = unsafe_downcast<model::octet>(type);
+            return util::ternary_of(t.varying() && t.length() == std::nullopt);
+        }
+
+        default:
+            return ternary::yes;
+    }
+}
+
+util::ternary is_parameter_application_convertible(model::data const& type, model::data const& target) noexcept {
+    if (is_conversion_stop_type(type) || is_conversion_stop_type(target)) return ternary::unknown;
+
+    if (is_most_upperbound_compatible_type(target) == util::ternary::no) {
+        return ternary::unknown;
+    }
+
+    // can convert unknown to anything
+    if (type.kind() == kind::unknown) {
+        return ternary::yes;
+    }
+
+    switch (npair(type.kind(), target.kind())) {
+        case npair(kind::boolean, kind::boolean):
+            return util::ternary::yes;
+
+        case npair(kind::int1, kind::int1):
+        case npair(kind::int1, kind::int2):
+        case npair(kind::int1, kind::int4):
+        case npair(kind::int1, kind::int8):
+        case npair(kind::int1, kind::decimal):
+        case npair(kind::int1, kind::float4):
+        case npair(kind::int1, kind::float8):
+            return util::ternary::yes;
+
+        case npair(kind::int2, kind::int2):
+        case npair(kind::int2, kind::int4):
+        case npair(kind::int2, kind::int8):
+        case npair(kind::int2, kind::decimal):
+        case npair(kind::int2, kind::float4):
+        case npair(kind::int2, kind::float8):
+            return util::ternary::yes;
+
+        case npair(kind::int4, kind::int4):
+        case npair(kind::int4, kind::int8):
+        case npair(kind::int4, kind::decimal):
+        case npair(kind::int4, kind::float4):
+        case npair(kind::int4, kind::float8):
+            return util::ternary::yes;
+
+        case npair(kind::int8, kind::int8):
+        case npair(kind::int8, kind::decimal):
+        case npair(kind::int8, kind::float4):
+        case npair(kind::int8, kind::float8):
+            return util::ternary::yes;
+
+        case npair(kind::decimal, kind::decimal):
+        case npair(kind::decimal, kind::float4):
+        case npair(kind::decimal, kind::float8):
+            return util::ternary::yes;
+
+        case npair(kind::float4, kind::float4):
+        case npair(kind::float4, kind::float8):
+            return util::ternary::yes;
+
+        case npair(kind::float8, kind::float8):
+            return util::ternary::yes;
+
+        case npair(kind::character, kind::character):
+            return util::ternary::yes;
+
+        case npair(kind::bit, kind::bit):
+            return util::ternary::yes;
+
+        case npair(kind::octet, kind::octet):
+            return util::ternary::yes;
+
+        case npair(kind::date, kind::date):
+            return util::ternary::yes;
+
+        case npair(kind::time_of_day, kind::time_of_day):
+        {
+            auto&& a = unsafe_downcast<model::time_of_day>(type);
+            auto&& b = unsafe_downcast<model::time_of_day>(target);
+            return util::ternary_of(a.with_time_zone() == b.with_time_zone());
+        }
+
+        case npair(kind::time_point, kind::time_point):
+        {
+            auto&& a = unsafe_downcast<model::time_point>(type);
+            auto&& b = unsafe_downcast<model::time_point>(target);
+            return util::ternary_of(a.with_time_zone() == b.with_time_zone());
+        }
+
+        // FIXME: more types
+        default:
+            return util::ternary::no;
+    }
+}
+
 } // namespace yugawara::type

@@ -333,4 +333,25 @@ util::ternary is_cast_convertible(::takatori::type::data const& type, ::takatori
  */
 util::ternary is_widening_convertible(::takatori::type::data const& type, ::takatori::type::data const& target) noexcept;
 
+/**
+ * @brief returns whether or not the type is the most upper-bound compatible type in its category.
+ * @param type the target type
+ * @return yes if the target type is the most upper-bound compatible type
+ * @return no if the target type is not the most upper-bound compatible type
+ * @return unknown if the target type is erroneous or pending
+ */
+util::ternary is_most_upperbound_compatible_type(::takatori::type::data const& type) noexcept;
+
+/**
+ * @brief returns whether or not the "parameter application conversion" is applicable to the given types.
+ * @param type the type to be converted
+ * @param target the conversion target type, must be the most upper-bound compatible type in its category
+ * @return yes if the conversion is applicable
+ * @return no if the conversion is not applicable
+ * @return unknown if the conversion target type is not the most upper-bound compatible type
+ * @return unknown if the parameters contain an erroneous or pending type
+ * @see is_most_upperbound_compatible_type()
+ */
+util::ternary is_parameter_application_convertible(::takatori::type::data const& type, ::takatori::type::data const& target) noexcept;
+
 } // namespace yugawara::type
