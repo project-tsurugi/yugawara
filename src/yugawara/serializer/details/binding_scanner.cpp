@@ -188,6 +188,38 @@ void binding_scanner::properties(storage::index const& element) {
     acceptor_.property_end();
 }
 
+void binding_scanner::properties(storage::sequence const& element) {
+    acceptor_.property_begin("definition_id"sv);
+    if (auto const& v = element.definition_id()) {
+        acceptor_.unsigned_integer(*v);
+    }
+    acceptor_.property_end();
+
+    acceptor_.property_begin("simple_name"sv);
+    acceptor_.string(element.simple_name());
+    acceptor_.property_end();
+
+    acceptor_.property_begin("initial_value"sv);
+    acceptor_.integer(element.initial_value());
+    acceptor_.property_end();
+
+    acceptor_.property_begin("increment_value"sv);
+    acceptor_.integer(element.increment_value());
+    acceptor_.property_end();
+
+    acceptor_.property_begin("min_value"sv);
+    acceptor_.integer(element.min_value());
+    acceptor_.property_end();
+
+    acceptor_.property_begin("max_value"sv);
+    acceptor_.integer(element.max_value());
+    acceptor_.property_end();
+
+    acceptor_.property_begin("cycle"sv);
+    acceptor_.boolean(element.cycle());
+    acceptor_.property_end();
+}
+
 void binding_scanner::properties(takatori::plan::exchange const& element) {
     acceptor_.property_begin("this"sv);
     acceptor_.pointer(std::addressof(element));
@@ -303,10 +335,23 @@ void binding_scanner::accept(storage::column_value const& element) {
             break;
         }
 
+        case kind::function: {
+            acceptor_.property_begin("element"sv);
+            if (auto&& e = element.element<kind::function>()) {
+                acceptor_.struct_begin();
+                properties(*e);
+                acceptor_.struct_end();
+            }
+            acceptor_.property_end();
+            break;
+        }
+
         case kind::sequence: {
             acceptor_.property_begin("element"sv);
             if (auto&& e = element.element<kind::sequence>()) {
-                acceptor_.string(e->simple_name());
+                acceptor_.struct_begin();
+                properties(*e);
+                acceptor_.struct_end();
             }
             acceptor_.property_end();
             break;

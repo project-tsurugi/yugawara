@@ -92,6 +92,27 @@ TEST_F(object_scanner_test, table_column_default_immediate) {
     print(bindings(t.columns()[0]));
 }
 
+TEST_F(object_scanner_test, table_column_default_function) {
+    auto func = std::make_shared<function::declaration>(function::declaration {
+            1,
+            "f",
+            t::int4 {},
+            {},
+    });
+    storage::table t {
+            "T",
+            {
+                    {
+                            "C0",
+                            t::int4 {},
+                            variable::nullable,
+                            { func },
+                    },
+            },
+    };
+    print(bindings(t.columns()[0]));
+}
+
 TEST_F(object_scanner_test, table_column_default_sequence) {
     auto seq = std::make_shared<storage::sequence>("S1");
     storage::table t {

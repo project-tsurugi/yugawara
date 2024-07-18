@@ -1422,7 +1422,7 @@ public:
         return true;
     }
 
-    bool operator()(statement::create_table const& stmt) {
+    bool operator()(statement::create_table const& stmt) { // NOLINT(*-function-cognitive-complexity)
         if (validate_) {
             bool success = true;
             auto&& table = binding::extract(stmt.definition());
@@ -1450,6 +1450,30 @@ public:
                                 string_builder {}
                                         << "column \"" << column.simple_name() << "\" "
                                         << "must be more than 32-bit int for storing sequence values."
+                                        << string_builder::to_string,
+                                first_region(stmt.definition(), stmt),
+                        });
+                        success = false;
+                    }
+                } else if (value.kind() == storage::column_value_kind::function) {
+                    auto&& func = value.element<storage::column_value_kind::function>();
+                    if (!func->parameter_types().empty()) {
+                        report({
+                                code::inconsistent_elements,
+                                "function call for default value must not have any arguments",
+                                first_region(stmt.definition(), stmt),
+                        });
+                        success = false;
+                    }
+                    if (auto r = type::is_assignment_convertible(func->return_type(), column.type());
+                            r != ternary::yes) {
+                        report({
+                                code::inconsistent_type,
+                                string_builder {}
+                                        << "function \"" << func->name() << "\" "
+                                        << "has inconsistent type (" << func->return_type() << ") "
+                                        << "for the column \"" << column.simple_name() << "\" "
+                                        << "(" << column.type() << ")"
                                         << string_builder::to_string,
                                 first_region(stmt.definition(), stmt),
                         });

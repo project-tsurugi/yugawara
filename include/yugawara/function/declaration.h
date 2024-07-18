@@ -171,4 +171,26 @@ private:
     // FIXME: multi-output functions
 };
 
+/**
+ * @brief returns whether or not the two function declarations are same.
+ * @param a the first declaration
+ * @param b the second declaration
+ * @return true if the both are same
+ * @return false otherwise
+ */
+constexpr bool operator==(declaration const& a, declaration const& b) noexcept {
+    return std::addressof(a) == std::addressof(b);
+}
+
+/**
+ * @brief returns whether or not the two function declarations are different.
+ * @param a the first declaration
+ * @param b the second declaration
+ * @return true if the both are different
+ * @return false otherwise
+ */
+constexpr bool operator!=(declaration const& a, declaration const& b) noexcept {
+    return !(a == b);
+}
+
 } // namespace yugawara::function

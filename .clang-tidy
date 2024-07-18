@@ -9,6 +9,7 @@ cert-*,\
 -cert-oop54-cpp,\
 cppcoreguidelines-*,\
 -cppcoreguidelines-pro-type-const-cast,\
+-cppcoreguidelines-avoid-const-or-ref-data-members,\
 -cppcoreguidelines-avoid-magic-numbers,\
 fuchsia-*,\
 -fuchsia-default-arguments,\

@@ -21,6 +21,10 @@ column_value::column_value(std::shared_ptr<storage::sequence const> source) noex
     entity_ { std::move(source) }
 {}
 
+column_value::column_value(std::shared_ptr<const function::declaration> source) noexcept :
+    entity_ { std::move(source) }
+{}
+
 namespace {
 
 template<column_value::kind_type>
@@ -30,6 +34,13 @@ template<>
 bool eq<column_value::kind_type::immediate>(column_value const& a, column_value const& b) {
     auto&& t1 = a.element<column_value::kind_type::immediate>();
     auto&& t2 = b.element<column_value::kind_type::immediate>();
+    return *t1 == *t2;
+}
+
+template<>
+bool eq<column_value::kind_type::function>(column_value const& a, column_value const& b) {
+    auto&& t1 = a.element<column_value::kind_type::function>();
+    auto&& t2 = b.element<column_value::kind_type::function>();
     return *t1 == *t2;
 }
 
@@ -55,6 +66,14 @@ std::ostream& print<column_value_kind::immediate>(std::ostream& out, column_valu
 }
 
 template<>
+std::ostream& print<column_value_kind::function>(std::ostream& out, column_value const& value) {
+    using ::takatori::util::print_support;
+    return out << "column_value("
+            << "kind=" << value.kind() << ", "
+            << "element=" << print_support { value.element<column_value_kind::function>() } << ")";
+}
+
+template<>
 std::ostream& print<column_value_kind::sequence>(std::ostream& out, column_value const& value) {
     using ::takatori::util::print_support;
     return out << "column_value("
@@ -72,6 +91,7 @@ bool operator==(column_value const& a, column_value const& b) {
     switch (a.kind()) {
         case kind::nothing: return true;
         case kind::immediate: return eq<kind::immediate>(a, b);
+        case kind::function: return eq<kind::function>(a, b);
         case kind::sequence: return eq<kind::sequence>(a, b);
     }
     std::abort();
@@ -86,6 +106,7 @@ std::ostream& operator<<(std::ostream& out, column_value const& value) {
     switch (value.kind()) {
         case kind::nothing: return print<kind::nothing>(out, value);
         case kind::immediate: return print<kind::immediate>(out, value);
+        case kind::function: return print<kind::function>(out, value);
         case kind::sequence: return print<kind::sequence>(out, value);
     }
     std::abort();

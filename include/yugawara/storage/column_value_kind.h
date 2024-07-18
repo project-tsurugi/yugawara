@@ -24,6 +24,9 @@ enum class column_value_kind : std::size_t {
     /// @brief the column should be initialized as the immediate value by default.
     immediate,
 
+    /// @brief the column should be initialized as result of the simple function call by default.
+    function,
+
     /// @brief the column should be initialized by a sequence by default.
     sequence,
 };
@@ -39,6 +42,7 @@ inline constexpr std::string_view to_string_view(column_value_kind value) noexce
     switch (value) {
         case kind::nothing: return "nothing"sv;
         case kind::immediate: return "immediate"sv;
+        case kind::function: return "function"sv;
         case kind::sequence: return "sequence"sv;
     }
     std::abort();

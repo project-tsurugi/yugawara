@@ -22,6 +22,7 @@
 #include <yugawara/binding/exchange_info.h>
 
 #include <yugawara/storage/index.h>
+#include <yugawara/storage/sequence.h>
 #include <yugawara/storage/column.h>
 #include <yugawara/storage/column_value.h>
 #include <yugawara/function/declaration.h>
@@ -51,6 +52,7 @@ public:
     void properties(storage::table const& element);
     void properties(storage::column const& element);
     void properties(storage::index const& element);
+    void properties(storage::sequence const& element);
     void properties(::takatori::plan::exchange const& element);
     void properties(variable::declaration const& element);
     void properties(function::declaration const& element);
