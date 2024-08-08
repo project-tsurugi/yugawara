@@ -176,14 +176,6 @@ public:
     declaration& incremental(bool enabled) noexcept;
 
     /**
-     * @brief returns whether or not this function has wider parameters than the given one.
-     * @param other the target function declaration
-     * @return true if each parameter is wider than the target function
-     * @return false otherwise
-     */
-    [[nodiscard]] bool has_wider_parameters(declaration const& other) const noexcept;
-
-    /**
      * @brief appends string representation of the given value.
      * @param out the target output
      * @param value the target value

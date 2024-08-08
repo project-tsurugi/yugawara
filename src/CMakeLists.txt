@@ -28,9 +28,8 @@ add_library(yugawara
 
     # function information
     yugawara/function/declaration.cpp
-    yugawara/function/utils.cpp
 
-    # aggregate function information
+        # aggregate function information
     yugawara/aggregate/declaration.cpp
 
     # descriptor entities

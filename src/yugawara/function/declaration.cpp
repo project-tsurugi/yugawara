@@ -4,9 +4,6 @@
 #include <takatori/util/clonable.h>
 #include <yugawara/schema/declaration.h>
 
-
-#include "utils.h"
-
 namespace yugawara::function {
 
 declaration::declaration(
@@ -90,10 +87,6 @@ std::vector<declaration::type_pointer>& declaration::shared_parameter_types() no
 
 std::vector<declaration::type_pointer> const& declaration::shared_parameter_types() const noexcept {
     return parameter_types_;
-}
-
-bool declaration::has_wider_parameters(declaration const& other) const noexcept {
-    return utils::each_is_widening_convertible(other.parameter_types_, parameter_types_);
 }
 
 std::ostream& operator<<(std::ostream& out, declaration const& value) {
