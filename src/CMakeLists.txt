@@ -114,6 +114,7 @@ add_library(yugawara
     yugawara/analyzer/details/collect_join_keys.cpp
     yugawara/analyzer/details/rewrite_scan.cpp
     yugawara/analyzer/details/classify_expression.cpp
+    yugawara/analyzer/details/inline_variables.cpp
 
     # analyzer misc.
     yugawara/analyzer/details/detect_join_endpoint_style.cpp

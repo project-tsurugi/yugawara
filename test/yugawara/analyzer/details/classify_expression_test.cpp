@@ -41,7 +41,6 @@ protected:
         };
     }
 
-    type::repository types;
     binding::factory bindings;
 };
 
