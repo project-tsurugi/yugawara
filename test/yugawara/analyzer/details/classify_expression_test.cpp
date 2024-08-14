@@ -165,6 +165,7 @@ TEST_F(classify_expression_test, let) {
     validate(expr, {
             expression_class::constant,
             expression_class::small,
+            expression_class::variable_declaration,
     });
 }
 
@@ -183,7 +184,9 @@ TEST_F(classify_expression_test, function_call) {
                     dummy(),
             },
     };
-    validate(expr, {});
+    validate(expr, {
+            expression_class::function_call,
+    });
 }
 
 } // namespace yugawara::analyzer::details

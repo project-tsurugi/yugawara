@@ -24,6 +24,12 @@ public:
             if (!saw_not_small_) {
                 results.insert(expression_class::small);
             }
+            if (saw_variable_declaration_) {
+                results.insert(expression_class::variable_declaration);
+            }
+            if (saw_function_call_) {
+                results.insert(expression_class::function_call);
+            }
         }
         return results;
     }
@@ -101,6 +107,7 @@ public:
         }
         dispatch(expression.body());
         saw_not_trivial_ = true;
+        saw_variable_declaration_ = true;
     }
 
     void operator()(::takatori::scalar::function_call const& expression) {
@@ -110,6 +117,7 @@ public:
         saw_not_constant_ = true;
         saw_not_trivial_ = true;
         saw_not_small_ = true;
+        saw_function_call_ = true;
     }
 
 private:
@@ -117,6 +125,8 @@ private:
     bool saw_not_constant_ { false };
     bool saw_not_trivial_ { false };
     bool saw_not_small_ { false };
+    bool saw_variable_declaration_ { false };
+    bool saw_function_call_ { false };
 };
 
 } // namespace

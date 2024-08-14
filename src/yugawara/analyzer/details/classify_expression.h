@@ -35,6 +35,16 @@ enum class expression_class : std::size_t {
      * @brief a simple expression.
      */
     small,
+
+    /**
+     * @brief includes local variable declarations.
+     */
+    variable_declaration,
+
+    /**
+     * @brief includes local variable declarations.
+     */
+    function_call,
 };
 
 /**
@@ -43,7 +53,7 @@ enum class expression_class : std::size_t {
 using expression_class_set = ::takatori::util::enum_set<
         expression_class,
         expression_class::unknown,
-        expression_class::small>;
+        expression_class::function_call>;
 
 /**
  * @brief returns string representation of the value.
@@ -58,6 +68,8 @@ constexpr std::string_view to_string_view(expression_class value) noexcept {
         case kind::constant: return "constant"sv;
         case kind::trivial: return "trivial"sv;
         case kind::small: return "small"sv;
+        case kind::variable_declaration: return "variable_declaration"sv;
+        case kind::function_call: return "function_call"sv;
     }
     std::abort();
 }
@@ -75,7 +87,7 @@ inline std::ostream& operator<<(std::ostream& out, expression_class value) {
 /**
  * @brief classifies the given expression.
  * @param expression the target expression
- * @return
+ * @return the corresponded expression classes
  */
 [[nodiscard]] expression_class_set classify_expression(::takatori::scalar::expression const& expression);
 

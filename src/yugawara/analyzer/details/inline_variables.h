@@ -17,6 +17,13 @@ public:
             std::unique_ptr<::takatori::scalar::expression>>;
 
     /**
+     * @brief checks if this has no replacements.
+     * @return true if this has no replacements
+     * @return false otherwise
+     */
+    [[nodiscard]] bool empty() const noexcept;
+
+    /**
      * @brief reserves the space for the variables to be inlined.
      * @param size the number of variables to be inlined
      */

@@ -145,6 +145,10 @@ private:
 
 } // namespace
 
+bool inline_variables::empty() const noexcept {
+    return replacements_.empty();
+}
+
 void inline_variables::reserve(std::size_t size) {
     variables_.reserve(size);
     replacements_.reserve(size);

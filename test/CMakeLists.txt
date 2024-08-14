@@ -101,6 +101,7 @@ add_test_executable(yugawara/analyzer/details/collect_join_keys_test.cpp)
 add_test_executable(yugawara/analyzer/details/rewrite_scan_test.cpp)
 add_test_executable(yugawara/analyzer/details/classify_expression_test.cpp)
 add_test_executable(yugawara/analyzer/details/inline_variables_test.cpp)
+add_test_executable(yugawara/analyzer/details/collect_local_variables_test.cpp)
 add_test_executable(yugawara/analyzer/intermediate_plan_optimizer_test.cpp)
 
 # serializer
