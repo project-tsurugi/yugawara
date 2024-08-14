@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+#include <takatori/scalar/let.h>
+
 #include <takatori/relation/graph.h>
 #include <takatori/relation/scan.h>
 #include <takatori/relation/emit.h>
@@ -493,6 +495,55 @@ TEST_F(intermediate_plan_optimizer_test, rewrite_scan) {
     ASSERT_EQ(find.keys().size(), 1);
     EXPECT_EQ(find.keys()[0].variable(), bindings(t0c0));
     EXPECT_EQ(find.keys()[0].value(), constant(0));
+}
+
+TEST_F(intermediate_plan_optimizer_test, between) {
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto v0 = bindings.stream_variable("v0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    // WHERE c0 BETWEEN 0 AND 100
+    auto&& filter = r.insert(relation::filter {
+            scalar::let {
+                    scalar::let::declarator { v0, varref(c0) },
+                    land(
+                            compare(constant(0), varref(v0), comparison_operator::less_equal),
+                            compare(varref(v0), constant(100), comparison_operator::less_equal)),
+            },
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+    in.output() >> filter.input();
+    filter.output() >> out.input();
+
+    intermediate_plan_optimizer optimizer { options() };
+    optimizer(r);
+
+    ASSERT_EQ(r.size(), 4);
+    ASSERT_TRUE(r.contains(in));
+    ASSERT_TRUE(r.contains(out));
+
+    ASSERT_EQ(in.columns().size(), 1);
+    EXPECT_EQ(in.columns()[0].source(), bindings(t0c0));
+    EXPECT_EQ(in.columns()[0].destination(), c0);
+
+    ASSERT_EQ(out.columns().size(), 1);
+    EXPECT_EQ(out.columns()[0].source(), c0);
+
+    auto&& f1 = next<relation::filter>(in.output());
+    auto&& f2 = next<relation::filter>(f1.output());
+
+    if (f1.condition() == compare(constant(0), varref(v0), comparison_operator::less_equal)) {
+        EXPECT_EQ(f1.condition(), compare(constant(0), varref(c0), comparison_operator::less_equal));
+        EXPECT_EQ(f2.condition(), compare(varref(c0), constant(100), comparison_operator::less_equal));
+    } else {
+        EXPECT_EQ(f1.condition(), compare(varref(c0), constant(100), comparison_operator::less_equal));
+        EXPECT_EQ(f2.condition(), compare(constant(0), varref(c0), comparison_operator::less_equal));
+    }
 }
 
 } // namespace yugawara::analyzer

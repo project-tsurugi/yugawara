@@ -9,6 +9,7 @@
 #include "details/rewrite_join.h"
 #include "details/collect_join_keys.h"
 #include "details/rewrite_scan.h"
+#include "details/collect_local_variables.h"
 
 namespace yugawara::analyzer {
 
@@ -39,6 +40,9 @@ static constexpr details::collect_join_keys_feature_set compute_join_keys_featur
 void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& graph) {
     // details::decompose_projections(graph);
     details::remove_redundant_stream_variables(graph);
+    details::collect_local_variables(
+            graph,
+            options_.runtime_features().contains(runtime_feature::always_inline_scalar_local_variables));
     details::push_down_selections(graph);
     // FIXME: auto flow_volume = details::reorder_join(...);
     details::flow_volume_info flow_volume {};
