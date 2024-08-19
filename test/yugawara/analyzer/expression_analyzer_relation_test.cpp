@@ -778,4 +778,33 @@ TEST_F(expression_analyzer_relation_test, offer) {
     EXPECT_EQ(type(c1), t::int4 {});
 }
 
+TEST_F(expression_analyzer_relation_test, offer_union) {
+    auto&& c1 = bindings.exchange_column();
+    p::forward exchange {
+            c1,
+    };
+    rs::offer e1 {
+            bindings(exchange),
+            {
+                    { decl(t::int4 {}), c1, },
+            }
+    };
+    rs::offer e2 {
+            bindings(exchange),
+            {
+                    { decl(t::int8 {}), c1, },
+            }
+    };
+
+    auto b1 = analyzer.resolve(e1, true, false, repo);
+    ASSERT_TRUE(b1) << *this;
+    EXPECT_TRUE(ok());
+
+    auto b2 = analyzer.resolve(e2, true, false, repo);
+    ASSERT_TRUE(b2) << *this;
+    EXPECT_TRUE(ok());
+
+    EXPECT_EQ(type(c1), t::int8 {});
+}
+
 } // namespace yugawara::analyzer

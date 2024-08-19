@@ -1299,6 +1299,7 @@ public:
                             *srct,
                             { type::category_of(*dstt) });
                 }
+                ana_.variables().bind(column.destination(), std::move(t), true);
             }
         }
         return true;
