@@ -16,10 +16,12 @@ namespace yugawara::analyzer::details {
  * @param graph the target graph
  * @param index_estimator the index cost estimator
  * @param flow_volume the flow volume information
+ * @param allow_join_scan whether to allow `join_scan` operations
  */
 void rewrite_join(
         ::takatori::relation::graph_type& graph,
         analyzer::index_estimator const& index_estimator,
-        flow_volume_info const& flow_volume);
+        flow_volume_info const& flow_volume,
+        bool allow_join_scan = true);
 
 } // namespace yugawara::analyzer::details

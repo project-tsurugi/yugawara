@@ -47,7 +47,11 @@ void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& g
     // FIXME: auto flow_volume = details::reorder_join(...);
     details::flow_volume_info flow_volume {};
     if (options_.runtime_features().contains(runtime_feature::index_join)) {
-        details::rewrite_join(graph, options_.index_estimator(), flow_volume);
+        details::rewrite_join(
+                graph,
+                options_.index_estimator(),
+                flow_volume,
+                options_.runtime_features().contains(runtime_feature::index_join_scan));
     }
     details::collect_join_keys(graph, flow_volume, compute_join_keys_features(options_.runtime_features()));
     details::rewrite_scan(graph, options_.index_estimator());

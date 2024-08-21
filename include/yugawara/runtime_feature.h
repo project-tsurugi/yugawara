@@ -21,6 +21,8 @@ enum class runtime_feature {
     aggregate_exchange,
     /// @brief enable index join.
     index_join,
+    /// @brief enable scan on indices in join operations (requires index_join is enabled).
+    index_join_scan,
     /// @brief enable scan on broadcast inputs (requires broadcast_exchange).
     broadcast_join_scan,
     /// @brief enable inlining scalar local variables for all expressions.
@@ -35,11 +37,12 @@ using runtime_feature_set = ::takatori::util::enum_set<
         runtime_feature::broadcast_exchange,
         runtime_feature::always_inline_scalar_local_variables>;
 
-/// @brief all elements of runtime_feature_set.
+/// @brief all recommended elements of runtime_feature_set.
 constexpr runtime_feature_set runtime_feature_all {
     runtime_feature::broadcast_exchange,
     runtime_feature::aggregate_exchange,
     runtime_feature::index_join,
+    runtime_feature::index_join_scan,
     runtime_feature::broadcast_join_scan,
 };
 
@@ -55,6 +58,7 @@ inline constexpr std::string_view to_string_view(runtime_feature value) noexcept
         case kind::broadcast_exchange: return "broadcast_exchange"sv;
         case kind::aggregate_exchange: return "aggregate_exchange"sv;
         case kind::index_join: return "index_join"sv;
+        case kind::index_join_scan: return "index_join_scan"sv;
         case kind::broadcast_join_scan: return "broadcast_join_scan"sv;
         case kind::always_inline_scalar_local_variables: return "always_inline_scalar_local_variables"sv;
     }

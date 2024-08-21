@@ -60,9 +60,13 @@ protected:
     std::shared_ptr<storage::index> i1 = storages.add_index({ t1, "I1", });
 
     void apply(relation::graph_type& graph) {
+        apply_custom(graph, true);
+    }
+
+    void apply_custom(relation::graph_type& graph, bool enable_join_scan) {
         default_index_estimator estimator;
         flow_volume_info vinfo {};
-        rewrite_join(graph, estimator, vinfo);
+        rewrite_join(graph, estimator, vinfo, enable_join_scan);
     }
 };
 
@@ -687,6 +691,49 @@ TEST_F(rewrite_join_test, join_scan) {
     ASSERT_EQ(result.upper().kind(), relation::endpoint_kind::prefixed_inclusive);
 
     EXPECT_EQ(result.condition(), land(boolean(true), boolean(true)));
+}
+
+TEST_F(rewrite_join_test, join_scan_suppressed) {
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto&& inl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), cl0 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto&& inr = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), cr0 },
+            },
+    });
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::inner,
+            land(compare(constant(0), varref(cr0), comparison_operator::less),
+                    compare(cr0, cl0, comparison_operator::less_equal)),
+    });
+
+    auto&& out = r.insert(relation::emit { cl0, cr0 });
+    inl.output() >> join.left();
+    inr.output() >> join.right();
+    join.output() >> out.input();
+
+    auto x0 = storages.add_index(storage::index {
+            t1,
+            "x0",
+            {
+                    t1->columns()[0],
+            },
+    });
+    apply_custom(r, false);
+
+    ASSERT_EQ(r.size(), 4);
+
+    auto&& result = next<relation::intermediate::join>(out.input());
+    EXPECT_EQ(result.condition(), land(compare(constant(0), varref(cr0), comparison_operator::less),
+            compare(cr0, cl0, comparison_operator::less_equal)));
 }
 
 TEST_F(rewrite_join_test, indirect_rest) {

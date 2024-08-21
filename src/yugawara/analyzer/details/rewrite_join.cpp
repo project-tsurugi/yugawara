@@ -13,6 +13,7 @@
 
 #include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
+#include <takatori/util/finalizer.h>
 #include <takatori/util/optional_ptr.h>
 
 #include <yugawara/binding/factory.h>
@@ -36,6 +37,7 @@ using ::takatori::util::ownership_reference;
 using ::takatori::util::optional_ptr;
 using ::takatori::util::sequence_view;
 using ::takatori::util::unsafe_downcast;
+using ::takatori::util::finalizer;
 
 using expression_ref = ownership_reference<scalar::expression>;
 
@@ -46,10 +48,12 @@ public:
     explicit engine(
             relation::graph_type& graph,
             index_estimator const& index_estimator,
-            flow_volume_info const& flow_volume) :
-        graph_(graph),
-        index_estimator_(index_estimator),
-        flow_volume_(flow_volume)
+            flow_volume_info const& flow_volume,
+            bool allow_join_scan) :
+        graph_ { graph },
+        index_estimator_ { index_estimator },
+        flow_volume_ { flow_volume },
+        allow_join_scan_ { allow_join_scan }
     {}
 
     bool process(relation::intermediate::join& expr) {
@@ -82,6 +86,7 @@ private:
     relation::graph_type& graph_;
     index_estimator const& index_estimator_;
     flow_volume_info const& flow_volume_;
+    bool allow_join_scan_;
 
     scan_key_collector left_collector_;
     scan_key_collector right_collector_;
@@ -197,18 +202,28 @@ private:
             // index based join must have at least one term
             return;
         }
+        finalizer f {
+            [&]() -> void {
+                term_buf_.clear();
+                search_key_buf_.clear();
+            }
+        };
         auto result = index_estimator_(
                 index,
                 search_key_buf_,
                 collector.sort_keys(),
                 collector.referring());
 
+        if (!result.attributes().contains(attribute::find) &&
+                !(allow_join_scan_ && result.attributes().contains(attribute::range_scan))) {
+            // no accepted methods
+            return;
+        }
+
         // FIXME: use more statistics of individual join inputs
         if (is_better(expr, result, left)) {
             save_result(scan, index, left, result, term_buf_, filter_buf_);
         }
-        term_buf_.clear();
-        search_key_buf_.clear();
     }
 
     void build_search_key(storage::index const& index, scan_key_collector& collector) {
@@ -395,8 +410,9 @@ private:
 void rewrite_join(
         relation::graph_type& graph,
         analyzer::index_estimator const& index_estimator,
-        flow_volume_info const& flow_volume) {
-    engine e { graph, index_estimator, flow_volume };
+        flow_volume_info const& flow_volume,
+        bool allow_join_scan) {
+    engine e { graph, index_estimator, flow_volume, allow_join_scan };
     for (auto it = graph.begin(); it != graph.end();) {
         auto&& expr = *it;
         if (expr.kind() == relation::intermediate::join::tag) {
