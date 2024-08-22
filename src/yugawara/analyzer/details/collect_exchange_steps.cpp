@@ -192,11 +192,19 @@ public:
     }
 
     void operator()(relation::intermediate::intersection& expr) {
-        process_binary_group<relation::step::intersection>(expr);
+        if (expr.quantifier() == relation::set_quantifier::all) {
+            process_binary_group_all<relation::step::intersection>(expr);
+        } else {
+            process_binary_group_distinct(expr, relation::join_kind::semi);
+        }
     }
 
     void operator()(relation::intermediate::difference& expr) {
-        process_binary_group<relation::step::difference>(expr);
+        if (expr.quantifier() == relation::set_quantifier::all) {
+            process_binary_group_all<relation::step::intersection>(expr);
+        } else {
+            process_binary_group_distinct(expr, relation::join_kind::anti);
+        }
     }
 
     void operator()(relation::intermediate::escape&) {
@@ -651,7 +659,7 @@ private:
     }
 
     template<class Step, class Intermediate>
-    void process_binary_group(Intermediate& expr) {
+    void process_binary_group_all(Intermediate& expr) {
         /*
          * .. -\
          *      <OP>_relation{k, q} - ..
@@ -703,6 +711,68 @@ private:
 
         auto&& take = add<relation::step::take_cogroup>(std::move(groups));
         auto&& replacement = add<Step>();
+        take.output() >> replacement.input();
+
+        migrate(expr.left(), left_offer.input());
+        migrate(expr.right(), right_offer.input());
+        migrate(expr.output(), replacement.output());
+
+        cursor_ = source_.erase(cursor_);
+    }
+
+    template<class Intermediate>
+    void process_binary_group_distinct(Intermediate& expr, relation::join_kind join_kind) {
+        /*
+         * .. -\
+         *      <OP>_relation{k, q} - ..
+         * .. -/
+         * =>
+         * .. - offer - [group{k, limit=n}] -\
+         *                                    take_cogroup{k} - join[semi/anti]{c} - ..
+         * .. - offer - [group{k, limit=n}] -/
+         */
+        auto left_group_key = empty<descriptor::variable>();
+        auto right_group_key = empty<descriptor::variable>();
+        left_group_key.reserve(expr.group_key_pairs().size());
+        right_group_key.reserve(expr.group_key_pairs().size());
+        for (auto&& pair : expr.group_key_pairs()) {
+            left_group_key.emplace_back(pair.left());
+            right_group_key.emplace_back(pair.right());
+        }
+
+        std::optional<plan::group::size_type> limit {};
+        if (expr.quantifier() == relation::set_quantifier::distinct) {
+            limit.emplace(1);
+        }
+        auto&& left_exchange = destination_.emplace<plan::group>(
+                empty<descriptor::variable>(),
+                std::move(left_group_key),
+                empty<plan::group::sort_key>(),
+                limit,
+                plan::group_mode::equivalence);
+        auto&& left_offer = add_offer(left_exchange);
+
+        auto&& right_exchange = destination_.emplace<plan::group>(
+                empty<descriptor::variable>(),
+                std::move(right_group_key),
+                empty<plan::group::sort_key>(),
+                limit,
+                plan::group_mode::equivalence);
+        auto&& right_offer = add_offer(right_exchange);
+
+        auto groups = empty<relation::step::take_cogroup::group>();
+        groups.reserve(2);
+        groups.emplace_back(
+                to_descriptor(left_exchange),
+                empty<relation::step::take_cogroup::group::column>(),
+                true);
+        groups.emplace_back(
+                to_descriptor(right_exchange),
+                empty<relation::step::take_cogroup::group::column>(),
+                false);
+
+        auto&& take = add<relation::step::take_cogroup>(std::move(groups));
+        auto&& replacement = add<relation::step::join>(join_kind);
         take.output() >> replacement.input();
 
         migrate(expr.left(), left_offer.input());

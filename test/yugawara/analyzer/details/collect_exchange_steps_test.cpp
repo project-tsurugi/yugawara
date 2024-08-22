@@ -1496,7 +1496,7 @@ TEST_F(collect_exchange_steps_test, binary_all) {
     EXPECT_EQ(e1.limit(), std::nullopt);
 }
 
-TEST_F(collect_exchange_steps_test, binary_distinct) {
+TEST_F(collect_exchange_steps_test, difference_distinct) {
     /*
      * scan:r0 -\
      *           difference_relation:r2 - emit:r3
@@ -1541,7 +1541,7 @@ TEST_F(collect_exchange_steps_test, binary_distinct) {
 
     /*
      * scan:r0 - offer:r4 - [group]:e0 -\
-     *                                   take_cogroup:r6 - difference_group:r7 - emit:r3
+     *                                   take_cogroup:r6 - join_group[anti]:r7 - emit:r3
      * scan:r1 - offer:r5 - [group]:e1 -/
      */
     details::collect_exchange_steps(r, p, options);
@@ -1552,7 +1552,7 @@ TEST_F(collect_exchange_steps_test, binary_distinct) {
 
     auto&& r4 = next<offer>(r0.output());
     auto&& r5 = next<offer>(r1.output());
-    auto&& r7 = next<relation::step::difference>(r3.input());
+    auto&& r7 = next<relation::step::join>(r3.input());
     auto&& r6 = next<take_cogroup>(r7.input());
 
     auto&& e0 = resolve<plan::group>(r4.destination());
@@ -1565,6 +1565,93 @@ TEST_F(collect_exchange_steps_test, binary_distinct) {
     ASSERT_EQ(r6.groups().size(), 2);
     EXPECT_EQ(r6.groups()[0].source(), r4.destination());
     EXPECT_EQ(r6.groups()[1].source(), r5.destination());
+
+    EXPECT_EQ(r7.operator_kind(), relation::join_kind::anti);
+    EXPECT_FALSE(r7.condition());
+
+    ASSERT_EQ(e0.group_keys().size(), 2);
+    EXPECT_EQ(e0.group_keys()[0], cl0);
+    EXPECT_EQ(e0.group_keys()[1], cl1);
+    EXPECT_EQ(e0.limit(), 1);
+
+    ASSERT_EQ(e1.group_keys().size(), 2);
+    EXPECT_EQ(e1.group_keys()[0], cr0);
+    EXPECT_EQ(e1.group_keys()[1], cr1);
+    EXPECT_EQ(e1.limit(), 1);
+}
+
+TEST_F(collect_exchange_steps_test, intersection_distinct) {
+    /*
+     * scan:r0 -\
+     *           intersection_relation:r2 - emit:r3
+     * scan:r1 -/
+     */
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto cl1 = bindings.stream_variable("cl1");
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, cl0 },
+                    { t0c0, cl1 },
+            },
+    });
+    auto& r1 = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { t1c0, cr0 },
+                    { t1c1, cr1 },
+            },
+    });
+    auto& r2 = r.insert(relation::intermediate::intersection {
+            {
+                    { cl0, cr0, },
+                    { cl1, cr1, },
+            },
+            relation::set_quantifier::distinct,
+    });
+    auto& r3 = r.insert(relation::emit {
+            cl0,
+            cl1,
+    });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r3.input();
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+
+    /*
+     * scan:r0 - offer:r4 - [group]:e0 -\
+     *                                   take_cogroup:r6 - join_group[semi]:r7 - emit:r3
+     * scan:r1 - offer:r5 - [group]:e1 -/
+     */
+    details::collect_exchange_steps(r, p, options);
+    ASSERT_EQ(r.size(), 7);
+    EXPECT_TRUE(r.contains(r0));
+    EXPECT_TRUE(r.contains(r1));
+    EXPECT_TRUE(r.contains(r3));
+
+    auto&& r4 = next<offer>(r0.output());
+    auto&& r5 = next<offer>(r1.output());
+    auto&& r7 = next<relation::step::join>(r3.input());
+    auto&& r6 = next<take_cogroup>(r7.input());
+
+    auto&& e0 = resolve<plan::group>(r4.destination());
+    auto&& e1 = resolve<plan::group>(r5.destination());
+
+    ASSERT_EQ(p.size(), 2);
+    EXPECT_TRUE(p.contains(e0));
+    EXPECT_TRUE(p.contains(e1));
+
+    ASSERT_EQ(r6.groups().size(), 2);
+    EXPECT_EQ(r6.groups()[0].source(), r4.destination());
+    EXPECT_EQ(r6.groups()[1].source(), r5.destination());
+
+    EXPECT_EQ(r7.operator_kind(), relation::join_kind::semi);
+    EXPECT_FALSE(r7.condition());
 
     ASSERT_EQ(e0.group_keys().size(), 2);
     EXPECT_EQ(e0.group_keys()[0], cl0);
