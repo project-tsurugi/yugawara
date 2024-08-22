@@ -716,37 +716,41 @@ TEST_F(expression_analyzer_relation_test, take_group) {
 }
 
 TEST_F(expression_analyzer_relation_test, take_cogroup) {
-    auto&& c1 = bindings.exchange_column();
-    auto&& c2 = bindings.exchange_column();
-    analyzer.variables().bind(c1, t::int4 {});
-    analyzer.variables().bind(c2, t::int8 {});
+    auto&& c1v = bindings.exchange_column();
+    auto&& c1g = bindings.exchange_column();
+    auto&& c2v = bindings.exchange_column();
+    auto&& c2g = bindings.exchange_column();
+    analyzer.variables().bind(c1v, t::int4 {});
+    analyzer.variables().bind(c1g, t::int4 {});
+    analyzer.variables().bind(c2v, t::int8 {});
+    analyzer.variables().bind(c2g, t::int8 {});
     p::group ex1 {
-            { c1, },
-            { c1, },
+            { c1v, },
+            { c1g, },
             {},
             {},
             p::group::mode_type::equivalence,
     };
     p::group ex2 {
-            { c2, },
-            { c2, },
+            { c2v, },
+            { c2g, },
             {},
             {},
             p::group::mode_type::equivalence,
     };
-    auto v1 = bindings.stream_variable();
-    auto v2 = bindings.stream_variable();
+    auto v1v = bindings.stream_variable();
+    auto v2v = bindings.stream_variable();
     rs::take_cogroup expr {
             {
                     bindings(ex1),
                     {
-                            { c1, v1, },
+                            { c1v, v1v, },
                     }
             },
             {
                     bindings(ex2),
                     {
-                            { c2, v2, },
+                            { c2v, v2v, },
                     }
             },
     };
@@ -755,8 +759,9 @@ TEST_F(expression_analyzer_relation_test, take_cogroup) {
     ASSERT_TRUE(b) << *this;
     EXPECT_TRUE(ok());
 
-    EXPECT_EQ(resolve(v1), resolve(c1));
-    EXPECT_EQ(resolve(v2), resolve(c2));
+    EXPECT_EQ(resolve(v1v), resolve(c1v));
+    EXPECT_EQ(resolve(v2v), resolve(c2v));
+    EXPECT_EQ(type(c1g), type(c2g));
 }
 
 TEST_F(expression_analyzer_relation_test, offer) {

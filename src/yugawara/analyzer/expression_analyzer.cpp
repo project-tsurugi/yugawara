@@ -4,8 +4,6 @@
 #include <utility>
 #include <vector>
 
-#include <boost/container/static_vector.hpp>
-
 #include <tsl/hopscotch_set.h>
 
 #include <takatori/scalar/dispatch.h>
@@ -62,14 +60,6 @@ using ::yugawara::type::category;
 using ::yugawara::util::ternary;
 
 namespace {
-
-constexpr std::size_t short_vector_size = 16;
-
-template<class T>
-using short_vector = ::boost::container::static_vector<T, short_vector_size>;
-
-template<class T>
-using long_vector = std::vector<T>;
 
 constexpr std::optional<std::size_t> operator+(std::optional<std::size_t> a, std::optional<std::size_t> b) noexcept {
     if (!a || !b) return {};
@@ -1267,6 +1257,64 @@ public:
     }
 
     bool operator()(relation::step::take_cogroup const& expr) {
+        std::optional<std::size_t> group_count {};
+        for (auto&& group : expr.groups()) {
+            auto exchange = binding::extract_if<plan::exchange>(group.source());
+            if (!exchange || exchange->kind() != plan::step_kind::group) {
+                report({
+                        code::unknown,
+                        "take_cogroup source must be a group exchange",
+                        expr.region(),
+                });
+                return false;
+            }
+            auto&& group_exchange = unsafe_downcast<plan::group>(*exchange);
+            if (!group_count) {
+                group_count = group_exchange.group_keys().size();
+            } else if (*group_count != group_exchange.group_keys().size()) {
+                report({
+                        code::inconsistent_elements,
+                        "inconsistent number of group keys",
+                        expr.region(),
+                });
+                return false;
+            }
+        }
+        for (std::size_t pos = 0, size = *group_count; pos < size; ++pos) {
+            bool promoted = false;
+            type_ptr current {};
+            for (auto&& group : expr.groups()) {
+                auto&& exchange = binding::extract<plan::exchange>(group.source());
+                auto&& group_exchange = unsafe_downcast<plan::group>(exchange);
+                auto&& column = group_exchange.group_keys()[pos];
+                auto source = ana_.inspect(column);
+                if (is_unresolved_or_error(source)) {
+                    return false;
+                }
+                if (!current) {
+                    current = std::move(source);
+                } else if (*current != *source) {
+                    auto t = type::unifying_conversion(*current, *source, repo_);
+                    if (is_error(*t)) {
+                        report(code::inconsistent_type,
+                                column.region(),
+                                *source,
+                                { type::category_of(*current) });
+                        return false;
+                    }
+                    current = std::move(t);
+                    promoted = true;
+                }
+            }
+            if (promoted) {
+                for (auto&& group : expr.groups()) {
+                    auto&& exchange = binding::extract<plan::exchange>(group.source());
+                    auto&& group_exchange = unsafe_downcast<plan::group>(exchange);
+                    auto&& column = group_exchange.group_keys()[pos];
+                    ana_.variables().bind(column, current, true);
+                }
+            }
+        }
         for (auto&& group : expr.groups()) { // NOLINT(readability-use-anyofallof) w/ side effects
             if (!resolve_exchange_columns(expr, group.columns())) {
                 return false;
