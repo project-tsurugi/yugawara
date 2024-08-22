@@ -273,14 +273,18 @@ TEST_F(step_plan_builder_test, join) {
     auto&& r6 = next<take_cogroup>(r7.input());
 
     // el
-    ASSERT_EQ(e0.columns().size(), 2);
-    auto&& cl0el = e0.columns()[0];
-    auto&& cl1el = e0.columns()[1];
+    ASSERT_EQ(e0.group_keys().size(), 1);
+    auto&& cl0el = e0.group_keys()[0];
+
+    ASSERT_EQ(e0.columns().size(), 1);
+    auto&& cl1el = e0.columns()[0];
 
     // er
-    ASSERT_EQ(e1.columns().size(), 2);
-    auto&& cr0er = e1.columns()[0];
-    auto&& cr2er = e1.columns()[1];
+    ASSERT_EQ(e1.group_keys().size(), 1);
+    auto&& cr0er = e1.group_keys()[0];
+
+    ASSERT_EQ(e1.columns().size(), 1);
+    auto&& cr2er = e1.columns()[0];
 
     // scan - pl
     ASSERT_EQ(r0.columns().size(), 2);
@@ -291,10 +295,12 @@ TEST_F(step_plan_builder_test, join) {
 
     // offer - pl
     ASSERT_EQ(r4.columns().size(), 2);
-    EXPECT_EQ(r4.columns()[0].source(), cl0pl);
-    EXPECT_EQ(r4.columns()[1].source(), cl1pl);
-    EXPECT_EQ(r4.columns()[0].destination(), cl0el);
-    EXPECT_EQ(r4.columns()[1].destination(), cl1el);
+    // -- values
+    EXPECT_EQ(r4.columns()[0].source(), cl1pl);
+    EXPECT_EQ(r4.columns()[0].destination(), cl1el);
+    // -- keys
+    EXPECT_EQ(r4.columns()[1].source(), cl0pl);
+    EXPECT_EQ(r4.columns()[1].destination(), cl0el);
 
     // scan - pr
     ASSERT_EQ(r1.columns().size(), 2);
@@ -305,10 +311,12 @@ TEST_F(step_plan_builder_test, join) {
 
     // offer - pr
     ASSERT_EQ(r5.columns().size(), 2);
-    EXPECT_EQ(r5.columns()[0].source(), cr0pr);
-    EXPECT_EQ(r5.columns()[1].source(), cr2pr);
-    EXPECT_EQ(r5.columns()[0].destination(), cr0er);
-    EXPECT_EQ(r5.columns()[1].destination(), cr2er);
+    // -- values
+    EXPECT_EQ(r5.columns()[0].source(), cr2pr);
+    EXPECT_EQ(r5.columns()[0].destination(), cr2er);
+    // -- keys
+    EXPECT_EQ(r5.columns()[1].source(), cr0pr);
+    EXPECT_EQ(r5.columns()[1].destination(), cr0er);
 
     // take_cogroup
     ASSERT_EQ(r6.groups().size(), 2);

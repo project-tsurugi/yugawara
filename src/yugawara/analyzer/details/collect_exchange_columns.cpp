@@ -9,9 +9,12 @@
 
 #include <takatori/util/assertion.h>
 #include <takatori/util/exception.h>
+#include <takatori/util/optional_ptr.h>
 #include <takatori/util/string_builder.h>
 
+#include <yugawara/binding/factory.h>
 #include <yugawara/binding/extract.h>
+#include <yugawara/binding/variable_info_impl.h>
 
 #include "container_pool.h"
 
@@ -226,16 +229,27 @@ public:
 
     void operator()(relation::step::take_flat& expr, buffer_type& available_columns) {
         BOOST_ASSERT(available_columns.empty()); // NOLINT
+        auto&& info = exchange_map_.get(expr.source());
+        info.register_destination(expr);
         analyze_take_like(expr, available_columns);
     }
 
     void operator()(relation::step::take_group& expr, buffer_type& available_columns) {
         BOOST_ASSERT(available_columns.empty()); // NOLINT
+        auto&& info = exchange_map_.get(expr.source());
+        info.register_destination(expr);
         analyze_take_like(expr, available_columns);
     }
 
     void operator()(relation::step::take_cogroup& expr, buffer_type& available_columns) {
         BOOST_ASSERT(available_columns.empty()); // NOLINT
+
+        // NOTE: first, unify each group key in source group exchanges
+        for (auto&& group : expr.groups()) {
+            auto&& info = exchange_map_.get(group.source());
+            info.register_destination(expr);
+        }
+
         expand(available_columns, std::accumulate(
                 expr.groups().begin(),
                 expr.groups().end(),
@@ -250,6 +264,7 @@ public:
 
     void operator()(relation::step::offer& expr, buffer_type& available_columns) {
         auto&& info = exchange_map_.create_or_get(expr.destination());
+        info.register_source(expr);
         auto&& columns = expr.columns();
         if (columns.empty()) {
             // no columns are defined, then we offer all available columns in the context
@@ -358,10 +373,58 @@ public:
         // nothing to do
     }
 
+    void post_process(::takatori::plan::group& step) {
+        auto&& info = exchange_map_.get(step);
+        auto cogroup = find_take_cogroup(info);
+        if (!cogroup) {
+            return;
+        }
+        if (post_processed_.find(std::addressof(step)) != post_processed_.end()) {
+            return;
+        }
+        post_processed_.insert(std::addressof(step));
+
+        binding::factory factory;
+        ::tsl::hopscotch_map<descriptor::variable::reference_type, descriptor::variable> replace {};
+        for (auto&& key : step.group_keys()) {
+            auto&& source = binding::extract<binding::variable_info_kind::exchange_column>(key);
+            auto replacement = factory.exchange_column(source.label());
+            replace.emplace(key, replacement);
+            key = std::move(replacement);
+        }
+
+        mapping_buffer_.reserve(replace.size());
+        for (auto source : info.sources()) {
+            for (auto&& mapping : source->columns()) {
+                if (auto iter = replace.find(mapping.destination().reference()); iter != replace.end()) {
+                    mapping_buffer_.emplace_back(mapping.source(), iter->second);
+                }
+            }
+            source->columns().reserve(source->columns().size() + mapping_buffer_.size());
+            for (auto&& mapping : mapping_buffer_) {
+                source->columns().emplace_back(std::move(mapping));
+            }
+            mapping_buffer_.clear();
+        }
+    }
+
+    ::takatori::util::optional_ptr<relation::step::take_cogroup> find_take_cogroup(exchange_column_info const& info) {
+        if (info.destinations().size() != 1) {
+            return {};
+        }
+        auto&& expr = *info.destinations().front();
+        if (expr.kind() != relation::step::take_cogroup::tag) {
+            return {};
+        }
+        return unsafe_downcast<relation::step::take_cogroup>(expr);
+    }
+
 private:
     exchange_column_info_map& exchange_map_;
     buffer_pool_type& buffer_pool_;
     std::vector<relation::details::mapping_element> mapping_buffer_;
+
+    ::tsl::hopscotch_set<plan::group const*> post_processed_;
 
     void scan(relation::expression* current, buffer_type& available_columns) {
         while (true) {
@@ -503,6 +566,11 @@ exchange_column_info_map collect_exchange_columns(::takatori::plan::graph_type& 
     plan::sort_from_upstream(
             graph,
             [&](plan::step& step) { plan::dispatch(e, step); });
+    for (auto&& step : graph) {
+        if (step.kind() == plan::group::tag) {
+            e.post_process(unsafe_downcast<plan::group>(step));
+        }
+    }
     return exchange_map;
 }
 

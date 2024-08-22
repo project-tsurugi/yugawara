@@ -1153,14 +1153,16 @@ TEST_F(rewrite_stream_variables_test, join_group) {
     apply(p);
 
     // el
-    ASSERT_EQ(el.columns().size(), 2);
-    auto&& cl0el = el.columns()[0];
-    auto&& cl1el = el.columns()[1];
+    ASSERT_EQ(el.group_keys().size(), 1);
+    auto&& cl0el = el.group_keys()[0];
+    ASSERT_EQ(el.columns().size(), 1);
+    auto&& cl1el = el.columns()[0];
 
     // er
-    ASSERT_EQ(er.columns().size(), 2);
-    auto&& cr0er = er.columns()[0];
-    auto&& cr2er = er.columns()[1];
+    ASSERT_EQ(er.group_keys().size(), 1);
+    auto&& cr0er = er.group_keys()[0];
+    ASSERT_EQ(er.columns().size(), 1);
+    auto&& cr2er = er.columns()[0];
 
     // scan - pl
     ASSERT_EQ(rl0.columns().size(), 2);
@@ -1171,10 +1173,12 @@ TEST_F(rewrite_stream_variables_test, join_group) {
 
     // offer - pl
     ASSERT_EQ(rl1.columns().size(), 2);
-    EXPECT_EQ(rl1.columns()[0].source(), cl0pl);
-    EXPECT_EQ(rl1.columns()[1].source(), cl1pl);
-    EXPECT_EQ(rl1.columns()[0].destination(), cl0el);
-    EXPECT_EQ(rl1.columns()[1].destination(), cl1el);
+    // -- values
+    EXPECT_EQ(rl1.columns()[0].source(), cl1pl);
+    EXPECT_EQ(rl1.columns()[0].destination(), cl1el);
+    // -- keys
+    EXPECT_EQ(rl1.columns()[1].source(), cl0pl);
+    EXPECT_EQ(rl1.columns()[1].destination(), cl0el);
 
     // scan - pl
     ASSERT_EQ(rr0.columns().size(), 2);
@@ -1185,10 +1189,12 @@ TEST_F(rewrite_stream_variables_test, join_group) {
 
     // offer - pl
     ASSERT_EQ(rr1.columns().size(), 2);
-    EXPECT_EQ(rr1.columns()[0].source(), cr0pr);
-    EXPECT_EQ(rr1.columns()[1].source(), cr2pr);
-    EXPECT_EQ(rr1.columns()[0].destination(), cr0er);
-    EXPECT_EQ(rr1.columns()[1].destination(), cr2er);
+    // -- values
+    EXPECT_EQ(rr1.columns()[0].source(), cr2pr);
+    EXPECT_EQ(rr1.columns()[0].destination(), cr2er);
+    // -- keys
+    EXPECT_EQ(rr1.columns()[1].source(), cr0pr);
+    EXPECT_EQ(rr1.columns()[1].destination(), cr0er);
 
     // take_cogroup
     ASSERT_EQ(rj0.groups().size(), 2);
@@ -1372,13 +1378,15 @@ TEST_F(rewrite_stream_variables_test, intersection_group) {
     apply(p);
 
     // el
-    ASSERT_EQ(el.columns().size(), 2);
-    auto&& cl0el = el.columns()[0];
-    auto&& cl2el = el.columns()[1];
+    ASSERT_EQ(el.group_keys().size(), 1);
+    auto&& cl0el = el.group_keys()[0];
+    ASSERT_EQ(el.columns().size(), 1);
+    auto&& cl2el = el.columns()[0];
 
     // er
-    ASSERT_EQ(er.columns().size(), 1);
-    auto&& cr0er = er.columns()[0];
+    ASSERT_EQ(er.group_keys().size(), 1);
+    auto&& cr0er = er.group_keys()[0];
+    ASSERT_EQ(er.columns().size(), 0);
 
     // scan - pl
     ASSERT_EQ(rl0.columns().size(), 2);
@@ -1389,10 +1397,12 @@ TEST_F(rewrite_stream_variables_test, intersection_group) {
 
     // offer - pl
     ASSERT_EQ(rl1.columns().size(), 2);
-    EXPECT_EQ(rl1.columns()[0].source(), cl0pl);
-    EXPECT_EQ(rl1.columns()[1].source(), cl2pl);
-    EXPECT_EQ(rl1.columns()[0].destination(), cl0el);
-    EXPECT_EQ(rl1.columns()[1].destination(), cl2el);
+    // -- values
+    EXPECT_EQ(rl1.columns()[0].source(), cl2pl);
+    EXPECT_EQ(rl1.columns()[0].destination(), cl2el);
+    // -- keys
+    EXPECT_EQ(rl1.columns()[1].source(), cl0pl);
+    EXPECT_EQ(rl1.columns()[1].destination(), cl0el);
 
     // scan - pl
     ASSERT_EQ(rr0.columns().size(), 1);
@@ -1401,6 +1411,7 @@ TEST_F(rewrite_stream_variables_test, intersection_group) {
 
     // offer - pl
     ASSERT_EQ(rr1.columns().size(), 1);
+    // -- keys only
     EXPECT_EQ(rr1.columns()[0].source(), cr0pr);
     EXPECT_EQ(rr1.columns()[0].destination(), cr0er);
 
@@ -1487,13 +1498,15 @@ TEST_F(rewrite_stream_variables_test, difference_group) {
     apply(p);
 
     // el
-    ASSERT_EQ(el.columns().size(), 2);
-    auto&& cl0el = el.columns()[0];
-    auto&& cl2el = el.columns()[1];
+    ASSERT_EQ(el.group_keys().size(), 1);
+    auto&& cl0el = el.group_keys()[0];
+    ASSERT_EQ(el.columns().size(), 1);
+    auto&& cl2el = el.columns()[0];
 
     // er
-    ASSERT_EQ(er.columns().size(), 1);
-    auto&& cr0er = er.columns()[0];
+    ASSERT_EQ(er.group_keys().size(), 1);
+    auto&& cr0er = er.group_keys()[0];
+    ASSERT_EQ(er.columns().size(), 0);
 
     // scan - pl
     ASSERT_EQ(rl0.columns().size(), 2);
@@ -1504,10 +1517,12 @@ TEST_F(rewrite_stream_variables_test, difference_group) {
 
     // offer - pl
     ASSERT_EQ(rl1.columns().size(), 2);
-    EXPECT_EQ(rl1.columns()[0].source(), cl0pl);
-    EXPECT_EQ(rl1.columns()[1].source(), cl2pl);
-    EXPECT_EQ(rl1.columns()[0].destination(), cl0el);
-    EXPECT_EQ(rl1.columns()[1].destination(), cl2el);
+    // -- values
+    EXPECT_EQ(rl1.columns()[0].source(), cl2pl);
+    EXPECT_EQ(rl1.columns()[0].destination(), cl2el);
+    // -- keys
+    EXPECT_EQ(rl1.columns()[1].source(), cl0pl);
+    EXPECT_EQ(rl1.columns()[1].destination(), cl0el);
 
     // scan - pl
     ASSERT_EQ(rr0.columns().size(), 1);
@@ -1516,6 +1531,7 @@ TEST_F(rewrite_stream_variables_test, difference_group) {
 
     // offer - pl
     ASSERT_EQ(rr1.columns().size(), 1);
+    // -- keys only
     EXPECT_EQ(rr1.columns()[0].source(), cr0pr);
     EXPECT_EQ(rr1.columns()[0].destination(), cr0er);
 
@@ -1530,7 +1546,7 @@ TEST_F(rewrite_stream_variables_test, difference_group) {
 
     ASSERT_EQ(gr.columns().size(), 0); // is ok?
 
-    // intersection
+    // diferrence
 
     // offer
     ASSERT_EQ(rjo.columns().size(), 1);

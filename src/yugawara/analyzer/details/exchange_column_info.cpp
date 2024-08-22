@@ -13,6 +13,22 @@ exchange_column_info::size_type exchange_column_info::count() const noexcept {
     return entries_.size();
 }
 
+void exchange_column_info::register_source(takatori::relation::step::offer& source) {
+    sources_.emplace_back(std::addressof(source));
+}
+
+std::vector<::takatori::relation::step::offer *> const &exchange_column_info::sources() const noexcept {
+    return sources_;
+}
+
+void exchange_column_info::register_destination(takatori::relation::expression &destination) {
+    destinations_.emplace_back(std::addressof(destination));
+}
+
+std::vector<::takatori::relation::expression*> const& exchange_column_info::destinations() const noexcept {
+    return destinations_;
+}
+
 ::takatori::util::optional_ptr<descriptor::variable const>
 exchange_column_info::find(descriptor::variable const& variable) const {
     if (auto it = index_.find(variable); it != index_.end()) {
@@ -27,9 +43,11 @@ void exchange_column_info::each_mapping(mapping_consumer_type const& consumer) c
     }
 }
 
-descriptor::variable const& exchange_column_info::allocate(descriptor::variable const& variable) {
-    if (auto v = find(variable)) {
-        return *v;
+descriptor::variable const& exchange_column_info::allocate(descriptor::variable const& variable, bool force) {
+    if (!force) {
+        if (auto v = find(variable)) {
+            return *v;
+        }
     }
     auto&& info = binding::extract<binding::variable_info_kind::stream_variable>(variable);
     binding::factory f {};

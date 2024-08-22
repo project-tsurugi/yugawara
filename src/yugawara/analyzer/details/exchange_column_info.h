@@ -9,6 +9,7 @@
 
 #include <takatori/descriptor/variable.h>
 #include <takatori/scalar/expression.h>
+#include <takatori/relation/step/offer.h>
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/sequence_view.h>
 
@@ -35,6 +36,14 @@ public:
 
     [[nodiscard]] size_type count() const noexcept;
 
+    void register_source(::takatori::relation::step::offer& source);
+
+    [[nodiscard]] std::vector<::takatori::relation::step::offer*> const& sources() const noexcept;
+
+    void register_destination(::takatori::relation::expression& destination);
+
+    [[nodiscard]] std::vector<::takatori::relation::expression*> const& destinations() const noexcept;
+
     /**
      * @brief enumerate mapping pairs.
      * @param consumer the mapping consumer
@@ -45,11 +54,15 @@ public:
     /**
      * @brief allocates an exchange column for the given stream variable to be exchanged.
      * @param variable the source variable
+     * @param force if true, this operation will allocate a new exchange column
+     *      even if the given variable has been already allocated.
      * @return the allocated exchange column.
      *      If the given stream variable has been already allocated, this operation will return
-     *      the previously allocated column.
+     *      the previously allocated column except `force = true`.
      */
-    [[nodiscard]] ::takatori::descriptor::variable const& allocate(::takatori::descriptor::variable const& variable);
+    [[nodiscard]] ::takatori::descriptor::variable const& allocate(
+            ::takatori::descriptor::variable const& variable,
+            bool force = false);
 
     /**
      * @brief registers stream variable and the corresponded exchange column which is the replacement of former.
@@ -96,6 +109,10 @@ private:
             ::takatori::descriptor::variable,
             std::hash<::takatori::descriptor::variable>,
             std::equal_to<>> touched_;
+
+    std::vector<::takatori::relation::step::offer*> sources_;
+
+    std::vector<::takatori::relation::expression*> destinations_;
 };
 
 } // namespace yugawara::analyzer::details
