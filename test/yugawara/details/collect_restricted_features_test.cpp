@@ -4,6 +4,8 @@
 
 #include <takatori/relation/values.h>
 #include <takatori/relation/write.h>
+#include <takatori/relation/join_find.h>
+#include <takatori/relation/step/join.h>
 
 #include <takatori/plan/process.h>
 #include <takatori/plan/forward.h>
@@ -90,6 +92,29 @@ TEST_F(collect_restricted_features_test, relation_values_not_restricted) {
                     {},
             }));
     ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, relation_semi_join_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::relation_semi_join },
+            make_statement(relation::join_find {
+                    relation::join_kind::semi,
+                    factory(*i0),
+                    {},
+                    {},
+            }));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::relation_semi_join);
+}
+
+TEST_F(collect_restricted_features_test, relation_anti_join_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::relation_anti_join },
+            make_statement(relation::step::join {
+                    relation::join_kind::anti,
+            }));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::relation_anti_join);
 }
 
 TEST_F(collect_restricted_features_test, relation_write_insert_restricted) {

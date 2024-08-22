@@ -35,6 +35,12 @@ enum class restricted_feature {
     /// @brief restrict `join_scan` operator.
     relation_join_scan,
 
+    /// @brief restrict `join` like operator with `semi-join` operations.
+    relation_semi_join,
+
+    /// @brief restrict `join` like operator with `anti-join` operations.
+    relation_anti_join,
+
     /// @brief restrict `write` operator with `insert` operations.
     relation_write_insert,
 
@@ -93,6 +99,8 @@ constexpr restricted_feature_set restricted_feature_relation_expressions {
         restricted_feature::relation_identify,
         restricted_feature::relation_join_find,
         restricted_feature::relation_join_scan,
+        restricted_feature::relation_semi_join,
+        restricted_feature::relation_anti_join,
         restricted_feature::relation_write_insert,
         restricted_feature::relation_values,
         restricted_feature::relation_difference,
@@ -128,6 +136,8 @@ inline constexpr std::string_view to_string_view(restricted_feature value) noexc
         case kind::relation_identify: return "identify operator"sv;
         case kind::relation_join_find: return "join_find operator"sv;
         case kind::relation_join_scan: return "join_scan operator"sv;
+        case kind::relation_semi_join: return "join like operator with semi-join operation"sv;
+        case kind::relation_anti_join: return "join like operator with anti-join operation"sv;
         case kind::relation_write_insert: return "write operator with insert operation"sv;
         case kind::relation_values: return "values operator"sv;
         case kind::relation_difference: return "difference operator"sv;

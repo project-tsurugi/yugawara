@@ -127,10 +127,30 @@ public:
 
     void operator()(trelation::join_find const& expression) {
         validate(restricted_feature::relation_join_find, expression.region());
+        process_join_like(expression);
     }
 
     void operator()(trelation::join_scan const& expression) {
         validate(restricted_feature::relation_join_scan, expression.region());
+        process_join_like(expression);
+    }
+
+    void operator()(trelation::step::join const& expression) {
+        process_join_like(expression);
+    }
+
+    template<class T>
+    void process_join_like(T const& expression) {
+        switch (expression.operator_kind()) {
+            case trelation::join_kind::semi:
+                validate(restricted_feature::relation_semi_join, expression.region());
+                break;
+            case trelation::join_kind::anti:
+                validate(restricted_feature::relation_anti_join, expression.region());
+                break;
+            default:
+                break; // ok
+        }
     }
 
     void operator()(trelation::write const& expression) {
