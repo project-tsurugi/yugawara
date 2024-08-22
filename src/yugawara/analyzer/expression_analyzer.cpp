@@ -1256,7 +1256,7 @@ public:
         return resolve_exchange_columns(expr, expr.columns());
     }
 
-    bool operator()(relation::step::take_cogroup const& expr) {
+    bool operator()(relation::step::take_cogroup const& expr) { // NOLINT(*-function-cognitive-complexity)
         std::optional<std::size_t> group_count {};
         for (auto&& group : expr.groups()) {
             auto exchange = binding::extract_if<plan::exchange>(group.source());

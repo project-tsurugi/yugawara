@@ -70,9 +70,9 @@ class engine {
 public:
     using buffer_type = buffer_pool_type::value_type;
 
-    explicit engine(exchange_column_info_map& exchange_map, buffer_pool_type& buffer_pool) noexcept
-        : exchange_map_(exchange_map)
-        , buffer_pool_(buffer_pool)
+    explicit engine(exchange_column_info_map& exchange_map, buffer_pool_type& buffer_pool) :
+        exchange_map_ { exchange_map },
+        buffer_pool_ { buffer_pool }
     {}
 
     void operator()(::takatori::plan::process& step) {
