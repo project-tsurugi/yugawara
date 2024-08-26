@@ -111,6 +111,11 @@ private:
         }
         auto&& collector = left_collector_;
         auto scan = find_scan(expr.left(), false);
+        finalizer filter_buf_finalizer {
+                [&]() -> void {
+                    filter_buf_.clear();
+                }
+        };
         if (!scan || !collector(*scan, true)) {
             return;
         }
@@ -143,6 +148,11 @@ private:
         }
         auto&& collector = right_collector_;
         auto scan = find_scan(expr.right(), direct.contains(expr.operator_kind()));
+        finalizer filter_buf_finalizer {
+            [&]() -> void {
+                filter_buf_.clear();
+            }
+        };
         if (!scan || !collector(*scan, true)) {
             return;
         }

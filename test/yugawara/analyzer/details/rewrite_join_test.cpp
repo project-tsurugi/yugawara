@@ -799,6 +799,55 @@ TEST_F(rewrite_join_test, indirect_rest) {
     EXPECT_EQ(result.condition(), compare(varref(cr1), constant(1)));
 }
 
+TEST_F(rewrite_join_test, right_cross_indirect) {
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto&& inl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), cl0 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto&& inr = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), cr0 },
+                    { bindings(t1c1), cr1 },
+            },
+    });
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::inner,
+    });
+
+    auto&& out = r.insert(relation::emit { cl0, cr0 });
+
+    auto&& filter = r.insert(relation::filter {
+            compare(varref(cr1), constant(1)),
+    });
+
+    inl.output() >> join.left();
+    inr.output() >> filter.input();
+    filter.output() >> join.right();
+    join.output() >> out.input();
+
+    auto x0 = storages.add_index(storage::index {
+            t1,
+            "x0",
+            {
+                    t1->columns()[1],
+                    t1->columns()[0],
+            },
+    });
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+
+    auto&& result = next<relation::intermediate::join>(out.input());
+    EXPECT_EQ(result.condition(), nullptr);
+}
+
 TEST_F(rewrite_join_test, fix_heap_reuse) {
     auto t_c = storages.add_table({
             "customer",
