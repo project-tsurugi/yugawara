@@ -1,5 +1,6 @@
 #include <yugawara/type/conversion.h>
 
+#include <algorithm>
 #include <optional>
 
 #include <cstdint>
@@ -134,7 +135,7 @@ binary_numeric_promotion(model::data const& type, model::data const& with, repos
         case npair(kind::int1, kind::int8):
             return repo.get(model::int8 {});
         case npair(kind::int1, kind::decimal):
-            return repo.get(model::decimal { decimal_precision_int1, 0 });
+            return binary_numeric_promotion(model::decimal { decimal_precision_int1, 0 }, with);
         case npair(kind::int1, kind::float4):
             return repo.get(model::float4 {});
         case npair(kind::int1, kind::float8):
@@ -147,7 +148,7 @@ binary_numeric_promotion(model::data const& type, model::data const& with, repos
         case npair(kind::int2, kind::int8):
             return repo.get(model::int8 {});
         case npair(kind::int2, kind::decimal):
-            return repo.get(model::decimal { decimal_precision_int2, 0 });
+            return binary_numeric_promotion(model::decimal { decimal_precision_int2, 0 }, with);
         case npair(kind::int2, kind::float4):
             return repo.get(model::float4 {});
         case npair(kind::int2, kind::float8):
@@ -160,7 +161,7 @@ binary_numeric_promotion(model::data const& type, model::data const& with, repos
         case npair(kind::int4, kind::int8):
             return repo.get(model::int8 {});
         case npair(kind::int4, kind::decimal):
-            return repo.get(model::decimal { decimal_precision_int4, 0 });
+            return binary_numeric_promotion(model::decimal { decimal_precision_int4, 0 }, with);
         case npair(kind::int4, kind::float4):
             return repo.get(model::float8 {});
         case npair(kind::int4, kind::float8):
@@ -172,18 +173,36 @@ binary_numeric_promotion(model::data const& type, model::data const& with, repos
         case npair(kind::int8, kind::int8):
             return repo.get(model::int8 {});
         case npair(kind::int8, kind::decimal):
-            return repo.get(model::decimal { decimal_precision_int8, 0 });
+            return binary_numeric_promotion(model::decimal { decimal_precision_int8, 0 }, with);
         case npair(kind::int8, kind::float4):
             return repo.get(model::float8 {});
         case npair(kind::int8, kind::float8):
             return repo.get(model::float8 {});
 
         case npair(kind::decimal, kind::int1):
+            return binary_numeric_promotion(type, model::decimal { decimal_precision_int1, 0 });
         case npair(kind::decimal, kind::int2):
+            return binary_numeric_promotion(type, model::decimal { decimal_precision_int2, 0 });
         case npair(kind::decimal, kind::int4):
+            return binary_numeric_promotion(type, model::decimal { decimal_precision_int4, 0 });
         case npair(kind::decimal, kind::int8):
+            return binary_numeric_promotion(type, model::decimal { decimal_precision_int8, 0 });
         case npair(kind::decimal, kind::decimal):
-            return repo.get(type);
+        {
+            auto&& a = unsafe_downcast<model::decimal>(type);
+            auto&& b = unsafe_downcast<model::decimal>(with);
+            std::optional<std::size_t> precision {};
+            std::optional<std::size_t> scale {};
+            if (a.scale() == b.scale()) {
+                if (a.precision() == b.precision()) {
+                    precision = a.precision();
+                } else if (a.precision() && b.precision()) {
+                    precision = std::max(*a.precision(), *b.precision());
+                }
+                scale = a.scale();
+            }
+            return repo.get(model::decimal { precision, scale });
+        }
         case npair(kind::decimal, kind::float4):
         case npair(kind::decimal, kind::float8):
             return repo.get(model::float8 {});
