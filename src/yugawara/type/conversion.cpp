@@ -23,8 +23,6 @@ using yugawara::util::ternary;
 using yugawara::util::ternary_of;
 using ::takatori::type::with_time_zone_t;
 
-constexpr std::size_t decimal_precision_int1 = 3;
-constexpr std::size_t decimal_precision_int2 = 5;
 constexpr std::size_t decimal_precision_int4 = 10;
 constexpr std::size_t decimal_precision_int8 = 19;
 
@@ -39,26 +37,127 @@ bool impl::is_conversion_stop_type(model::data const& type) noexcept {
 
 using impl::is_conversion_stop_type;
 
-static constexpr std::uint64_t npair(kind a, kind b) noexcept {
+namespace {
+
+constexpr std::uint64_t npair(kind a, kind b) noexcept {
     using utype = std::underlying_type_t<kind>;
     static_assert(sizeof(utype) <= sizeof(std::uint64_t) / 2);
     auto scale = static_cast<std::uint64_t>(std::numeric_limits<utype>::max()) + 1;
     return static_cast<std::uint64_t>(a) * scale + static_cast<std::uint64_t>(b);
 }
 
-static std::shared_ptr<extension::type::error> shared_error() {
+std::shared_ptr<extension::type::error> shared_error() {
     static auto result = std::make_shared<extension::type::error>();
     return result;
 }
 
-static std::shared_ptr<extension::type::pending> shared_pending() {
+std::shared_ptr<extension::type::pending> shared_pending() {
     static auto result = std::make_shared<extension::type::pending>();
     return result;
 }
 
+with_time_zone_t get_time_zone(model::data const& type) {
+    switch (type.kind()) {
+        case model::time_of_day::tag:
+            return with_time_zone_t { unsafe_downcast<model::time_of_day>(type).with_time_zone() };
+        case model::time_point::tag:
+            return with_time_zone_t { unsafe_downcast<model::time_point>(type).with_time_zone() };
+        default:
+            std::abort();
+    }
+}
+
+with_time_zone_t promote_time_zone(model::data const& a, model::data const& b) {
+    auto&& tz1 = get_time_zone(a);
+    auto&& tz2 = get_time_zone(b);
+    if (tz1 == tz2) {
+        return tz1;
+    }
+    return with_time_zone_t { true };
+}
+
+std::shared_ptr<model::data const> unary_external_promotion(
+        model::data const& type,
+        repository& repo) {
+    if (is_conversion_stop_type(type)) return shared_pending();
+    switch (type.kind()) {
+        case kind::extension:
+            // FIXME: impl
+            return repo.get(type);
+
+        default:
+            return shared_error();
+    }
+}
+
+std::shared_ptr<model::data const> binary_external_promotion(
+        model::data const& type,
+        model::data const& with,
+        repository& repo) {
+    if (is_conversion_stop_type(type) || is_conversion_stop_type(with)) return shared_pending();
+    switch (npair(type.kind(), with.kind())) {
+        case npair(kind::extension, kind::extension):
+            // FIXME: impl
+            if (type == with) {
+                return repo.get(type);
+            }
+            return shared_error();
+
+        default:
+            return shared_error();
+    }
+}
+
+std::optional<category> unify_category(category a, category b) {
+    // unifying conversion is defined only if they are in the same category, except special cases.
+    if (a == b) {
+        return a;
+    }
+
+    // if either category is unresolved, we cannot continue any more conversions
+    if (a == category::unresolved || b == category::unresolved) {
+        return category::unresolved;
+    }
+
+    // if either category is unknown, then becomes the opposite category
+    if (a == category::unknown) {
+        return b;
+    }
+    if (b == category::unknown) {
+        return a;
+    }
+
+    // if either category is external, we continue the conversion with external rules
+    if (a == category::external || b == category::external) {
+        return category::external;
+    }
+
+    // no conversion rules
+    return {};
+}
+
+} // namespace
+
 std::shared_ptr<model::data const> identity_conversion(model::data const& type, repository& repo) {
     if (is_conversion_stop_type(type)) return shared_pending();
     return repo.get(type);
+}
+
+std::shared_ptr<model::data const> identity_conversion(
+        model::data const& type,
+        model::data const& with,
+        repository& repo) {
+    if (is_conversion_stop_type(type) || is_conversion_stop_type(with)) return shared_pending();
+    if (type.kind() == kind::unknown) {
+        return repo.get(with);
+    }
+    if (with.kind() == kind::unknown) {
+        return repo.get(type);
+    }
+    if (type == with) {
+        return repo.get(type);
+    }
+    return shared_error();
 }
 
 std::shared_ptr<model::data const> unary_boolean_promotion(model::data const& type, repository& repo) {
@@ -105,25 +204,6 @@ std::shared_ptr<model::data const> unary_numeric_promotion(model::data const& ty
     }
 }
 
-std::shared_ptr<model::data const> unary_decimal_promotion(model::data const& type, repository& repo) {
-    if (is_conversion_stop_type(type)) return shared_pending();
-    switch (type.kind()) {
-        case kind::unknown:
-        case kind::int1:
-            return repo.get(model::decimal { decimal_precision_int1, 0 });
-        case kind::int2:
-            return repo.get(model::decimal { decimal_precision_int2, 0 });
-        case kind::int4:
-            return repo.get(model::decimal { decimal_precision_int4, 0 });
-        case kind::int8:
-            return repo.get(model::decimal { decimal_precision_int8, 0 });
-        case kind::decimal:
-            return repo.get(type);
-        default:
-            return shared_error();
-    }
-}
-
 std::shared_ptr<model::data const>
 binary_numeric_promotion(model::data const& type, model::data const& with, repository& repo) {
     if (is_conversion_stop_type(type) || is_conversion_stop_type(with)) return shared_pending();
@@ -135,9 +215,9 @@ binary_numeric_promotion(model::data const& type, model::data const& with, repos
         case npair(kind::int1, kind::int8):
             return repo.get(model::int8 {});
         case npair(kind::int1, kind::decimal):
-            return binary_numeric_promotion(model::decimal { decimal_precision_int1, 0 }, with);
+            return binary_numeric_promotion(model::decimal { decimal_precision_int4, 0 }, with);
         case npair(kind::int1, kind::float4):
-            return repo.get(model::float4 {});
+            return repo.get(model::float8 {});
         case npair(kind::int1, kind::float8):
             return repo.get(model::float8 {});
 
@@ -148,9 +228,9 @@ binary_numeric_promotion(model::data const& type, model::data const& with, repos
         case npair(kind::int2, kind::int8):
             return repo.get(model::int8 {});
         case npair(kind::int2, kind::decimal):
-            return binary_numeric_promotion(model::decimal { decimal_precision_int2, 0 }, with);
+            return binary_numeric_promotion(model::decimal { decimal_precision_int4, 0 }, with);
         case npair(kind::int2, kind::float4):
-            return repo.get(model::float4 {});
+            return repo.get(model::float8 {});
         case npair(kind::int2, kind::float8):
             return repo.get(model::float8 {});
 
@@ -180,9 +260,9 @@ binary_numeric_promotion(model::data const& type, model::data const& with, repos
             return repo.get(model::float8 {});
 
         case npair(kind::decimal, kind::int1):
-            return binary_numeric_promotion(type, model::decimal { decimal_precision_int1, 0 });
+            return binary_numeric_promotion(type, model::decimal { decimal_precision_int4, 0 });
         case npair(kind::decimal, kind::int2):
-            return binary_numeric_promotion(type, model::decimal { decimal_precision_int2, 0 });
+            return binary_numeric_promotion(type, model::decimal { decimal_precision_int4, 0 });
         case npair(kind::decimal, kind::int4):
             return binary_numeric_promotion(type, model::decimal { decimal_precision_int4, 0 });
         case npair(kind::decimal, kind::int8):
@@ -204,16 +284,18 @@ binary_numeric_promotion(model::data const& type, model::data const& with, repos
             return repo.get(model::decimal { precision, scale });
         }
         case npair(kind::decimal, kind::float4):
+            return repo.get(model::float8 {});
         case npair(kind::decimal, kind::float8):
             return repo.get(model::float8 {});
 
         case npair(kind::float4, kind::int1):
         case npair(kind::float4, kind::int2):
-            return repo.get(model::float4 {});
         case npair(kind::float4, kind::int4):
         case npair(kind::float4, kind::int8):
         case npair(kind::float4, kind::decimal):
+            return repo.get(model::float8 {});
         case npair(kind::float4, kind::float4):
+            return repo.get(model::float4 {});
         case npair(kind::float4, kind::float8):
             return repo.get(model::float8 {});
 
@@ -257,7 +339,6 @@ unary_character_string_promotion(model::data const& type, repository& repo) {
     if (is_conversion_stop_type(type)) return shared_pending();
     switch (type.kind()) {
         case kind::character:
-            // FIXME: always varying?
             return repo.get(model::character {
                     model::varying,
                     unsafe_downcast<model::character>(type).length(),
@@ -281,8 +362,21 @@ std::shared_ptr<model::data const> binary_character_string_promotion(
     switch (npair(type.kind(), with.kind())) {
         // FIXME: always varying?
         case npair(kind::character, kind::character):
+        {
+            auto&& a = unsafe_downcast<model::character>(type);
+            auto&& b = unsafe_downcast<model::character>(with);
+            if (a.length() == b.length()) {
+                return repo.get(model::character { model::varying, a.length() });
+            }
+            return repo.get(model::character { model::varying, {} });
+        }
+
         case npair(kind::character, kind::unknown):
+            return unary_character_string_promotion(type, repo);
+
         case npair(kind::unknown, kind::character):
+            return unary_character_string_promotion(with, repo);
+
         case npair(kind::unknown, kind::unknown):
             return unary_character_string_promotion(type, repo);
 
@@ -320,8 +414,21 @@ std::shared_ptr<model::data const> binary_octet_string_promotion(
     switch (npair(type.kind(), with.kind())) {
         // FIXME: always varying?
         case npair(kind::octet, kind::octet):
+        {
+            auto&& a = unsafe_downcast<model::octet>(type);
+            auto&& b = unsafe_downcast<model::octet>(with);
+            if (a.length() == b.length()) {
+                return repo.get(model::octet { model::varying, a.length() });
+            }
+            return repo.get(model::octet { model::varying, {} });
+        }
+
         case npair(kind::octet, kind::unknown):
+            return unary_octet_string_promotion(type, repo);
+
         case npair(kind::unknown, kind::octet):
+            return unary_octet_string_promotion(with, repo);
+
         case npair(kind::unknown, kind::unknown):
             return unary_octet_string_promotion(type, repo);
 
@@ -380,26 +487,6 @@ std::shared_ptr<model::data const> unary_temporal_promotion(model::data const& t
         default:
             return shared_error();
     }
-}
-
-static with_time_zone_t get_time_zone(model::data const& type) {
-    switch (type.kind()) {
-        case model::time_of_day::tag:
-            return with_time_zone_t { unsafe_downcast<model::time_of_day>(type).with_time_zone() };
-        case model::time_point::tag:
-            return with_time_zone_t { unsafe_downcast<model::time_point>(type).with_time_zone() };
-        default:
-            std::abort();
-    }
-}
-
-static with_time_zone_t promote_time_zone(model::data const& a, model::data const& b) {
-    auto&& tz1 = get_time_zone(a);
-    auto&& tz2 = get_time_zone(b);
-    if (tz1 == tz2) {
-        return tz1;
-    }
-    return with_time_zone_t { true };
 }
 
 std::shared_ptr<model::data const> binary_temporal_promotion(
@@ -475,38 +562,6 @@ std::shared_ptr<model::data const> binary_time_interval_promotion(
     }
 }
 
-static std::shared_ptr<model::data const> unary_external_promotion(
-        model::data const& type,
-        repository& repo) {
-    if (is_conversion_stop_type(type)) return shared_pending();
-    switch (type.kind()) {
-        case kind::extension:
-            // FIXME: impl
-            return repo.get(type);
-
-        default:
-            return shared_error();
-    }
-}
-
-static std::shared_ptr<model::data const> binary_external_promotion(
-        model::data const& type,
-        model::data const& with,
-        repository& repo) {
-    if (is_conversion_stop_type(type) || is_conversion_stop_type(with)) return shared_pending();
-    switch (npair(type.kind(), with.kind())) {
-        case npair(kind::extension, kind::extension):
-            // FIXME: impl
-            if (type == with) {
-                return repo.get(type);
-            }
-            return shared_error();
-
-        default:
-            return shared_error();
-    }
-}
-
 std::shared_ptr<model::data const> unifying_conversion(model::data const& type, repository& repo) {
     auto cat = category_of(type);
     switch (cat) {
@@ -546,34 +601,6 @@ std::shared_ptr<model::data const> unifying_conversion(model::data const& type, 
     std::abort();
 }
 
-static std::optional<category> unify_category(category a, category b) {
-    // unifying conversion is defined only if they are in the same category, except special cases..
-    if (a == b) {
-        return a;
-    }
-
-    // if either category is unresolved, we cannot continue any more conversions
-    if (a == category::unresolved || b == category::unresolved) {
-        return category::unresolved;
-    }
-
-    // if either category is unknown, then becomes the opposite category
-    if (a == category::unknown) {
-        return b;
-    }
-    if (b == category::unknown) {
-        return a;
-    }
-
-    // if either category is external, we continue the conversion with external rules
-    if (a == category::external || b == category::external) {
-        return category::external;
-    }
-
-    // no conversion rules
-    return {};
-}
-
 std::shared_ptr<model::data const> unifying_conversion(
         model::data const& type,
         model::data const& with,
@@ -589,33 +616,31 @@ std::shared_ptr<model::data const> unifying_conversion(
             return repo.get(type);
 
         case category::boolean:
-            return binary_boolean_promotion(type, with);
+            return binary_boolean_promotion(type, with, repo);
 
         case category::number:
-            return binary_numeric_promotion(type, with);
+            return binary_numeric_promotion(type, with, repo);
 
         case category::character_string:
-            return binary_character_string_promotion(type, with);
+            return binary_character_string_promotion(type, with, repo);
 
         case category::octet_string:
-            return binary_octet_string_promotion(type, with);
+            return binary_octet_string_promotion(type, with, repo);
 
         case category::bit_string:
-            return binary_bit_string_promotion(type, with);
+            return binary_bit_string_promotion(type, with, repo);
 
         case category::temporal:
-            return binary_temporal_promotion(type, with);
+            // NOTE: temporal types only allows identity conversions
+            return identity_conversion(type, with, repo);
 
         case category::datetime_interval:
-            return binary_time_interval_promotion(type, with);
+            return binary_time_interval_promotion(type, with, repo);
 
         case category::collection:
         case category::structure:
         case category::unique:
-            if (type == with) {
-                return identity_conversion(type);
-            }
-            return shared_error();
+            return identity_conversion(type, with, repo);
 
         case category::external:
             return binary_external_promotion(type, with, repo);
