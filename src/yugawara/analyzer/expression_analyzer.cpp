@@ -1801,7 +1801,7 @@ private:
             report({
                     code::unresolved_variable,
                     string_builder {}
-                            << "variable is not yet resolved: " << variable
+                            << "exchange column is not yet resolved: " << variable
                             << string_builder::to_string,
                     variable.region(),
             });

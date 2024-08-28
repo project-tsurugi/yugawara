@@ -1,6 +1,7 @@
 #include "collect_exchange_columns.h"
 
 #include <numeric>
+#include <unordered_map>
 
 #include <takatori/relation/graph.h>
 #include <takatori/relation/intermediate/escape.h>
@@ -385,7 +386,7 @@ public:
         post_processed_.insert(std::addressof(step));
 
         binding::factory factory;
-        ::tsl::hopscotch_map<descriptor::variable::reference_type, descriptor::variable> replace {};
+        std::unordered_multimap<descriptor::variable::reference_type, descriptor::variable> replace {};
         for (auto&& key : step.group_keys()) {
             auto&& source = binding::extract<binding::variable_info_kind::exchange_column>(key);
             auto replacement = factory.exchange_column(source.label());
@@ -396,7 +397,8 @@ public:
         mapping_buffer_.reserve(replace.size());
         for (auto source : info.sources()) {
             for (auto&& mapping : source->columns()) {
-                if (auto iter = replace.find(mapping.destination().reference()); iter != replace.end()) {
+                auto [begin, end] = replace.equal_range(mapping.destination().reference());
+                for (auto iter = begin; iter != replace.end(); ++iter) {
                     mapping_buffer_.emplace_back(mapping.source(), iter->second);
                 }
             }
