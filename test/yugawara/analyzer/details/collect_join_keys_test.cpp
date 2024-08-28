@@ -468,4 +468,49 @@ TEST_F(collect_join_keys_test, left_outer) {
     EXPECT_EQ(join.condition(), compare(constant(0), varref(cl1), cmp::less_equal));
 }
 
+TEST_F(collect_join_keys_test, cogroup_suppress_broadcast) {
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto&& inl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), cl0 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto&& inr = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), cr0 },
+            },
+    });
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+            land(
+                    compare(cl0, cr0),
+                    compare(varref(cr0), constant(0), cmp::equal)),
+    });
+
+    auto&& out = r.insert(relation::emit { cl0, cr0 });
+    inl.output() >> join.left();
+    inr.output() >> join.right();
+    join.output() >> out.input();
+
+    apply(r, { collect_join_keys_feature::cogroup });
+    EXPECT_GT(inl.output(), join.left());
+    EXPECT_GT(inr.output(), join.right());
+
+    EXPECT_EQ(join.lower().kind(), endpoint_kind::prefixed_inclusive);
+    ASSERT_EQ(join.lower().keys().size(), 1);
+    EXPECT_EQ(join.lower().keys()[0].variable(), cr0);
+    EXPECT_EQ(join.lower().keys()[0].value(), varref(cl0));
+
+    EXPECT_EQ(join.upper().kind(), endpoint_kind::prefixed_inclusive);
+    ASSERT_EQ(join.upper().keys().size(), 1);
+    EXPECT_EQ(join.upper().keys()[0].variable(), cr0);
+    EXPECT_EQ(join.upper().keys()[0].value(), varref(cl0));
+
+    EXPECT_EQ(join.condition(), compare(varref(cr0), constant(0), cmp::equal));
+}
+
 } // namespace yugawara::analyzer::details

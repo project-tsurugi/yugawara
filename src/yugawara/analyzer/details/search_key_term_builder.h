@@ -56,7 +56,7 @@ public:
         ::takatori::util::ownership_reference<::takatori::scalar::expression> factor;
     };
 
-    using term_map = ::tsl::hopscotch_map<
+    using term_map = std::unordered_multimap<
             ::takatori::descriptor::variable,
             search_key_term,
             std::hash<::takatori::descriptor::variable>,
@@ -72,6 +72,13 @@ public:
             factor_info,
             std::hash<::takatori::descriptor::variable>,
             std::equal_to<>>;
+
+    /**
+     * @brief returns the search term for the given key variable.
+     * @param key the target key variable
+     * @return the corresponded search term
+     */
+    [[nodiscard]] std::pair<term_map::iterator, term_map::iterator> search(::takatori::descriptor::variable const& key);
 
 private:
     variable_set keys_;

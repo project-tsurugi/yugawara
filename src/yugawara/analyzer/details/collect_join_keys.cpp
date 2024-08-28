@@ -4,7 +4,6 @@
 
 #include <takatori/relation/intermediate/join.h>
 
-#include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
 #include <takatori/util/sequence_view.h>
 
@@ -184,13 +183,15 @@ private:
 
         // key pairs
         for (auto&& key : build_key) {
-            if (auto term = builder.find(key)) {
-                if (auto opposite = term->equivalent_key();
-                        opposite
-                        && std::find(probe_key.begin(), probe_key.end(), *opposite) != probe_key.end()) {
-                    results.emplace_back(std::addressof(key), term.get());
-                } else if (term->equivalent()) {
-                    temp_term_buf_.emplace_back(std::addressof(key), term.get());
+            auto [begin, end] = builder.search(key);
+            for (auto iter = begin; iter != end; ++iter) {
+                auto&& term = iter->second;
+                if (auto opposite = term.equivalent_key();
+                        opposite &&
+                        std::find(probe_key.begin(), probe_key.end(), *opposite) != probe_key.end()) {
+                    results.emplace_back(std::addressof(key), std::addressof(term));
+                } else if (term.equivalent()) {
+                    temp_term_buf_.emplace_back(std::addressof(key), std::addressof(term));
                 }
             }
         }

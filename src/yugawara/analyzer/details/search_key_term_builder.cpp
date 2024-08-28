@@ -24,6 +24,7 @@ namespace {
 
 using variable_set = search_key_term_builder::variable_set;
 using factor_info = search_key_term_builder::factor_info;
+using term_map = search_key_term_builder::term_map;
 using factor_info_map = search_key_term_builder::factor_info_map;
 
 class key_variable_detector {
@@ -68,9 +69,9 @@ class factor_collector {
 public:
     explicit factor_collector(
             variable_set const& keys,
-            factor_info_map& factors) noexcept
-            : keys_(keys)
-            , factor_info_map_(factors)
+            factor_info_map& factors) noexcept :
+        keys_ { keys },
+        factor_info_map_ { factors }
     {}
 
     void operator()(expression_ref&& condition) {
@@ -158,9 +159,17 @@ optional_ptr<search_key_term> search_key_term_builder::find(descriptor::variable
         build_terms();
     }
     if (auto it = terms_.find(key); it != terms_.end()) {
-        return it.value();
+        return it->second;
     }
     return {};
+}
+
+std::pair<term_map::iterator, term_map::iterator> search_key_term_builder::search(descriptor::variable const& key) {
+    if (!factors_.empty()) {
+        build_terms();
+    }
+    auto [begin, end] = terms_.equal_range(key);
+    return std::make_pair(begin, end);
 }
 
 void search_key_term_builder::clear() {
@@ -204,7 +213,7 @@ void search_key_term_builder::build_term(factor_info_map::iterator begin, factor
                                 std::move(info.term),
                                 std::move(info.factor),
                         });
-                return;
+                break;
 
             case kind::less:
             case kind::less_equal:
