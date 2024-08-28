@@ -201,7 +201,7 @@ public:
 
     void operator()(relation::intermediate::difference& expr) {
         if (expr.quantifier() == relation::set_quantifier::all) {
-            process_binary_group_all<relation::step::intersection>(expr);
+            process_binary_group_all<relation::step::difference>(expr);
         } else {
             process_binary_group_distinct(expr, relation::join_kind::anti);
         }
