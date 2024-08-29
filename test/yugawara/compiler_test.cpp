@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+#include <takatori/type/character.h>
+
 #include <takatori/value/character.h>
 
 #include <takatori/relation/scan.h>
@@ -796,6 +798,96 @@ TEST_F(compiler_test, fix_join_duplicate_cond) {
     in_tb2.output() >> join.right();
     join.output() >> filter.input();
     filter.output() >> out.input();
+
+    auto opts = options();
+    opts.runtime_features().erase(runtime_feature::index_join);
+    opts.runtime_features().erase(runtime_feature::broadcast_exchange);
+    opts.runtime_features().erase(runtime_feature::broadcast_join_scan);
+    auto result = compiler()(opts, std::move(r));
+    ASSERT_TRUE(result) << diagnostics(result);
+
+    dump(result);
+}
+
+TEST_F(compiler_test, fix_shuffle_join_key_confuse) {
+    auto t_tb1 = storages->add_table({
+            "tb1",
+            {
+                    { "c1", t::int4() },
+                    { "c2", t::character { t::varying, {} } },
+            },
+    });
+    auto t_tb2 = storages->add_table({
+            "tb2",
+            {
+                    { "c1", t::int4() },
+                    { "c2", t::character { t::varying, {} } },
+            },
+    });
+    auto i_tb1 = storages->add_index({
+            t_tb1,
+            "i_tb1",
+            {},
+            {},
+            {
+                    ::yugawara::storage::index_feature::find,
+                    ::yugawara::storage::index_feature::scan,
+                    ::yugawara::storage::index_feature::unique,
+                    ::yugawara::storage::index_feature::primary,
+            },
+    });
+    auto i_tb2 = storages->add_index({
+            t_tb2,
+            "i_tb2",
+            {},
+            {},
+            {
+                    ::yugawara::storage::index_feature::find,
+                    ::yugawara::storage::index_feature::scan,
+                    ::yugawara::storage::index_feature::unique,
+                    ::yugawara::storage::index_feature::primary,
+            },
+    });
+
+    /*
+     " SELECT tb1.c1, tb1.c2
+     * FROM tb1 JOIN tb2
+     *   ON  tb1.c1 = tb2.c1
+     *   AND tb1.c2 = tb2.c2
+     */
+    relation::graph_type r;
+
+    auto tb1_c1 = bindings.stream_variable("tb1_c1");
+    auto tb1_c2 = bindings.stream_variable("tb1_c2");
+    auto tb2_c1 = bindings.stream_variable("tb2_c1");
+    auto tb2_c2 = bindings.stream_variable("tb2_c2");
+    auto&& in_tb1 = r.insert(relation::scan {
+            bindings(*i_tb1),
+            {
+                    { bindings(t_tb1->columns()[0]), tb1_c1 },
+                    { bindings(t_tb1->columns()[1]), tb1_c2 },
+            },
+    });
+    auto&& in_tb2 = r.insert(relation::scan {
+            bindings(*i_tb2),
+            {
+                    { bindings(t_tb2->columns()[0]), tb2_c1 },
+                    { bindings(t_tb2->columns()[1]), tb2_c2 },
+            },
+    });
+
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+            land(
+                    compare(varref(tb1_c1), varref(tb2_c1)),
+                    compare(varref(tb1_c2), varref(tb2_c2)))
+    });
+
+    auto&& out = r.insert(relation::emit { tb1_c1, tb2_c1 });
+
+    in_tb1.output() >> join.left();
+    in_tb2.output() >> join.right();
+    join.output() >> out.input();
 
     auto opts = options();
     opts.runtime_features().erase(runtime_feature::index_join);

@@ -397,8 +397,7 @@ public:
         mapping_buffer_.reserve(replace.size());
         for (auto source : info.sources()) {
             for (auto&& mapping : source->columns()) {
-                auto [begin, end] = replace.equal_range(mapping.destination().reference());
-                for (auto iter = begin; iter != replace.end(); ++iter) {
+                for (auto [iter, end] = replace.equal_range(mapping.destination().reference()); iter != end; ++iter) {
                     mapping_buffer_.emplace_back(mapping.source(), iter->second);
                 }
             }
