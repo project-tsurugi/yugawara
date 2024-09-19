@@ -21,6 +21,7 @@
 
 #include "boolean_constants.h"
 #include "scan_key_collector.h"
+#include "remove_orphaned_elements.h"
 #include "rewrite_criteria.h"
 
 namespace yugawara::analyzer::details {
@@ -46,47 +47,33 @@ namespace {
 class engine {
 public:
     explicit engine(
-            relation::graph_type& graph,
             index_estimator const& index_estimator,
             flow_volume_info const& flow_volume,
             bool allow_join_scan) :
-        graph_ { graph },
         index_estimator_ { index_estimator },
         flow_volume_ { flow_volume },
         allow_join_scan_ { allow_join_scan }
     {}
 
-    bool process(relation::intermediate::join& expr) {
-        process_right(expr);
-        process_left(expr);
-        bool erase = false;
-        if (saved_scan_) {
-            auto condition = apply_result(expr, *saved_scan_, *saved_index_, saved_left_, saved_terms_);
-            merge_filters(std::move(condition), saved_filters_);
-            erase = true;
+    void process(relation::graph_type& graph) {
+        work_graph_.clear();
+        for (auto&& expr : graph) {
+            if (expr.kind() == relation::intermediate::join::tag) {
+                auto&& join = unsafe_downcast<relation::intermediate::join>(expr);
+                if (!join.lower() && !join.upper()) {
+                    process(join);
+                }
+            }
         }
-
-        // clear the round data
-        left_collector_.clear();
-        right_collector_.clear();
-        term_buf_.clear();
-        search_key_buf_.clear();
-        filter_buf_.clear();
-        saved_scan_ = {};
-        saved_index_ = {};
-        saved_left_ = {};
-        saved_result_ = {};
-        saved_terms_.clear();
-        saved_filters_.clear();
-
-        return erase;
+        install(graph);
     }
 
 private:
-    relation::graph_type& graph_;
     index_estimator const& index_estimator_;
     flow_volume_info const& flow_volume_;
     bool allow_join_scan_;
+
+    relation::graph_type work_graph_ {};
 
     scan_key_collector left_collector_;
     scan_key_collector right_collector_;
@@ -101,6 +88,35 @@ private:
     std::optional<index_estimator::result> saved_result_ {};
     std::vector<search_key_term*> saved_terms_;
     std::vector<relation::filter*> saved_filters_;
+
+    void process(relation::intermediate::join& expr) {
+        process_right(expr);
+        process_left(expr);
+        if (saved_scan_) {
+            auto condition = apply_result(expr, *saved_scan_, *saved_index_, saved_left_, saved_terms_);
+            merge_filters(std::move(condition), saved_filters_);
+        }
+
+        // clear the round data
+        left_collector_.clear();
+        right_collector_.clear();
+        term_buf_.clear();
+        search_key_buf_.clear();
+        filter_buf_.clear();
+        saved_scan_ = {};
+        saved_index_ = {};
+        saved_left_ = {};
+        saved_result_ = {};
+        saved_terms_.clear();
+        saved_filters_.clear();
+    }
+
+    void install(relation::graph_type& graph) {
+        relation::merge_into(std::move(work_graph_), graph);
+        work_graph_.clear();
+
+        remove_orphaned_elements(graph);
+    }
 
     void process_left(relation::intermediate::join& expr) {
         static constexpr join_kind_set allow {
@@ -327,7 +343,7 @@ private:
         fill_search_key(index, keys, terms);
 
         binding::factory bindings {};
-        auto&& result = expr.owner().emplace<relation::join_find>(
+        auto&& result = work_graph_.emplace<relation::join_find>(
                 expr.operator_kind(),
                 bindings(index),
                 std::move(source.columns()),
@@ -346,7 +362,7 @@ private:
         result.left().connect_to(upstream);
         result.output().connect_to(downstream);
 
-        graph_.erase(source);
+        // NOTE: orphaned scan operator will be removed later
 
         return result.ownership_condition();
     }
@@ -364,7 +380,7 @@ private:
 
         fill_endpoints(index, lower, upper, terms);
 
-        auto&& result = expr.owner().emplace<relation::join_scan>(
+        auto&& result = work_graph_.emplace<relation::join_scan>(
                 expr.operator_kind(),
                 bindings(index),
                 std::move(source.columns()),
@@ -384,7 +400,7 @@ private:
         result.left().connect_to(upstream);
         result.output().connect_to(downstream);
 
-        graph_.erase(source);
+        // NOTE: orphaned scan/join operator will be removed later
 
         return result.ownership_condition();
     }
@@ -407,7 +423,9 @@ private:
                     result = filter->release_condition();
                 }
             }
-            graph_.erase(*filter);
+            // NOTE: orphaned filter operator will be removed later
+            filter->input().disconnect_all();
+            filter->output().disconnect_all();
         }
         condition = std::move(result);
     }
@@ -422,21 +440,8 @@ void rewrite_join(
         analyzer::index_estimator const& index_estimator,
         flow_volume_info const& flow_volume,
         bool allow_join_scan) {
-    engine e { graph, index_estimator, flow_volume, allow_join_scan };
-    for (auto it = graph.begin(); it != graph.end();) {
-        auto&& expr = *it;
-        if (expr.kind() == relation::intermediate::join::tag) {
-            auto&& join = unsafe_downcast<relation::intermediate::join>(expr);
-            if (!join.lower() && !join.upper()) {
-                auto erase = e.process(join);
-                if (erase) {
-                    it = graph.erase(it);
-                    continue;
-                }
-            }
-        }
-        ++it;
-    }
+    engine e { index_estimator, flow_volume, allow_join_scan };
+    e.process(graph);
 }
 
 } // namespace yugawara::analyzer::details

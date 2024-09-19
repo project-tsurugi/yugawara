@@ -14,6 +14,7 @@
 #include <takatori/relation/find.h>
 #include <takatori/relation/values.h>
 #include <takatori/relation/intermediate/join.h>
+#include <takatori/relation/intermediate/aggregate.h>
 
 #include <takatori/statement/execute.h>
 #include <takatori/statement/write.h>
@@ -36,6 +37,9 @@ namespace yugawara {
 using namespace ::yugawara::testing;
 
 namespace statement = ::takatori::statement;
+
+using ::takatori::util::optional_ptr;
+using ::takatori::util::string_builder;
 
 class compiler_test: public ::testing::Test {
 protected:
@@ -920,6 +924,162 @@ TEST_F(compiler_test, restricted_feature) {
     auto diagnostics = result.diagnostics();
     ASSERT_EQ(diagnostics.size(), 1);
     EXPECT_EQ(diagnostics[0].code(), compiler_code::unsupported_feature);
+}
+
+TEST_F(compiler_test, fix_complex_index_join) {
+    auto t_t00 = storages->add_table({
+            "t00",
+            {
+                    { "k", t::int8() },
+                    { "c1", t::int8() },
+                    { "c2", t::int8() },
+                    { "c3", t::int8() },
+            },
+    });
+    auto i_t00 = storages->add_index({
+            t_t00,
+            "i_t00",
+            {
+                    t_t00->columns()[0],
+            },
+            {},
+            {
+                    ::yugawara::storage::index_feature::find,
+                    ::yugawara::storage::index_feature::scan,
+                    ::yugawara::storage::index_feature::unique,
+                    ::yugawara::storage::index_feature::primary,
+            },
+    });
+
+    /*
+     " SELECT COUNT(*)
+     * FROM t00
+     * JOIN t01 ON t00.k = t01.k
+     * JOIN t02 ON t00.k = t02.k
+     * ...
+     * JOIN t10 ON t00.k = t10.k
+     * WHERE
+     *   t00.k = 0
+     *   t00.c1 = 1 AND
+     *   t00.c2 = 2 AND
+     *   t00.c3 = 3
+     */
+    relation::graph_type r;
+    auto t00_k = bindings.stream_variable("t00_k");
+    auto t00_c1 = bindings.stream_variable("t00_c1");
+    auto t00_c2 = bindings.stream_variable("t00_c2");
+    auto t00_c3 = bindings.stream_variable("t00_c3");
+    auto&& in_t00 = r.insert(relation::scan {
+            bindings(*i_t00),
+            {
+                    { bindings(t_t00->columns()[0]), t00_k },
+                    { bindings(t_t00->columns()[1]), t00_c1 },
+                    { bindings(t_t00->columns()[2]), t00_c2 },
+                    { bindings(t_t00->columns()[3]), t00_c3 },
+            },
+    });
+    optional_ptr left { in_t00.output() };
+
+    constexpr std::size_t join_count = 10;
+    for (std::size_t index = 1; index < join_count; ++index) {
+        auto t_right = storages->add_table({
+                string_builder {}
+                    << "t" << std::setw(2) << std::setfill('0') << index
+                    << string_builder::to_string,
+                {
+                        { "k", t::int8() },
+                },
+        });
+        auto i_right = storages->add_index({
+                t_right,
+                std::string_view {
+                        string_builder {}
+                                << "i_"
+                                << t_right->simple_name()
+                                << string_builder::to_string
+                },
+                {
+                        t_right->columns()[0],
+                },
+                {},
+                {
+                        ::yugawara::storage::index_feature::find,
+                        ::yugawara::storage::index_feature::scan,
+                        ::yugawara::storage::index_feature::unique,
+                        ::yugawara::storage::index_feature::primary,
+                },
+        });
+        auto right_k = bindings.stream_variable("right_k");
+        auto&& in_right = r.insert(relation::scan {
+                bindings(*i_right),
+                {
+                        { bindings(t_right->columns()[0]), right_k },
+                },
+        });
+        auto&& join = r.insert(relation::intermediate::join {
+                relation::join_kind::inner,
+                compare(varref(t00_k), varref(right_k))
+        });
+        *left >> join.left();
+        in_right.output() >> join.right();
+        left.reset(join.output());
+    }
+
+    auto&& filter = r.insert(relation::filter {
+            land(
+                    compare(varref(t00_k), constant(0)),
+                    land(
+                            compare(varref(t00_c1), constant(1)),
+                            land(
+                                    compare(varref(t00_c2), constant(2)),
+                                    compare(varref(t00_c3), constant(3))))
+            )
+    });
+
+    auto agg_count = bindings.stream_variable("agg_count");
+    auto&& aggregate = r.insert(relation::intermediate::aggregate {
+            {},
+            {
+                    {
+                            bindings.aggregate_function({
+                                    1,
+                                    "count",
+                                    t::int8 {},
+                                    {},
+                                    true,
+                            }),
+                            {},
+                            agg_count,
+                    },
+            },
+    });
+
+    auto prj_count = bindings.stream_variable("count");
+    auto&& project = r.insert(relation::project {
+            {
+                    relation::project::column { varref {agg_count }, prj_count },
+            },
+    });
+
+    auto&& out = r.insert(relation::emit { prj_count });
+
+    *left >> filter.input();
+    filter.output() >> aggregate.input();
+    aggregate.output() >> project.input();
+    project.output() >> out.input();
+
+    auto opts = options();
+    opts.runtime_features().erase(runtime_feature::index_join_scan);
+    opts.runtime_features().erase(runtime_feature::broadcast_exchange);
+    opts.runtime_features().erase(runtime_feature::broadcast_join_scan);
+    auto result = compiler()(opts, std::move(r));
+    ASSERT_TRUE(result) << diagnostics(result);
+    ASSERT_EQ(result.statement().kind(), statement::execute::tag);
+
+    auto&& stmt = downcast<statement::execute>(result.statement());
+    EXPECT_EQ(stmt.execution_plan().size(), 3);
+
+    dump(result);
 }
 
 } // namespace yugawara

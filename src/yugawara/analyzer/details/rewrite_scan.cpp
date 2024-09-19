@@ -15,6 +15,7 @@
 #include <yugawara/storage/provider.h>
 
 #include "scan_key_collector.h"
+#include "remove_orphaned_elements.h"
 #include "rewrite_criteria.h"
 
 namespace yugawara::analyzer::details {
@@ -36,23 +37,49 @@ public:
         index_estimator_ { index_estimator }
     {}
 
-    bool process(relation::scan& expr) {
+    void process(relation::graph_type& graph) {
+        work_graph_.clear();
+        for (auto&& expr : graph) {
+            if (expr.kind() == relation::scan::tag) {
+                auto&& scan = unsafe_downcast<relation::scan>(expr);
+                if (!scan.limit() && !scan.lower() && !scan.upper()) {
+                    process(scan);
+                }
+            }
+        }
+        install(graph);
+    }
+
+private:
+    index_estimator const& index_estimator_;
+    scan_key_collector collector_;
+
+    relation::graph_type work_graph_ {};
+
+    std::vector<scan_key_collector::term*> term_buf_;
+    std::vector<search_key> search_key_buf_;
+
+    bool saw_best_ { false };
+    std::optional<index_estimator::result> saved_result_ {};
+    optional_ptr<storage::index const> saved_index_ {};
+    std::vector<scan_key_collector::term*> saved_terms_;
+
+    void process(relation::scan& expr) {
         if (!collector_(expr, false)) {
-            return false;
+            return;
         }
         auto&& storages = collector_.table().owner();
         if (!storages) {
             // there is no index information
-            return false;
+            return;
         }
         storages->each_table_index(
                 collector_.table(),
                 [&](std::string_view, std::shared_ptr<storage::index const> const& entry) {
                     estimate(*entry);
                 });
-        bool erase = false;
         if (saved_index_) {
-            erase = apply_result(expr, *saved_index_, saved_terms_);
+            apply_result(expr, *saved_index_, saved_terms_);
         }
 
         // clear the round data
@@ -63,21 +90,14 @@ public:
         saved_index_ = {};
         saved_result_ = {};
         saved_terms_.clear();
-
-        return erase;
     }
 
-private:
-    index_estimator const& index_estimator_;
-    scan_key_collector collector_;
+    void install(relation::graph_type& graph) {
+        relation::merge_into(std::move(work_graph_), graph);
+        work_graph_.clear();
 
-    std::vector<scan_key_collector::term*> term_buf_;
-    std::vector<search_key> search_key_buf_;
-
-    bool saw_best_ { false };
-    std::optional<index_estimator::result> saved_result_ {};
-    optional_ptr<storage::index const> saved_index_ {};
-    std::vector<scan_key_collector::term*> saved_terms_;
+        remove_orphaned_elements(graph);
+    }
 
     void estimate(storage::index const& index) {
         if (saw_best_) {
@@ -149,30 +169,29 @@ private:
         saved_terms_.assign(terms.begin(), terms.end());
     }
 
-    bool apply_result(
+    void apply_result(
             relation::scan& expr,
             storage::index const& index,
             sequence_view<scan_key_collector::term*> terms) {
         auto&& result = *saved_result_;
         if (result.attributes().contains(attribute::find)) {
             rewrite_as_find(expr, index, terms);
-            return true;
+            return;
         }
         rewrite_bounds(expr, index, terms);
-        return false;
     }
 
     void rewrite_as_find(
             relation::scan& expr,
             storage::index const& index,
-            sequence_view<scan_key_collector::term*> terms) const {
+            sequence_view<scan_key_collector::term*> terms) {
         BOOST_ASSERT(terms.size() <= index.keys().size()); // NOLINT
 
         std::vector<relation::find::key> keys {};
         fill_search_key(index, keys, terms);
 
         binding::factory bindings {};
-        auto&& find = expr.owner().emplace<relation::find>(
+        auto&& find = work_graph_.emplace<relation::find>(
                 bindings(index),
                 std::move(expr.columns()),
                 std::move(keys));
@@ -203,20 +222,7 @@ void rewrite_scan(
         ::takatori::relation::graph_type& graph,
         class index_estimator const& index_estimator) {
     engine e { index_estimator };
-    for (auto it = graph.begin(); it != graph.end();) {
-        auto&& op = *it;
-        if (op.kind() == relation::scan::tag) {
-            auto&& scan = unsafe_downcast<relation::scan>(op);
-            if (!scan.limit() && !scan.lower() && !scan.upper()) {
-                auto erase = e.process(scan);
-                if (erase) {
-                    it = graph.erase(it);
-                    continue;
-                }
-            }
-        }
-        ++it;
-    }
+    e.process(graph);
 }
 
 } // namespace yugawara::analyzer::details

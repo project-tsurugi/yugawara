@@ -116,6 +116,7 @@ add_library(yugawara
     yugawara/analyzer/details/classify_expression.cpp
     yugawara/analyzer/details/inline_variables.cpp
     yugawara/analyzer/details/collect_local_variables.cpp
+    yugawara/analyzer/details/remove_orphaned_elements.cpp
 
     # analyzer misc.
     yugawara/analyzer/details/detect_join_endpoint_style.cpp
