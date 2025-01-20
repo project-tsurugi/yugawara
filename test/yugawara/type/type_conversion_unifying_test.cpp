@@ -9,6 +9,7 @@
 #include <takatori/type/date.h>
 #include <takatori/type/time_of_day.h>
 #include <takatori/type/time_point.h>
+#include <takatori/type/lob.h>
 #include <takatori/type/unknown.h>
 
 #include <yugawara/extension/type/error.h>
@@ -258,6 +259,24 @@ TEST_F(type_conversion_unifying_test, time_point_tz) {
     test(left, tt::time_of_day { tt::with_time_zone }, error);
     test(left, tt::time_point { ~tt::with_time_zone }, error);
     test(left, tt::time_point { tt::with_time_zone }, left);
+}
+
+TEST_F(type_conversion_unifying_test, blob) {
+    tt::blob left {};
+
+    test(left, tt::blob {}, left);
+    test(left, tt::unknown {}, left);
+    test(left, tt::octet { tt::varying }, error);
+    test(left, tt::clob {}, error);
+}
+
+TEST_F(type_conversion_unifying_test, clob) {
+    tt::clob left {};
+
+    test(left, tt::clob {}, left);
+    test(left, tt::unknown {}, left);
+    test(left, tt::character { tt::varying }, error);
+    test(left, tt::blob {}, error);
 }
 
 } // namespace yugawara::type

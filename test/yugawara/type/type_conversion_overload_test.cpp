@@ -2,17 +2,15 @@
 
 #include <gtest/gtest.h>
 
-#include <takatori/type/boolean.h>
-#include <takatori/type/int.h>
+#include <takatori/type/primitive.h>
 #include <takatori/type/decimal.h>
-#include <takatori/type/float.h>
 #include <takatori/type/character.h>
 #include <takatori/type/bit.h>
 #include <takatori/type/octet.h>
 #include <takatori/type/date.h>
 #include <takatori/type/time_of_day.h>
 #include <takatori/type/time_point.h>
-#include <takatori/type/unknown.h>
+#include <takatori/type/lob.h>
 
 namespace yugawara::type {
 
@@ -83,6 +81,8 @@ TEST_F(type_conversion_overload_test, is_parameter_application_convertible_for_b
     EXPECT_EQ(is_parameter_application_convertible(tt::boolean {}, tt::time_of_day { tt::with_time_zone }), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::boolean {}, tt::time_point {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::boolean {}, tt::time_point { tt::with_time_zone }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::boolean {}, tt::blob {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::boolean {}, tt::clob {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::boolean {}, tt::unknown {}), ternary::no);
 }
 
@@ -101,6 +101,8 @@ TEST_F(type_conversion_overload_test, is_parameter_application_convertible_for_i
     EXPECT_EQ(is_parameter_application_convertible(tt::int4 {}, tt::time_of_day { tt::with_time_zone }), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::int4 {}, tt::time_point {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::int4 {}, tt::time_point { tt::with_time_zone }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::int4 {}, tt::blob {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::int4 {}, tt::clob {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::int4 {}, tt::unknown {}), ternary::no);
 }
 
@@ -119,6 +121,8 @@ TEST_F(type_conversion_overload_test, is_parameter_application_convertible_for_i
     EXPECT_EQ(is_parameter_application_convertible(tt::int8 {}, tt::time_of_day { tt::with_time_zone }), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::int8 {}, tt::time_point {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::int8 {}, tt::time_point { tt::with_time_zone }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::int8 {}, tt::blob {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::int8 {}, tt::clob {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::int8 {}, tt::unknown {}), ternary::no);
 }
 
@@ -137,6 +141,8 @@ TEST_F(type_conversion_overload_test, is_parameter_application_convertible_for_d
     EXPECT_EQ(is_parameter_application_convertible(tt::decimal { {}, {} }, tt::time_of_day { tt::with_time_zone }), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::decimal { {}, {} }, tt::time_point {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::decimal { {}, {} }, tt::time_point { tt::with_time_zone }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::decimal { {}, {} }, tt::blob {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::decimal { {}, {} }, tt::clob {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::decimal { {}, {} }, tt::unknown {}), ternary::no);
 }
 
@@ -155,6 +161,8 @@ TEST_F(type_conversion_overload_test, is_parameter_application_convertible_for_f
     EXPECT_EQ(is_parameter_application_convertible(tt::float4 {}, tt::time_of_day { tt::with_time_zone }), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::float4 {}, tt::time_point {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::float4 {}, tt::time_point { tt::with_time_zone }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::float4 {}, tt::blob {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::float4 {}, tt::clob {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::float4 {}, tt::unknown {}), ternary::no);
 }
 
@@ -173,6 +181,8 @@ TEST_F(type_conversion_overload_test, is_parameter_application_convertible_for_f
     EXPECT_EQ(is_parameter_application_convertible(tt::float8 {}, tt::time_of_day { tt::with_time_zone }), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::float8 {}, tt::time_point {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::float8 {}, tt::time_point { tt::with_time_zone }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::float8 {}, tt::blob {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::float8 {}, tt::clob {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::float8 {}, tt::unknown {}), ternary::no);
 }
 
@@ -191,6 +201,8 @@ TEST_F(type_conversion_overload_test, is_parameter_application_convertible_for_c
     EXPECT_EQ(is_parameter_application_convertible(tt::character { tt::varying, {} }, tt::time_of_day { tt::with_time_zone}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::character { tt::varying, {} }, tt::time_point {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::character { tt::varying, {} }, tt::time_point { tt::with_time_zone}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::character { tt::varying, {} }, tt::blob {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::character { tt::varying, {} }, tt::clob {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::character { tt::varying, {} }, tt::unknown {}), ternary::no);
 }
 
@@ -209,6 +221,8 @@ TEST_F(type_conversion_overload_test, is_parameter_application_convertible_for_b
     EXPECT_EQ(is_parameter_application_convertible(tt::bit { tt::varying, {} }, tt::time_of_day { tt::with_time_zone}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::bit { tt::varying, {} }, tt::time_point {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::bit { tt::varying, {} }, tt::time_point { tt::with_time_zone}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::bit { tt::varying, {} }, tt::blob {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::bit { tt::varying, {} }, tt::clob {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::bit { tt::varying, {} }, tt::unknown {}), ternary::no);
 }
 
@@ -227,6 +241,8 @@ TEST_F(type_conversion_overload_test, is_parameter_application_convertible_for_o
     EXPECT_EQ(is_parameter_application_convertible(tt::octet { tt::varying, {} }, tt::time_of_day { tt::with_time_zone}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::octet { tt::varying, {} }, tt::time_point {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::octet { tt::varying, {} }, tt::time_point { tt::with_time_zone}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::octet { tt::varying, {} }, tt::blob {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::octet { tt::varying, {} }, tt::clob {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::octet { tt::varying, {} }, tt::unknown {}), ternary::no);
 }
 
@@ -245,6 +261,8 @@ TEST_F(type_conversion_overload_test, is_parameter_application_convertible_for_d
     EXPECT_EQ(is_parameter_application_convertible(tt::date {}, tt::time_of_day { tt::with_time_zone }), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::date {}, tt::time_point {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::date {}, tt::time_point { tt::with_time_zone }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::date {}, tt::blob {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::date {}, tt::clob {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::date {}, tt::unknown {}), ternary::no);
 }
 
@@ -263,6 +281,8 @@ TEST_F(type_conversion_overload_test, is_parameter_application_convertible_for_t
     EXPECT_EQ(is_parameter_application_convertible(tt::time_of_day {}, tt::time_of_day { tt::with_time_zone }), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::time_of_day {}, tt::time_point {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::time_of_day {}, tt::time_point { tt::with_time_zone }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::time_of_day {}, tt::blob {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::time_of_day {}, tt::clob {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::time_of_day {}, tt::unknown {}), ternary::no);
 }
 
@@ -281,6 +301,8 @@ TEST_F(type_conversion_overload_test, is_parameter_application_convertible_for_t
     EXPECT_EQ(is_parameter_application_convertible(tt::time_of_day { tt::with_time_zone }, tt::time_of_day { tt::with_time_zone }), ternary::yes);
     EXPECT_EQ(is_parameter_application_convertible(tt::time_of_day { tt::with_time_zone }, tt::time_point {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::time_of_day { tt::with_time_zone }, tt::time_point { tt::with_time_zone }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::time_of_day { tt::with_time_zone }, tt::blob {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::time_of_day { tt::with_time_zone }, tt::clob {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::time_of_day { tt::with_time_zone }, tt::unknown {}), ternary::no);
 }
 
@@ -299,6 +321,8 @@ TEST_F(type_conversion_overload_test, is_parameter_application_convertible_for_t
     EXPECT_EQ(is_parameter_application_convertible(tt::time_point {}, tt::time_of_day { tt::with_time_zone }), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::time_point {}, tt::time_point {}), ternary::yes);
     EXPECT_EQ(is_parameter_application_convertible(tt::time_point {}, tt::time_point { tt::with_time_zone }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::time_point {}, tt::blob {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::time_point {}, tt::clob {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::time_point {}, tt::unknown {}), ternary::no);
 }
 
@@ -317,7 +341,49 @@ TEST_F(type_conversion_overload_test, is_parameter_application_convertible_for_t
     EXPECT_EQ(is_parameter_application_convertible(tt::time_point { tt::with_time_zone }, tt::time_of_day { tt::with_time_zone }), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::time_point { tt::with_time_zone }, tt::time_point {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::time_point { tt::with_time_zone }, tt::time_point { tt::with_time_zone }), ternary::yes);
+    EXPECT_EQ(is_parameter_application_convertible(tt::time_point { tt::with_time_zone }, tt::blob {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::time_point { tt::with_time_zone }, tt::clob {}), ternary::no);
     EXPECT_EQ(is_parameter_application_convertible(tt::time_point { tt::with_time_zone }, tt::unknown {}), ternary::no);
+}
+
+TEST_F(type_conversion_overload_test, is_parameter_application_convertible_for_blob) {
+    EXPECT_EQ(is_parameter_application_convertible(tt::blob {}, tt::boolean {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::blob {}, tt::int4 {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::blob {}, tt::int8 {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::blob {}, tt::decimal { {}, {} }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::blob {}, tt::float4 {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::blob {}, tt::float8 {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::blob {}, tt::character { tt::varying, {} }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::blob {}, tt::bit { tt::varying, {} }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::blob {}, tt::octet { tt::varying, {} }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::blob {}, tt::date {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::blob {}, tt::time_of_day {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::blob {}, tt::time_of_day { tt::with_time_zone }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::blob {}, tt::time_point {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::blob {}, tt::time_point { tt::with_time_zone }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::blob {}, tt::blob {}), ternary::yes);
+    EXPECT_EQ(is_parameter_application_convertible(tt::blob {}, tt::clob {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::blob {}, tt::unknown {}), ternary::no);
+}
+
+TEST_F(type_conversion_overload_test, is_parameter_application_convertible_for_clob) {
+    EXPECT_EQ(is_parameter_application_convertible(tt::clob {}, tt::boolean {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::clob {}, tt::int4 {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::clob {}, tt::int8 {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::clob {}, tt::decimal { {}, {} }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::clob {}, tt::float4 {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::clob {}, tt::float8 {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::clob {}, tt::character { tt::varying, {} }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::clob {}, tt::bit { tt::varying, {} }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::clob {}, tt::octet { tt::varying, {} }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::clob {}, tt::date {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::clob {}, tt::time_of_day {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::clob {}, tt::time_of_day { tt::with_time_zone }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::clob {}, tt::time_point {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::clob {}, tt::time_point { tt::with_time_zone }), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::clob {}, tt::blob {}), ternary::no);
+    EXPECT_EQ(is_parameter_application_convertible(tt::clob {}, tt::clob {}), ternary::yes);
+    EXPECT_EQ(is_parameter_application_convertible(tt::clob {}, tt::unknown {}), ternary::no);
 }
 
 TEST_F(type_conversion_overload_test, is_parameter_application_convertible_for_unknown) {
@@ -335,6 +401,8 @@ TEST_F(type_conversion_overload_test, is_parameter_application_convertible_for_u
     EXPECT_EQ(is_parameter_application_convertible(tt::unknown {}, tt::time_of_day { tt::with_time_zone }), ternary::yes);
     EXPECT_EQ(is_parameter_application_convertible(tt::unknown {}, tt::time_point {}), ternary::yes);
     EXPECT_EQ(is_parameter_application_convertible(tt::unknown {}, tt::time_point { tt::with_time_zone }), ternary::yes);
+    EXPECT_EQ(is_parameter_application_convertible(tt::unknown {}, tt::blob {}), ternary::yes);
+    EXPECT_EQ(is_parameter_application_convertible(tt::unknown {}, tt::clob {}), ternary::yes);
     EXPECT_EQ(is_parameter_application_convertible(tt::unknown {}, tt::unknown {}), ternary::yes);
 }
 

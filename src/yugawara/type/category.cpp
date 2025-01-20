@@ -1,5 +1,8 @@
 #include <yugawara/type/category.h>
 
+#include <cstdlib>
+
+#include <takatori/type/data.h>
 #include <takatori/type/type_kind.h>
 #include <takatori/type/extension.h>
 #include <takatori/util/downcast.h>
@@ -42,6 +45,12 @@ category category_of(takatori::type::data const& type) noexcept {
 
         case kind::datetime_interval:
             return category::datetime_interval;
+
+        case kind::blob:
+            return category::large_octet_string;
+
+        case kind::clob:
+            return category::large_character_string;
 
         case kind::array:
             return category::collection;

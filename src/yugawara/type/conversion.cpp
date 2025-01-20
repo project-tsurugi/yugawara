@@ -562,6 +562,68 @@ std::shared_ptr<model::data const> binary_time_interval_promotion(
     }
 }
 
+std::shared_ptr<model::data const> unary_large_octet_string_promotion(model::data const& type, repository& repo) {
+    if (is_conversion_stop_type(type)) return shared_pending();
+    switch (type.kind()) {
+        case kind::blob:
+            return repo.get(type);
+        case kind::unknown:
+            return repo.get(model::blob {});
+        default:
+            return shared_error();
+    }
+}
+
+std::shared_ptr<model::data const> binary_large_octet_string_promotion(
+        model::data const& type,
+        model::data const& with,
+        repository& repo) {
+    if (is_conversion_stop_type(type) || is_conversion_stop_type(with)) return shared_pending();
+    switch (npair(type.kind(), with.kind())) {
+        case npair(kind::blob, kind::blob):
+        case npair(kind::blob, kind::unknown):
+            return repo.get(model::blob {});
+
+        case npair(kind::unknown, kind::blob):
+        case npair(kind::unknown, kind::unknown):
+            return repo.get(model::blob {});
+
+        default:
+            return shared_error();
+    }
+}
+
+std::shared_ptr<model::data const> unary_large_character_string_promotion(model::data const& type, repository& repo) {
+    if (is_conversion_stop_type(type)) return shared_pending();
+    switch (type.kind()) {
+        case kind::clob:
+            return repo.get(type);
+        case kind::unknown:
+            return repo.get(model::clob {});
+        default:
+            return shared_error();
+    }
+}
+
+std::shared_ptr<model::data const> binary_large_character_string_promotion(
+        model::data const& type,
+        model::data const& with,
+        repository& repo) {
+    if (is_conversion_stop_type(type) || is_conversion_stop_type(with)) return shared_pending();
+    switch (npair(type.kind(), with.kind())) {
+        case npair(kind::clob, kind::clob):
+        case npair(kind::clob, kind::unknown):
+            return repo.get(model::clob {});
+
+        case npair(kind::unknown, kind::clob):
+        case npair(kind::unknown, kind::unknown):
+            return repo.get(model::clob {});
+
+        default:
+            return shared_error();
+    }
+}
+
 std::shared_ptr<model::data const> unifying_conversion(model::data const& type, repository& repo) {
     auto cat = category_of(type);
     switch (cat) {
@@ -585,6 +647,12 @@ std::shared_ptr<model::data const> unifying_conversion(model::data const& type, 
 
         case category::datetime_interval:
             return unary_time_interval_promotion(type, repo);
+
+        case category::large_octet_string:
+            return unary_large_octet_string_promotion(type, repo);
+
+        case category::large_character_string:
+            return unary_large_character_string_promotion(type, repo);
 
         case category::unknown:
         case category::collection:
@@ -636,6 +704,12 @@ std::shared_ptr<model::data const> unifying_conversion(
 
         case category::datetime_interval:
             return binary_time_interval_promotion(type, with, repo);
+
+        case category::large_octet_string:
+            return binary_large_octet_string_promotion(type, with, repo);
+
+        case category::large_character_string:
+            return binary_large_character_string_promotion(type, with, repo);
 
         case category::collection:
         case category::structure:
@@ -737,6 +811,12 @@ ternary is_assignment_convertible(model::data const& type, model::data const& ta
         case npair(kind::datetime_interval, kind::datetime_interval):
             return ternary::yes;
 
+        case npair(kind::blob, kind::blob):
+            return ternary::yes;
+
+        case npair(kind::clob, kind::clob):
+            return ternary::yes;
+
         case npair(kind::array, kind::array):
         case npair(kind::record, kind::record):
         case npair(kind::declared, kind::declared):
@@ -760,12 +840,21 @@ ternary is_cast_convertible(takatori::type::data const& type, takatori::type::da
     auto src_cat = category_of(type);
     auto dst_cat = category_of(target);
 
-    // always cast convertible from/to character strings
+    // always cast convertible from/to character strings ..
     if (src_cat == category::character_string || dst_cat == category::character_string) {
+        // .. except for converting from large octet strings
+        if (src_cat == category::large_octet_string) {
+            return ternary::no;
+        }
         return ternary::yes;
     }
 
     switch (npair(type.kind(), target.kind())) {
+        // allow octet <-> blob
+        case npair(kind::octet, kind::blob):
+        case npair(kind::blob, kind::octet):
+            return ternary::no;
+
         case npair(kind::array, kind::array):
             // FIXME: convertible array of a' -> array of b' only if convertible a' -> b'
             return ternary::no;
@@ -899,6 +988,14 @@ util::ternary is_parameter_application_convertible(model::data const& type, mode
             auto&& b = unsafe_downcast<model::time_point>(target);
             return util::ternary_of(a.with_time_zone() == b.with_time_zone());
         }
+
+        // FIXME: interval type
+
+        case npair(kind::blob, kind::blob):
+            return util::ternary::yes;
+
+        case npair(kind::clob, kind::clob):
+            return util::ternary::yes;
 
         // FIXME: more types
         default:

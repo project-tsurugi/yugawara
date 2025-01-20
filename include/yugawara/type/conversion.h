@@ -220,6 +220,62 @@ std::shared_ptr<::takatori::type::data const> binary_time_interval_promotion(
         repository& repo = default_repository());
 
 /**
+ * @brief promotes the large octet string types.
+ * @param type the target type
+ * @param repo the type repository
+ * @return the promoted type if conversion was succeeded
+ * @return erroneous type if the input is not valid for this conversion
+ * @return pending type if the input contains erroneous or pending type
+ * @note if the conversion was not success, this may return some special types generated out of the given repository
+ */
+std::shared_ptr<::takatori::type::data const> unary_large_octet_string_promotion(
+        ::takatori::type::data const& type,
+        repository& repo = default_repository());
+
+/**
+ * @brief promotes the large octet string type with the another type.
+ * @param type the type to be promoted
+ * @param with the opposite type
+ * @param repo the type repository
+ * @return the promoted type if conversion was succeeded
+ * @return erroneous type if the input is not valid for this conversion
+ * @return pending type if the input contains erroneous or pending type
+ * @note if the conversion was not success, this may return some special types generated out of the given repository
+ */
+std::shared_ptr<::takatori::type::data const> binary_large_octet_string_promotion(
+        ::takatori::type::data const& type,
+        ::takatori::type::data const& with,
+        repository& repo = default_repository());
+
+/**
+ * @brief promotes the large character string types.
+ * @param type the target type
+ * @param repo the type repository
+ * @return the promoted type if conversion was succeeded
+ * @return erroneous type if the input is not valid for this conversion
+ * @return pending type if the input contains erroneous or pending type
+ * @note if the conversion was not success, this may return some special types generated out of the given repository
+ */
+std::shared_ptr<::takatori::type::data const> unary_large_character_string_promotion(
+        ::takatori::type::data const& type,
+        repository& repo = default_repository());
+
+/**
+ * @brief promotes the large character string type with the another type.
+ * @param type the type to be promoted
+ * @param with the opposite type
+ * @param repo the type repository
+ * @return the promoted type if conversion was succeeded
+ * @return erroneous type if the input is not valid for this conversion
+ * @return pending type if the input contains erroneous or pending type
+ * @note if the conversion was not success, this may return some special types generated out of the given repository
+ */
+std::shared_ptr<::takatori::type::data const> binary_large_character_string_promotion(
+        ::takatori::type::data const& type,
+        ::takatori::type::data const& with,
+        repository& repo = default_repository());
+
+/**
  * @brief obtains the "common type" of the given type.
  * @param type the type to be unified
  * @param repo the type repository
