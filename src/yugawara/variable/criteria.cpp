@@ -24,10 +24,9 @@ static std::unique_ptr<class predicate> wrap_constant(takatori::value::data&& co
             takatori::util::clone_unique(std::move(constant)));
 }
 
-criteria::criteria(takatori::value::data&& constant)
-    : criteria(
-            decltype(nullity_) { constant.kind() == takatori::value::value_kind::unknown },
-            wrap_constant(std::move(constant)))
+criteria::criteria(takatori::value::data&& constant) :
+        nullity_ { constant.kind() == ::takatori::value::value_kind::unknown },
+        predicate_ { wrap_constant(std::move(constant)) }
 {}
 
 criteria::criteria(::takatori::util::clone_tag_t, criteria const& other)

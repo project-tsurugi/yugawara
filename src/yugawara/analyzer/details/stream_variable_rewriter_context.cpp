@@ -71,7 +71,8 @@ void stream_variable_rewriter_context::rewrite_use(::takatori::descriptor::varia
                                 << string_builder::to_string));
                     case status_t::alias:
                         variable = e.variable;
-                        return rewrite_use(variable);
+                        rewrite_use(variable);
+                        return;
                 }
                 break;
             }
