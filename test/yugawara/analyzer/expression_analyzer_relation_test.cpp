@@ -9,6 +9,7 @@
 #include <takatori/type/decimal.h>
 #include <takatori/type/character.h>
 
+#include <takatori/scalar/immediate.h>
 #include <takatori/scalar/variable_reference.h>
 
 #include <takatori/relation/scan.h>
@@ -51,7 +52,6 @@
 #include <yugawara/storage/configurable_provider.h>
 
 #include <yugawara/aggregate/configurable_provider.h>
-#include <takatori/scalar/immediate.h>
 
 namespace yugawara::analyzer {
 
