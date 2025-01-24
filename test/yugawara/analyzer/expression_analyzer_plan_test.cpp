@@ -6,7 +6,6 @@
 
 #include <takatori/type/primitive.h>
 #include <takatori/type/decimal.h>
-#include <takatori/util/optional_ptr.h>
 
 #include <takatori/scalar/variable_reference.h>
 
@@ -62,7 +61,7 @@ public:
         if (t) {
             return *repo.get(*t);
         }
-        static extension::type::error error;
+        static extension::type::error const error;
         return error;
     }
 
