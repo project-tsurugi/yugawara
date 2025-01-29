@@ -853,7 +853,7 @@ ternary is_cast_convertible(takatori::type::data const& type, takatori::type::da
         // allow octet <-> blob
         case npair(kind::octet, kind::blob):
         case npair(kind::blob, kind::octet):
-            return ternary::no;
+            return ternary::yes;
 
         case npair(kind::array, kind::array):
             // FIXME: convertible array of a' -> array of b' only if convertible a' -> b'

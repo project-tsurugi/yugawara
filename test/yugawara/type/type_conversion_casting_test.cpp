@@ -283,7 +283,7 @@ TEST_F(type_conversion_casting_test, octet) {
     EXPECT_EQ(is_cast_convertible(left, tt::time_of_day { tt::with_time_zone}), no);
     EXPECT_EQ(is_cast_convertible(left, tt::time_point { ~tt::with_time_zone }), no);
     EXPECT_EQ(is_cast_convertible(left, tt::time_point { tt::with_time_zone }), no);
-    EXPECT_EQ(is_cast_convertible(left, tt::blob {}), no);
+    EXPECT_EQ(is_cast_convertible(left, tt::blob {}), yes);
     EXPECT_EQ(is_cast_convertible(left, tt::clob {}), no);
 }
 
@@ -307,7 +307,7 @@ TEST_F(type_conversion_casting_test, octet_varying) {
     EXPECT_EQ(is_cast_convertible(left, tt::time_of_day { tt::with_time_zone}), no);
     EXPECT_EQ(is_cast_convertible(left, tt::time_point { ~tt::with_time_zone }), no);
     EXPECT_EQ(is_cast_convertible(left, tt::time_point { tt::with_time_zone }), no);
-    EXPECT_EQ(is_cast_convertible(left, tt::blob {}), no);
+    EXPECT_EQ(is_cast_convertible(left, tt::blob {}), yes);
     EXPECT_EQ(is_cast_convertible(left, tt::clob {}), no);
 }
 
@@ -444,8 +444,8 @@ TEST_F(type_conversion_casting_test, blob) {
     EXPECT_EQ(is_cast_convertible(left, tt::float8 {}), no);
     EXPECT_EQ(is_cast_convertible(left, tt::character { ~tt::varying }), no);
     EXPECT_EQ(is_cast_convertible(left, tt::character { tt::varying }), no);
-    EXPECT_EQ(is_cast_convertible(left, tt::octet { ~tt::varying }), no);
-    EXPECT_EQ(is_cast_convertible(left, tt::octet { tt::varying }), no);
+    EXPECT_EQ(is_cast_convertible(left, tt::octet { ~tt::varying }), yes);
+    EXPECT_EQ(is_cast_convertible(left, tt::octet { tt::varying }), yes);
     EXPECT_EQ(is_cast_convertible(left, tt::date {}), no);
     EXPECT_EQ(is_cast_convertible(left, tt::time_of_day { ~tt::with_time_zone }), no);
     EXPECT_EQ(is_cast_convertible(left, tt::time_of_day { tt::with_time_zone}), no);
