@@ -59,7 +59,6 @@ available options:
 * `-DBUILD_SHARED_LIBS=OFF` - create static libraries instead of shared libraries
 * `-DBUILD_TESTS=OFF` - don't build test programs
 * `-DBUILD_DOCUMENTS=OFF` - don't build documents by doxygen
-* `-DFORCE_INSTALL_RPATH=ON` - automatically configure `INSTALL_RPATH` for non-default library paths
 
 ### install
 
