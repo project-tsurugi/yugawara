@@ -169,12 +169,11 @@ TEST_F(type_conversion_assignment_test, float4) {
     tt::float4 left {};
 
     EXPECT_EQ(is_assignment_convertible(left, tt::boolean {}), no);
-    // NOTE: tsurugi totally denies approx to exact conversion, but compiler allows it for later compatibility.
-    EXPECT_EQ(is_assignment_convertible(left, tt::int1 {}), yes);
-    EXPECT_EQ(is_assignment_convertible(left, tt::int2 {}), yes);
-    EXPECT_EQ(is_assignment_convertible(left, tt::int4 {}), yes);
-    EXPECT_EQ(is_assignment_convertible(left, tt::int8 {}), yes);
-    EXPECT_EQ(is_assignment_convertible(left, tt::decimal {}), yes);
+    EXPECT_EQ(is_assignment_convertible(left, tt::int1 {}), no);
+    EXPECT_EQ(is_assignment_convertible(left, tt::int2 {}), no);
+    EXPECT_EQ(is_assignment_convertible(left, tt::int4 {}), no);
+    EXPECT_EQ(is_assignment_convertible(left, tt::int8 {}), no);
+    EXPECT_EQ(is_assignment_convertible(left, tt::decimal {}), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::float4 {}), yes);
     EXPECT_EQ(is_assignment_convertible(left, tt::float8 {}), yes);
     EXPECT_EQ(is_assignment_convertible(left, tt::character { ~tt::varying }), no);
@@ -194,12 +193,11 @@ TEST_F(type_conversion_assignment_test, float8) {
     tt::float8 left {};
 
     EXPECT_EQ(is_assignment_convertible(left, tt::boolean {}), no);
-    // NOTE: tsurugi totally denies approx to exact conversion, but compiler allows it for later compatibility.
-    EXPECT_EQ(is_assignment_convertible(left, tt::int1 {}), yes);
-    EXPECT_EQ(is_assignment_convertible(left, tt::int2 {}), yes);
-    EXPECT_EQ(is_assignment_convertible(left, tt::int4 {}), yes);
-    EXPECT_EQ(is_assignment_convertible(left, tt::int8 {}), yes);
-    EXPECT_EQ(is_assignment_convertible(left, tt::decimal {}), yes);
+    EXPECT_EQ(is_assignment_convertible(left, tt::int1 {}), no);
+    EXPECT_EQ(is_assignment_convertible(left, tt::int2 {}), no);
+    EXPECT_EQ(is_assignment_convertible(left, tt::int4 {}), no);
+    EXPECT_EQ(is_assignment_convertible(left, tt::int8 {}), no);
+    EXPECT_EQ(is_assignment_convertible(left, tt::decimal {}), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::float4 {}), yes);
     EXPECT_EQ(is_assignment_convertible(left, tt::float8 {}), yes);
     EXPECT_EQ(is_assignment_convertible(left, tt::character { ~tt::varying }), no);
@@ -352,9 +350,9 @@ TEST_F(type_conversion_assignment_test, time_of_day) {
     EXPECT_EQ(is_assignment_convertible(left, tt::octet { tt::varying }), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::date {}), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::time_of_day { ~tt::with_time_zone }), yes);
-    EXPECT_EQ(is_assignment_convertible(left, tt::time_of_day { tt::with_time_zone}), yes);
+    EXPECT_EQ(is_assignment_convertible(left, tt::time_of_day { tt::with_time_zone}), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::time_point { ~tt::with_time_zone }), yes);
-    EXPECT_EQ(is_assignment_convertible(left, tt::time_point { tt::with_time_zone }), yes);
+    EXPECT_EQ(is_assignment_convertible(left, tt::time_point { tt::with_time_zone }), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::blob {}), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::clob {}), no);
 }
@@ -375,9 +373,9 @@ TEST_F(type_conversion_assignment_test, time_of_day_with_time_zone) {
     EXPECT_EQ(is_assignment_convertible(left, tt::octet { ~tt::varying }), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::octet { tt::varying }), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::date {}), no);
-    EXPECT_EQ(is_assignment_convertible(left, tt::time_of_day { ~tt::with_time_zone }), yes);
+    EXPECT_EQ(is_assignment_convertible(left, tt::time_of_day { ~tt::with_time_zone }), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::time_of_day { tt::with_time_zone}), yes);
-    EXPECT_EQ(is_assignment_convertible(left, tt::time_point { ~tt::with_time_zone }), yes);
+    EXPECT_EQ(is_assignment_convertible(left, tt::time_point { ~tt::with_time_zone }), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::time_point { tt::with_time_zone }), yes);
     EXPECT_EQ(is_assignment_convertible(left, tt::blob {}), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::clob {}), no);
@@ -400,9 +398,9 @@ TEST_F(type_conversion_assignment_test, time_point) {
     EXPECT_EQ(is_assignment_convertible(left, tt::octet { tt::varying }), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::date {}), yes);
     EXPECT_EQ(is_assignment_convertible(left, tt::time_of_day { ~tt::with_time_zone }), yes);
-    EXPECT_EQ(is_assignment_convertible(left, tt::time_of_day { tt::with_time_zone}), yes);
+    EXPECT_EQ(is_assignment_convertible(left, tt::time_of_day { tt::with_time_zone}), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::time_point { ~tt::with_time_zone }), yes);
-    EXPECT_EQ(is_assignment_convertible(left, tt::time_point { tt::with_time_zone }), yes);
+    EXPECT_EQ(is_assignment_convertible(left, tt::time_point { tt::with_time_zone }), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::blob {}), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::clob {}), no);
 }
@@ -423,9 +421,9 @@ TEST_F(type_conversion_assignment_test, time_point_with_time_zone) {
     EXPECT_EQ(is_assignment_convertible(left, tt::octet { ~tt::varying }), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::octet { tt::varying }), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::date {}), yes);
-    EXPECT_EQ(is_assignment_convertible(left, tt::time_of_day { ~tt::with_time_zone }), yes);
+    EXPECT_EQ(is_assignment_convertible(left, tt::time_of_day { ~tt::with_time_zone }), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::time_of_day { tt::with_time_zone}), yes);
-    EXPECT_EQ(is_assignment_convertible(left, tt::time_point { ~tt::with_time_zone }), yes);
+    EXPECT_EQ(is_assignment_convertible(left, tt::time_point { ~tt::with_time_zone }), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::time_point { tt::with_time_zone }), yes);
     EXPECT_EQ(is_assignment_convertible(left, tt::blob {}), no);
     EXPECT_EQ(is_assignment_convertible(left, tt::clob {}), no);

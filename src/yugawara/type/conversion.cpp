@@ -775,22 +775,29 @@ ternary is_assignment_convertible(model::data const& type, model::data const& ta
         case npair(kind::decimal, kind::decimal):
         case npair(kind::decimal, kind::float4):
         case npair(kind::decimal, kind::float8):
+            return ternary::yes;
 
         case npair(kind::float4, kind::int1):
         case npair(kind::float4, kind::int2):
         case npair(kind::float4, kind::int4):
         case npair(kind::float4, kind::int8):
         case npair(kind::float4, kind::decimal):
+            return ternary::no;
+
         case npair(kind::float4, kind::float4):
         case npair(kind::float4, kind::float8):
+            return ternary::yes;
 
         case npair(kind::float8, kind::int1):
         case npair(kind::float8, kind::int2):
         case npair(kind::float8, kind::int4):
         case npair(kind::float8, kind::int8):
         case npair(kind::float8, kind::decimal):
+            return ternary::no;
+
         case npair(kind::float8, kind::float4):
         case npair(kind::float8, kind::float8):
+            return ternary::yes;
 
         case npair(kind::character, kind::character):
 
@@ -800,20 +807,27 @@ ternary is_assignment_convertible(model::data const& type, model::data const& ta
 
         case npair(kind::date, kind::date):
         case npair(kind::date, kind::time_point):
+            return ternary::yes;
 
         case npair(kind::time_of_day, kind::time_of_day):
         case npair(kind::time_of_day, kind::time_point):
+            if (get_time_zone(type) == get_time_zone(target)) {
+                return ternary::yes;
+            }
+            return ternary::no;
 
         case npair(kind::time_point, kind::date):
+            return ternary::yes;
+
         case npair(kind::time_point, kind::time_of_day):
         case npair(kind::time_point, kind::time_point):
+            if (get_time_zone(type) == get_time_zone(target)) {
+                return ternary::yes;
+            }
+            return ternary::no;
 
         case npair(kind::datetime_interval, kind::datetime_interval):
-            return ternary::yes;
-
         case npair(kind::blob, kind::blob):
-            return ternary::yes;
-
         case npair(kind::clob, kind::clob):
             return ternary::yes;
 
@@ -850,6 +864,24 @@ ternary is_cast_convertible(takatori::type::data const& type, takatori::type::da
     }
 
     switch (npair(type.kind(), target.kind())) {
+        // allow approx. -> exact numbers
+        case npair(kind::float4, kind::int1):
+        case npair(kind::float4, kind::int2):
+        case npair(kind::float4, kind::int4):
+        case npair(kind::float4, kind::int8):
+        case npair(kind::float4, kind::decimal):
+        case npair(kind::float8, kind::int1):
+        case npair(kind::float8, kind::int2):
+        case npair(kind::float8, kind::int4):
+        case npair(kind::float8, kind::int8):
+        case npair(kind::float8, kind::decimal):
+
+        // allow time_of_day <-> time_point with any time zone
+        case npair(kind::time_of_day, kind::time_of_day):
+        case npair(kind::time_of_day, kind::time_point):
+        case npair(kind::time_point, kind::time_of_day):
+        case npair(kind::time_point, kind::time_point):
+
         // allow octet <-> blob
         case npair(kind::octet, kind::blob):
         case npair(kind::blob, kind::octet):
