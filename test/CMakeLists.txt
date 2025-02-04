@@ -30,6 +30,7 @@ add_test_executable(yugawara/details/collect_restricted_features_test.cpp)
 
 # type system
 add_test_executable(yugawara/type/type_category_test.cpp)
+add_test_executable(yugawara/type/type_comparable_test.cpp)
 add_test_executable(yugawara/type/type_conversion_unifying_test.cpp)
 add_test_executable(yugawara/type/type_conversion_assignment_test.cpp)
 add_test_executable(yugawara/type/type_conversion_casting_test.cpp)

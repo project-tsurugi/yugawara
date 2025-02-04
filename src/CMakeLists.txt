@@ -23,6 +23,7 @@ add_library(yugawara
 
     # type system
     yugawara/type/category.cpp
+    yugawara/type/comparable.cpp
     yugawara/type/conversion.cpp
     yugawara/type/repository.cpp
 
