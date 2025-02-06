@@ -9,10 +9,13 @@
 #include <takatori/type/decimal.h>
 #include <takatori/type/character.h>
 #include <takatori/type/bit.h>
+#include <takatori/type/time_of_day.h>
 #include <takatori/type/time_point.h>
 #include <takatori/type/datetime_interval.h>
 #include <takatori/value/primitive.h>
 #include <takatori/value/character.h>
+#include <takatori/value/time_of_day.h>
+#include <takatori/value/time_point.h>
 
 #include <takatori/scalar/immediate.h>
 #include <takatori/scalar/variable_reference.h>
@@ -101,6 +104,26 @@ TEST_F(expression_analyzer_scalar_test, immediate) {
     };
     auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, immediate_of_day_tz) {
+    s::immediate expr {
+            v::time_of_day { 12, 34, 56 },
+            t::time_of_day { t::with_time_zone },
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::time_of_day(t::with_time_zone));
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, immediate_time_point_tz) {
+    s::immediate expr {
+            v::time_point { 2000, 1, 1, 0, 0, 0 },
+            t::time_point { t::with_time_zone },
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::time_point(t::with_time_zone));
     EXPECT_TRUE(ok());
 }
 

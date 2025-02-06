@@ -6,9 +6,13 @@
 
 #include <takatori/type/primitive.h>
 #include <takatori/type/date.h>
+#include <takatori/type/time_of_day.h>
+#include <takatori/type/time_point.h>
 
 #include <takatori/value/primitive.h>
 #include <takatori/value/character.h>
+#include <takatori/value/time_of_day.h>
+#include <takatori/value/time_point.h>
 
 #include <takatori/scalar/immediate.h>
 #include <takatori/scalar/variable_reference.h>
@@ -270,6 +274,60 @@ TEST_F(expression_analyzer_statement_test, create_table_default_value_function) 
                             { func },
                     },
                     { "C2", t::int4() },
+            },
+    });
+    auto index = std::make_shared<storage::index>(storage::index {
+            table,
+            "I0",
+    });
+    statement::create_table stmt {
+            bindings(schema),
+            bindings(table),
+            bindings(index),
+    };
+    auto b = analyzer.resolve(stmt, true);
+    ASSERT_TRUE(b);
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_statement_test, create_table_default_value_time_of_day_tz) {
+    auto schema = std::make_shared<schema::declaration>("s");
+    auto table = std::make_shared<storage::table>(::takatori::util::clone_tag, storage::table {
+            "T0",
+            {
+                    {
+                            "C0",
+                            t::time_of_day { t::with_time_zone },
+                            variable::nullable,
+                            v::time_of_day { 12, 34, 56 },
+                    },
+            },
+    });
+    auto index = std::make_shared<storage::index>(storage::index {
+            table,
+            "I0",
+    });
+    statement::create_table stmt {
+            bindings(schema),
+            bindings(table),
+            bindings(index),
+    };
+    auto b = analyzer.resolve(stmt, true);
+    ASSERT_TRUE(b);
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_statement_test, create_table_default_value_time_point_tz) {
+    auto schema = std::make_shared<schema::declaration>("s");
+    auto table = std::make_shared<storage::table>(::takatori::util::clone_tag, storage::table {
+            "T0",
+            {
+                    {
+                            "C0",
+                            t::time_point { t::with_time_zone },
+                            variable::nullable,
+                            v::time_point { 2000, 1, 1, 12, 34, 56 },
+                    },
             },
     });
     auto index = std::make_shared<storage::index>(storage::index {
