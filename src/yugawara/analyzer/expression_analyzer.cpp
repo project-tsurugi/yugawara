@@ -226,7 +226,7 @@ public:
                         extract_region(expr),
                 });
             }
-            auto vtype = literal_type(expr.value());
+            auto vtype = literal_type(expr.value(), expr.type());
             if (vtype) {
                 auto r = type::is_assignment_convertible(*vtype, expr.type());
                 if (r != ternary::yes) {
@@ -240,7 +240,7 @@ public:
         return expr.shared_type();
     }
 
-    type_ptr literal_type(::takatori::value::data const& value) {
+    type_ptr literal_type(::takatori::value::data const& value, ::takatori::type::data const& type) {
         using k = ::takatori::value::value_kind;
         switch (value.kind()) {
             case k::unknown:
@@ -266,9 +266,9 @@ public:
             case k::date:
                 return repo_.get(::takatori::type::date {});
             case k::time_of_day:
-                return repo_.get(::takatori::type::time_of_day {});
+                return repo_.get(::takatori::type::time_of_day { extract_time_zone(type) });
             case k::time_point:
-                return repo_.get(::takatori::type::time_point {});
+                return repo_.get(::takatori::type::time_point { extract_time_zone(type) });
             case k::datetime_interval:
                 return repo_.get(::takatori::type::datetime_interval {});
 
@@ -279,6 +279,17 @@ public:
                 return {};
         }
         std::abort();
+    }
+
+    static ::takatori::type::with_time_zone_t extract_time_zone(::takatori::type::data const& type) {
+        switch (type.kind()) {
+            case ::takatori::type::time_of_day::tag:
+                return ::takatori::type::with_time_zone_t { unsafe_downcast<::takatori::type::time_of_day>(type).with_time_zone() };
+            case ::takatori::type::time_point::tag:
+                return ::takatori::type::with_time_zone_t { unsafe_downcast<::takatori::type::time_point>(type).with_time_zone() };
+            default:
+                return ~::takatori::type::with_time_zone;
+        }
     }
 
     type_ptr operator()(scalar::variable_reference const& expr) {
@@ -1478,7 +1489,8 @@ public:
             for (auto&& column : table.columns()) {
                 auto&& value = column.default_value();
                 if (value.kind() == storage::column_value_kind::immediate) {
-                    if (auto vtype = literal_type(*value.element<storage::column_value_kind::immediate>())) {
+                    auto&& v = *value.element<storage::column_value_kind::immediate>();
+                    if (auto vtype = literal_type(v, column.type())) {
                         if (auto r = type::is_assignment_convertible(*vtype, column.type()); r != ternary::yes) {
                             report({
                                     code::inconsistent_type,
