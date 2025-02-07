@@ -29,6 +29,7 @@
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/type/category.h>
+#include <yugawara/type/comparable.h>
 #include <yugawara/type/conversion.h>
 
 #include <yugawara/extension/type/error.h>
@@ -354,6 +355,17 @@ public:
                         extract_region(expr.right()),
                         *right,
                         { lcat });
+            }
+            if (!type::is_comparable(expr.operator_kind(), *unify)) {
+                report({
+                        code::unsupported_type,
+                        string_builder {}
+                                << "unsupported comparison for the type: "
+                                << "operator=" << expr.operator_kind() << ", "
+                                << "type=" << *unify
+                                << string_builder::to_string,
+                        extract_region(expr),
+                });
             }
         }
         return repo_.get(::takatori::type::boolean());
@@ -924,7 +936,7 @@ public:
             return false;
         }
         if (validate_) {
-            if (!validate_keys(expr, expr.keys())) {
+            if (!validate_keys(expr, expr.keys(), false)) {
                 return false;
             }
         }
@@ -936,10 +948,10 @@ public:
             return false;
         }
         if (validate_) {
-            if (!validate_keys(expr, expr.upper().keys())) {
+            if (!validate_keys(expr, expr.upper().keys(), true)) {
                 return false;
             }
-            if (!validate_keys(expr, expr.lower().keys())) {
+            if (!validate_keys(expr, expr.lower().keys(), true)) {
                 return false;
             }
         }
@@ -1042,7 +1054,7 @@ public:
             return false;
         }
         if (validate_) {
-            if (!validate_keys(expr, expr.keys())) {
+            if (!validate_keys(expr, expr.keys(), false)) {
                 return false;
             }
             if (!validate_condition(expr.condition())) {
@@ -1057,10 +1069,10 @@ public:
             return false;
         }
         if (validate_) {
-            if (!validate_keys(expr, expr.upper().keys())) {
+            if (!validate_keys(expr, expr.upper().keys(), true)) {
                 return false;
             }
-            if (!validate_keys(expr, expr.lower().keys())) {
+            if (!validate_keys(expr, expr.lower().keys(), true)) {
                 return false;
             }
             if (!validate_condition(expr.condition())) {
@@ -1129,7 +1141,7 @@ public:
         return true;
     }
 
-    bool operator()(relation::intermediate::union_ const& expr) {
+    bool operator()(relation::intermediate::union_ const& expr) { // NOLINT(readability-function-cognitive-complexity)
         for (auto&& mapping : expr.mappings()) {
             if (mapping.left() && mapping.right()) {
                 auto&& left_var = resolve_stream_column(*mapping.left());
@@ -1147,12 +1159,31 @@ public:
                             { type::category_of(*left) });
                     return false;
                 }
+                if (expr.quantifier() == relation::set_quantifier::distinct
+                        && !validate_equality_comparable(*t, extract_region(*mapping.left()))) {
+                    return false;
+                }
                 ana_.variables().bind(mapping.destination(), std::move(t), true);
             } else if (mapping.left()) {
                 auto&& resolution = resolve_stream_column(*mapping.left());
+                if (is_unresolved_or_error(resolution)) {
+                    return false;
+                }
+                if (expr.quantifier() == relation::set_quantifier::distinct) {
+                    auto t = ana_.inspect(resolution);
+                    if (!validate_equality_comparable(*t, extract_region(*mapping.left()))) {
+                        return false;
+                    }
+                }
                 ana_.variables().bind(mapping.destination(), resolution, true);
             } else if (mapping.right()) {
                 auto&& resolution = resolve_stream_column(*mapping.right());
+                if (expr.quantifier() == relation::set_quantifier::distinct) {
+                    auto t = ana_.inspect(resolution);
+                    if (!validate_equality_comparable(*t, extract_region(*mapping.right()))) {
+                        return false;
+                    }
+                }
                 ana_.variables().bind(mapping.destination(), resolution, true);
             } else {
                 // never come here
@@ -1164,22 +1195,9 @@ public:
 
     bool operator()(relation::intermediate::intersection const& expr) {
         if (validate_) {
-            for (auto&& key_pair : expr.group_key_pairs()) {
-                auto&& left_var = resolve_stream_column(key_pair.left());
-                auto&& right_var = resolve_stream_column(key_pair.right());
-                auto left = ana_.inspect(left_var);
-                auto right = ana_.inspect(right_var);
-                if (is_unresolved_or_error(left) || is_unresolved_or_error(right)) {
-                    return false;
-                }
-                auto t = type::unifying_conversion(*left, *right, repo_);
-                if (is_error(*t)) {
-                    report(code::inconsistent_type,
-                            extract_region(key_pair.right()),
-                            *right,
-                            { type::category_of(*left) });
-                    return false;
-                }
+            auto r = validate_key_pairs(expr, expr.group_key_pairs());
+            if (!r) {
+                return false;
             }
         }
         return true;
@@ -1187,22 +1205,9 @@ public:
 
     bool operator()(relation::intermediate::difference const& expr) {
         if (validate_) {
-            for (auto&& key_pair : expr.group_key_pairs()) {
-                auto&& left_var = resolve_stream_column(key_pair.left());
-                auto&& right_var = resolve_stream_column(key_pair.right());
-                auto left = ana_.inspect(left_var);
-                auto right = ana_.inspect(right_var);
-                if (is_unresolved_or_error(left) || is_unresolved_or_error(right)) {
-                    return false;
-                }
-                auto t = type::unifying_conversion(*left, *right, repo_);
-                if (is_error(*t)) {
-                    report(code::inconsistent_type,
-                            extract_region(key_pair.right()),
-                            *right,
-                            { type::category_of(*left) });
-                    return false;
-                }
+            auto r = validate_key_pairs(expr, expr.group_key_pairs());
+            if (!r) {
+                return false;
             }
         }
         return true;
@@ -1315,6 +1320,8 @@ public:
                     }
                     current = std::move(t);
                     promoted = true;
+                    // NOTE: we don't need to check the equality comparability here,
+                    //       because upstream grouping operation already required it.
                 }
             }
             if (promoted) {
@@ -1383,10 +1390,14 @@ public:
                 resolve_exchange_column(column);
             }
             for (auto&& column : step.group_keys()) {
-                resolve_exchange_column(column);
+                if (!validate_exchange_group_column(column)) {
+                    return false;
+                }
             }
             for (auto&& key : step.sort_keys()) {
-                resolve_exchange_column(key.variable());
+                if (!validate_exchange_sort_column(key.variable())) {
+                    return false;
+                }
             }
         }
         return true;
@@ -1401,7 +1412,9 @@ public:
                 resolve_exchange_column(column);
             }
             for (auto&& column : step.group_keys()) {
-                resolve_exchange_column(column);
+                if (!validate_exchange_group_column(column)) {
+                    return false;
+                }
             }
             for (auto&& column : step.destination_columns()) {
                 resolve_exchange_column(column);
@@ -1542,6 +1555,38 @@ public:
                     }
                 }
             }
+            if (auto&& index_opt = binding::extract_if<storage::index>(stmt.primary_key())) {
+                auto&& index = *index_opt;
+                for (auto&& key : index.keys()) {
+                    if (index.features().contains(storage::index_feature::scan)) {
+                        if (!type::is_order_comparable(key.column().type())) {
+                            report({
+                                    code::unsupported_type,
+                                    string_builder {}
+                                            << "primary key must be order comparable: "
+                                            << table.simple_name() << "." << key.column().simple_name()
+                                            << "(" << key.column().type() << ")"
+                                            << string_builder::to_string,
+                                    stmt.primary_key().region(),
+                            });
+                            success = false;
+                        }
+                    } else if (index.features().contains(storage::index_feature::find)) {
+                        if (!type::is_equality_comparable(key.column().type())) {
+                            report({
+                                    code::unsupported_type,
+                                    string_builder {}
+                                            << "primary key must be equality comparable: "
+                                            << table.simple_name() << "." << key.column().simple_name()
+                                            << "(" << key.column().type() << ")"
+                                            << string_builder::to_string,
+                                    stmt.primary_key().region(),
+                            });
+                            success = false;
+                        }
+                    }
+                }
+            }
             return success;
         }
         return true;
@@ -1553,7 +1598,42 @@ public:
     }
 
     bool operator()(statement::create_index const& stmt) {
-        (void) stmt;
+        if (validate_) {
+            bool success = true;
+            if (auto&& index_opt = binding::extract_if<storage::index>(stmt.definition())) {
+                auto&& index = *index_opt;
+                for (auto&& key : index.keys()) {
+                    if (index.features().contains(storage::index_feature::scan)) {
+                        if (!type::is_order_comparable(key.column().type())) {
+                            report({
+                                    code::unsupported_type,
+                                    string_builder {}
+                                            << "index key must be order comparable: "
+                                            << index.table().simple_name() << "." << key.column().simple_name()
+                                            << "(" << key.column().type() << ")"
+                                            << string_builder::to_string,
+                                    stmt.definition().region(),
+                            });
+                            success = false;
+                        }
+                    } else if (index.features().contains(storage::index_feature::find)) {
+                        if (!type::is_equality_comparable(key.column().type())) {
+                            report({
+                                    code::unsupported_type,
+                                    string_builder {}
+                                            << "index key must be equality comparable: "
+                                            << index.table().simple_name() << "." << key.column().simple_name()
+                                            << "(" << key.column().type() << ")"
+                                            << string_builder::to_string,
+                                    stmt.definition().region(),
+                            });
+                            success = false;
+                        }
+                    }
+                }
+            }
+            return success;
+        }
         return true;
     }
 
@@ -1676,7 +1756,9 @@ private:
     }
 
     template<class Expr, class Keys>
-    [[nodiscard]] bool validate_keys(Expr const&, Keys const& keys) {
+    [[nodiscard]] bool validate_keys(Expr const&, Keys const& keys, bool range) {
+        auto keys_count = keys.size();
+        std::size_t index = 0;
         for (auto&& key : keys) { // NOLINT(readability-use-anyofallof) w/ side effects
             auto&& varres = resolve_external_relation_column(key.variable());
             auto var = ana_.inspect(varres);
@@ -1692,6 +1774,15 @@ private:
                         *val,
                         { type::category_of(*var) });
                 return false;
+            }
+            if (!validate_equality_comparable(*val, key.value().region())) {
+                return false;
+            }
+            if (range) {
+                ++index;
+                if (index == keys_count && !validate_order_comparable(*val, key.value().region())) {
+                    return false;
+                }
             }
         }
         return true;
@@ -1723,6 +1814,10 @@ private:
             if (is_unresolved_or_error(r)) {
                 return false;
             }
+            auto t = ana_.inspect(r);
+            if (!validate_equality_comparable(*t, key.region())) {
+                return false;
+            }
         }
         return true;
     }
@@ -1732,6 +1827,34 @@ private:
         for (auto&& key : keys) { // NOLINT(readability-use-anyofallof) w/ side effects
             auto&& r = resolve_stream_column(key.variable());
             if (is_unresolved_or_error(r)) {
+                return false;
+            }
+            auto t = ana_.inspect(r);
+            if (!validate_order_comparable(*t, key.variable().region())) {
+                return false;
+            }
+        }
+        return true;
+    }
+    template<class Expr, class Keys>
+    [[nodiscard]] bool validate_key_pairs(Expr const&, Keys const& key_pairs) {
+        for (auto&& key_pair : key_pairs) { // NOLINT(readability-use-anyofallof)
+            auto&& left_var = resolve_stream_column(key_pair.left());
+            auto&& right_var = resolve_stream_column(key_pair.right());
+            auto left = ana_.inspect(left_var);
+            auto right = ana_.inspect(right_var);
+            if (is_unresolved_or_error(left) || is_unresolved_or_error(right)) {
+                return false;
+            }
+            auto t = type::unifying_conversion(*left, *right, repo_);
+            if (is_error(*t)) {
+                report(code::inconsistent_type,
+                        extract_region(key_pair.right()),
+                        *right,
+                        { type::category_of(*left) });
+                return false;
+            }
+            if (!validate_equality_comparable(*t, key_pair.left().region())) {
                 return false;
             }
         }
@@ -1819,6 +1942,36 @@ private:
             });
         }
         return unresolved();
+    }
+
+    bool validate_exchange_group_column(descriptor::variable const& variable) {
+        auto&& r = resolve_exchange_column(variable);
+        if (!r.is_resolved()) {
+            return allow_unresolved_;
+        }
+        auto t = ana_.inspect(r);
+        if (is_error(*t)) {
+            return false;
+        }
+        if (!validate_equality_comparable(*t, variable.region())) {
+            return false;
+        }
+        return true;
+    }
+
+    bool validate_exchange_sort_column(descriptor::variable const& variable) {
+        auto&& r = resolve_exchange_column(variable);
+        if (!r.is_resolved()) {
+            return allow_unresolved_;
+        }
+        auto t = ana_.inspect(r);
+        if (is_error(*t)) {
+            return false;
+        }
+        if (!validate_order_comparable(*t, variable.region())) {
+            return false;
+        }
+        return true;
     }
 
     variable_resolution const& resolve_external_relation_column(descriptor::variable const& variable) {
@@ -1927,6 +2080,40 @@ private:
                 }
             }
             ana_.variables().bind(column.destination(), function, true);
+        }
+        return true;
+    }
+
+    [[nodiscard]] bool validate_equality_comparable(
+            ::takatori::type::data const& type,
+            ::takatori::document::region const& region) {
+        if (!type::is_equality_comparable(type)) {
+            report({
+                    code::unsupported_type,
+                    string_builder {}
+                            << "unsupported equality comparison for the type: "
+                            << type
+                            << string_builder::to_string,
+                    region,
+            });
+            return false;
+        }
+        return true;
+    }
+
+    [[nodiscard]] bool validate_order_comparable(
+            ::takatori::type::data const& type,
+            ::takatori::document::region const& region) {
+        if (!type::is_order_comparable(type)) {
+            report({
+                    code::unsupported_type,
+                    string_builder {}
+                            << "unsupported order comparison for the type: "
+                            << type
+                            << string_builder::to_string,
+                    region,
+            });
+            return false;
         }
         return true;
     }
