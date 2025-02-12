@@ -45,7 +45,7 @@ TEST_F(type_comparable_test, is_equality_comparable) {
     EXPECT_TRUE(is_equality_comparable(tt::datetime_interval()));
     EXPECT_FALSE(is_equality_comparable(tt::blob {}));
     EXPECT_FALSE(is_equality_comparable(tt::clob {}));
-    EXPECT_FALSE(is_equality_comparable(tt::unknown()));
+    EXPECT_TRUE(is_equality_comparable(tt::unknown()));
     EXPECT_FALSE(is_equality_comparable(extension::type::error()));
     EXPECT_FALSE(is_equality_comparable(extension::type::pending()));
 }

@@ -46,11 +46,11 @@ bool is_equality_comparable(::takatori::type::data const& type) noexcept {
         case k::datetime_interval:
         case k::array:
         case k::record:
+        case k::unknown:
             return true;
 
         case k::blob:
         case k::clob:
-        case k::unknown:
         case k::row_id:
         case k::declared:
         default:
