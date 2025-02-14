@@ -144,7 +144,7 @@ target_link_libraries(yugawara
 
 set_target_properties(yugawara
     PROPERTIES
-        INSTALL_RPATH "\$ORIGIN/../lib"
+        INSTALL_RPATH "\$ORIGIN"
 )
 
 install(
