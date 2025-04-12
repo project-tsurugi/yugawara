@@ -44,6 +44,9 @@ public:
     /// @brief the default configuration whether or not the value overflow is enabled.
     static constexpr bool default_cycle = true;
 
+    /// @brief the sequence description type.
+    using description_type = std::string;
+
     /**
      * @brief creates a new object.
      * @param definition_id the sequence definition ID
@@ -53,6 +56,7 @@ public:
      * @param min_value the minimum value
      * @param max_value the maximum value
      * @param cycle whether or not the value overflow is enabled
+     * @param description the optional description of this element
      */
     explicit sequence(
             std::optional<definition_id_type> definition_id,
@@ -61,7 +65,8 @@ public:
             value_type increment_value = default_increment_value,
             value_type min_value = default_min_value,
             value_type max_value = default_max_value,
-            bool cycle = default_cycle) noexcept;
+            bool cycle = default_cycle,
+            description_type description = {}) noexcept;
 
     /**
      * @brief creates a new object.
@@ -71,6 +76,7 @@ public:
      * @param min_value the minimum value
      * @param max_value the maximum value
      * @param cycle whether or not the value overflow is enabled
+     * @param description the optional description of this element
      */
     explicit sequence(
             simple_name_type simple_name,
@@ -78,7 +84,8 @@ public:
             value_type increment_value = default_increment_value,
             value_type min_value = default_min_value,
             value_type max_value = default_max_value,
-            bool cycle = default_cycle) noexcept;
+            bool cycle = default_cycle,
+            description_type description = {}) noexcept;
 
     /**
      * @brief returns the sequence definition ID.
@@ -177,6 +184,20 @@ public:
     sequence& cycle(bool enabled) noexcept;
 
     /**
+     * @brief returns the optional description of this element.
+     * @return the description
+     * @return empty string if the description is absent
+     */
+    [[nodiscard]] description_type const& description() const noexcept;
+
+    /**
+     * @brief sets the optional description of this element.
+     * @param description the description string, or empty to clear it
+     * @return this
+     */
+    sequence& description(description_type description) noexcept;
+
+    /**
      * @brief returns the owner of this sequence.
      * @return the owner
      * @return empty if there are no provides that can provide this sequence
@@ -199,6 +220,7 @@ private:
     value_type min_value_;
     value_type max_value_;
     bool cycle_;
+    description_type description_;
 
     // FIXME: ugly
     mutable provider const* owner_ {};

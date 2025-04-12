@@ -45,18 +45,8 @@ public:
     /// @brief the type list view type.
     using type_list_view = takatori::util::reference_list_view<takatori::util::smart_pointer_extractor<type_pointer>>;
 
-    /**
-     * @brief creates a new object.
-     * @param definition_id the definition ID
-     * @param name the function name
-     * @param return_type the return type
-     * @param parameter_types the parameter types
-     */
-    explicit declaration(
-            definition_id_type definition_id,
-            name_type name,
-            type_pointer return_type,
-            std::vector<type_pointer> parameter_types) noexcept;
+    /// @brief the function description type.
+    using description_type = std::string;
 
     /**
      * @brief creates a new object.
@@ -64,13 +54,30 @@ public:
      * @param name the function name
      * @param return_type the return type
      * @param parameter_types the parameter types
+     * @param description the optional description of this element
+     */
+    explicit declaration(
+            definition_id_type definition_id,
+            name_type name,
+            type_pointer return_type,
+            std::vector<type_pointer> parameter_types,
+            description_type description = {}) noexcept;
+
+    /**
+     * @brief creates a new object.
+     * @param definition_id the definition ID
+     * @param name the function name
+     * @param return_type the return type
+     * @param parameter_types the parameter types
+     * @param description the optional description of this element
      * @attention this may take copy of arguments
      */
     declaration(
             definition_id_type definition_id,
             std::string_view name,
             takatori::type::data&& return_type,
-            std::initializer_list<takatori::util::rvalue_reference_wrapper<takatori::type::data>> parameter_types);
+            std::initializer_list<takatori::util::rvalue_reference_wrapper<takatori::type::data>> parameter_types,
+            description_type description = {});
 
     /**
      * @brief returns the function definition ID.
@@ -147,6 +154,20 @@ public:
     [[nodiscard]] std::vector<type_pointer> const& shared_parameter_types() const noexcept;
 
     /**
+     * @brief returns the optional description of this element.
+     * @return the description
+     * @return empty string if the description is absent
+     */
+    [[nodiscard]] description_type const& description() const noexcept;
+
+    /**
+     * @brief sets the optional description of this element.
+     * @param description the description string, or empty to clear it
+     * @return this
+     */
+    declaration& description(description_type description) noexcept;
+
+    /**
      * @brief appends string representation of the given value.
      * @param out the target output
      * @param value the target value
@@ -159,6 +180,7 @@ private:
     name_type name_;
     type_pointer return_type_;
     std::vector<type_pointer> parameter_types_;
+    description_type description_;
 
     // FIXME: multi-output functions
 };

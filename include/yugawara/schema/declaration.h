@@ -30,6 +30,9 @@ public:
     /// @brief the declaration name type.
     using name_type = std::string;
 
+    /// @brief the schema description type.
+    using description_type = std::string;
+
     /**
      * @brief creates a new object.
      * @param definition_id the schema definition ID
@@ -39,6 +42,7 @@ public:
      * @param function_provider the function declaration provider
      * @param set_function_provider the set function declaration provider
      * @param type_provider the user-defined type declaration provider
+     * @param description the optional description of this element
      */
     explicit declaration(
             std::optional<definition_id_type> definition_id,
@@ -47,7 +51,8 @@ public:
             std::shared_ptr<variable::provider> variable_provider = {},
             std::shared_ptr<function::provider> function_provider = {},
             std::shared_ptr<aggregate::provider> set_function_provider = {},
-            std::shared_ptr<type::provider> type_provider = {}) noexcept;
+            std::shared_ptr<type::provider> type_provider = {},
+            description_type description = {}) noexcept;
 
     /**
      * @brief creates a new object.
@@ -58,6 +63,7 @@ public:
      * @param function_provider the function declaration provider
      * @param set_function_provider the set function declaration provider
      * @param type_provider the user-defined type declaration provider
+     * @param description the optional description of this element
      */
     declaration( // NOLINT
             std::string_view name,
@@ -66,7 +72,8 @@ public:
             std::shared_ptr<variable::provider> variable_provider = {},
             std::shared_ptr<function::provider> function_provider = {},
             std::shared_ptr<aggregate::provider> set_function_provider = {},
-            std::shared_ptr<type::provider> type_provider = {});
+            std::shared_ptr<type::provider> type_provider = {},
+            description_type description = {});
 
     /**
      * @brief returns the schema definition ID.
@@ -196,6 +203,20 @@ public:
     declaration& type_provider(std::shared_ptr<type::provider> provider) noexcept;
 
     /**
+     * @brief returns the optional description of this element.
+     * @return the description
+     * @return empty string if the description is absent
+     */
+    [[nodiscard]] description_type const& description() const noexcept;
+
+    /**
+     * @brief sets the optional description of this element.
+     * @param description the description string, or empty to clear it
+     * @return this
+     */
+    declaration& description(description_type description) noexcept;
+
+    /**
      * @brief returns the owner of this schema.
      * @return the owner
      * @return empty if there are no provides that can provide this schema
@@ -218,6 +239,7 @@ private:
     std::shared_ptr<function::provider> function_provider_;
     std::shared_ptr<aggregate::provider> set_function_provider_;
     std::shared_ptr<type::provider> type_provider_;
+    description_type description_;
     provider const* owner_ {};
 
     friend provider;

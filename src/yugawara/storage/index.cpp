@@ -11,13 +11,15 @@ index::index(
         simple_name_type simple_name,
         std::vector<key> keys,
         std::vector<column_ref> values,
-        feature_set_type features) noexcept :
+        feature_set_type features,
+        description_type description) noexcept :
     definition_id_ { definition_id },
     table_ { std::move(table) },
     simple_name_ { std::move(simple_name) },
     keys_ { std::move(keys) },
     values_ { std::move(values) },
-    features_ { features }
+    features_ { features },
+    description_ { std::move(description) }
 {}
 
 index::index(
@@ -25,7 +27,8 @@ index::index(
         simple_name_type simple_name,
         std::vector<key> keys,
         std::vector<column_ref> values,
-        feature_set_type features) noexcept :
+        feature_set_type features,
+        description_type description) noexcept :
     index {
             std::nullopt,
             std::move(table),
@@ -33,6 +36,7 @@ index::index(
             std::move(keys),
             std::move(values),
             features,
+            std::move(description),
     }
 {}
 
@@ -41,7 +45,8 @@ index::index(
         std::string_view simple_name,
         std::initializer_list<key> keys,
         std::initializer_list<column_ref> values,
-        feature_set_type features) :
+        feature_set_type features,
+        description_type description) :
     index {
             std::nullopt,
             std::move(table),
@@ -49,6 +54,7 @@ index::index(
             decltype(keys_) { keys },
             decltype(values_) { values },
             features,
+            std::move(description),
     }
 {}
 
@@ -58,7 +64,8 @@ index::index(
         std::string_view simple_name,
         std::initializer_list<key> keys,
         std::initializer_list<column_ref> values,
-        feature_set_type features) :
+        feature_set_type features,
+        description_type description) :
     index {
             definition_id,
             std::move(table),
@@ -66,6 +73,7 @@ index::index(
             decltype(keys_) { keys },
             decltype(values_) { values },
             features,
+            std::move(description),
     }
 {}
 
@@ -124,6 +132,15 @@ index::feature_set_type const& index::features() const noexcept {
     return features_;
 }
 
+index::description_type const& index::description() const noexcept {
+    return description_;
+}
+
+index& index::description(description_type description) noexcept {
+    description_ = std::move(description);
+    return *this;
+}
+
 std::ostream& operator<<(std::ostream& out, index const& value) {
     using ::takatori::util::print_support;
     return out << "index" << "("
@@ -132,7 +149,8 @@ std::ostream& operator<<(std::ostream& out, index const& value) {
                << "simple_name=" << value.simple_name() << ", "
                << "keys=" << print_support { value.keys() } << ", "
                << "values=" << print_support { value.values() } << ", "
-               << "features=" << value.features() << ")";
+               << "features=" << value.features() << ", "
+               << "description=" << value.description() << ")";
 }
 
 } // namespace yugawara::storage

@@ -35,37 +35,8 @@ public:
     /// @brief the index feature set type.
     using feature_set_type = index_feature_set;
 
-    /**
-     * @brief creates a new object.
-     * @param definition_id the table definition ID
-     * @param table the origin table
-     * @param simple_name the simple name, may be empty string
-     * @param keys the index keys
-     * @param values the extra columns
-     * @param features the index features
-     */
-    explicit index(
-            std::optional<definition_id_type> definition_id,
-            std::shared_ptr<class table const> table,
-            simple_name_type simple_name,
-            std::vector<key> keys,
-            std::vector<column_ref> values,
-            feature_set_type features) noexcept;
-
-    /**
-     * @brief creates a new object.
-     * @param table the origin table
-     * @param simple_name the simple name, may be empty string
-     * @param keys the index keys
-     * @param values the extra columns
-     * @param features the index features
-     */
-    explicit index(
-            std::shared_ptr<class table const> table,
-            simple_name_type simple_name,
-            std::vector<key> keys,
-            std::vector<column_ref> values,
-            feature_set_type features) noexcept;
+    /// @brief the index description type.
+    using description_type = std::string;
 
     /**
      * @brief creates a new object.
@@ -75,14 +46,16 @@ public:
      * @param keys the index keys
      * @param values the extra columns
      * @param features the index features
+     * @param description the optional description of this element
      */
-    index(
+    explicit index(
             std::optional<definition_id_type> definition_id,
             std::shared_ptr<class table const> table,
-            std::string_view simple_name,
-            std::initializer_list<key> keys = {},
-            std::initializer_list<column_ref> values = {},
-            feature_set_type features = { index_feature::find, index_feature::scan });
+            simple_name_type simple_name,
+            std::vector<key> keys,
+            std::vector<column_ref> values,
+            feature_set_type features,
+            description_type description = {}) noexcept;
 
     /**
      * @brief creates a new object.
@@ -91,13 +64,51 @@ public:
      * @param keys the index keys
      * @param values the extra columns
      * @param features the index features
+     * @param description the optional description of this element
+     */
+    explicit index(
+            std::shared_ptr<class table const> table,
+            simple_name_type simple_name,
+            std::vector<key> keys,
+            std::vector<column_ref> values,
+            feature_set_type features,
+            description_type description = {}) noexcept;
+
+    /**
+     * @brief creates a new object.
+     * @param definition_id the table definition ID
+     * @param table the origin table
+     * @param simple_name the simple name, may be empty string
+     * @param keys the index keys
+     * @param values the extra columns
+     * @param features the index features
+     * @param description the optional description of this element
+     */
+    index(
+            std::optional<definition_id_type> definition_id,
+            std::shared_ptr<class table const> table,
+            std::string_view simple_name,
+            std::initializer_list<key> keys = {},
+            std::initializer_list<column_ref> values = {},
+            feature_set_type features = { index_feature::find, index_feature::scan },
+            description_type description = {});
+
+    /**
+     * @brief creates a new object.
+     * @param table the origin table
+     * @param simple_name the simple name, may be empty string
+     * @param keys the index keys
+     * @param values the extra columns
+     * @param features the index features
+     * @param description the optional description of this element
      */
     index(
             std::shared_ptr<class table const> table,
             std::string_view simple_name,
             std::initializer_list<key> keys = {},
             std::initializer_list<column_ref> values = {},
-            feature_set_type features = { index_feature::find, index_feature::scan });
+            feature_set_type features = { index_feature::find, index_feature::scan },
+            description_type description = {});
 
     /**
      * @brief returns the index definition ID.
@@ -174,6 +185,20 @@ public:
     [[nodiscard]] feature_set_type const& features() const noexcept;
 
     /**
+     * @brief returns the optional description of this element.
+     * @return the description
+     * @return empty string if the description is absent
+     */
+    [[nodiscard]] description_type const& description() const noexcept;
+
+    /**
+     * @brief sets the optional description of this element.
+     * @param description the description string, or empty to clear it
+     * @return this
+     */
+    index& description(description_type description) noexcept;
+
+    /**
      * @brief appends string representation of the given value.
      * @param out the target output
      * @param value the target value
@@ -188,6 +213,7 @@ private:
     std::vector<key> keys_;
     std::vector<column_ref> values_;
     feature_set_type features_;
+    description_type description_;
 };
 
 /**

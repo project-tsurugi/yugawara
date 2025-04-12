@@ -39,6 +39,9 @@ public:
     /// @brief the column feature set type.
     using feature_set_type = column_feature_set;
 
+    /// @brief the column description type.
+    using description_type = std::string;
+
     /**
      * @brief constructs a new object.
      * @param simple_name the simple name
@@ -46,13 +49,15 @@ public:
      * @param criteria the column value criteria
      * @param default_value the column default value
      * @param features the column features
+     * @param description the optional description of this element
      */
     explicit column(
             simple_name_type simple_name,
             std::shared_ptr<takatori::type::data const> type,
             variable::criteria criteria,
             column_value default_value,
-            feature_set_type features) noexcept;
+            feature_set_type features,
+            description_type description = {}) noexcept;
 
     /**
      * @brief constructs a new object.
@@ -61,6 +66,7 @@ public:
      * @param criteria the column value criteria
      * @param default_value the column default value (nullable)
      * @param features the column features
+     * @param description the optional description of this element
      * @attention this may take copy of the arguments
      */
     column(
@@ -68,7 +74,8 @@ public:
             takatori::type::data&& type,
             variable::criteria criteria = {},
             column_value default_value = {},
-            feature_set_type features = {});
+            feature_set_type features = {},
+            description_type description = {});
 
     /**
      * @brief creates a new object.
@@ -160,6 +167,20 @@ public:
     [[nodiscard]] feature_set_type const& features() const noexcept;
 
     /**
+     * @brief returns the optional description of this element.
+     * @return the description
+     * @return empty string if the description is absent
+     */
+    [[nodiscard]] description_type const& description() const noexcept;
+
+    /**
+     * @brief sets the optional description of this element.
+     * @param description the description string, or empty to clear it
+     * @return this
+     */
+    column& description(description_type description) noexcept;
+
+    /**
      * @brief returns what declares this column.
      * @return the column declarator
      * @attention undefined behavior if this column is orphaned from the owner relations
@@ -195,6 +216,7 @@ private:
     variable::criteria criteria_;
     column_value default_value_;
     feature_set_type features_;
+    description_type description_;
     relation* owner_ {};
 };
 

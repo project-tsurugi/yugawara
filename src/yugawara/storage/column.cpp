@@ -10,12 +10,14 @@ column::column(
         std::shared_ptr<takatori::type::data const> type,
         variable::criteria criteria,
         column_value default_value,
-        feature_set_type features) noexcept :
+        feature_set_type features,
+        description_type description) noexcept :
     simple_name_ { std::move(simple_name) },
     type_ { std::move(type) },
     criteria_ { std::move(criteria) },
     default_value_ { std::move(default_value) },
-    features_ { features }
+    features_ { features },
+    description_ { std::move(description) }
 {}
 
 column::column(
@@ -23,33 +25,37 @@ column::column(
         takatori::type::data&& type,
         variable::criteria criteria,
         column_value default_value,
-        feature_set_type features) :
+        feature_set_type features,
+        description_type description) :
     column {
-        decltype(simple_name_) { simple_name },
-        takatori::util::clone_shared(std::move(type)),
-        std::move(criteria),
-        std::move(default_value),
-        features,
+            decltype(simple_name_) { simple_name },
+            takatori::util::clone_shared(std::move(type)),
+            std::move(criteria),
+            std::move(default_value),
+            features,
+            std::move(description),
     }
 {}
 
 column::column(::takatori::util::clone_tag_t, column const& other) :
     column {
-        decltype(simple_name_) { other.simple_name_ },
-        other.type_,
-        decltype(criteria_) { ::takatori::util::clone_tag, other.criteria_ },
-        other.default_value_,
-        other.features_
+            decltype(simple_name_) { other.simple_name_ },
+            other.type_,
+            decltype(criteria_) { ::takatori::util::clone_tag, other.criteria_ },
+            other.default_value_,
+            other.features_,
+            other.description_,
     }
 {}
 
 column::column(::takatori::util::clone_tag_t, column&& other) :
     column {
-        decltype(simple_name_){std::move(other.simple_name_)},
-        std::move(other.type_),
-        std::move(other.criteria_),
-        std::move(other.default_value_),
-        other.features_
+            decltype(simple_name_){std::move(other.simple_name_)},
+            std::move(other.type_),
+            std::move(other.criteria_),
+            std::move(other.default_value_),
+            other.features_,
+            std::move(other.description_),
     }
 {}
 
@@ -111,6 +117,15 @@ column::feature_set_type const& column::features() const noexcept {
     return features_;
 }
 
+column::description_type const& column::description() const noexcept {
+    return description_;
+}
+
+column& column::description(description_type description) noexcept {
+    description_ = std::move(description);
+    return *this;
+}
+
 relation const& column::owner() const noexcept {
     return *owner_;
 }
@@ -130,7 +145,8 @@ std::ostream& operator<<(std::ostream& out, column const& value) {
                << "type=" << value.type() << ", "
                << "default_value=" << value.default_value() << ", "
                << "criteria=" << value.criteria() << ", "
-               << "features=" << value.features() << ")";
+               << "features=" << value.features() << ", "
+               << "description=" << value.description() << ")";
 }
 
 void column::parent_element(relation* parent) noexcept {

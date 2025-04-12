@@ -102,6 +102,12 @@ void binding_scanner::properties(storage::table const& element) {
     }
     acceptor_.array_end();
     acceptor_.property_end();
+
+    acceptor_.property_begin("description"sv);
+    if (auto&& str = element.description(); !str.empty()) {
+        acceptor_.string(str);
+    }
+    acceptor_.property_end();
 }
 
 void binding_scanner::properties(storage::column const& element) {
@@ -146,6 +152,12 @@ void binding_scanner::properties(storage::column const& element) {
         acceptor_.struct_end();
     }
     acceptor_.property_end();
+
+    acceptor_.property_begin("description"sv);
+    if (auto&& str = element.description(); !str.empty()) {
+        acceptor_.string(str);
+    }
+    acceptor_.property_end();
 }
 
 void binding_scanner::properties(storage::index const& element) {
@@ -186,6 +198,12 @@ void binding_scanner::properties(storage::index const& element) {
     }
     acceptor_.array_end();
     acceptor_.property_end();
+
+    acceptor_.property_begin("description"sv);
+    if (auto&& str = element.description(); !str.empty()) {
+        acceptor_.string(str);
+    }
+    acceptor_.property_end();
 }
 
 void binding_scanner::properties(storage::sequence const& element) {
@@ -218,6 +236,12 @@ void binding_scanner::properties(storage::sequence const& element) {
     acceptor_.property_begin("cycle"sv);
     acceptor_.boolean(element.cycle());
     acceptor_.property_end();
+
+    acceptor_.property_begin("description"sv);
+    if (auto&& str = element.description(); !str.empty()) {
+        acceptor_.string(str);
+    }
+    acceptor_.property_end();
 }
 
 void binding_scanner::properties(takatori::plan::exchange const& element) {
@@ -239,6 +263,12 @@ void binding_scanner::properties(variable::declaration const& element) {
 
     acceptor_.property_begin("criteria"sv);
     accept(element.criteria());
+    acceptor_.property_end();
+
+    acceptor_.property_begin("description"sv);
+    if (auto&& str = element.description(); !str.empty()) {
+        acceptor_.string(str);
+    }
     acceptor_.property_end();
 }
 
@@ -265,6 +295,12 @@ void binding_scanner::properties(function::declaration const& element) {
         scanner_(v, acceptor_);
     }
     acceptor_.array_end();
+    acceptor_.property_end();
+
+    acceptor_.property_begin("description"sv);
+    if (auto&& str = element.description(); !str.empty()) {
+        acceptor_.string(str);
+    }
     acceptor_.property_end();
 }
 
@@ -298,6 +334,12 @@ void binding_scanner::properties(aggregate::declaration const& element) {
         acceptor_.boolean(element.incremental());
     }
     acceptor_.property_end();
+
+    acceptor_.property_begin("description"sv);
+    if (auto&& str = element.description(); !str.empty()) {
+        acceptor_.string(str);
+    }
+    acceptor_.property_end();
 }
 
 void binding_scanner::properties(schema::declaration const& element) {
@@ -310,6 +352,12 @@ void binding_scanner::properties(schema::declaration const& element) {
     acceptor_.property_begin("name"sv);
     if (auto&& n = element.name(); !n.empty()) {
         acceptor_.string(element.name());
+    }
+    acceptor_.property_end();
+
+    acceptor_.property_begin("description"sv);
+    if (auto&& str = element.description(); !str.empty()) {
+        acceptor_.string(str);
     }
     acceptor_.property_end();
 }

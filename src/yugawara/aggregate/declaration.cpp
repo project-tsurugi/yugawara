@@ -10,12 +10,14 @@ declaration::declaration(
         name_type name,
         type_pointer return_type,
         std::vector<type_pointer> parameter_types,
-        bool incremental) noexcept
-    : definition_id_(definition_id)
-    , name_(std::move(name))
-    , return_type_(std::move(return_type))
-    , parameter_types_(std::move(parameter_types))
-    , incremental_(incremental)
+        bool incremental,
+        description_type description) noexcept:
+    definition_id_ { definition_id },
+    name_ { std::move(name) },
+    return_type_ { std::move(return_type) },
+    parameter_types_ { std::move(parameter_types) },
+    incremental_ { incremental },
+    description_ { std::move(description) }
 {}
 
 declaration::declaration(
@@ -23,13 +25,16 @@ declaration::declaration(
         std::string_view name,
         takatori::type::data&& return_type,
         std::initializer_list<takatori::util::rvalue_reference_wrapper<takatori::type::data>> parameter_types,
-        bool incremental)
-    : declaration(
+        bool incremental,
+        description_type description):
+    declaration {
             definition_id,
             decltype(name_) { name },
             takatori::util::clone_shared(std::move(return_type)),
             decltype(parameter_types_) {},
-            incremental)
+            incremental,
+            std::move(description),
+    }
 {
     parameter_types_.reserve(parameter_types.size());
     for (auto&& rvref : parameter_types) {
@@ -101,13 +106,23 @@ declaration& declaration::incremental(bool enabled) noexcept {
     return *this;
 }
 
+declaration::description_type const& declaration::description() const noexcept {
+    return description_;
+}
+
+declaration& declaration::description(description_type description) noexcept {
+    description_ = std::move(description);
+    return *this;
+}
+
 std::ostream& operator<<(std::ostream& out, declaration const& value) {
     return out << "aggregate_function("
                << "definition_id=" << value.definition_id() << ", "
                << "name=" << value.name() << ", "
                << "return_type=" << value.optional_return_type() << ", "
                << "parameter_types=" << takatori::util::print_support { value.shared_parameter_types() } << ", "
-               << "incremental=" << takatori::util::print_support { value.incremental() } << ")";
+               << "incremental=" << takatori::util::print_support { value.incremental() } << ", "
+               << "description=" << value.description() << ")";
 }
 
 } // namespace yugawara::aggregate
