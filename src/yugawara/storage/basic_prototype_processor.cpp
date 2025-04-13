@@ -60,13 +60,17 @@ static std::shared_ptr<index> create_index_copy(
         }
     }
 
+    // copy description
+    auto description = prototype.description();
+
     return std::make_shared<index>(
             prototype.definition_id(),
             std::move(target),
             index::simple_name_type { prototype.simple_name() },
             std::move(new_keys),
             std::move(new_values),
-            prototype.features());
+            prototype.features(),
+            std::move(description));
 }
 
 std::shared_ptr<index const> basic_prototype_processor::operator()(
