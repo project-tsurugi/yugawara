@@ -26,19 +26,29 @@ protected:
                     {
                             "C0",
                             t::int4 {},
+                            {},
+                            {},
+                            {},
+                            "COLUMN-0",
                     },
                     {
                             "C1",
                             t::int4 {},
                             variable::nullable,
+                            {},
+                            {},
+                            "COLUMN-1",
                     },
                     {
                             "C2",
                             t::int8 {},
                             ~variable::nullable,
                             v::int8 { 10 },
+                            {},
+                            "COLUMN-2",
                     },
-            }
+            },
+            "TABLE",
     });
     index idx {
             2,
@@ -51,6 +61,8 @@ protected:
             {
                     tbl->columns()[2],
             },
+            {},
+            "INDEX",
     };
     std::vector<prototype_processor::diagnostic_type> diagnostics;
 
@@ -61,6 +73,8 @@ protected:
         EXPECT_EQ(a.type(), b.type());
         EXPECT_EQ(a.criteria(), b.criteria());
         EXPECT_EQ(a.default_value(), b.default_value());
+        EXPECT_EQ(a.features(), b.features());
+        EXPECT_EQ(a.description(), b.description());
     }
 };
 
@@ -83,6 +97,7 @@ TEST_F(storage_basic_prototype_processor_test, primary) {
         expect_column_eq(idx.values()[i], ri->values()[i]);
     }
     EXPECT_EQ(ri->features(), idx.features());
+    EXPECT_EQ(ri->description(), idx.description());
 
     ASSERT_TRUE(ri);
     auto& rt = ri->table();
@@ -93,6 +108,7 @@ TEST_F(storage_basic_prototype_processor_test, primary) {
     for (std::size_t i = 0; i < rt.columns().size(); ++i) {
         expect_column_eq(rt.columns()[i], tbl->columns()[i]);
     }
+    EXPECT_EQ(rt.description(), tbl->description());
 }
 
 TEST_F(storage_basic_prototype_processor_test, secondary) {
@@ -114,6 +130,7 @@ TEST_F(storage_basic_prototype_processor_test, secondary) {
         EXPECT_EQ(idx.values()[i], ri->values()[i]);
     }
     EXPECT_EQ(ri->features(), idx.features());
+    EXPECT_EQ(ri->description(), idx.description());
 
     ASSERT_TRUE(ri);
     EXPECT_EQ(std::addressof(ri->table()), tbl.get());

@@ -15,14 +15,16 @@ sequence::sequence(
         value_type increment_value,
         value_type min_value,
         value_type max_value,
-        bool cycle) noexcept :
+        bool cycle,
+        description_type description) noexcept :
     definition_id_ { definition_id },
     simple_name_ { std::move(simple_name) },
     initial_value_ { initial_value },
     increment_value_ { increment_value },
     min_value_ { min_value },
     max_value_ { max_value },
-    cycle_ { cycle }
+    cycle_ { cycle },
+    description_ { std::move(description) }
 {}
 
 sequence::sequence(
@@ -31,7 +33,8 @@ sequence::sequence(
         value_type increment_value,
         value_type min_value,
         value_type max_value,
-        bool cycle) noexcept :
+        bool cycle,
+        description_type description) noexcept :
     sequence {
             {},
             std::move(simple_name),
@@ -40,6 +43,7 @@ sequence::sequence(
             min_value,
             max_value,
             cycle,
+            std::move(description),
     }
 {}
 
@@ -106,6 +110,15 @@ sequence& sequence::cycle(bool enabled) noexcept {
     return *this;
 }
 
+sequence::description_type const& sequence::description() const noexcept {
+    return description_;
+}
+
+sequence& sequence::description(description_type description) noexcept {
+    description_ = std::move(description);
+    return *this;
+}
+
 ::takatori::util::optional_ptr<provider const> sequence::owner() const noexcept {
     return optional_ptr { owner_ };
 }
@@ -119,7 +132,8 @@ std::ostream& operator<<(std::ostream& out, sequence const& value) {
                << "increment_value=" << value.increment_value() << ", "
                << "min_value=" << value.min_value() << ", "
                << "max_value=" << value.max_value() << ", "
-               << "cycle=" << print_support { value.cycle() } << ")";
+               << "cycle=" << print_support { value.cycle() } << ", "
+               << "description=" << value.description() << ")";
 }
 
 } // namespace yugawara::storage

@@ -19,14 +19,16 @@ declaration::declaration(
         std::shared_ptr<variable::provider> variable_provider,
         std::shared_ptr<function::provider> function_provider,
         std::shared_ptr<aggregate::provider> set_function_provider,
-        std::shared_ptr<type::provider> type_provider) noexcept :
+        std::shared_ptr<type::provider> type_provider,
+        description_type description) noexcept :
     definition_id_ { definition_id },
     name_ { std::move(name) },
     storage_provider_ { std::move(storage_provider) },
     variable_provider_ { std::move(variable_provider) },
     function_provider_ { std::move(function_provider) },
     set_function_provider_ { std::move(set_function_provider) },
-    type_provider_ { std::move(type_provider) }
+    type_provider_ { std::move(type_provider) },
+    description_ { std::move(description) }
 {}
 
 declaration::declaration(
@@ -36,7 +38,8 @@ declaration::declaration(
         std::shared_ptr<variable::provider> variable_provider,
         std::shared_ptr<function::provider> function_provider,
         std::shared_ptr<aggregate::provider> set_function_provider,
-        std::shared_ptr<type::provider> type_provider) :
+        std::shared_ptr<type::provider> type_provider,
+        description_type description) :
     declaration {
             definition_id,
             name_type { name },
@@ -45,6 +48,7 @@ declaration::declaration(
             std::move(function_provider),
             std::move(set_function_provider),
             std::move(type_provider),
+            std::move(description),
     }
 {}
 
@@ -151,6 +155,15 @@ declaration& declaration::type_provider(std::shared_ptr<type::provider> provider
     return *this;
 }
 
+declaration::description_type const& declaration::description() const noexcept {
+    return description_;
+}
+
+declaration& declaration::description(description_type description) noexcept {
+    description_ = std::move(description);
+    return *this;
+}
+
 optional_ptr<provider const> declaration::owner() const noexcept {
     return optional_ptr { owner_ };
 }
@@ -164,7 +177,8 @@ std::ostream& operator<<(std::ostream& out, declaration const& value) {
                << "variable_provider=" << value.variable_provider_ << ", "
                << "function_provider=" << value.function_provider_ << ", "
                << "set_function_provider=" << value.set_function_provider_
-               << "type_provider=" << value.type_provider_ << ")";
+               << "type_provider=" << value.type_provider_ << ", "
+               << "description=" << value.description() << ")";
 }
 
 } // namespace yugawara::schema

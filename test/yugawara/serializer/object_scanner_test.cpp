@@ -63,6 +63,19 @@ private:
     std::shared_ptr<analyzer::expression_mapping> expressions_ = std::make_shared<analyzer::expression_mapping>();
 };
 
+TEST_F(object_scanner_test, table) {
+    print(bindings.storage(storage::table {
+            "T",
+            {
+                    {
+                            "C0",
+                            t::int4 {},
+                    },
+            },
+            "TDESC",
+    }));
+}
+
 TEST_F(object_scanner_test, table_column) {
     storage::table t {
             "T",
@@ -70,6 +83,10 @@ TEST_F(object_scanner_test, table_column) {
                     {
                             "C0",
                             t::int4 {},
+                            {},
+                            {},
+                            {},
+                            "CDESC"
                     },
             },
     };
@@ -149,6 +166,8 @@ TEST_F(object_scanner_test, external_variable) {
     print(bindings( variable::declaration {
             "X",
             t::int4 {},
+            {},
+            "VDESC",
     }));
 }
 
@@ -180,6 +199,8 @@ TEST_F(object_scanner_test, index) {
             {
                     t->columns()[2],
             },
+            {},
+            "IDESC",
     }));
 }
 
@@ -196,6 +217,7 @@ TEST_F(object_scanner_test, function) {
                     t::boolean{},
                     t::int8{},
             },
+            "FDESC",
     }));
 }
 
@@ -209,6 +231,7 @@ TEST_F(object_scanner_test, aggregate_function) {
                     t::int8 {},
             },
             true,
+            "ADESC",
     }));
 }
 

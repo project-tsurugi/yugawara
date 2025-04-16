@@ -54,6 +54,9 @@ public:
      */
     static constexpr std::string_view name_suffix_distinct { "$distinct" };
 
+    /// @brief the function description type.
+    using description_type = std::string;
+
     /**
      * @brief creates a new object.
      * @param definition_id the definition ID
@@ -62,13 +65,15 @@ public:
      * @param parameter_types the parameter types
      * @param incremental whether or not incremental aggregation is enabled, that is,
      *      this function is commutative and associative
+     * @param description the optional description of this element
      */
     explicit declaration(
             definition_id_type definition_id,
             name_type name,
             type_pointer return_type,
             std::vector<type_pointer> parameter_types,
-            bool incremental) noexcept;
+            bool incremental,
+            description_type description = {}) noexcept;
 
     /**
      * @brief creates a new object.
@@ -79,13 +84,15 @@ public:
      * @attention this may take copy of arguments
      * @param incremental whether or not incremental aggregation is enabled, that is,
      *      this function is commutative and associative
+     * @param description the optional description of this element
      */
     declaration(
             definition_id_type definition_id,
             std::string_view name,
             takatori::type::data&& return_type,
             std::initializer_list<takatori::util::rvalue_reference_wrapper<takatori::type::data>> parameter_types,
-            bool incremental = false);
+            bool incremental = false,
+            description_type description = {});
 
     /**
      * @brief returns the function definition ID.
@@ -176,6 +183,20 @@ public:
     declaration& incremental(bool enabled) noexcept;
 
     /**
+     * @brief returns the optional description of this element.
+     * @return the description
+     * @return empty string if the description is absent
+     */
+    [[nodiscard]] description_type const& description() const noexcept;
+
+    /**
+     * @brief sets the optional description of this element.
+     * @param description the description string, or empty to clear it
+     * @return this
+     */
+    declaration& description(description_type description) noexcept;
+
+    /**
      * @brief appends string representation of the given value.
      * @param out the target output
      * @param value the target value
@@ -189,6 +210,7 @@ private:
     type_pointer return_type_;
     std::vector<type_pointer> parameter_types_;
     bool incremental_;
+    description_type description_;
 };
 
 } // namespace yugawara::aggregate

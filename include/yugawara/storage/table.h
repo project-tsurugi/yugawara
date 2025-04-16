@@ -27,6 +27,9 @@ public:
     /// @brief the column vector type.
     using column_vector_type = takatori::tree::tree_element_vector<column>;
 
+    /// @brief the table description type.
+    using description_type = std::string;
+
     /// @brief the kind of this type.
     static constexpr inline relation_kind tag = relation_kind::table;
 
@@ -35,20 +38,24 @@ public:
      * @param definition_id the table definition ID
      * @param simple_name the simple name
      * @param columns the table columns
+     * @param description the optional description of this element
      */
     explicit table(
             std::optional<definition_id_type> definition_id,
             simple_name_type simple_name,
-            takatori::util::reference_vector<column> columns) noexcept;
+            takatori::util::reference_vector<column> columns,
+            description_type description = {}) noexcept;
 
     /**
      * @brief creates a new object.
      * @param simple_name the simple name
      * @param columns the table columns
+     * @param description the optional description of this element
      */
     explicit table(
             simple_name_type simple_name,
-            takatori::util::reference_vector<column> columns) noexcept;
+            takatori::util::reference_vector<column> columns,
+            description_type description = {}) noexcept;
 
     /**
      * @brief creates a new object.
@@ -56,23 +63,27 @@ public:
      * @param definition_id the table definition ID
      * @param simple_name the simple name
      * @param columns the table columns
+     * @param description the optional description of this element
      * @attention this may take copy of arguments
      */
     table(
             std::optional<definition_id_type> definition_id,
             std::string_view simple_name,
-            std::initializer_list<column> columns);
+            std::initializer_list<column> columns,
+            description_type description = {});
 
     /**
      * @brief creates a new object.
      * @details This is designed for DSL (mainly used in testing).
      * @param simple_name the simple name
      * @param columns the table columns
+     * @param description the optional description of this element
      * @attention this may take copy of arguments
      */
     table(
             std::string_view simple_name,
-            std::initializer_list<column> columns);
+            std::initializer_list<column> columns,
+            description_type description = {});
 
     /**
      * @brief creates a new object.
@@ -120,6 +131,20 @@ public:
     [[nodiscard]] column_list_view columns() const noexcept override;
 
     /**
+     * @brief returns the optional description of this element.
+     * @return the description
+     * @return empty string if the description is absent
+     */
+    [[nodiscard]] description_type const& description() const noexcept;
+
+    /**
+     * @brief sets the optional description of this element.
+     * @param description the description string, or empty to clear it
+     * @return this
+     */
+    table& description(description_type description) noexcept;
+
+    /**
      * @brief appends string representation of the given value.
      * @param out the target output
      * @param value the target value
@@ -134,6 +159,7 @@ private:
     std::optional<definition_id_type> definition_id_ {};
     simple_name_type simple_name_;
     column_vector_type columns_;
+    description_type description_;
 };
 
 /**

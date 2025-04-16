@@ -10,23 +10,28 @@ declaration::declaration(
         definition_id_type definition_id,
         name_type name,
         type_pointer return_type,
-        std::vector<type_pointer> parameter_types) noexcept
-    : definition_id_(definition_id)
-    , name_(std::move(name))
-    , return_type_(std::move(return_type))
-    , parameter_types_(std::move(parameter_types))
+        std::vector<type_pointer> parameter_types,
+        description_type description) noexcept:
+    definition_id_ { definition_id },
+    name_ { std::move(name) },
+    return_type_ { std::move(return_type) },
+    parameter_types_ { std::move(parameter_types) },
+    description_ { std::move(description) }
 {}
 
 declaration::declaration(
         definition_id_type definition_id,
         std::string_view name,
         takatori::type::data&& return_type,
-        std::initializer_list<takatori::util::rvalue_reference_wrapper<takatori::type::data>> parameter_types)
-    : declaration(
+        std::initializer_list<takatori::util::rvalue_reference_wrapper<takatori::type::data>> parameter_types,
+        description_type description):
+    declaration {
             definition_id,
             decltype(name_) { name },
             takatori::util::clone_shared(std::move(return_type)),
-            decltype(parameter_types_) {})
+            decltype(parameter_types_) {},
+            std::move(description),
+    }
 {
     parameter_types_.reserve(parameter_types.size());
     for (auto&& rvref : parameter_types) {
@@ -89,12 +94,22 @@ std::vector<declaration::type_pointer> const& declaration::shared_parameter_type
     return parameter_types_;
 }
 
+declaration::description_type const& declaration::description() const noexcept {
+    return description_;
+}
+
+declaration& declaration::description(description_type description) noexcept {
+    description_ = std::move(description);
+    return *this;
+}
+
 std::ostream& operator<<(std::ostream& out, declaration const& value) {
     return out << "function("
                << "definition_id=" << value.definition_id() << ", "
                << "name=" << value.name() << ", "
                << "return_type=" << value.optional_return_type() << ", "
-               << "parameter_types=" << takatori::util::print_support { value.shared_parameter_types() } << ")";
+               << "parameter_types=" << takatori::util::print_support { value.shared_parameter_types() } << ", "
+               << "description=" << value.description() << ")";
 }
 
 } // namespace yugawara::function

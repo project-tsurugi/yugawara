@@ -19,34 +19,40 @@ declaration::declaration(
         std::optional<definition_id_type> definition_id,
         name_type name,
         type_pointer type,
-        class criteria criteria) noexcept :
+        class criteria criteria,
+        description_type description) noexcept :
     definition_id_ { definition_id },
     name_(std::move(name)),
     type_(or_pending(std::move(type))),
-    criteria_(std::move(criteria))
+    criteria_(std::move(criteria)),
+    description_ { std::move(description) }
 {}
 
 declaration::declaration(
         name_type name,
         type_pointer type,
-        class criteria criteria) noexcept :
+        class criteria criteria,
+        description_type description) noexcept :
     declaration {
             std::nullopt,
             std::move(name),
             std::move(type),
             std::move(criteria),
+            std::move(description),
     }
 {}
 
 declaration::declaration(
         std::string_view name,
         takatori::util::rvalue_ptr<takatori::type::data> type,
-        class criteria criteria) :
+        class criteria criteria,
+        description_type description) :
     declaration {
             std::nullopt,
             decltype(name_) { name },
             takatori::util::clone_shared(type),
             std::move(criteria),
+            std::move(description),
     }
 {}
 
@@ -71,7 +77,7 @@ std::string_view declaration::name() const noexcept {
     return name_;
 }
 
-declaration& declaration::name(declaration::name_type name) noexcept {
+declaration& declaration::name(name_type name) noexcept {
     name_ = std::move(name);
     return *this;
 }
@@ -88,7 +94,7 @@ declaration::type_pointer const& declaration::shared_type() const noexcept {
     return type_;
 }
 
-declaration& declaration::type(declaration::type_pointer type) noexcept {
+declaration& declaration::type(type_pointer type) noexcept {
     type_ = or_pending(std::move(type));
     return *this;
 }
@@ -101,13 +107,23 @@ class criteria const& declaration::criteria() const noexcept {
     return criteria_;
 }
 
+declaration::description_type const& declaration::description() const noexcept {
+    return description_;
+}
+
+declaration& declaration::description(description_type description) noexcept {
+    description_ = std::move(description);
+    return *this;
+}
+
 std::ostream& operator<<(std::ostream& out, declaration const& value) {
     using ::takatori::util::print_support;
     return out << "variable("
                << "definition_id=" << print_support { value.definition_id() } << ", "
                << "name=" << value.name() << ", "
                << "type=" << value.optional_type() << ", "
-               << "criteria=" << value.criteria() << ")";
+               << "criteria=" << value.criteria() << ", "
+               << "description=" << value.description() << ")";
 }
 
 } // namespace yugawara::variable
