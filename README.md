@@ -59,6 +59,7 @@ available options:
 * `-DBUILD_SHARED_LIBS=OFF` - create static libraries instead of shared libraries
 * `-DBUILD_TESTS=OFF` - don't build test programs
 * `-DBUILD_DOCUMENTS=OFF` - don't build documents by doxygen
+* `-DBUILD_STRICT=OFF` - don't treat compile warnings as build errors
 
 ### install
 
