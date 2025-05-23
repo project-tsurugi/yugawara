@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+
 #include <takatori/type/character.h>
 
 namespace yugawara::variable {
