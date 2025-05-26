@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+
 #include <takatori/type/primitive.h>
 #include <takatori/type/character.h>
 
