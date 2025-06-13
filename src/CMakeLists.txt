@@ -30,7 +30,7 @@ add_library(yugawara
     # function information
     yugawara/function/declaration.cpp
 
-        # aggregate function information
+    # aggregate function information
     yugawara/aggregate/declaration.cpp
 
     # descriptor entities
@@ -118,6 +118,7 @@ add_library(yugawara
     yugawara/analyzer/details/inline_variables.cpp
     yugawara/analyzer/details/collect_local_variables.cpp
     yugawara/analyzer/details/remove_orphaned_elements.cpp
+    yugawara/analyzer/details/decompose_prefix_match.cpp
 
     # analyzer misc.
     yugawara/analyzer/details/detect_join_endpoint_style.cpp
