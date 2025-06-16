@@ -35,7 +35,7 @@ relation_info_kind kind_of(descriptor::relation const& descriptor) {
 }
 
 template<class Info, class Desc>
-optional_ptr<Info const> unwrap_as(Desc const& desc, bool fail_if_mismatch) {
+static optional_ptr<Info const> unwrap_as(Desc const& desc, bool fail_if_mismatch) {
     using info_type = Info;
     auto&& info = unwrap(desc);
     if (info.kind() == info_type::tag) {
