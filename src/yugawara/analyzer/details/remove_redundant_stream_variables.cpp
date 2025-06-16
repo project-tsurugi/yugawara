@@ -154,10 +154,10 @@ public:
     void operator()(relation::intermediate::union_& expr) {
         remove_unused_mappings(expr.mappings());
         for (auto&& mapping : expr.mappings()) {
-            if (auto v = mapping.left()) {
+            if (auto&& v = mapping.left()) {
                 use(*v);
             }
-            if (auto v = mapping.right()) {
+            if (auto&& v = mapping.right()) {
                 use(*v);
             }
         }

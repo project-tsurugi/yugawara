@@ -12,7 +12,13 @@
 
 namespace yugawara::type {
 
-inline category extension_category_of(takatori::type::extension const& type) noexcept;
+static category extension_category_of(takatori::type::extension const& type) noexcept {
+    if (extension::type::error::is_instance(type)
+            || extension::type::pending::is_instance(type)) {
+        return category::unresolved;
+            }
+    return category::external;
+}
 
 category category_of(takatori::type::data const& type) noexcept {
     using kind = takatori::type::type_kind;
@@ -73,14 +79,6 @@ category category_of(takatori::type::data const& type) noexcept {
             return extension_category_of(takatori::util::unsafe_downcast<takatori::type::extension>(type));
     }
     std::abort();
-}
-
-inline category extension_category_of(takatori::type::extension const& type) noexcept {
-    if (extension::type::error::is_instance(type)
-            || extension::type::pending::is_instance(type)) {
-        return category::unresolved;
-    }
-    return category::external;
 }
 
 } // namespace yugawara::type

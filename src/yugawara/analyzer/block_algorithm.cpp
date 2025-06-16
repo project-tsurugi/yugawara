@@ -3,7 +3,7 @@
 namespace yugawara::analyzer {
 
 template<class G, class C>
-void collect_heads0(G& g, C const& consumer) {
+static void collect_heads0(G& g, C const& consumer) {
     for (auto&& b : g) {
         if (b.upstreams().empty()) {
             consumer(b);
@@ -20,7 +20,7 @@ void collect_heads(block_graph const& g, const_block_consumer const& consumer) {
 }
 
 template<class G, class C>
-void collect_tails0(G& g, C const& consumer) {
+static void collect_tails0(G& g, C const& consumer) {
     for (auto&& b : g) {
         if (b.downstreams().empty()) {
             consumer(b);
@@ -37,7 +37,7 @@ void collect_tails(block_graph const& g, const_block_consumer const& consumer) {
 }
 
 template<class B, class G>
-::takatori::util::optional_ptr<B> find_unique_head0(G& g) noexcept {
+static ::takatori::util::optional_ptr<B> find_unique_head0(G& g) noexcept {
     B* result {};
     for (auto&& b : g) {
         if (b.upstreams().empty()) {
@@ -60,7 +60,7 @@ template<class B, class G>
 }
 
 template<class B>
-::takatori::util::optional_ptr<B> find_unique_upstream0(B& b) noexcept {
+static ::takatori::util::optional_ptr<B> find_unique_upstream0(B& b) noexcept {
     auto candidates = b.upstreams();
     if (candidates.size() == 1) {
         return candidates[0];
@@ -77,7 +77,7 @@ template<class B>
 }
 
 template<class B>
-::takatori::util::optional_ptr<B> find_unique_downstream0(B& b) noexcept {
+static ::takatori::util::optional_ptr<B> find_unique_downstream0(B& b) noexcept {
     auto candidates = b.downstreams();
     if (candidates.size() == 1) {
         return candidates[0];

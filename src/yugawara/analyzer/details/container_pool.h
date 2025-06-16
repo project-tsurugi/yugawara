@@ -31,8 +31,16 @@ public:
      * @brief creates a new instance.
      * @param allocator the container's allocator
      */
-    explicit container_pool(allocator_type allocator = {}) noexcept
-        : entries_(typename decltype(entries_)::allocator_type { std::move(allocator) })
+    explicit container_pool(allocator_type const& allocator) noexcept:
+            entries_(typename decltype(entries_)::allocator_type { allocator })
+    {}
+
+    /**
+     * @brief creates a new instance.
+     * @param allocator the container's allocator
+     */
+    explicit container_pool(allocator_type&& allocator = {}) noexcept:
+            entries_(typename decltype(entries_)::allocator_type { std::move(allocator) })
     {}
 
     /**

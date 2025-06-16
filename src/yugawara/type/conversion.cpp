@@ -143,7 +143,7 @@ std::shared_ptr<model::data const> identity_conversion(model::data const& type, 
     return repo.get(type);
 }
 
-std::shared_ptr<model::data const> identity_conversion(
+static std::shared_ptr<model::data const> identity_conversion(
         model::data const& type,
         model::data const& with,
         repository& repo) {
