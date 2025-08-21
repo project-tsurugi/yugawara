@@ -1642,6 +1642,16 @@ public:
         return true;
     }
 
+    bool operator()(statement::grant_table const& stmt) {
+        (void) stmt;
+        return true;
+    }
+
+    bool operator()(statement::revoke_table const& stmt) {
+        (void) stmt;
+        return true;
+    }
+
     bool operator()(statement::empty const& stmt) {
         (void) stmt;
         return true;

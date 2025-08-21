@@ -22,6 +22,8 @@
 #include <takatori/statement/drop_table.h>
 #include <takatori/statement/create_index.h>
 #include <takatori/statement/drop_index.h>
+#include <takatori/statement/grant_table.h>
+#include <takatori/statement/revoke_table.h>
 #include <takatori/statement/empty.h>
 
 #include <takatori/serializer/json_printer.h>
@@ -458,6 +460,48 @@ TEST_F(compiler_test, drop_index) {
     auto&& c = downcast<statement::drop_index>(result.statement());
     auto&& r = binding::extract<storage::index>(c.target());
     EXPECT_EQ(std::addressof(r), i0.get());
+}
+
+TEST_F(compiler_test, grant_table) {
+    auto result = compiler()(options(), statement::grant_table {
+            {
+                    bindings(t0),
+                    {
+                            statement::table_action_kind::select,
+                    },
+                    {
+                            {
+                                    "admin",
+                                    {
+                                        statement::table_action_kind::control,
+                                    },
+                            },
+                    },
+            },
+    });
+    ASSERT_TRUE(result);
+    dump(result);
+}
+
+TEST_F(compiler_test, revoke_table) {
+    auto result = compiler()(options(), statement::revoke_table {
+            {
+                    bindings(t0),
+                    {
+                            statement::table_action_kind::select,
+                    },
+                    {
+                            {
+                                    "admin",
+                                    {
+                                        statement::table_action_kind::control,
+                                    },
+                            },
+                    },
+            },
+    });
+    ASSERT_TRUE(result);
+    dump(result);
 }
 
 TEST_F(compiler_test, empty) {
