@@ -335,6 +335,23 @@ binary_numeric_promotion(model::data const& type, model::data const& with, repos
 }
 
 std::shared_ptr<model::data const>
+unary_decimal_promotion(model::data const& type, repository& repo) {
+    if (is_conversion_stop_type(type)) return shared_pending();
+    switch (type.kind()) {
+        case kind::int1:
+        case kind::int2:
+        case kind::int4:
+            return repo.get(model::decimal { decimal_precision_int4, 0 });
+        case kind::int8:
+            return repo.get(model::decimal { decimal_precision_int8, 0 });
+        case kind::decimal:
+            return repo.get(type);
+        default:
+            return shared_error();
+    }
+}
+
+std::shared_ptr<model::data const>
 unary_character_string_promotion(model::data const& type, repository& repo) {
     if (is_conversion_stop_type(type)) return shared_pending();
     switch (type.kind()) {
