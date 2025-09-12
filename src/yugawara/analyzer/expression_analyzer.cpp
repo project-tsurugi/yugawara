@@ -669,7 +669,11 @@ public:
                         auto&& ld = unsafe_downcast<::takatori::type::decimal>(*left);
                         auto&& rd = unsafe_downcast<::takatori::type::decimal>(*right);
                         // left:decimal(p, s) * right:decimal(q, t) => decimal(*, max(s,t))
-                        return repo_.get(::takatori::type::decimal({}, std::max(ld.scale(), rd.scale())));
+                        std::optional<::takatori::type::decimal::size_type> scale {};
+                        if (ld.scale() && rd.scale()) {
+                            scale = std::max(*ld.scale(), *rd.scale());
+                        }
+                        return repo_.get(::takatori::type::decimal({}, scale));
                     }
                     return result;
                 }
@@ -716,7 +720,11 @@ public:
                         auto&& ld = unsafe_downcast<::takatori::type::decimal>(*left);
                         auto&& rd = unsafe_downcast<::takatori::type::decimal>(*right);
                         // left:decimal(p, s) * right:decimal(q, t) => decimal(*, max(s,t))
-                        return repo_.get(::takatori::type::decimal({}, std::max(ld.scale(), rd.scale())));
+                        std::optional<::takatori::type::decimal::size_type> scale {};
+                        if (ld.scale() && rd.scale()) {
+                            scale = std::max(*ld.scale(), *rd.scale());
+                        }
+                        return repo_.get(::takatori::type::decimal({}, scale));
                     }
                     return result;
                 }
