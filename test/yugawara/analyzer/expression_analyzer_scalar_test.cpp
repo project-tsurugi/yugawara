@@ -199,7 +199,7 @@ TEST_F(expression_analyzer_scalar_test, unary_plus_error) {
     EXPECT_TRUE(ok());
 }
 
-TEST_F(expression_analyzer_scalar_test, unary_plus_unknow) {
+TEST_F(expression_analyzer_scalar_test, unary_plus_unknown) {
     s::unary expr {
             s::unary_operator::plus,
             vref { decl(t::unknown()) },
@@ -261,7 +261,7 @@ TEST_F(expression_analyzer_scalar_test, unary_sign_inversion_error) {
     EXPECT_TRUE(ok());
 }
 
-TEST_F(expression_analyzer_scalar_test, unary_sign_inversion_unknow) {
+TEST_F(expression_analyzer_scalar_test, unary_sign_inversion_unknown) {
     s::unary expr {
             s::unary_operator::sign_inversion,
             vref { decl(t::unknown()) },
@@ -633,6 +633,17 @@ TEST_F(expression_analyzer_scalar_test, binary_add_decimal_scale_flex_fix) {
     EXPECT_TRUE(ok());
 }
 
+TEST_F(expression_analyzer_scalar_test, binary_add_int_decimal) {
+    s::binary expr {
+            s::binary_operator::add,
+            vref { decl(t::int4 {}) },
+            vref { decl(t::decimal { 10,  3 }) },
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::decimal({}, 3));
+    EXPECT_TRUE(ok());
+}
+
 TEST_F(expression_analyzer_scalar_test, binary_add_number_invalid) {
     s::binary expr {
             s::binary_operator::add,
@@ -745,6 +756,17 @@ TEST_F(expression_analyzer_scalar_test, binary_subtract_decimal) {
     };
     auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::decimal({}, 2));
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, binary_subtract_int_decimal) {
+    s::binary expr {
+            s::binary_operator::subtract,
+            vref { decl(t::decimal { 10,  3 }) },
+            vref { decl(t::int8 {}) },
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::decimal({}, 3));
     EXPECT_TRUE(ok());
 }
 

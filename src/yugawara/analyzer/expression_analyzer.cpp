@@ -663,19 +663,7 @@ public:
                 // FIXME: as decimal
                 // binary numeric -> if decimal -> compute prec/scale
                 if (rcat == category::number) {
-                    auto result = type::binary_numeric_promotion(*left, *right, repo_);
-                    if (left->kind() == ::takatori::type::type_kind::decimal
-                            && right->kind() == ::takatori::type::type_kind::decimal) {
-                        auto&& ld = unsafe_downcast<::takatori::type::decimal>(*left);
-                        auto&& rd = unsafe_downcast<::takatori::type::decimal>(*right);
-                        // left:decimal(p, s) * right:decimal(q, t) => decimal(*, max(s,t))
-                        std::optional<::takatori::type::decimal::size_type> scale {};
-                        if (ld.scale() && rd.scale()) {
-                            scale = std::max(*ld.scale(), *rd.scale());
-                        }
-                        return repo_.get(::takatori::type::decimal({}, scale));
-                    }
-                    return result;
+                    return process_numeric_additive_binary_operator(left, right);
                 }
                 return raise(code::inconsistent_type,
                         extract_region(expr.right()),
@@ -714,19 +702,7 @@ public:
                         { category::number, category::temporal, category::datetime_interval });
             case category::number:
                 if (rcat == category::number) {
-                    auto result = type::binary_numeric_promotion(*left, *right, repo_);
-                    if (left->kind() == ::takatori::type::type_kind::decimal
-                        && right->kind() == ::takatori::type::type_kind::decimal) {
-                        auto&& ld = unsafe_downcast<::takatori::type::decimal>(*left);
-                        auto&& rd = unsafe_downcast<::takatori::type::decimal>(*right);
-                        // left:decimal(p, s) * right:decimal(q, t) => decimal(*, max(s,t))
-                        std::optional<::takatori::type::decimal::size_type> scale {};
-                        if (ld.scale() && rd.scale()) {
-                            scale = std::max(*ld.scale(), *rd.scale());
-                        }
-                        return repo_.get(::takatori::type::decimal({}, scale));
-                    }
-                    return result;
+                    return process_numeric_additive_binary_operator(left, right);
                 }
                 return raise(code::inconsistent_type,
                         extract_region(expr.right()),
@@ -751,6 +727,26 @@ public:
                         *left,
                         { category::number, category::temporal, category::datetime_interval });
         }
+    }
+
+    type_ptr process_numeric_additive_binary_operator(type_ptr const& left, type_ptr const& right) {
+        auto result = type::binary_numeric_promotion(*left, *right, repo_);
+        if (result->kind() == ::takatori::type::type_kind::decimal) {
+            auto left_dec = type::unary_decimal_promotion(*left);
+            auto right_dec = type::unary_decimal_promotion(*right);
+            if (left_dec->kind() == ::takatori::type::type_kind::decimal
+                    && right_dec->kind() == ::takatori::type::type_kind::decimal) {
+                auto&& ld = unsafe_downcast<::takatori::type::decimal>(*left_dec);
+                auto&& rd = unsafe_downcast<::takatori::type::decimal>(*right_dec);
+                // left:decimal(p, s) * right:decimal(q, t) => decimal(*, max(s,t))
+                std::optional<::takatori::type::decimal::size_type> scale {};
+                if (ld.scale() && rd.scale()) {
+                    scale = std::max(*ld.scale(), *rd.scale());
+                }
+                return repo_.get(::takatori::type::decimal({}, scale));
+            }
+        }
+        return result;
     }
 
     type_ptr operator()(enum_tag_t<scalar::binary_operator::multiply>, scalar::binary const& expr, type_ptr left, type_ptr right) {

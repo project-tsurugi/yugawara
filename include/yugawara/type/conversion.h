@@ -80,6 +80,17 @@ std::shared_ptr<::takatori::type::data const> binary_numeric_promotion(
         repository& repo = default_repository());
 
 /**
+ * @brief promotes exact number types into corresponding decimal types.
+ * @param type the target type
+ * @param repo the type repository
+ * @return the corresponding decimal type only if the input type is an exact number type
+ * @return erroneous type if the input is not valid for this conversion
+ */
+std::shared_ptr<::takatori::type::data const> unary_decimal_promotion(
+        ::takatori::type::data const& type,
+        repository& repo = default_repository());
+
+/**
  * @brief promotes the character string type.
  * @param type the target type
  * @param repo the type repository
