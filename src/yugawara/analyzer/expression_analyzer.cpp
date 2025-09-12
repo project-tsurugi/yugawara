@@ -732,8 +732,8 @@ public:
     type_ptr process_numeric_additive_binary_operator(type_ptr const& left, type_ptr const& right) {
         auto result = type::binary_numeric_promotion(*left, *right, repo_);
         if (result->kind() == ::takatori::type::type_kind::decimal) {
-            auto left_dec = type::unary_decimal_promotion(*left);
-            auto right_dec = type::unary_decimal_promotion(*right);
+            auto left_dec = type::unary_decimal_promotion(*left, repo_);
+            auto right_dec = type::unary_decimal_promotion(*right, repo_);
             if (left_dec->kind() == ::takatori::type::type_kind::decimal
                     && right_dec->kind() == ::takatori::type::type_kind::decimal) {
                 auto&& ld = unsafe_downcast<::takatori::type::decimal>(*left_dec);
