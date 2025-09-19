@@ -471,6 +471,7 @@ TEST_F(compiler_test, grant_table) {
                     },
                     {
                             {
+                                    statement::authorization_user_kind::specified,
                                     "admin",
                                     {
                                         statement::table_action_kind::control,
@@ -492,6 +493,7 @@ TEST_F(compiler_test, revoke_table) {
                     },
                     {
                             {
+                                    statement::authorization_user_kind::specified,
                                     "admin",
                                     {
                                         statement::table_action_kind::control,
