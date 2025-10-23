@@ -908,6 +908,17 @@ TEST_F(expression_analyzer_scalar_test, binary_multiply_decimal) {
     EXPECT_TRUE(ok());
 }
 
+TEST_F(expression_analyzer_scalar_test, binary_multiply_int_decimal) {
+    s::binary expr {
+            s::binary_operator::multiply,
+            vref { decl(t::int4 {}) },
+            vref { decl(t::decimal { 10,  0 }) },
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::decimal({}, {}));
+    EXPECT_TRUE(ok());
+}
+
 TEST_F(expression_analyzer_scalar_test, binary_multiply_number_time_interval) {
     s::binary expr {
             s::binary_operator::multiply,
@@ -994,6 +1005,17 @@ TEST_F(expression_analyzer_scalar_test, binary_divide_decimal) {
             s::binary_operator::divide,
             vref { decl(t::decimal { 10, 2 }) },
             vref { decl(t::decimal { 20, 5 }) },
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::decimal({}, {}));
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, binary_divide_int_decimal) {
+    s::binary expr {
+            s::binary_operator::divide,
+            vref { decl(t::decimal { 20, 5 }) },
+            vref { decl(t::int8 {}) },
     };
     auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::decimal({}, {}));
