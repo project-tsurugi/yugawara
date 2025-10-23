@@ -725,6 +725,30 @@ TEST_F(expression_analyzer_scalar_test, binary_add_unknown) {
     EXPECT_TRUE(find(expr.left(), code::ambiguous_type));
 }
 
+TEST_F(expression_analyzer_scalar_test, binary_add_unknown_decimal) {
+    s::binary expr {
+            s::binary_operator::add,
+            vref { decl(t::unknown()) },
+            vref { decl(t::decimal { 10,  3 }) },
+    };
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::decimal({}, 3));
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, binary_add_decimal_unknown) {
+    s::binary expr {
+            s::binary_operator::add,
+            vref { decl(t::decimal { 10,  3 }) },
+            vref { decl(t::unknown()) },
+    };
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::decimal({}, 3));
+    EXPECT_TRUE(ok());
+}
+
 TEST_F(expression_analyzer_scalar_test, binary_add_invalid) {
     s::binary expr {
             s::binary_operator::add,
@@ -874,6 +898,30 @@ TEST_F(expression_analyzer_scalar_test, binary_subtract_unknown) {
     EXPECT_TRUE(find(expr.left(), code::ambiguous_type));
 }
 
+TEST_F(expression_analyzer_scalar_test, binary_subtract_unknown_decimal) {
+    s::binary expr {
+            s::binary_operator::subtract,
+            vref { decl(t::unknown()) },
+            vref { decl(t::decimal { 10,  3 }) },
+    };
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::decimal({}, 3));
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, binary_subtract_decimal_unknown) {
+    s::binary expr {
+            s::binary_operator::subtract,
+            vref { decl(t::decimal { 10,  3 }) },
+            vref { decl(t::unknown()) },
+    };
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::decimal({}, 3));
+    EXPECT_TRUE(ok());
+}
+
 TEST_F(expression_analyzer_scalar_test, binary_subtract_invalid) {
     s::binary expr {
             s::binary_operator::subtract,
@@ -902,6 +950,17 @@ TEST_F(expression_analyzer_scalar_test, binary_multiply_decimal) {
             s::binary_operator::multiply,
             vref { decl(t::decimal { 10, 2 }) },
             vref { decl(t::decimal { 20, 5 }) },
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::decimal({}, {}));
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, binary_multiply_int_decimal) {
+    s::binary expr {
+            s::binary_operator::multiply,
+            vref { decl(t::int4 {}) },
+            vref { decl(t::decimal { 10,  0 }) },
     };
     auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::decimal({}, {}));
@@ -966,6 +1025,30 @@ TEST_F(expression_analyzer_scalar_test, binary_multiply_unknown) {
     EXPECT_TRUE(find(expr.left(), code::ambiguous_type));
 }
 
+TEST_F(expression_analyzer_scalar_test, binary_multiply_unknown_decimal) {
+    s::binary expr {
+            s::binary_operator::multiply,
+            vref { decl(t::unknown()) },
+            vref { decl(t::decimal { 10,  3 }) },
+    };
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::decimal({}, {}));
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, binary_multiply_decimal_unknown) {
+    s::binary expr {
+            s::binary_operator::multiply,
+            vref { decl(t::decimal { 10,  3 }) },
+            vref { decl(t::unknown()) },
+    };
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::decimal({}, {}));
+    EXPECT_TRUE(ok());
+}
+
 TEST_F(expression_analyzer_scalar_test, binary_multiply_invalid) {
     s::binary expr {
             s::binary_operator::multiply,
@@ -994,6 +1077,17 @@ TEST_F(expression_analyzer_scalar_test, binary_divide_decimal) {
             s::binary_operator::divide,
             vref { decl(t::decimal { 10, 2 }) },
             vref { decl(t::decimal { 20, 5 }) },
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::decimal({}, {}));
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, binary_divide_int_decimal) {
+    s::binary expr {
+            s::binary_operator::divide,
+            vref { decl(t::decimal { 20, 5 }) },
+            vref { decl(t::int8 {}) },
     };
     auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::decimal({}, {}));
@@ -1057,6 +1151,30 @@ TEST_F(expression_analyzer_scalar_test, binary_divide_unknown) {
     auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, ex::error());
     EXPECT_TRUE(find(expr.left(), code::ambiguous_type));
+}
+
+TEST_F(expression_analyzer_scalar_test, binary_divide_unknown_decimal) {
+    s::binary expr {
+            s::binary_operator::divide,
+            vref { decl(t::unknown()) },
+            vref { decl(t::decimal { 10,  3 }) },
+    };
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::decimal({}, {}));
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, binary_divide_decimal_unknown) {
+    s::binary expr {
+            s::binary_operator::divide,
+            vref { decl(t::decimal { 10,  3 }) },
+            vref { decl(t::unknown()) },
+    };
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::decimal({}, {}));
+    EXPECT_TRUE(ok());
 }
 
 TEST_F(expression_analyzer_scalar_test, binary_divide_invalid) {

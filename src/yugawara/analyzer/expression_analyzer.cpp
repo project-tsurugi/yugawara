@@ -653,14 +653,11 @@ public:
         if (rcat == category::unresolved) return right;
         switch (lcat) {
             case category::unknown:
-                // FIXME: unknown * number
                 return raise(code::ambiguous_type,
                         extract_region(expr.left()),
                         *left,
                         { category::number, category::temporal, category::datetime_interval });
             case category::number:
-                // FIXME: number * unknown
-                // FIXME: as decimal
                 // binary numeric -> if decimal -> compute prec/scale
                 if (rcat == category::number) {
                     return process_numeric_additive_binary_operator(left, right);
@@ -762,8 +759,7 @@ public:
             case category::number:
                 if (rcat == category::number) {
                     auto result = type::binary_numeric_promotion(*left, *right, repo_);
-                    if (left->kind() == ::takatori::type::type_kind::decimal
-                        && right->kind() == ::takatori::type::type_kind::decimal) {
+                    if (result->kind() == ::takatori::type::type_kind::decimal) {
                         // left:decimal(p, s) * right:decimal(q, t) => decimal(*, *)
                         return repo_.get(::takatori::type::decimal({}, {}));
                     }
@@ -801,8 +797,7 @@ public:
             case category::number:
                 if (rcat == category::number) {
                     auto result = type::binary_numeric_promotion(*left, *right, repo_);
-                    if (left->kind() == ::takatori::type::type_kind::decimal
-                        && right->kind() == ::takatori::type::type_kind::decimal) {
+                    if (result->kind() == ::takatori::type::type_kind::decimal) {
                         // left:decimal(p, s) * right:decimal(q, t) => decimal(*, *)
                         return repo_.get(::takatori::type::decimal({}, {}));
                     }

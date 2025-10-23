@@ -338,6 +338,8 @@ std::shared_ptr<model::data const>
 unary_decimal_promotion(model::data const& type, repository& repo) {
     if (is_conversion_stop_type(type)) return shared_pending();
     switch (type.kind()) {
+        case kind::unknown:
+            return repo.get(model::decimal { 1, 0 });
         case kind::int1:
         case kind::int2:
         case kind::int4:
