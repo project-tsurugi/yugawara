@@ -11,6 +11,8 @@
 #include "details/rewrite_scan.h"
 #include "details/collect_local_variables.h"
 #include "details/decompose_prefix_match.h"
+#include "details/decompose_filter.h"
+#include "details/decompose_disjunction_range.h"
 
 namespace yugawara::analyzer {
 
@@ -45,6 +47,11 @@ void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& g
             graph,
             options_.runtime_features().contains(runtime_feature::always_inline_scalar_local_variables));
     details::decompose_prefix_match(graph);
+    if (options_.enable_disjunction_range_hinting()) {
+        details::decompose_filter(graph);
+        details::decompose_disjunction_range(graph);
+    }
+
     details::push_down_selections(graph);
     // FIXME: auto flow_volume = details::reorder_join(...);
     details::flow_volume_info flow_volume {};

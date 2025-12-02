@@ -108,6 +108,10 @@ add_test_executable(yugawara/analyzer/details/classify_expression_test.cpp)
 add_test_executable(yugawara/analyzer/details/inline_variables_test.cpp)
 add_test_executable(yugawara/analyzer/details/collect_local_variables_test.cpp)
 add_test_executable(yugawara/analyzer/details/decompose_prefix_match_test.cpp)
+add_test_executable(yugawara/analyzer/details/decompose_filter_test.cpp)
+add_test_executable(yugawara/analyzer/details/compare_value_test.cpp)
+add_test_executable(yugawara/analyzer/details/range_hint_test.cpp)
+add_test_executable(yugawara/analyzer/details/decompose_disjunction_range_test.cpp)
 add_test_executable(yugawara/analyzer/intermediate_plan_optimizer_test.cpp)
 
 # serializer

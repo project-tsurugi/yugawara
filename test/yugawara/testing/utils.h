@@ -90,6 +90,16 @@ inline scalar::binary land(
     };
 }
 
+inline scalar::binary lor(
+        scalar::expression&& a,
+        scalar::expression&& b) {
+    return scalar::binary {
+        scalar::binary_operator::conditional_or,
+        std::move(a),
+        std::move(b),
+};
+}
+
 inline scalar::compare compare(
         scalar::expression&& a,
         scalar::expression&& b,

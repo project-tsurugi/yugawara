@@ -152,6 +152,7 @@ private:
         analyzer::intermediate_plan_optimizer sub {};
         sub.options().runtime_features() = options_.runtime_features();
         sub.options().index_estimator(options_.index_estimator());
+        sub.options().enable_disjunction_range_hinting() = options_.enable_disjunction_range_hinting();
         sub(graph);
     }
 

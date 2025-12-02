@@ -28,4 +28,12 @@ intermediate_plan_optimizer_options& intermediate_plan_optimizer_options::index_
     return *this;
 }
 
+bool& intermediate_plan_optimizer_options::enable_disjunction_range_hinting() noexcept {
+    return enable_disjunction_range_hinting_;
+}
+
+bool intermediate_plan_optimizer_options::enable_disjunction_range_hinting() const noexcept {
+    return enable_disjunction_range_hinting_;
+}
+
 } // namespace yugawara::analyzer::details

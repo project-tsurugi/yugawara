@@ -30,8 +30,8 @@ protected:
             },
     });
     descriptor::variable t0c0 = bindings(t0->columns()[0]);
-    descriptor::variable t0c1 = bindings(t0->columns()[0]);
-    descriptor::variable t0c2 = bindings(t0->columns()[0]);
+    descriptor::variable t0c1 = bindings(t0->columns()[1]);
+    descriptor::variable t0c2 = bindings(t0->columns()[2]);
 
     std::shared_ptr<storage::index> i0 = storages.add_index({ t0, "I0", });
 

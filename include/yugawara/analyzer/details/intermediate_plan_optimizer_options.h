@@ -40,9 +40,21 @@ public:
     intermediate_plan_optimizer_options& index_estimator(
             ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> estimator) noexcept;
 
+    /**
+     * @brief returns whether to enable disjunction range hinting.
+     * @return true if disjunction range hinting is enabled
+     * @return false otherwise
+     */
+    [[nodiscard]] bool& enable_disjunction_range_hinting() noexcept;
+
+    /// @copydoc enable_disjunction_range_hinting()
+    [[nodiscard]] bool enable_disjunction_range_hinting() const noexcept;
+
 private:
     ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> index_estimator_ {};
     runtime_feature_set runtime_features_ { runtime_feature_all };
+
+    bool enable_disjunction_range_hinting_ {};
 };
 
 } // namespace yugawara::analyzer::details

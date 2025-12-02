@@ -56,4 +56,12 @@ compiler_options& compiler_options::index_estimator(maybe_shared_ptr<analyzer::i
     return *this;
 }
 
+bool& compiler_options::enable_disjunction_range_hinting() noexcept {
+    return enable_disjunction_range_hinting_;
+}
+
+bool compiler_options::enable_disjunction_range_hinting() const noexcept {
+    return enable_disjunction_range_hinting_;
+}
+
 } // namespace yugawara

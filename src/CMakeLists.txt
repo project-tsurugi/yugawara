@@ -119,6 +119,10 @@ add_library(yugawara
     yugawara/analyzer/details/collect_local_variables.cpp
     yugawara/analyzer/details/remove_orphaned_elements.cpp
     yugawara/analyzer/details/decompose_prefix_match.cpp
+    yugawara/analyzer/details/decompose_filter.cpp
+    yugawara/analyzer/details/compare_value.cpp
+    yugawara/analyzer/details/range_hint.cpp
+    yugawara/analyzer/details/decompose_disjunction_range.cpp
 
     # analyzer misc.
     yugawara/analyzer/details/detect_join_endpoint_style.cpp

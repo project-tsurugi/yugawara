@@ -30,6 +30,12 @@ public:
     static constexpr restricted_feature_set default_restricted_features {};
 
     /**
+     * @brief the default value for enabling disjunction range hinting.
+     * @see enable_disjunction_range_hinting()
+     */
+    static constexpr bool default_enable_disjunction_range_hinting = true;
+
+    /**
      * @brief creates a new instance with default options.
      * @param runtime_features the supported runtime features
      * @param storage_processor the storage element prototype processor for accepting storage element definitions
@@ -100,11 +106,23 @@ public:
      */
     compiler_options& index_estimator(::takatori::util::maybe_shared_ptr<::yugawara::analyzer::index_estimator const> estimator) noexcept;
 
+    /**
+     * @brief returns whether to enable disjunction range hinting.
+     * @return true if disjunction range hinting is enabled
+     * @return false otherwise
+     */
+    [[nodiscard]] bool& enable_disjunction_range_hinting() noexcept;
+
+    /// @copydoc enable_disjunction_range_hinting()
+    [[nodiscard]] bool enable_disjunction_range_hinting() const noexcept;
+
 private:
     runtime_feature_set runtime_features_ { default_runtime_features };
     restricted_feature_set restricted_features_ { default_restricted_features };
     ::takatori::util::maybe_shared_ptr<::yugawara::storage::prototype_processor> storage_processor_ {};
     ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> index_estimator_ {};
+
+    bool enable_disjunction_range_hinting_ { default_enable_disjunction_range_hinting };
 };
 
 } // namespace yugawara
