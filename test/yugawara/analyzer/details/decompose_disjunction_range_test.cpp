@@ -242,6 +242,56 @@ TEST_F(decompose_disjunction_range_test, disjunction_half_range) {
     EXPECT_TRUE(contains_expression(terms, compare(varref { c0 }, constant(0), cmp::less_equal)));
 }
 
+TEST_F(decompose_disjunction_range_test, disjunction_nested_disjunction) {
+    /*
+     * scan:r0 - filter:r1 - emit:ro
+     * filter { c0 = 0 or (c1 = 0 and (c0 = 1 or c0 = 2)) }
+     * -> filter { (0 <= c0 and c0 <= 2) and <original> }
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+            },
+    });
+    auto& r1 = r.insert(relation::filter {
+        lor(
+            compare(varref { c0 }, constant(0)),
+            land(
+                compare(varref { c1 }, constant(0)),
+                lor(
+                    compare(varref { c0 }, constant(1)),
+                    compare(varref { c0 }, constant(2)))))
+    });
+    auto origin = ::takatori::util::clone_unique(r1.condition());
+
+    auto& ro = r.insert(relation::emit {
+            c0,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> ro.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 3);
+    ASSERT_TRUE(r.contains(r0));
+    ASSERT_TRUE(r.contains(r1));
+    ASSERT_TRUE(r.contains(ro));
+
+    auto terms = decompose_conjunctions(r1);
+    EXPECT_EQ(terms.size(), 3);
+    // original condition
+    EXPECT_TRUE(contains_expression(terms, *origin));
+    // 0 <= c0
+    EXPECT_TRUE(contains_expression(terms, compare(constant(0), varref { c0 }, cmp::less_equal)));
+    // c0 <= 2
+    EXPECT_TRUE(contains_expression(terms, compare(varref { c0 }, constant(2), cmp::less_equal)));
+}
+
 TEST_F(decompose_disjunction_range_test, disjunction_variable) {
     /*
      * scan:r0 - filter:r1 - emit:ro
