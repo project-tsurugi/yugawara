@@ -12,6 +12,7 @@
 #include <takatori/type/time_of_day.h>
 #include <takatori/type/time_point.h>
 #include <takatori/type/datetime_interval.h>
+#include <takatori/type/lob.h>
 #include <takatori/value/primitive.h>
 #include <takatori/value/character.h>
 #include <takatori/value/time_of_day.h>
@@ -400,6 +401,16 @@ TEST_F(expression_analyzer_scalar_test, unary_is_null) {
     s::unary expr {
             s::unary_operator::is_null,
             vref { decl(t::int4 {}) },
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::boolean());
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, unary_is_null_blob) {
+    s::unary expr {
+            s::unary_operator::is_null,
+            vref { decl(t::blob {}) },
     };
     auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());

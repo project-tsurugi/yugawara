@@ -588,6 +588,8 @@ public:
                 case category::bit_string:
                 case category::temporal:
                 case category::datetime_interval:
+                case category::large_octet_string:
+                case category::large_character_string:
                 case category::unresolved:
                     break; // ok
                 default:
@@ -602,6 +604,8 @@ public:
                                     category::bit_string,
                                     category::temporal,
                                     category::datetime_interval,
+                                    category::large_octet_string,
+                                    category::large_character_string,
                             });
                     break;
             }
