@@ -467,6 +467,17 @@ public:
     type_ptr operator()(scalar::function_call const& expr) {
         auto&& func = binding::extract(expr.function());
         if (validate_) {
+            auto function_type = validate_function_declaration(func, expr.region());
+            if (function_type && function_type != function::function_feature::scalar_function) {
+                report({
+                        code::inconsistent_function_type,
+                        string_builder {}
+                            << "call target must be a scalar function: "
+                            << func.name()
+                            << string_builder::to_string,
+                        expr.region(),
+                });
+            }
             validate_function_call(expr, func);
         }
         return func.shared_return_type();
@@ -1534,6 +1545,18 @@ public:
                     }
                 } else if (value.kind() == storage::column_value_kind::function) {
                     auto&& func = value.element<storage::column_value_kind::function>();
+                    auto function_type = validate_function_declaration(*func, first_region(stmt.definition(), stmt));
+                    if (!function_type) {
+                        success = false;
+                    }
+                    if (function_type && function_type != function::function_feature::scalar_function) {
+                        report({
+                                code::inconsistent_function_type,
+                                "function call for default value must be a scalar function",
+                                first_region(stmt.definition(), stmt),
+                        });
+                        success = false;
+                    }
                     if (!func->parameter_types().empty()) {
                         report({
                                 code::inconsistent_elements,
@@ -1727,6 +1750,28 @@ private:
         report(c, region, actual, expected);
         static auto result = std::make_shared<extension::type::error>();
         return result;
+    }
+
+    std::optional<function::function_feature> validate_function_declaration(
+            function::declaration const& func,
+            ::takatori::document::region region) {
+        bool scalar = func.features().contains(function::function_feature::scalar_function);
+        bool table = func.features().contains(function::function_feature::table_valued_function);
+        if (scalar && table) {
+            report({
+                    code::inconsistent_function_type,
+                    string_builder {}
+                        << "ambiguous function type: "
+                        << func.name()
+                        << string_builder::to_string,
+                    region,
+            });
+            return std::nullopt;
+        }
+        if (scalar) {
+            return function::function_feature::scalar_function;
+        }
+        return function::function_feature::table_valued_function;
     }
 
     template<class Expr, class F>

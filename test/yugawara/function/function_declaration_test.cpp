@@ -26,6 +26,7 @@ TEST_F(function_declaration_test, simple) {
     EXPECT_EQ(d.return_type(), t::int4());
     ASSERT_EQ(d.parameter_types().size(), 1);
     EXPECT_EQ(d.parameter_types()[0], t::int8());
+    EXPECT_EQ(d.features(), (function_feature_set { function_feature::scalar_function }));
 }
 
 TEST_F(function_declaration_test, output) {
@@ -37,6 +38,8 @@ TEST_F(function_declaration_test, output) {
                     t::int8(),
                     t::character(t::varying),
             },
+            { function_feature::scalar_function },
+            "testing",
     };
 
     std::cout << d << std::endl;

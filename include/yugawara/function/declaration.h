@@ -14,6 +14,8 @@
 #include <takatori/util/rvalue_reference_wrapper.h>
 #include <takatori/util/smart_pointer_extractor.h>
 
+#include "function_feature.h"
+
 namespace yugawara::function {
 
 /**
@@ -45,11 +47,31 @@ public:
     /// @brief the type list view type.
     using type_list_view = takatori::util::reference_list_view<takatori::util::smart_pointer_extractor<type_pointer>>;
 
+    /// @brief the function feature set type.
+    using feature_set_type = function_feature_set;
+
     /// @brief the function description type.
     using description_type = std::string;
 
     /**
      * @brief creates a new object.
+     * @param definition_id the definition ID
+     * @param name the function name
+     * @param return_type the return type
+     * @param parameter_types the parameter types
+     * @param feature_set the function feature set
+     * @param description the optional description of this element
+     */
+    explicit declaration(
+            definition_id_type definition_id,
+            name_type name,
+            type_pointer return_type,
+            std::vector<type_pointer> parameter_types,
+            feature_set_type feature_set,
+            description_type description = {}) noexcept;
+
+    /**
+     * @brief creates a new object that represents a scalar function.
      * @param definition_id the definition ID
      * @param name the function name
      * @param return_type the return type
@@ -65,6 +87,24 @@ public:
 
     /**
      * @brief creates a new object.
+     * @param definition_id the definition ID
+     * @param name the function name
+     * @param return_type the return type
+     * @param parameter_types the parameter types
+     * @param feature_set the function feature set
+     * @param description the optional description of this element
+     * @attention this may take copy of arguments
+     */
+    declaration(
+            definition_id_type definition_id,
+            std::string_view name,
+            takatori::type::data&& return_type,
+            std::initializer_list<takatori::util::rvalue_reference_wrapper<takatori::type::data>> parameter_types,
+            feature_set_type feature_set,
+            description_type description = {});
+
+    /**
+     * @brief creates a new object that represents a scalar function.
      * @param definition_id the definition ID
      * @param name the function name
      * @param return_type the return type
@@ -154,6 +194,15 @@ public:
     [[nodiscard]] std::vector<type_pointer> const& shared_parameter_types() const noexcept;
 
     /**
+     * @brief returns the available features of this function.
+     * @return the available features
+     */
+    [[nodiscard]] feature_set_type& features() noexcept;
+
+    /// @copydoc features()
+    [[nodiscard]] feature_set_type const& features() const noexcept;
+
+    /**
      * @brief returns the optional description of this element.
      * @return the description
      * @return empty string if the description is absent
@@ -180,9 +229,8 @@ private:
     name_type name_;
     type_pointer return_type_;
     std::vector<type_pointer> parameter_types_;
+    feature_set_type feature_set_;
     description_type description_;
-
-    // FIXME: multi-output functions
 };
 
 /**

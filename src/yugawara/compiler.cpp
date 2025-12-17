@@ -43,6 +43,7 @@ code_type convert(analyzer::expression_analyzer_code source) noexcept {
         case from::inconsistent_type: return to::inconsistent_type;
         case from::unresolved_variable: return to::unresolved_variable;
         case from::inconsistent_elements: return to::inconsistent_elements;
+        case from::inconsistent_function_type: return to::inconsistent_function_type;
     }
     std::abort();
 }

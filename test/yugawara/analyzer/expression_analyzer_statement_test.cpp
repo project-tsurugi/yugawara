@@ -477,4 +477,40 @@ TEST_F(expression_analyzer_statement_test, create_table_default_value_function_i
     EXPECT_FALSE(ok());
 }
 
+TEST_F(expression_analyzer_statement_test, create_table_default_value_function_inconsistent_function_type) {
+    auto func = std::make_shared<function::declaration>(function::declaration {
+            function::declaration::minimum_builtin_function_id + 1,
+            "func",
+            t::int4(),
+            {},
+            { function::function_feature::table_valued_function },
+    });
+    auto schema = std::make_shared<schema::declaration>("s");
+    auto table = std::make_shared<storage::table>(::takatori::util::clone_tag, storage::table {
+            "T0",
+            {
+                    { "C0", t::int4() },
+                    {
+                            "C1",
+                            t::int4(),
+                            variable::nullable,
+                            { func },
+                    },
+                    { "C2", t::int4() },
+            },
+    });
+    auto index = std::make_shared<storage::index>(storage::index {
+            table,
+            "I0",
+    });
+    statement::create_table stmt {
+            bindings(schema),
+            bindings(table),
+            bindings(index),
+    };
+    auto b = analyzer.resolve(stmt, true);
+    EXPECT_FALSE(b);
+    EXPECT_FALSE(ok());
+}
+
 } // namespace yugawara::analyzer

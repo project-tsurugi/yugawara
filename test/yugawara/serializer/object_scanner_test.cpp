@@ -217,6 +217,7 @@ TEST_F(object_scanner_test, function) {
                     t::boolean{},
                     t::int8{},
             },
+            { function::function_feature::scalar_function },
             "FDESC",
     }));
 }

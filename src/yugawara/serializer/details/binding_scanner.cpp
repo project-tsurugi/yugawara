@@ -297,6 +297,14 @@ void binding_scanner::properties(function::declaration const& element) {
     acceptor_.array_end();
     acceptor_.property_end();
 
+    acceptor_.property_begin("features"sv);
+    acceptor_.array_begin();
+    for (auto&& feature : element.features()) {
+        acceptor_.string(to_string_view(feature));
+    }
+    acceptor_.array_end();
+    acceptor_.property_end();
+
     acceptor_.property_begin("description"sv);
     if (auto&& str = element.description(); !str.empty()) {
         acceptor_.string(str);

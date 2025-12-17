@@ -1741,6 +1741,24 @@ TEST_F(expression_analyzer_scalar_test, function_call_inconsistent) {
     EXPECT_TRUE(find(expr.arguments()[0], code::inconsistent_type));
 }
 
+TEST_F(expression_analyzer_scalar_test, function_call_not_scalar) {
+    auto f = bindings.function({
+            function::declaration::minimum_user_function_id + 100,
+            "testing",
+            t::int4 {},
+            {},
+            { function::function_feature::table_valued_function },
+    });
+    s::function_call expr {
+            f,
+            {},
+    };
+    bless(expr);
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::int4());
+    EXPECT_TRUE(find(expr, code::inconsistent_function_type));
+}
+
 TEST_F(expression_analyzer_scalar_test, function_call_unresolved) {
     auto f = bindings.function({
             function::declaration::unresolved_definition_id,
