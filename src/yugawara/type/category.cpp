@@ -71,6 +71,9 @@ category category_of(takatori::type::data const& type) noexcept {
         case kind::row_id:
             return category::unique;
 
+        case kind::table:
+            return category::unique;
+
         case kind::declared:
             // FIXME: this prevents subtyping or implicit conversions
             return category::unique;
