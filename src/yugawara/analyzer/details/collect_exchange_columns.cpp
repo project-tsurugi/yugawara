@@ -131,6 +131,13 @@ public:
         }
     }
 
+    void operator()(relation::apply const& expr, buffer_type& available_columns) {
+        expand(available_columns, expr.columns().size());
+        for (auto&& column : expr.columns()) {
+            available_columns.emplace_back(column);
+        }
+    }
+
     void operator()(relation::project const& expr, buffer_type& available_columns) {
         expand(available_columns, expr.columns().size());
         for (auto&& column : expr.columns()) {

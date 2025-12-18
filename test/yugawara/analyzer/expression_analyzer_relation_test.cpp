@@ -8,6 +8,7 @@
 #include <takatori/type/primitive.h>
 #include <takatori/type/decimal.h>
 #include <takatori/type/character.h>
+#include <takatori/type/table.h>
 
 #include <takatori/scalar/immediate.h>
 #include <takatori/scalar/variable_reference.h>
@@ -17,6 +18,7 @@
 #include <takatori/relation/intermediate/join.h>
 #include <takatori/relation/join_find.h>
 #include <takatori/relation/join_scan.h>
+#include <takatori/relation/apply.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/buffer.h>
@@ -50,6 +52,8 @@
 #include <yugawara/storage/table.h>
 #include <yugawara/storage/index.h>
 #include <yugawara/storage/configurable_provider.h>
+
+#include <yugawara/function/declaration.h>
 
 #include <yugawara/aggregate/configurable_provider.h>
 
@@ -380,6 +384,228 @@ TEST_F(expression_analyzer_relation_test, join_scan) {
     auto b = analyzer.resolve(expr, true, false, repo);
     ASSERT_TRUE(b) << *this;
     EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_relation_test, apply) {
+    auto f = bindings.function({
+            function::declaration::minimum_user_function_id + 100,
+            "testing",
+            t::table {
+                    { "a1", t::int4 {} },
+                    { "a2", t::decimal { 10, 2 } },
+                    { "a3", t::character { t::varying, {} } },
+            },
+            {
+                    t::int8 {},
+            },
+            { function::function_feature::table_valued_function },
+    });
+    auto c1 = bindings.stream_variable();
+    auto c2 = bindings.stream_variable();
+    auto c3 = bindings.stream_variable();
+    r::apply expr {
+            f,
+            {
+                    vref { decl(t::int8 {}) },
+            },
+            {
+                    c1,
+                    c2,
+                    c3,
+            },
+    };
+    auto b = analyzer.resolve(expr, true, false, repo);
+    ASSERT_TRUE(b) << *this;
+    EXPECT_TRUE(ok());
+    EXPECT_EQ(type(c1), t::int4());
+    EXPECT_EQ(type(c2), t::decimal(10, 2));
+    EXPECT_EQ(type(c3), t::character(t::varying, {}));
+}
+
+TEST_F(expression_analyzer_relation_test, apply_not_a_table_type) {
+    auto f = bindings.function({
+            function::declaration::minimum_user_function_id + 100,
+            "testing",
+            t::int4 {},
+            {
+                    t::int8 {},
+            },
+            { function::function_feature::table_valued_function },
+    });
+    auto c1 = bindings.stream_variable();
+    r::apply expr {
+            f,
+            {
+                    vref { decl(t::int8 {}) },
+            },
+            {
+                    c1,
+            },
+    };
+    bless(expr);
+    auto b = analyzer.resolve(expr, true, false, repo);
+    ASSERT_FALSE(b) << *this;
+    EXPECT_TRUE(find(expr.region(), code::inconsistent_type));
+    EXPECT_EQ(type(c1), extension::type::error());
+}
+
+TEST_F(expression_analyzer_relation_test, apply_column_mismatch) {
+    auto f = bindings.function({
+            function::declaration::minimum_user_function_id + 100,
+            "testing",
+            t::table {
+                    { "a1", t::int4 {} },
+                    { "a2", t::decimal { 10, 2 } },
+                    { "a3", t::character { t::varying, {} } },
+            },
+            {
+                    t::int8 {},
+            },
+            { function::function_feature::table_valued_function },
+    });
+    auto c1 = bindings.stream_variable();
+    auto c2 = bindings.stream_variable();
+    r::apply expr {
+            f,
+            {
+                    vref { decl(t::int8 {}) },
+            },
+            {
+                    c1,
+                    c2,
+            },
+    };
+    bless(expr);
+    auto b = analyzer.resolve(expr, true, false, repo);
+    EXPECT_FALSE(b) << *this;
+    EXPECT_TRUE(find(expr.region(), code::inconsistent_elements));
+    EXPECT_EQ(type(c1), extension::type::error());
+    EXPECT_EQ(type(c2), extension::type::error());
+}
+
+TEST_F(expression_analyzer_relation_test, apply_unknown_function_type) {
+    auto f = bindings.function({
+            function::declaration::minimum_user_function_id + 100,
+            "testing",
+            t::table {
+                    { "a1", t::int4 {} },
+            },
+            {
+                    t::int8 {},
+            },
+            function::function_feature_set {},
+    });
+    auto c1 = bindings.stream_variable();
+    auto c2 = bindings.stream_variable();
+    auto c3 = bindings.stream_variable();
+    r::apply expr {
+            f,
+            {
+                    vref { decl(t::int8 {}) },
+            },
+            {
+                    c1,
+            },
+    };
+    bless(expr);
+    auto b = analyzer.resolve(expr, true, false, repo);
+    EXPECT_FALSE(b) << *this;
+    EXPECT_TRUE(find(expr.region(), code::inconsistent_function_type));
+    EXPECT_EQ(type(c1), t::int4());
+}
+
+TEST_F(expression_analyzer_relation_test, apply_scalar_function) {
+    auto f = bindings.function({
+            function::declaration::minimum_user_function_id + 100,
+            "testing",
+            t::table {
+                    { "a1", t::int4 {} },
+            },
+            {
+                    t::int8 {},
+            },
+            { function::function_feature::scalar_function },
+    });
+    auto c1 = bindings.stream_variable();
+    auto c2 = bindings.stream_variable();
+    auto c3 = bindings.stream_variable();
+    r::apply expr {
+            f,
+            {
+                    vref { decl(t::int8 {}) },
+            },
+            {
+                    c1,
+            },
+    };
+    bless(expr);
+    auto b = analyzer.resolve(expr, true, false, repo);
+    EXPECT_FALSE(b) << *this;
+    EXPECT_TRUE(find(expr.region(), code::inconsistent_function_type));
+    EXPECT_EQ(type(c1), t::int4());
+}
+
+TEST_F(expression_analyzer_relation_test, apply_parameter_inconsistent_count) {
+    auto f = bindings.function({
+            function::declaration::minimum_user_function_id + 100,
+            "testing",
+            t::table {
+                    { "a1", t::int4 {} },
+            },
+            {
+                    t::int8 {},
+                    t::int8 {},
+            },
+            { function::function_feature::table_valued_function, },
+    });
+    auto c1 = bindings.stream_variable();
+    auto c2 = bindings.stream_variable();
+    auto c3 = bindings.stream_variable();
+    r::apply expr {
+            f,
+            {
+                    vref { decl(t::int8 {}) },
+            },
+            {
+                    c1,
+            },
+    };
+    bless(expr);
+    auto b = analyzer.resolve(expr, true, false, repo);
+    EXPECT_FALSE(b);
+    EXPECT_TRUE(find(expr.region(), code::inconsistent_elements)) << *this;
+    EXPECT_EQ(type(c1), t::int4());
+}
+
+TEST_F(expression_analyzer_relation_test, apply_parameter_inconsistent_type) {
+    auto f = bindings.function({
+            function::declaration::minimum_user_function_id + 100,
+            "testing",
+            t::table {
+                    { "a1", t::int4 {} },
+            },
+            {
+                    t::int8 {},
+            },
+            { function::function_feature::table_valued_function, },
+    });
+    auto c1 = bindings.stream_variable();
+    auto c2 = bindings.stream_variable();
+    auto c3 = bindings.stream_variable();
+    r::apply expr {
+            f,
+            {
+                    vref { decl(t::character { t::varying, {} }) },
+            },
+            {
+                    c1,
+            },
+    };
+    bless(expr.arguments()[0]);
+    auto b = analyzer.resolve(expr, true, false, repo);
+    EXPECT_FALSE(b);
+    EXPECT_TRUE(find(expr.arguments()[0].region(), code::inconsistent_type)) << *this;
+    EXPECT_EQ(type(c1), t::int4());
 }
 
 TEST_F(expression_analyzer_relation_test, project) {

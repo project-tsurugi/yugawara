@@ -35,6 +35,12 @@ public:
     bool try_rewrite_define(::takatori::descriptor::variable& variable);
 
     /**
+     * @brief rewrites the variable even if it was not used.
+     * @param variable the target stream variable
+     */
+    void force_rewrite_define(::takatori::descriptor::variable& variable);
+
+    /**
      * @brief rewrites the variable to be used.
      * @details This only rewrites the stream variables,
      *      and will keep the external and frame variables.

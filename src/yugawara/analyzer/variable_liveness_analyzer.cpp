@@ -38,10 +38,10 @@ public:
     explicit constexpr define_use_analyzer(
             block_info_map& blocks,
             bool record_define,
-            bool record_use) noexcept
-        : blocks_(blocks)
-        , record_define_(record_define)
-        , record_use_(record_use)
+            bool record_use) noexcept:
+        blocks_ { blocks },
+        record_define_ { record_define },
+        record_use_ { record_use }
     {}
 
     void operator()() {
@@ -130,6 +130,15 @@ public:
         }
         if (expr.condition()) {
             scalar::walk(*this, *expr.condition(), info);
+        }
+    }
+
+    void operator()(relation::apply const& expr, block_info& info) {
+        for (auto&& argument : expr.arguments()) {
+            scalar::walk(*this, argument, info);
+        }
+        for (auto&& column : expr.columns()) {
+            define(column, info);
         }
     }
 

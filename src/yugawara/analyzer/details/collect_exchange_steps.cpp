@@ -64,11 +64,11 @@ public:
     explicit engine(
             relation::graph_type& source,
             plan::graph_type& destination,
-            step_plan_builder_options const& options) noexcept
-        : source_(source)
-        , destination_(destination)
-        , options_(options)
-        , cursor_(source_.begin())
+            step_plan_builder_options const& options) noexcept:
+        source_ { source },
+        destination_ { destination },
+        options_ { options },
+        cursor_ { source_.begin() }
     {}
 
     void operator()() {

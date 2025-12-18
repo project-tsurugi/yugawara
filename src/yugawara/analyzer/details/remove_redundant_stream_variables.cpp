@@ -111,6 +111,14 @@ public:
         touch_search_keys(expr.upper().keys());
     }
 
+    void operator()(relation::apply& expr) {
+        for (auto&& argument: expr.arguments()) {
+            collect(argument);
+        }
+        // NOTE: we keep all output columns even if they are not used
+        // to keep the function calling semantics simple.
+    }
+
     void operator()(relation::project& expr) {
         remove_unused_declarators(expr.columns());
         if (expr.columns().empty()) {

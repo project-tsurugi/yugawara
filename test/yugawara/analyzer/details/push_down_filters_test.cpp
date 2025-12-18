@@ -2,10 +2,14 @@
 
 #include <gtest/gtest.h>
 
+#include <takatori/type/primitive.h>
+#include <takatori/type/table.h>
+
 #include <takatori/relation/graph.h>
 #include <takatori/relation/find.h>
 #include <takatori/relation/scan.h>
 #include <takatori/relation/values.h>
+#include <takatori/relation/apply.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/buffer.h>
@@ -758,6 +762,180 @@ TEST_F(push_down_filters_test, join_relation_full_outer_flush_right) {
     EXPECT_EQ(f0.condition(), compare(varref(cr0), constant(1)));
     EXPECT_EQ(rf.condition(), boolean(true));
     EXPECT_EQ(rj.condition(), compare(varref(cl0), varref(cr1)));
+}
+
+TEST_F(push_down_filters_test, apply_over_left) {
+    /*
+     * scan:r0 - apply:r1 - filter:rf - ...
+     * filter only refers left columns
+     */
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto cl1 = bindings.stream_variable("cl1");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, cl0 },
+                    { t0c1, cl1 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto&& tvf = bindings.function({
+            function::declaration::minimum_user_function_id + 1,
+            "tvf",
+            ::takatori::type::table {
+                    { "o1", ::takatori::type::int8 {} },
+                    { "o2", ::takatori::type::int8 {} },
+            },
+            {
+                    ::takatori::type::int8 {},
+            },
+            {
+                    function::function_feature::table_valued_function,
+            },
+    });
+    auto&& r1 = r.insert(relation::apply {
+            tvf,
+            {
+                    scalar::variable_reference { cl1 }
+            },
+            {
+                    cr0,
+                    cr1,
+            },
+    });
+    auto&& rf = r.insert(relation::filter {
+            compare(varref(cl0), constant(0)),
+    });
+    r0.output() >> r1.input();
+    r1.output() >> rf.input();
+
+    connect(rf.output());
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    auto&& f0 = next<relation::filter>(r0.output());
+    EXPECT_GT(f0.output(), r1.input());
+
+    EXPECT_EQ(f0.condition(), compare(varref(cl0), constant(0)));
+    EXPECT_EQ(rf.condition(), boolean(true));
+}
+
+TEST_F(push_down_filters_test, apply_flush_use_right) {
+    /*
+     * scan:r0 - apply:r1 - filter:rf - ...
+     * filter refers right columns
+     */
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto cl1 = bindings.stream_variable("cl1");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, cl0 },
+                    { t0c1, cl1 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto&& tvf = bindings.function({
+            function::declaration::minimum_user_function_id + 1,
+            "tvf",
+            ::takatori::type::table {
+                    { "o1", ::takatori::type::int8 {} },
+                    { "o2", ::takatori::type::int8 {} },
+            },
+            {
+                    ::takatori::type::int8 {},
+            },
+            {
+                    function::function_feature::table_valued_function,
+            },
+    });
+    auto&& r1 = r.insert(relation::apply {
+            tvf,
+            {
+                    scalar::variable_reference { cl1 }
+            },
+            {
+                    cr0,
+                    cr1,
+            },
+    });
+    auto&& rf = r.insert(relation::filter {
+            compare(varref(cr0), constant(0)),
+    });
+    r0.output() >> r1.input();
+    r1.output() >> rf.input();
+
+    connect(rf.output());
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    auto&& f0 = next<relation::filter>(r1.output());
+    EXPECT_GT(f0.output(), rf.input());
+
+    EXPECT_EQ(f0.condition(), compare(varref(cr0), constant(0)));
+    EXPECT_EQ(rf.condition(), boolean(true));
+}
+
+TEST_F(push_down_filters_test, apply_flush_use_left_right) {
+    /*
+     * scan:r0 - apply:r1 - filter:rf - ...
+     * filter refers left and right columns
+     */
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto cl1 = bindings.stream_variable("cl1");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, cl0 },
+                    { t0c1, cl1 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto&& tvf = bindings.function({
+            function::declaration::minimum_user_function_id + 1,
+            "tvf",
+            ::takatori::type::table {
+                    { "o1", ::takatori::type::int8 {} },
+                    { "o2", ::takatori::type::int8 {} },
+            },
+            {
+                    ::takatori::type::int8 {},
+            },
+            {
+                    function::function_feature::table_valued_function,
+            },
+    });
+    auto&& r1 = r.insert(relation::apply {
+            tvf,
+            {
+                    scalar::variable_reference { cl1 }
+            },
+            {
+                    cr0,
+                    cr1,
+            },
+    });
+    auto&& rf = r.insert(relation::filter {
+            compare(varref(cl0), varref(cr0)),
+    });
+    r0.output() >> r1.input();
+    r1.output() >> rf.input();
+
+    connect(rf.output());
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    auto&& f0 = next<relation::filter>(r1.output());
+    EXPECT_GT(f0.output(), rf.input());
+
+    EXPECT_EQ(f0.condition(), compare(varref(cl0), varref(cr0)));
+    EXPECT_EQ(rf.condition(), boolean(true));
 }
 
 TEST_F(push_down_filters_test, project_flush) {

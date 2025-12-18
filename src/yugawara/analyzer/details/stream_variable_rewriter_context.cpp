@@ -50,6 +50,36 @@ bool stream_variable_rewriter_context::try_rewrite_define(::takatori::descriptor
     return false;
 }
 
+void stream_variable_rewriter_context::force_rewrite_define(takatori::descriptor::variable& variable) {
+    if (auto it = mappings_.find(variable); it != mappings_.end()) {
+        auto&& e = it.value();
+        if (e.status != status_t::undefined) {
+            throw_exception(std::domain_error(string_builder {}
+                    << "redefine stream variable: "
+                    << variable
+                    << string_builder::to_string));
+        }
+        e.status = status_t::defined;
+        variable = e.variable;
+        return;
+    }
+
+    // not found, create new entry
+    std::string_view label {};
+    if (auto info = binding::extract_if<binding::variable_info_kind::stream_variable>(variable)) {
+        label = info->label();
+    }
+    auto [it, success] = mappings_.emplace(
+            variable,
+            entry {
+                    binding::factory {}.stream_variable(label),
+                    status_t::defined, // make it defined immediately
+            });
+    (void) success;
+    BOOST_ASSERT(success); // NOLINT
+    variable = it->second.variable;
+}
+
 void stream_variable_rewriter_context::rewrite_use(::takatori::descriptor::variable& variable) {
     using kind = binding::variable_info_kind;
     switch (binding::kind_of(variable)) {

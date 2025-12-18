@@ -2,6 +2,9 @@
 
 #include <gtest/gtest.h>
 
+#include <takatori/type/primitive.h>
+#include <takatori/type/table.h>
+
 #include <takatori/scalar/immediate.h>
 #include <takatori/scalar/variable_reference.h>
 
@@ -11,6 +14,7 @@
 #include <takatori/relation/values.h>
 #include <takatori/relation/join_scan.h>
 #include <takatori/relation/join_find.h>
+#include <takatori/relation/apply.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/buffer.h>
@@ -521,6 +525,64 @@ TEST_F(collect_exchange_columns_test, join_scan_anti) {
     ASSERT_EQ(ro.columns().size(), 2);
     EXPECT_EQ(ro.columns()[0].source(), c0);
     EXPECT_EQ(ro.columns()[1].source(), c1);
+}
+
+TEST_F(collect_exchange_columns_test, apply) {
+    /*
+     * [scan:r0 - apply:r1 - offer:ro]:p0 - ...
+     */
+    plan::graph_type p;
+    auto&& p0 = p.insert(plan::process {});
+    auto&& sink = create_sink(p);
+
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto& r0 = p0.operators().insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+            },
+    });
+    auto&& tvf = bindings.function({
+            function::declaration::minimum_user_function_id + 1,
+            "tvf",
+            ::takatori::type::table {
+                    { "o1", ::takatori::type::int8 {} },
+                    { "o2", ::takatori::type::int8 {} },
+            },
+            {
+                    ::takatori::type::int8 {},
+            },
+            {
+                    function::function_feature::table_valued_function,
+            },
+    });
+    auto c2 = bindings.stream_variable("c2");
+    auto c3 = bindings.stream_variable("c3");
+    auto& r1 = p0.operators().insert(relation::apply {
+            tvf,
+            {
+                    constant(),
+            },
+            {
+                    c2,
+                    c3,
+            },
+    });
+    auto& ro = p0.operators().insert(offer {
+            bindings(sink),
+    });
+    r0.output() >> r1.input();
+    r1.output() >> ro.input();
+
+    apply(p);
+
+    ASSERT_EQ(ro.columns().size(), 4);
+    EXPECT_EQ(ro.columns()[0].source(), c0);
+    EXPECT_EQ(ro.columns()[1].source(), c1);
+    EXPECT_EQ(ro.columns()[2].source(), c2);
+    EXPECT_EQ(ro.columns()[3].source(), c3);
 }
 
 TEST_F(collect_exchange_columns_test, project) {

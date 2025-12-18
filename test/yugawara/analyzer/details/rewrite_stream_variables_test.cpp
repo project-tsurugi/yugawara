@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <takatori/type/primitive.h>
+#include <takatori/type/table.h>
 
 #include <takatori/scalar/variable_reference.h>
 #include <takatori/scalar/binary.h>
@@ -14,6 +15,7 @@
 #include <takatori/relation/values.h>
 #include <takatori/relation/join_scan.h>
 #include <takatori/relation/join_find.h>
+#include <takatori/relation/apply.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/buffer.h>
@@ -641,6 +643,75 @@ TEST_F(rewrite_stream_variables_test, join_scan_broadcast) {
     EXPECT_EQ(r3.columns()[2].destination(), j2e0);
 }
 
+TEST_F(rewrite_stream_variables_test, apply) {
+    /*
+     * [scan:r0 - apply:r1 - emit:ro]:p0
+     */
+    plan::graph_type p;
+    auto&& p0 = p.insert(plan::process {});
+
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = p0.operators().insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+                    { t0c2, c2 },
+            },
+    });
+    auto&& tvf = bindings.function({
+            function::declaration::minimum_user_function_id + 1,
+            "tvf",
+            ::takatori::type::table {
+                    { "o1", ::takatori::type::int8 {} },
+                    { "o2", ::takatori::type::int8 {} },
+            },
+            {
+                    ::takatori::type::int8 {},
+            },
+            {
+                    function::function_feature::table_valued_function,
+            },
+    });
+    auto x0 = bindings.stream_variable("x0");
+    auto x1 = bindings.stream_variable("x1");
+    auto& r1 = p0.operators().insert(relation::apply {
+            tvf,
+            {
+                    scalar::variable_reference { c1 },
+            },
+            {
+                    x0,
+                    x1,
+            },
+    });
+    auto&& ro = p0.operators().insert(relation::emit {
+            x1,
+            c2,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> ro.input();
+
+    apply(p);
+
+    // scan - p0
+    ASSERT_EQ(r0.columns().size(), 2);
+    EXPECT_EQ(r0.columns()[0].source(), t0c1);
+    EXPECT_EQ(r0.columns()[1].source(), t0c2);
+    auto&& c2p0 = r0.columns()[1].destination();
+
+    // apply
+    ASSERT_EQ(r1.columns().size(), 2);
+    auto&& x1p0 = r1.columns()[1];
+
+    // emit
+    ASSERT_EQ(ro.columns().size(), 2);
+    EXPECT_EQ(ro.columns()[0].source(), x1p0);
+    EXPECT_EQ(ro.columns()[1].source(), c2p0);
+}
+
 TEST_F(rewrite_stream_variables_test, project) {
     /*
      * [scan:r0 - project:r1 - emit:ro]:p0
@@ -660,8 +731,8 @@ TEST_F(rewrite_stream_variables_test, project) {
             },
     });
     auto x0 = bindings.stream_variable("x0");
-    auto x1 = bindings.stream_variable("x0");
-    auto x2 = bindings.stream_variable("x0");
+    auto x1 = bindings.stream_variable("x1");
+    auto x2 = bindings.stream_variable("x2");
     auto x3 = bindings.stream_variable("x3");
     auto&& r1 = p0.operators().insert(relation::project {
             relation::project::column {

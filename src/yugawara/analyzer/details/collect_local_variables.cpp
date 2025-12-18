@@ -84,6 +84,10 @@ public:
         }
     }
 
+    void operator()(::takatori::relation::apply& expression) {
+        process_expression_list(expression.arguments());
+    }
+
     void operator()(::takatori::relation::project& expression) {
         for (auto&& column : expression.columns()) {
             if (auto replacement = dispatch(column.value())) {

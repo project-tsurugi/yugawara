@@ -57,10 +57,10 @@ public:
     explicit engine(
             exchange_map_type& exchange_map,
             stream_variable_rewriter_context& context,
-            scalar_expression_variable_rewriter& scalar_rewriter) noexcept
-        : exchange_map_(exchange_map)
-        , context_(context)
-        , scalar_rewriter_(scalar_rewriter)
+            scalar_expression_variable_rewriter& scalar_rewriter) noexcept:
+        exchange_map_ { exchange_map },
+        context_ { context },
+        scalar_rewriter_ { scalar_rewriter }
     {}
 
     void operator()(plan::process& step) {
@@ -147,6 +147,16 @@ public:
             process_keys(expr.lower().keys());
             process_keys(expr.upper().keys());
             define_used_columns(expr.columns());
+        }
+    }
+
+    void operator()(relation::apply& expr) {
+        for (auto&& argument : expr.arguments()) {
+            rewrite(argument);
+        }
+        for (auto&& column : expr.columns()) {
+            // forcibly keep all output columns
+            context_.force_rewrite_define(column);
         }
     }
 

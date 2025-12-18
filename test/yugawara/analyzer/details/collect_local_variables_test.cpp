@@ -3,6 +3,8 @@
 #include <gtest/gtest.h>
 
 #include <takatori/type/primitive.h>
+#include <takatori/type/table.h>
+
 #include <takatori/value/primitive.h>
 
 #include <takatori/scalar/immediate.h>
@@ -20,13 +22,13 @@
 #include <takatori/relation/find.h>
 #include <takatori/relation/scan.h>
 #include <takatori/relation/values.h>
+#include <takatori/relation/apply.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
 
 #include <takatori/relation/intermediate/join.h>
 
 #include <yugawara/binding/factory.h>
-#include <yugawara/type/repository.h>
 
 #include <yugawara/storage/configurable_provider.h>
 
@@ -357,6 +359,45 @@ TEST_F(collect_local_variables_test, join_relation) {
     EXPECT_EQ(f.upper().keys()[0].value(), replacement(20));
 
     EXPECT_EQ(f.condition(), replacement(30));
+}
+
+TEST_F(collect_local_variables_test, apply) {
+    auto&& tvf = bindings.function({
+            function::declaration::minimum_user_function_id + 1,
+            "tvf",
+            ::takatori::type::table {
+                    { "o1", ::takatori::type::int8 {} },
+                    { "o2", ::takatori::type::int8 {} },
+            },
+            {
+                    ::takatori::type::int8 {},
+                    ::takatori::type::int8 {},
+                    ::takatori::type::int8 {},
+            },
+            {
+                    function::function_feature::table_valued_function,
+            },
+    });
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r = apply(relation::apply {
+            tvf,
+            {
+                    declaration(10),
+                    declaration(20),
+                    declaration(30),
+            },
+            {
+                    c1,
+                    c2,
+            },
+    });
+    auto&& f = downcast<relation::apply>(*r);
+
+    ASSERT_EQ(f.arguments().size(), 3);
+    EXPECT_EQ(f.arguments()[0], replacement(10));
+    EXPECT_EQ(f.arguments()[1], replacement(20));
+    EXPECT_EQ(f.arguments()[2], replacement(30));
 }
 
 TEST_F(collect_local_variables_test, project) {

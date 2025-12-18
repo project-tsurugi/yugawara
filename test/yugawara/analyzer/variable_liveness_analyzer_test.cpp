@@ -4,9 +4,13 @@
 
 #include <takatori/graph/graph.h>
 
+#include <takatori/type/primitive.h>
+#include <takatori/type/table.h>
+
 #include <takatori/scalar/let.h>
 #include <takatori/scalar/variable_reference.h>
 
+#include <takatori/relation/apply.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/buffer.h>
@@ -132,6 +136,92 @@ TEST_F(variable_liveness_analyzer_test, simple) {
     EXPECT_EQ(eq(n0.kill(), {
             c2,
             c3,
+    }), no_error);
+}
+
+TEST_F(variable_liveness_analyzer_test, apply) {
+    rgraph rg;
+
+    auto&& c1 = bindings.stream_variable("c1");
+    auto&& c2 = bindings.stream_variable("c2");
+    auto&& c3 = bindings.stream_variable("c3");
+    auto&& r1 = rg.insert(take {
+            bindings.exchange(f1),
+            {
+                    { f1.columns()[0], c1 },
+                    { f1.columns()[1], c2 },
+                    { f1.columns()[2], c3 },
+            },
+    });
+    auto&& tvf = bindings.function({
+            function::declaration::minimum_user_function_id + 1,
+            "tvf",
+            ttype::table {
+                    { "o1", ttype::int8 {} },
+                    { "o2", ttype::int8 {} },
+                    { "o3", ttype::int8 {} },
+            },
+            {
+                    ttype::int8 {},
+            },
+            {
+                    function::function_feature::table_valued_function,
+            },
+    });
+    auto&& c4 = bindings.stream_variable("c4");
+    auto&& c5 = bindings.stream_variable("c5");
+    auto&& c6 = bindings.stream_variable("c6");
+    auto&& r2 = rg.insert(relation::apply {
+            tvf,
+            {
+                    scalar::variable_reference { c2 }
+            },
+            {
+                    c4,
+                    c5,
+                    c6,
+            },
+    });
+    auto&& r3 = rg.insert(offer {
+            bindings.exchange(f2),
+            {
+                    { c1, f2.columns()[0] },
+                    { c4, f2.columns()[1] },
+                    { c5, f2.columns()[2] },
+            },
+    });
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    auto bg = block_builder::build(rg);
+    variable_liveness_analyzer analyzer { bg };
+
+    ASSERT_EQ(bg.size(), 1);
+    auto&& b0 = *find_unique_head(bg); // r1 .. r3
+    auto&& n0 = analyzer.inspect(b0);
+
+    EXPECT_EQ(eq(n0.define(), {
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+    }), no_error);
+
+    EXPECT_EQ(eq(n0.use(), {
+            c1,
+            c2,
+            c3,
+            c4,
+            f1.columns()[0],
+            f1.columns()[1],
+            f1.columns()[2],
+    }), no_error);
+
+    EXPECT_EQ(eq(n0.kill(), {
+            c3,
+            c6,
     }), no_error);
 }
 

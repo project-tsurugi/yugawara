@@ -21,6 +21,7 @@
 #include <takatori/type/time_of_day.h>
 #include <takatori/type/time_point.h>
 #include <takatori/type/datetime_interval.h>
+#include <takatori/type/table.h>
 
 #include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
@@ -1096,6 +1097,67 @@ public:
         return true;
     }
 
+    bool operator()(relation::apply const& expr) {
+        auto&& func = binding::extract(expr.function());
+        if (func.return_type().kind() != ::takatori::type::table::tag) {
+            report({
+                    code::inconsistent_type,
+                    string_builder {}
+                        << "apply target must return table type: "
+                        << func.name()
+                        << string_builder::to_string,
+                    expr.region(),
+            });
+            variable_resolution error { std::make_shared<extension::type::error>() };
+            for (auto&& column: expr.columns()) {
+                ana_.variables().bind(column, error, true);
+            }
+            return false;
+        }
+        auto&& table_type = unsafe_downcast<::takatori::type::table>(func.return_type());
+        if (table_type.columns().size() != expr.columns().size()) {
+            report({
+                    code::inconsistent_elements,
+                    string_builder {}
+                        << "apply target column count mismatch: "
+                        << func.name()
+                        << string_builder::to_string,
+                    expr.region(),
+            });
+            variable_resolution error { std::make_shared<extension::type::error>() };
+            for (auto&& column: expr.columns()) {
+                ana_.variables().bind(column, error, true);
+            }
+            return false;
+        }
+        for (std::size_t i = 0, n = expr.columns().size(); i < n; ++i) {
+            auto&& output_column = expr.columns()[i];
+            auto&& table_column = table_type.columns()[i];
+            ana_.variables().bind(output_column, { table_column.shared_type() }, true);
+        }
+        if (validate_) {
+            auto function_type = validate_function_declaration(func, expr.region());
+            if (!function_type) {
+                return false;
+            }
+            if (function_type != function::function_feature::table_valued_function) {
+                report({
+                        code::inconsistent_function_type,
+                        string_builder {}
+                            << "APPLY call target must be a table-valued function: "
+                            << func.name()
+                            << string_builder::to_string,
+                        expr.region(),
+                });
+                return false;
+            }
+            if (!validate_function_call(expr, func)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     bool operator()(relation::project const& expr) {
         for (auto&& column : expr.columns()) { // NOLINT(readability-use-anyofallof) misdetection?
             auto source = resolve(column.value());
@@ -1694,6 +1756,10 @@ private:
         return expr.region();
     }
 
+    static ::takatori::document::region const& extract_region(relation::expression const& expr) noexcept {
+        return expr.region();
+    }
+
     [[nodiscard]] ::takatori::document::region const& extract_region(descriptor::variable const& variable) const noexcept {
         if (auto&& r = variable.region()) {
             return r;
@@ -1755,9 +1821,17 @@ private:
     std::optional<function::function_feature> validate_function_declaration(
             function::declaration const& func,
             ::takatori::document::region region) {
-        bool scalar = func.features().contains(function::function_feature::scalar_function);
-        bool table = func.features().contains(function::function_feature::table_valued_function);
-        if (scalar && table) {
+        constexpr std::array<function::function_feature, 2> function_kinds {
+            function::function_feature::scalar_function,
+            function::function_feature::table_valued_function,
+        };
+        std::size_t function_kind_count { 0 };
+        for (auto kind : function_kinds) {
+            if (func.features().contains(kind)) {
+                ++function_kind_count;
+            }
+        }
+        if (function_kind_count != 1) {
             report({
                     code::inconsistent_function_type,
                     string_builder {}
@@ -1768,14 +1842,17 @@ private:
             });
             return std::nullopt;
         }
-        if (scalar) {
-            return function::function_feature::scalar_function;
+        for (auto kind : function_kinds) {
+            if (func.features().contains(kind)) {
+                return kind;
+            }
         }
-        return function::function_feature::table_valued_function;
+        // unreachable
+        std::abort();
     }
 
     template<class Expr, class F>
-    void validate_function_call(Expr const& expr, F const& func) {
+    bool validate_function_call(Expr const& expr, F const& func) {
         if (!allow_unresolved_ && is_unresolved_or_error(func.optional_return_type())) {
             report({
                     code::unsupported_type,
@@ -1785,7 +1862,7 @@ private:
                             << string_builder::to_string,
                     extract_region(expr),
             });
-            return;
+            return false;
         }
         if (func.parameter_types().size() != expr.arguments().size()) {
             report({
@@ -1793,7 +1870,7 @@ private:
                     "inconsistent number of function arguments",
                     extract_region(expr),
             });
-            return;
+            return false;
         }
         for (std::size_t i = 0, n = expr.arguments().size(); i < n; ++i) {
             auto&& arg = expr.arguments()[i];
@@ -1807,10 +1884,11 @@ private:
                             arg.region(),
                             *r,
                             { type::category_of(param) });
-                    return;
+                    return false;
                 }
             }
         }
+        return true;
     }
 
     template<class Expr, class Keys>

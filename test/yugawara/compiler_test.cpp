@@ -2,13 +2,16 @@
 
 #include <gtest/gtest.h>
 
+#include <takatori/type/primitive.h>
 #include <takatori/type/character.h>
+#include <takatori/type/table.h>
 
 #include <takatori/value/character.h>
 
 #include <takatori/relation/scan.h>
 #include <takatori/relation/emit.h>
 #include <takatori/relation/write.h>
+#include <takatori/relation/apply.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/find.h>
@@ -81,7 +84,7 @@ protected:
         return oss.str();
     }
 
-    static ::takatori::util::optional_ptr<compiler_result::diagnostic_type const> find_diagnostic(
+    static optional_ptr<compiler_result::diagnostic_type const> find_diagnostic(
             compiler_result::code_type code,
             compiler_result const& result) {
         for (auto&& d : result.diagnostics()) {
@@ -1124,6 +1127,102 @@ TEST_F(compiler_test, fix_complex_index_join) {
 
     auto&& stmt = downcast<statement::execute>(result.statement());
     EXPECT_EQ(stmt.execution_plan().size(), 3);
+
+    dump(result);
+}
+
+TEST_F(compiler_test, feat_apply) {
+    /*
+     * SELECT t0.c2, tx.x1
+     * FROM t0
+     * APPLY tvf(t0.c1) AS tx
+     * =>
+     * r0:scan t0 -> (c0, c1, c2)
+     * r1:apply tvf(c1) -> (x0, x1, x2)
+     * r2:emit c2, x1
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+                    { bindings(t0c1), c1 },
+                    { bindings(t0c2), c2 },
+            },
+    });
+    auto&& tvf = bindings.function({
+            function::declaration::minimum_user_function_id + 1,
+            "tvf",
+            ::takatori::type::table {
+                    { "x0", ::takatori::type::int8 {} },
+                    { "x1", ::takatori::type::int8 {} },
+                    { "x2", ::takatori::type::int8 {} },
+            },
+            {
+                    ::takatori::type::int8 {},
+            },
+            {
+                    function::function_feature::table_valued_function,
+            },
+    });
+    auto x0 = bindings.stream_variable("x0");
+    auto x1 = bindings.stream_variable("x1");
+    auto x2 = bindings.stream_variable("x2");
+    auto& r1 = r.insert(relation::apply {
+            tvf,
+            {
+                    scalar::variable_reference { c1 },
+            },
+            {
+                    x0,
+                    x1,
+                    x2,
+            },
+    });
+    auto&& r2 = r.insert(relation::emit {
+            c2,
+            x1,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    auto result = compiler()(options(), std::move(r));
+    ASSERT_TRUE(result);
+
+    auto&& c = downcast<statement::execute>(result.statement());
+
+    /*
+     * p0:
+     *   r0:scan t0 -> (c1, c2)
+     *   r1:apply tvf(c1) -> (x0, x1, x2)
+     *   r2:emit c2, x1
+     */
+    ASSERT_EQ(c.execution_plan().size(), 1);
+    auto&& p0 = find(c.execution_plan(), r0);
+
+    ASSERT_EQ(p0.operators().size(), 3);
+    ASSERT_TRUE(p0.operators().contains(r0));
+    ASSERT_TRUE(p0.operators().contains(r1));
+    ASSERT_TRUE(p0.operators().contains(r2));
+
+    ASSERT_EQ(r0.columns().size(), 2);
+    EXPECT_EQ(r0.columns()[0].source(), bindings(t0c1));
+    EXPECT_EQ(r0.columns()[1].source(), bindings(t0c2));
+    auto&& c1p0 = r0.columns()[0].destination();
+    auto&& c2p0 = r0.columns()[1].destination();
+
+    ASSERT_EQ(r1.arguments().size(), 1);
+    EXPECT_EQ(r1.arguments()[0], scalar::variable_reference { c1p0 });
+
+    ASSERT_EQ(r1.columns().size(), 3);
+    auto&& x1p0 = r1.columns()[1];
+
+    ASSERT_EQ(r2.columns().size(), 2);
+    EXPECT_EQ(r2.columns()[0], c2p0);
+    EXPECT_EQ(r2.columns()[1], x1p0);
 
     dump(result);
 }

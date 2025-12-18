@@ -255,6 +255,21 @@ public:
         pass(expr.left(), empty_mask());
     }
 
+    void operator()(relation::apply& expr, mask_type&& mask) {
+        // pass predicates only using the input columns
+        for (auto&& column : expr.columns()) {
+            for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
+                auto&& predicate = predicates_[i];
+                // flush if the predicate uses the output column
+                if (predicate.use(column)) {
+                    flush(expr.output(), predicate);
+                    mask.reset(i);
+                }
+            }
+        }
+        pass(expr.input(), std::move(mask));
+    }
+
     void operator()(relation::project& expr, mask_type&& mask) {
         for (auto&& column : expr.columns()) {
             for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
