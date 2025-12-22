@@ -429,8 +429,8 @@ TEST_F(remove_redundant_stream_variables_test, apply) {
                     scalar::variable_reference { c1 },
             },
             {
-                    x0,
-                    x1,
+                    { 0, x0 },
+                    { 1, x1 },
             },
     });
     auto&& ro = r.insert(relation::emit {
@@ -451,8 +451,10 @@ TEST_F(remove_redundant_stream_variables_test, apply) {
 
     // apply
     ASSERT_EQ(r1.columns().size(), 2);
-    EXPECT_EQ(r1.columns()[0], x0);
-    EXPECT_EQ(r1.columns()[1], x1);
+    EXPECT_EQ(r1.columns()[0].position(), 0);
+    EXPECT_EQ(r1.columns()[0].variable(), x0);
+    EXPECT_EQ(r1.columns()[1].position(), 1);
+    EXPECT_EQ(r1.columns()[1].variable(), x1);
 }
 
 TEST_F(remove_redundant_stream_variables_test, project) {

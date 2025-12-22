@@ -1177,9 +1177,9 @@ TEST_F(compiler_test, feat_apply) {
                     scalar::variable_reference { c1 },
             },
             {
-                    x0,
-                    x1,
-                    x2,
+                    { 0, x0 },
+                    { 1, x1 },
+                    { 2, x2 },
             },
     });
     auto&& r2 = r.insert(relation::emit {
@@ -1218,11 +1218,12 @@ TEST_F(compiler_test, feat_apply) {
     EXPECT_EQ(r1.arguments()[0], scalar::variable_reference { c1p0 });
 
     ASSERT_EQ(r1.columns().size(), 3);
-    auto&& x1p0 = r1.columns()[1];
+    auto&& r1c1 = r1.columns()[1];
+    EXPECT_EQ(r1c1.position(), 1);
 
     ASSERT_EQ(r2.columns().size(), 2);
     EXPECT_EQ(r2.columns()[0], c2p0);
-    EXPECT_EQ(r2.columns()[1], x1p0);
+    EXPECT_EQ(r2.columns()[1], r1c1.variable());
 
     dump(result);
 }

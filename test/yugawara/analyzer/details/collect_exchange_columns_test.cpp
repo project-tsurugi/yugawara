@@ -566,8 +566,8 @@ TEST_F(collect_exchange_columns_test, apply) {
                     constant(),
             },
             {
-                    c2,
-                    c3,
+                    { 0, c2 },
+                    { 1, c3 },
             },
     });
     auto& ro = p0.operators().insert(offer {

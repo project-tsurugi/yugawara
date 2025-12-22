@@ -156,7 +156,7 @@ public:
         }
         for (auto&& column : expr.columns()) {
             // forcibly keep all output columns
-            context_.force_rewrite_define(column);
+            context_.force_rewrite_define(column.variable());
         }
     }
 

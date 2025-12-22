@@ -388,8 +388,8 @@ TEST_F(collect_local_variables_test, apply) {
                     declaration(30),
             },
             {
-                    c1,
-                    c2,
+                    { 0, c1 },
+                    { 1, c2 },
             },
     });
     auto&& f = downcast<relation::apply>(*r);

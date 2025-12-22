@@ -683,8 +683,8 @@ TEST_F(rewrite_stream_variables_test, apply) {
                     scalar::variable_reference { c1 },
             },
             {
-                    x0,
-                    x1,
+                    { 0, x0 },
+                    { 1, x1 },
             },
     });
     auto&& ro = p0.operators().insert(relation::emit {
@@ -704,11 +704,12 @@ TEST_F(rewrite_stream_variables_test, apply) {
 
     // apply
     ASSERT_EQ(r1.columns().size(), 2);
-    auto&& x1p0 = r1.columns()[1];
+    auto&& r1c1 = r1.columns()[1];
+    EXPECT_EQ(r1c1.position(), 1);
 
     // emit
     ASSERT_EQ(ro.columns().size(), 2);
-    EXPECT_EQ(ro.columns()[0].source(), x1p0);
+    EXPECT_EQ(ro.columns()[0].source(), r1c1.variable());
     EXPECT_EQ(ro.columns()[1].source(), c2p0);
 }
 

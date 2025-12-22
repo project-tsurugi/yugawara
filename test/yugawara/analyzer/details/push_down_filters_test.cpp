@@ -801,8 +801,8 @@ TEST_F(push_down_filters_test, apply_over_left) {
                     scalar::variable_reference { cl1 }
             },
             {
-                    cr0,
-                    cr1,
+                    { 0, cr0 },
+                    { 1, cr1 },
             },
     });
     auto&& rf = r.insert(relation::filter {
@@ -859,8 +859,8 @@ TEST_F(push_down_filters_test, apply_flush_use_right) {
                     scalar::variable_reference { cl1 }
             },
             {
-                    cr0,
-                    cr1,
+                    { 0, cr0 },
+                    { 1, cr1 },
             },
     });
     auto&& rf = r.insert(relation::filter {
@@ -917,8 +917,8 @@ TEST_F(push_down_filters_test, apply_flush_use_left_right) {
                     scalar::variable_reference { cl1 }
             },
             {
-                    cr0,
-                    cr1,
+                    { 0, cr0 },
+                    { 1, cr1 },
             },
     });
     auto&& rf = r.insert(relation::filter {

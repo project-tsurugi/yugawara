@@ -177,9 +177,9 @@ TEST_F(variable_liveness_analyzer_test, apply) {
                     scalar::variable_reference { c2 }
             },
             {
-                    c4,
-                    c5,
-                    c6,
+                    { 0, c4 },
+                    { 1, c5 },
+                    { 2, c6 },
             },
     });
     auto&& r3 = rg.insert(offer {

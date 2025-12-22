@@ -1110,30 +1110,36 @@ public:
             });
             variable_resolution error { std::make_shared<extension::type::error>() };
             for (auto&& column: expr.columns()) {
-                ana_.variables().bind(column, error, true);
+                ana_.variables().bind(column.variable(), error, true);
             }
             return false;
         }
         auto&& table_type = unsafe_downcast<::takatori::type::table>(func.return_type());
-        if (table_type.columns().size() != expr.columns().size()) {
-            report({
-                    code::inconsistent_elements,
-                    string_builder {}
-                        << "apply target column count mismatch: "
-                        << func.name()
-                        << string_builder::to_string,
-                    expr.region(),
-            });
-            variable_resolution error { std::make_shared<extension::type::error>() };
-            for (auto&& column: expr.columns()) {
-                ana_.variables().bind(column, error, true);
+        bool success = true;
+        for (auto&& column : expr.columns()) {
+            auto position = column.position();
+            if (position < table_type.columns().size()) {
+                auto&& table_column = table_type.columns()[position];
+                ana_.variables().bind(column.variable(), { table_column.shared_type() }, true);
+            } else {
+                report({
+                        code::inconsistent_elements,
+                        string_builder {}
+                            << "apply target column index out of bounds: "
+                            << func.name()
+                            << ", position="
+                            << position
+                            << ", table-columns="
+                            << table_type.columns().size()
+                            << string_builder::to_string,
+                        expr.region(),
+                });
+                ana_.variables().bind(column.variable(), extension::type::error {}, true);
+                success = false;
             }
-            return false;
         }
-        for (std::size_t i = 0, n = expr.columns().size(); i < n; ++i) {
-            auto&& output_column = expr.columns()[i];
-            auto&& table_column = table_type.columns()[i];
-            ana_.variables().bind(output_column, { table_column.shared_type() }, true);
+        if (!success) {
+            return false;
         }
         if (validate_) {
             auto function_type = validate_function_declaration(func, expr.region());

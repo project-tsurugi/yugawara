@@ -138,7 +138,7 @@ public:
             scalar::walk(*this, argument, info);
         }
         for (auto&& column : expr.columns()) {
-            define(column, info);
+            define(column.variable(), info);
         }
     }
 

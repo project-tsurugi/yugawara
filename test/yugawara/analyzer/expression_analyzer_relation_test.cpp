@@ -409,9 +409,9 @@ TEST_F(expression_analyzer_relation_test, apply) {
                     vref { decl(t::int8 {}) },
             },
             {
-                    c1,
-                    c2,
-                    c3,
+                    { 0, c1 },
+                    { 1, c2 },
+                    { 2, c3 },
             },
     };
     auto b = analyzer.resolve(expr, true, false, repo);
@@ -439,7 +439,7 @@ TEST_F(expression_analyzer_relation_test, apply_not_a_table_type) {
                     vref { decl(t::int8 {}) },
             },
             {
-                    c1,
+                    { 0, c1 },
             },
     };
     bless(expr);
@@ -465,22 +465,25 @@ TEST_F(expression_analyzer_relation_test, apply_column_mismatch) {
     });
     auto c1 = bindings.stream_variable();
     auto c2 = bindings.stream_variable();
+    auto c3 = bindings.stream_variable();
     r::apply expr {
             f,
             {
                     vref { decl(t::int8 {}) },
             },
             {
-                    c1,
-                    c2,
+                    { 0, c1 },
+                    { 3, c2 },
+                    { 2, c3 },
             },
     };
     bless(expr);
     auto b = analyzer.resolve(expr, true, false, repo);
     EXPECT_FALSE(b) << *this;
     EXPECT_TRUE(find(expr.region(), code::inconsistent_elements));
-    EXPECT_EQ(type(c1), extension::type::error());
+    EXPECT_EQ(type(c1), t::int4 {});
     EXPECT_EQ(type(c2), extension::type::error());
+    EXPECT_EQ(type(c3), t::character(t::varying, {}));
 }
 
 TEST_F(expression_analyzer_relation_test, apply_unknown_function_type) {
@@ -504,7 +507,7 @@ TEST_F(expression_analyzer_relation_test, apply_unknown_function_type) {
                     vref { decl(t::int8 {}) },
             },
             {
-                    c1,
+                    { 0, c1 },
             },
     };
     bless(expr);
@@ -535,7 +538,7 @@ TEST_F(expression_analyzer_relation_test, apply_scalar_function) {
                     vref { decl(t::int8 {}) },
             },
             {
-                    c1,
+                    { 0, c1 },
             },
     };
     bless(expr);
@@ -567,7 +570,7 @@ TEST_F(expression_analyzer_relation_test, apply_parameter_inconsistent_count) {
                     vref { decl(t::int8 {}) },
             },
             {
-                    c1,
+                    { 0, c1 },
             },
     };
     bless(expr);
@@ -598,7 +601,7 @@ TEST_F(expression_analyzer_relation_test, apply_parameter_inconsistent_type) {
                     vref { decl(t::character { t::varying, {} }) },
             },
             {
-                    c1,
+                    { 0, c1 },
             },
     };
     bless(expr.arguments()[0]);

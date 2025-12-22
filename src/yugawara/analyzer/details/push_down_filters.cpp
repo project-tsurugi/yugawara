@@ -261,7 +261,7 @@ public:
             for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
                 auto&& predicate = predicates_[i];
                 // flush if the predicate uses the output column
-                if (predicate.use(column)) {
+                if (predicate.use(column.variable())) {
                     flush(expr.output(), predicate);
                     mask.reset(i);
                 }
