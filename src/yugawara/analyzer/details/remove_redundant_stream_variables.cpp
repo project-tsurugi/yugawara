@@ -115,8 +115,14 @@ public:
         for (auto&& argument: expr.arguments()) {
             collect(argument);
         }
-        // NOTE: we keep all output columns even if they are not used
-        // to keep the function calling semantics simple.
+        auto&& columns = expr.columns();
+        for (auto&& it = columns.begin(); it != columns.end();) {
+            if (is_used(it->variable())) {
+                ++it;
+            } else {
+                it = columns.erase(it);
+            }
+        }
     }
 
     void operator()(relation::project& expr) {

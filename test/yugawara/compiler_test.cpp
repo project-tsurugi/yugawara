@@ -1138,7 +1138,11 @@ TEST_F(compiler_test, feat_apply) {
      * APPLY tvf(t0.c1) AS tx
      * =>
      * r0:scan t0 -> (c0, c1, c2)
-     * r1:apply tvf(c1) -> (x0, x1, x2)
+     * r1:apply tvf(c1) -> (0:x0, 1:x1, 2:x2)
+     * r2:emit c2, x1
+     * =>
+     * r0:scan t0 -> (c1, c2)
+     * r1:apply tvf(c1) -> (1:x1)
      * r2:emit c2, x1
      */
     relation::graph_type r;
@@ -1197,7 +1201,7 @@ TEST_F(compiler_test, feat_apply) {
     /*
      * p0:
      *   r0:scan t0 -> (c1, c2)
-     *   r1:apply tvf(c1) -> (x0, x1, x2)
+     *   r1:apply tvf(c1) -> (1:x1)
      *   r2:emit c2, x1
      */
     ASSERT_EQ(c.execution_plan().size(), 1);
@@ -1217,8 +1221,8 @@ TEST_F(compiler_test, feat_apply) {
     ASSERT_EQ(r1.arguments().size(), 1);
     EXPECT_EQ(r1.arguments()[0], scalar::variable_reference { c1p0 });
 
-    ASSERT_EQ(r1.columns().size(), 3);
-    auto&& r1c1 = r1.columns()[1];
+    ASSERT_EQ(r1.columns().size(), 1);
+    auto&& r1c1 = r1.columns()[0];
     EXPECT_EQ(r1c1.position(), 1);
 
     ASSERT_EQ(r2.columns().size(), 2);

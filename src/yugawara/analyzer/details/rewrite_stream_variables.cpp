@@ -154,9 +154,13 @@ public:
         for (auto&& argument : expr.arguments()) {
             rewrite(argument);
         }
-        for (auto&& column : expr.columns()) {
-            // forcibly keep all output columns
-            context_.force_rewrite_define(column.variable());
+        auto&& columns = expr.columns();
+        for (auto it = columns.begin(); it != columns.end();) {
+            if (context_.try_rewrite_define(it->variable())) {
+                ++it;
+            } else {
+                it = columns.erase(it);
+            }
         }
     }
 

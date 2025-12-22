@@ -703,8 +703,8 @@ TEST_F(rewrite_stream_variables_test, apply) {
     auto&& c2p0 = r0.columns()[1].destination();
 
     // apply
-    ASSERT_EQ(r1.columns().size(), 2);
-    auto&& r1c1 = r1.columns()[1];
+    ASSERT_EQ(r1.columns().size(), 1);
+    auto&& r1c1 = r1.columns()[0];
     EXPECT_EQ(r1c1.position(), 1);
 
     // emit

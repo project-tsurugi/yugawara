@@ -450,11 +450,9 @@ TEST_F(remove_redundant_stream_variables_test, apply) {
     EXPECT_EQ(r0.columns()[1].destination(), c2);
 
     // apply
-    ASSERT_EQ(r1.columns().size(), 2);
-    EXPECT_EQ(r1.columns()[0].position(), 0);
-    EXPECT_EQ(r1.columns()[0].variable(), x0);
-    EXPECT_EQ(r1.columns()[1].position(), 1);
-    EXPECT_EQ(r1.columns()[1].variable(), x1);
+    ASSERT_EQ(r1.columns().size(), 1);
+    EXPECT_EQ(r1.columns()[0].position(), 1);
+    EXPECT_EQ(r1.columns()[0].variable(), x1);
 }
 
 TEST_F(remove_redundant_stream_variables_test, project) {
