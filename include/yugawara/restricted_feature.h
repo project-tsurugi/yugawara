@@ -56,6 +56,9 @@ enum class restricted_feature {
     /// @brief restrict `intersection` operator.
     relation_intersection,
 
+    /// @brief restrict `apply` operator.
+    relation_apply,
+
     // exchanges
 
     /// @brief restrict `aggregate` exchange.
@@ -106,6 +109,7 @@ constexpr restricted_feature_set restricted_feature_relation_expressions {
         restricted_feature::relation_difference,
         restricted_feature::relation_flatten,
         restricted_feature::relation_intersection,
+        restricted_feature::relation_apply,
 };
 
 /// @brief all exchange steps of restricted_feature_set.
@@ -143,6 +147,7 @@ inline constexpr std::string_view to_string_view(restricted_feature value) noexc
         case kind::relation_difference: return "difference operator"sv;
         case kind::relation_flatten: return "flatten operator"sv;
         case kind::relation_intersection: return "intersection operator"sv;
+        case kind::relation_apply: return "apply operator"sv;
         case kind::exchange_aggregate: return "aggregate exchange"sv;
         case kind::exchange_broadcast: return "broadcast exchange"sv;
         case kind::exchange_discard: return "discard exchange"sv;

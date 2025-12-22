@@ -2,9 +2,12 @@
 
 #include <gtest/gtest.h>
 
+#include <takatori/type/table.h>
+
 #include <takatori/relation/values.h>
 #include <takatori/relation/write.h>
 #include <takatori/relation/join_find.h>
+#include <takatori/relation/apply.h>
 #include <takatori/relation/step/join.h>
 
 #include <takatori/plan/process.h>
@@ -166,6 +169,30 @@ TEST_F(collect_restricted_features_test, relation_write_insert_not_restricted) {
                     {},
             }));
     ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, relation_apply_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::relation_apply },
+            make_statement(relation::apply {
+                    factory.function(function::declaration {
+                            function::declaration::minimum_user_function_id + 1,
+                            "tvf",
+                            ::takatori::type::table {
+                                    { "x0", ::takatori::type::int8 {} },
+                            },
+                            {},
+                            {
+                                    function::function_feature::table_valued_function,
+                            },
+                    }),
+                    {},
+                    {
+                            { 0, factory.stream_variable("x0") },
+                    },
+            }));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::relation_apply);
 }
 
 TEST_F(collect_restricted_features_test, exchange_forward_restricted) {

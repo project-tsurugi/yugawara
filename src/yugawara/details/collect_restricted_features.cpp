@@ -135,6 +135,10 @@ public:
         process_join_like(expression);
     }
 
+    void operator()(trelation::apply const& expression) {
+        validate(restricted_feature::relation_apply, expression.region());
+    }
+
     void operator()(trelation::step::join const& expression) {
         process_join_like(expression);
     }
