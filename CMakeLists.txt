@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 NEW)
+endif()
+
 project(yugawara-project
     VERSION 1.0.0
     DESCRIPTION "Yugawara - A fundamental language toolkit for SQL IR"
