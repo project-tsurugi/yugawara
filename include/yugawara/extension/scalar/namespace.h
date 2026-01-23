@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @brief more type models used in yugawara.
- * @see takatori::type::extension
+ * @brief more scalar expression models used in yugawara.
+ * @see takatori::scalar::extension
  */
-namespace yugawara::extension::type {}
+namespace yugawara::extension::scalar {}
