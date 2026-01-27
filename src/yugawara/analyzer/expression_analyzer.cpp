@@ -35,6 +35,7 @@
 
 #include <yugawara/extension/type/error.h>
 #include <yugawara/extension/scalar/aggregate_function_call.h>
+#include <yugawara/extension/relation/subquery.h>
 
 #include <yugawara/binding/extract.h>
 
@@ -1291,6 +1292,36 @@ public:
             if (!r) {
                 return false;
             }
+        }
+        return true;
+    }
+
+    bool operator()(relation::intermediate::extension const& expr) {
+        switch (expr.extension_id()) {
+            case extension::relation::subquery::extension_tag:
+                return operator()(unsafe_downcast<extension::relation::subquery>(expr));
+            default:
+                throw_exception(std::domain_error(string_builder {}
+                        << "unknown relation expression extension: "
+                        << expr.extension_id()
+                        << string_builder::to_string));
+        }
+    }
+
+    bool operator()(extension::relation::subquery const& expr) {
+        // resolve subquery graph
+        auto r = resolve(expr.query_graph());
+        if (!r) {
+            return false;
+        }
+
+        // resolve inner-to-outer column mappings
+        for (auto&& mapping : expr.mappings()) { // NOLINT(readability-use-anyofallof) w/ side effects
+            auto&& source = resolve_stream_column(mapping.source());
+            if (is_unresolved_or_error(source)) {
+                return false;
+            }
+            ana_.variables().bind(mapping.destination(), source, true);
         }
         return true;
     }

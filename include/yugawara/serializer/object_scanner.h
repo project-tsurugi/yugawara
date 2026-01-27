@@ -95,6 +95,13 @@ protected:
     void properties(::takatori::scalar::expression const& element, ::takatori::serializer::object_acceptor& acceptor) const override;
 
     /**
+     * @brief scans properties of the given expression.
+     * @param element the target element
+     * @param acceptor the acceptor
+     */
+    void properties(::takatori::relation::expression const& element, ::takatori::serializer::object_acceptor& acceptor) const override;
+
+    /**
      * @brief scans properties of the given statement.
      * @param element the target element
      * @param acceptor the acceptor

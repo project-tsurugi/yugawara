@@ -12,6 +12,9 @@
 
 #include <takatori/plan/forward.h>
 
+#include <takatori/relation/graph.h>
+#include <takatori/relation/values.h>
+
 #include <takatori/statement/create_table.h>
 #include <takatori/statement/drop_table.h>
 
@@ -24,6 +27,7 @@
 #include <yugawara/variable/negation.h>
 #include <yugawara/variable/quantification.h>
 #include <yugawara/extension/scalar/aggregate_function_call.h>
+#include <yugawara/extension/relation/subquery.h>
 
 namespace yugawara::serializer {
 
@@ -453,6 +457,24 @@ TEST_F(object_scanner_test, extension_scalar_aggregate_function_call) {
                             t::int8 {}
                     },
             }
+    });
+}
+
+TEST_F(object_scanner_test, extension_relation_subquery) {
+    ::takatori::relation::graph_type graph {};
+    graph.insert(::takatori::relation::values {{}, {}});
+    print(extension::relation::subquery {
+            std::move(graph),
+            {
+                    {
+                            bindings.stream_variable("inner1"),
+                            bindings.stream_variable("outer1"),
+                    },
+                    {
+                            bindings.stream_variable("inner2"),
+                            bindings.stream_variable("outer2"),
+                    },
+            },
     });
 }
 

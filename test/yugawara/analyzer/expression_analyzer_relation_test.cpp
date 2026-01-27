@@ -48,6 +48,7 @@
 
 #include <yugawara/binding/factory.h>
 #include <yugawara/extension/type/error.h>
+#include <yugawara/extension/relation/subquery.h>
 
 #include <yugawara/storage/table.h>
 #include <yugawara/storage/index.h>
@@ -788,6 +789,39 @@ TEST_F(expression_analyzer_relation_test, difference) {
     auto b = analyzer.resolve(expr, true, false, repo);
     ASSERT_TRUE(b) << *this;
     EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_relation_test, extension_subquery) {
+    auto i0 = bindings.stream_variable("i0");
+    auto i1 = bindings.stream_variable("i1");
+    auto o0 = bindings.stream_variable("o0");
+    auto o1 = bindings.stream_variable("o1");
+
+    r::graph_type graph {};
+    graph.insert(r::values {
+            { i0, i1, },
+            {
+                    {
+                            vref { decl(t::int4 {}) },
+                            vref { decl(t::int8 {}) },
+                    },
+            },
+    });
+    extension::relation::subquery expr {
+            std::move(graph),
+            {
+                    { i0, o0, },
+                    { i1, o1, },
+            },
+    };
+    auto b = analyzer.resolve(expr, true, false, repo);
+    ASSERT_TRUE(b) << *this;
+    EXPECT_TRUE(ok());
+
+    EXPECT_EQ(type(i0), t::int4());
+    EXPECT_EQ(type(i1), t::int8());
+    EXPECT_EQ(type(o0), t::int4());
+    EXPECT_EQ(type(o1), t::int8());
 }
 
 TEST_F(expression_analyzer_relation_test, emit) {

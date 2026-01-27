@@ -62,6 +62,7 @@ add_library(yugawara
 
     # extensions
     yugawara/extension/scalar/aggregate_function_call.cpp
+    yugawara/extension/relation/subquery.cpp
 
     # analyzer
     yugawara/analyzer/expression_mapping.cpp
@@ -134,6 +135,7 @@ add_library(yugawara
     yugawara/serializer/details/predicate_scanner.cpp
     yugawara/serializer/details/extension_type_property_scanner.cpp
     yugawara/serializer/details/extension_scalar_property_scanner.cpp
+    yugawara/serializer/details/extension_relation_property_scanner.cpp
 )
 
 target_include_directories(yugawara

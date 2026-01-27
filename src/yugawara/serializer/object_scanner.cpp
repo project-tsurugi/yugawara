@@ -20,6 +20,7 @@
 #include "details/resolution_scanner.h"
 #include "details/extension_type_property_scanner.h"
 #include "details/extension_scalar_property_scanner.h"
+#include "details/extension_relation_property_scanner.h"
 
 namespace yugawara::serializer {
 
@@ -103,6 +104,18 @@ void object_scanner::properties(scalar::expression const& element, object_accept
 
     ::takatori::serializer::object_scanner::properties(element, acceptor);
     accept_resolution(element, acceptor);
+}
+
+void object_scanner::properties(::takatori::relation::expression const& element, object_acceptor& acceptor) const {
+    if (element.kind() == ::takatori::relation::intermediate::extension::tag) {
+        auto&& ext = unsafe_downcast<::takatori::relation::intermediate::extension>(element);
+        if (extension::relation::is_known_compiler_extension(ext.extension_id())) {
+            details::extension_relation_property_scanner s { *this, acceptor };
+            s.process(ext);
+            return;
+        }
+    }
+    ::takatori::serializer::object_scanner::properties(element, acceptor);
 }
 
 void object_scanner::properties(::takatori::statement::statement const& element, object_acceptor& acceptor) const {

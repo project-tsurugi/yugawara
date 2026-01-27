@@ -371,6 +371,14 @@ public:
                 << string_builder::to_string));
     }
 
+    void operator()(relation::intermediate::extension& expr, mask_type&& mask) {
+        (void) mask;
+        throw_exception(std::domain_error(string_builder {}
+                << "unsupported operator: "
+                << expr
+                << string_builder::to_string));
+    }
+
 private:
     relation::graph_type& graph_;
     std::vector<task_type> tasks_;
