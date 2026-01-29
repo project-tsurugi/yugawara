@@ -1,8 +1,8 @@
 #include "rewrite_stream_variables.h"
 
-#include <takatori/relation/step/dispatch.h>
 #include <takatori/relation/graph.h>
-#include <takatori/relation/intermediate/escape.h>
+#include <takatori/relation/intermediate/dispatch.h>
+#include <takatori/relation/step/dispatch.h>
 
 #include <takatori/plan/dispatch.h>
 
@@ -10,6 +10,9 @@
 #include <takatori/util/downcast.h>
 #include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
+
+#include <yugawara/extension/relation/extension_id.h>
+#include <yugawara/extension/relation/subquery.h>
 
 #include "stream_variable_rewriter_context.h"
 #include "scalar_expression_variable_rewriter.h"
@@ -57,11 +60,30 @@ public:
     explicit engine(
             exchange_map_type& exchange_map,
             stream_variable_rewriter_context& context,
-            scalar_expression_variable_rewriter& scalar_rewriter) noexcept:
+            scalar_expression_variable_rewriter& scalar_rewriter,
+            bool check_undefined = true) noexcept:
         exchange_map_ { exchange_map },
         context_ { context },
-        scalar_rewriter_ { scalar_rewriter }
+        scalar_rewriter_ { scalar_rewriter },
+        check_undefined_ { check_undefined }
     {}
+
+    void process(relation::expression& expr) {
+        if (relation::is_available_in_intermediate_plan(expr.kind())) {
+            relation::intermediate::dispatch(*this, expr);
+        } else if (relation::is_available_in_step_plan(expr.kind())) {
+            relation::step::dispatch(*this, expr);
+        } else {
+            throw_exception(std::domain_error(string_builder {}
+                    << "unsupported relation expression: "
+                    << expr
+                    << string_builder::to_string));
+        }
+    }
+
+    void force_raise_undefined() {
+        raise_undefined(true);
+    }
 
     void operator()(plan::process& step) {
         remove_escape(context_, step.operators());
@@ -201,6 +223,128 @@ public:
         rewrite_source_columns(expr.columns());
     }
 
+    void operator()(relation::intermediate::join& expr) {
+        rewrite(expr.condition());
+        process_keys(expr.lower().keys());
+        process_keys(expr.upper().keys());
+    }
+
+    void operator()(relation::intermediate::aggregate& expr) {
+        rewrite_variables(expr.group_keys());
+        auto&& columns = expr.columns();
+        for (auto&& it = columns.begin(); it != columns.end();) {
+            auto&& column = *it;
+            if (context_.try_rewrite_define(column.destination())) {
+                rewrite_variables(column.arguments());
+                ++it;
+            } else {
+                // no one refer the variable
+                it = columns.erase(it);
+            }
+        }
+    }
+
+    void operator()(relation::intermediate::distinct& expr) {
+        rewrite_variables(expr.group_keys());
+    }
+
+    void operator()(relation::intermediate::limit& expr) {
+        rewrite_variables(expr.group_keys());
+        for (auto&& sort_key : expr.sort_keys()) {
+            context_.rewrite_use(sort_key.variable());
+        }
+    }
+
+    void operator()(relation::intermediate::union_& expr) {
+        if (expr.quantifier() == relation::set_quantifier::all) {
+            auto&& mappings = expr.mappings();
+            for (auto&& it = mappings.begin(); it != mappings.end();) {
+                auto&& mapping = *it;
+                if (context_.try_rewrite_define(mapping.destination())) {
+                    if (auto&& source = mapping.left()) {
+                        context_.rewrite_use(*source);
+                    }
+                    if (auto&& source = mapping.right()) {
+                        context_.rewrite_use(*source);
+                    }
+                    ++it;
+                } else {
+                    it = mappings.erase(it);
+                }
+            }
+        } else {
+            for (auto&& mapping : expr.mappings()) {
+                context_.force_rewrite_define(mapping.destination());
+                if (auto&& source = mapping.left()) {
+                    context_.rewrite_use(*source);
+                }
+                if (auto&& source = mapping.right()) {
+                    context_.rewrite_use(*source);
+                }
+            }
+        }
+    }
+
+    void operator()(relation::intermediate::intersection& expr) {
+        for (auto&& pair : expr.group_key_pairs()) {
+            context_.rewrite_use(pair.left());
+            context_.rewrite_use(pair.right());
+        }
+    }
+
+    void operator()(relation::intermediate::difference& expr) {
+        for (auto&& pair : expr.group_key_pairs()) {
+            context_.rewrite_use(pair.left());
+            context_.rewrite_use(pair.right());
+        }
+    }
+
+    void operator()(relation::intermediate::escape& expr) {
+        auto&& mappings = expr.mappings();
+        for (auto it = mappings.begin(); it != mappings.end();) {
+            auto&& mapping = *it;
+            if (context_.try_rewrite_define(mapping.destination())) {
+                context_.rewrite_use(mapping.source());
+                ++it;
+            } else {
+                it = mappings.erase(it);
+            }
+        }
+    }
+
+    void operator()(relation::intermediate::extension& expr) {
+        if (extension::relation::is_known_compiler_extension(expr.extension_id())) {
+            switch (static_cast<extension::relation::extension_id>(expr.extension_id())) {
+                case extension::relation::subquery::extension_tag:
+                    operator()(unsafe_downcast<extension::relation::subquery>(expr));
+                    return;
+
+                case extension::relation::error_id:
+                case extension::relation::min_unused_id:
+                    // unknown compiler extension
+                    break;
+            }
+        }
+        throw_exception(std::domain_error(string_builder {}
+                << "unknown extension of relation expression: "
+                << expr.extension_id()
+                << string_builder::to_string));
+    }
+
+    void operator()(extension::relation::subquery& expr) {
+        // NOTE: keep variables in subgraph
+        auto&& mappings = expr.mappings();
+        for (auto it = mappings.begin(); it != mappings.end();) {
+            auto&& mapping = *it;
+            if (context_.try_rewrite_define(mapping.destination())) {
+                ++it;
+            } else {
+                it = mappings.erase(it);
+            }
+        }
+        raise_undefined();
+    }
+
     void operator()(relation::step::join& expr) {
         rewrite(expr.condition());
     }
@@ -322,6 +466,7 @@ private:
     exchange_map_type& exchange_map_;
     stream_variable_rewriter_context& context_;
     scalar_expression_variable_rewriter scalar_rewriter_;
+    bool check_undefined_ {};
 
     void rewrite(::takatori::scalar::expression& expr) {
         scalar_rewriter_(context_, expr);
@@ -347,7 +492,10 @@ private:
         }
     }
 
-    void raise_undefined() {
+    void raise_undefined(bool force = false) {
+        if (!check_undefined_ && !force) {
+            return;
+        }
         context_.each_undefined([&](descriptor::variable const& variable) {
             throw_exception(std::domain_error(string_builder {}
                     << "undefined variable: "
@@ -436,6 +584,24 @@ void rewrite_stream_variables(
             [&](plan::step& step) {
                 plan::dispatch(e, step);
             });
+}
+
+void rewrite_stream_variables(extension::relation::subquery& subquery) {
+    exchange_column_info_map exchange_map {};
+    stream_variable_rewriter_context context {};
+    scalar_expression_variable_rewriter scalar_rewriter {};
+    engine e { exchange_map, context, scalar_rewriter, false };
+
+    for (auto&& mapping : subquery.mappings()) {
+        context.rewrite_use(mapping.source());
+    }
+
+    relation::sort_from_downstream(
+            subquery.query_graph(),
+            [&](relation::expression& expr) {
+                e.process(expr);
+            });
+    e.force_raise_undefined();
 }
 
 } // namespace yugawara::analyzer::details

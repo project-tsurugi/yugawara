@@ -90,6 +90,7 @@ add_test_executable(yugawara/analyzer/details/step_relation_collector_test.cpp)
 add_test_executable(yugawara/analyzer/details/scalar_expression_variable_rewriter_test.cpp)
 add_test_executable(yugawara/analyzer/details/collect_exchange_columns_test.cpp)
 add_test_executable(yugawara/analyzer/details/rewrite_stream_variables_test.cpp)
+add_test_executable(yugawara/analyzer/details/rewrite_stream_variables_subquery_test.cpp)
 
 # optimizer
 add_test_executable(yugawara/analyzer/details/decompose_predicate_test.cpp)
