@@ -2,6 +2,7 @@
 
 #include <utility>
 
+#include "details/expand_relation_subquery.h"
 #include "details/remove_redundant_stream_variables.h"
 #include "details/remove_redundant_conditions.h"
 #include "details/push_down_filters.h"
@@ -41,6 +42,7 @@ static constexpr details::collect_join_keys_feature_set compute_join_keys_featur
 }
 
 void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& graph) {
+    details::expand_relation_subquery(graph);
     // details::decompose_projections(graph);
     details::remove_redundant_stream_variables(graph);
     details::collect_local_variables(

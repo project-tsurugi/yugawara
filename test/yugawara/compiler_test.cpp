@@ -33,6 +33,7 @@
 
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/configurable_provider.h>
+#include <yugawara/extension/relation/subquery.h>
 
 #include <yugawara/testing/utils.h>
 
@@ -1228,6 +1229,72 @@ TEST_F(compiler_test, feat_apply) {
     ASSERT_EQ(r2.columns().size(), 2);
     EXPECT_EQ(r2.columns()[0], c2p0);
     EXPECT_EQ(r2.columns()[1], r1c1.variable());
+
+    dump(result);
+}
+
+TEST_F(compiler_test, feat_cte) {
+    /*
+     * WITH q0 AS (TABLE t0)
+     * TABLE q0
+     * =>
+     * r1: {
+     *     r0:scan t0
+     *     =>
+     * }
+     * r2: emit (c0)
+     * =>
+     * r0:scan t0
+     * r2:emit c0
+     */
+    relation::graph_type subgragh;
+    relation::graph_type graph;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = subgragh.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+                    { bindings(t0c1), c1 },
+                    { bindings(t0c2), c2 },
+            },
+    });
+    auto c4 = bindings.stream_variable("c4");
+    auto& r1 = graph.insert(extension::relation::subquery {
+            std::move(subgragh),
+            {
+                    { c0, c4 },
+            },
+    });
+    auto&& r2 = graph.insert(relation::emit {
+            c4,
+    });
+    r1.output() >> r2.input();
+
+    auto result = compiler()(options(), std::move(graph));
+    ASSERT_TRUE(result);
+
+    auto&& c = downcast<statement::execute>(result.statement());
+
+    /*
+     * p0:
+     *   r0:scan t0 -> (c0)
+     *   r2:emit c0
+     */
+    ASSERT_EQ(c.execution_plan().size(), 1);
+    auto&& p0 = find(c.execution_plan(), r0);
+
+    ASSERT_EQ(p0.operators().size(), 2);
+    ASSERT_TRUE(p0.operators().contains(r0));
+    ASSERT_TRUE(p0.operators().contains(r2));
+
+    ASSERT_EQ(r0.columns().size(), 1);
+    EXPECT_EQ(r0.columns()[0].source(), bindings(t0c0));
+    auto&& c1p0 = r0.columns()[0].destination();
+
+    ASSERT_EQ(r2.columns().size(), 1);
+    EXPECT_EQ(r2.columns()[0], c1p0);
 
     dump(result);
 }

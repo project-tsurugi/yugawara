@@ -5,6 +5,7 @@
 #include <takatori/scalar/let.h>
 
 #include <takatori/relation/graph.h>
+#include <takatori/relation/find.h>
 #include <takatori/relation/scan.h>
 #include <takatori/relation/emit.h>
 #include <takatori/relation/filter.h>
@@ -12,11 +13,11 @@
 
 #include <takatori/relation/intermediate/distinct.h>
 #include <takatori/relation/intermediate/join.h>
+#include <takatori/relation/intermediate/escape.h>
 
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/configurable_provider.h>
-#include <takatori/relation/find.h>
-#include <takatori/relation/step/join.h>
+#include <yugawara/extension/relation/subquery.h>
 
 #include <yugawara/testing/utils.h>
 
@@ -544,6 +545,49 @@ TEST_F(intermediate_plan_optimizer_test, between) {
         EXPECT_EQ(f1.condition(), compare(varref(c0), constant(100), comparison_operator::less_equal));
         EXPECT_EQ(f2.condition(), compare(constant(0), varref(c0), comparison_operator::less_equal));
     }
+}
+
+TEST_F(intermediate_plan_optimizer_test, subquery) {
+    relation::graph_type inner;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& in = inner.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+
+    relation::graph_type r;
+    auto o0 = bindings.stream_variable("o0");
+    auto&& subquery = r.insert(extension::relation::subquery {
+            std::move(inner),
+            {
+                    { c0, o0 },
+            },
+    });
+    auto&& out = r.insert(relation::emit { o0 });
+    subquery.output() >> out.input();
+
+    intermediate_plan_optimizer optimizer { options() };
+    optimizer(r);
+
+    ASSERT_EQ(r.size(), 3);
+    ASSERT_TRUE(r.contains(in));
+    ASSERT_TRUE(r.contains(out));
+
+    auto&& escape = next<relation::intermediate::escape>(in.output());
+
+    ASSERT_EQ(in.columns().size(), 1);
+    EXPECT_EQ(in.columns()[0].source(), bindings(t0c0));
+    auto c0m = in.columns()[0].destination();
+    EXPECT_NE(c0m, c0);
+
+    ASSERT_EQ(escape.mappings().size(), 1);
+    EXPECT_EQ(escape.mappings()[0].source(), c0m);
+    EXPECT_EQ(escape.mappings()[0].destination(), o0);
+
+    ASSERT_EQ(out.columns().size(), 1);
+    EXPECT_EQ(out.columns()[0].source(), o0);
 }
 
 } // namespace yugawara::analyzer
