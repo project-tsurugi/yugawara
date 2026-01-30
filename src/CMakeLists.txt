@@ -93,6 +93,7 @@ add_library(yugawara
     yugawara/analyzer/details/collect_exchange_columns.cpp
     yugawara/analyzer/details/scalar_expression_variable_rewriter.cpp
     yugawara/analyzer/details/rewrite_stream_variables.cpp
+    yugawara/analyzer/details/expand_relation_subquery.cpp
 
     # optimizer
     yugawara/analyzer/intermediate_plan_optimizer.cpp
