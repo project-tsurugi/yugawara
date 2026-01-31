@@ -2,8 +2,10 @@
 
 #include <vector>
 
+#include <takatori/scalar/variable_reference.h>
+
 #include <takatori/relation/graph.h>
-#include <takatori/relation/intermediate/escape.h>
+#include <takatori/relation/project.h>
 #include <takatori/relation/intermediate/extension.h>
 
 #include <takatori/util/downcast.h>
@@ -44,8 +46,16 @@ public:
         // escape all variables in subquery
         rewrite_stream_variables(expr);
 
-        auto&& escape = graph_.insert(::takatori::relation::intermediate::escape {
-                std::move(expr.mappings())
+        std::vector<::takatori::relation::project::column> mappings {};
+        mappings.reserve(expr.mappings().size());
+        for (auto&& mapping : expr.mappings()) {
+            mappings.emplace_back(
+                std::make_unique<::takatori::scalar::variable_reference>(std::move(mapping.source())),
+                std::move(mapping.destination())
+            );
+        }
+        auto&& escape = graph_.insert(::takatori::relation::project {
+                std::move(mappings)
         });
 
         auto subquery_output = expr.find_output_port();

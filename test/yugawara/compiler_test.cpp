@@ -1245,7 +1245,8 @@ TEST_F(compiler_test, feat_cte) {
      * r2: emit (c0)
      * =>
      * r0:scan t0
-     * r2:emit c0
+     *   :project (c0'=c0)
+     * r2:emit c0'
      */
     relation::graph_type subgragh;
     relation::graph_type graph;
@@ -1280,21 +1281,27 @@ TEST_F(compiler_test, feat_cte) {
     /*
      * p0:
      *   r0:scan t0 -> (c0)
-     *   r2:emit c0
+     *   rp:project (x0=c0)
+     *   r2:emit x0
      */
     ASSERT_EQ(c.execution_plan().size(), 1);
     auto&& p0 = find(c.execution_plan(), r0);
 
-    ASSERT_EQ(p0.operators().size(), 2);
+    ASSERT_EQ(p0.operators().size(), 3);
     ASSERT_TRUE(p0.operators().contains(r0));
     ASSERT_TRUE(p0.operators().contains(r2));
+    auto&& rp = next<relation::project>(r0.output());
 
     ASSERT_EQ(r0.columns().size(), 1);
     EXPECT_EQ(r0.columns()[0].source(), bindings(t0c0));
     auto&& c1p0 = r0.columns()[0].destination();
 
+    ASSERT_EQ(rp.columns().size(), 1);
+    EXPECT_EQ(rp.columns()[0].value(), scalar::variable_reference(c1p0));
+    auto&& c0p = rp.columns()[0].variable();
+
     ASSERT_EQ(r2.columns().size(), 1);
-    EXPECT_EQ(r2.columns()[0], c1p0);
+    EXPECT_EQ(r2.columns()[0], c0p);
 
     dump(result);
 }

@@ -7,7 +7,6 @@
 #include <takatori/relation/filter.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/emit.h>
-#include <takatori/relation/intermediate/escape.h>
 #include <takatori/relation/intermediate/join.h>
 
 #include <yugawara/binding/factory.h>
@@ -21,11 +20,24 @@ namespace yugawara::analyzer::details {
 // import test utils
 using namespace ::yugawara::testing;
 
+using ::takatori::util::downcast;
 using ::takatori::util::clone_unique;
 
 class expand_relation_subquery_test : public ::testing::Test {
 protected:
     binding::factory bindings;
+
+    scalar::variable_reference wrap(descriptor::variable variable) {
+        return scalar::variable_reference { std::move(variable) };
+    }
+
+    descriptor::variable unwrap(scalar::expression const& expr) {
+        if (expr.kind() == scalar::variable_reference::tag) {
+            auto&& varref = downcast<scalar::variable_reference>(expr);
+            return varref.variable();
+        }
+        throw std::domain_error("expected variable_reference");
+    }
 };
 
 TEST_F(expand_relation_subquery_test, simple) {
@@ -59,21 +71,21 @@ TEST_F(expand_relation_subquery_test, simple) {
 
     expand_relation_subquery(graph);
 
-    // values - escape - emit
+    // values - project - emit
     ASSERT_EQ(graph.size(), 3);
     ASSERT_TRUE(graph.contains(g0r0));
     ASSERT_TRUE(graph.contains(r1));
     auto&& values = g0r0;
-    auto&& escape = next<relation::intermediate::escape>(g0r0.output());
+    auto&& project = next<relation::project>(g0r0.output());
     auto&& emit = r1;
 
     ASSERT_EQ(values.columns().size(), 1);
     auto&& g0c0m = values.columns()[0];
     EXPECT_NE(g0c0m, g0c0);
 
-    ASSERT_EQ(escape.mappings().size(), 1);
-    EXPECT_EQ(escape.mappings()[0].source(), g0c0m);
-    EXPECT_EQ(escape.mappings()[0].destination(), r0o0);
+    ASSERT_EQ(project.columns().size(), 1);
+    EXPECT_EQ(project.columns()[0].value(), wrap(g0c0m));
+    EXPECT_EQ(project.columns()[0].variable(), r0o0);
 
     ASSERT_EQ(emit.columns().size(), 1);
     EXPECT_EQ(emit.columns()[0].source(), r0o0);
@@ -135,7 +147,7 @@ TEST_F(expand_relation_subquery_test, complex) {
     auto&& values = g0r0;
     auto&& filter = g0r1;
     auto&& project = g0r2;
-    auto&& escape = next<relation::intermediate::escape>(g0r2.output());
+    auto&& escape = next<relation::project>(g0r2.output());
     auto&& emit = r1;
 
     ASSERT_EQ(values.columns().size(), 1);
@@ -153,9 +165,9 @@ TEST_F(expand_relation_subquery_test, complex) {
             constant(1),
     }));
 
-    ASSERT_EQ(escape.mappings().size(), 1);
-    EXPECT_EQ(escape.mappings()[0].source(), g0c1m);
-    EXPECT_EQ(escape.mappings()[0].destination(), r0o0);
+    ASSERT_EQ(escape.columns().size(), 1);
+    EXPECT_EQ(escape.columns()[0].value(), wrap(g0c1m));
+    EXPECT_EQ(escape.columns()[0].variable(), r0o0);
 
     ASSERT_EQ(emit.columns().size(), 1);
     EXPECT_EQ(emit.columns()[0].source(), r0o0);
@@ -246,11 +258,11 @@ TEST_F(expand_relation_subquery_test, multiple_subqueries) {
 
     expand_relation_subquery(graph);
 
-    /* values:v0 - escape:e0 -\
-     *                         join:j0 -\
-     * values:v1 - escape:e1 -/          join:j1 - emit:e2
-     *                                  /
-     * values:v2 - escape:e2 ----------/
+    /* values:v0 - project:e0 -\
+     *                          join:j0 -\
+     * values:v1 - project:e1 -/          join:j1 - emit:e2
+     *                                   /
+     * values:v2 - project:e2 ----------/
      */
     ASSERT_EQ(graph.size(), 9);
     ASSERT_TRUE(graph.contains(g0r0));
@@ -262,9 +274,9 @@ TEST_F(expand_relation_subquery_test, multiple_subqueries) {
     auto&& v0 = g0r0;
     auto&& v1 = g1r0;
     auto&& v2 = g2r0;
-    auto&& e0 = next<relation::intermediate::escape>(v0.output());
-    auto&& e1 = next<relation::intermediate::escape>(v1.output());
-    auto&& e2 = next<relation::intermediate::escape>(v2.output());
+    auto&& e0 = next<relation::project>(v0.output());
+    auto&& e1 = next<relation::project>(v1.output());
+    auto&& e2 = next<relation::project>(v2.output());
     auto&& j0 = r3;
     auto&& j1 = r4;
     auto&& emit = r5;
@@ -284,17 +296,17 @@ TEST_F(expand_relation_subquery_test, multiple_subqueries) {
     auto&& g2c0m = v2.columns()[0];
     EXPECT_NE(g2c0m, g2c0);
 
-    ASSERT_EQ(e0.mappings().size(), 1);
-    EXPECT_EQ(e0.mappings()[0].source(), g0c0m);
-    EXPECT_EQ(e0.mappings()[0].destination(), r0o0);
+    ASSERT_EQ(e0.columns().size(), 1);
+    EXPECT_EQ(e0.columns()[0].value(), wrap(g0c0m));
+    EXPECT_EQ(e0.columns()[0].variable(), r0o0);
 
-    ASSERT_EQ(e1.mappings().size(), 1);
-    EXPECT_EQ(e1.mappings()[0].source(), g1c0m);
-    EXPECT_EQ(e1.mappings()[0].destination(), r1o0);
+    ASSERT_EQ(e1.columns().size(), 1);
+    EXPECT_EQ(e1.columns()[0].value(), wrap(g1c0m));
+    EXPECT_EQ(e1.columns()[0].variable(), r1o0);
 
-    ASSERT_EQ(e2.mappings().size(), 1);
-    EXPECT_EQ(e2.mappings()[0].source(), g2c0m);
-    EXPECT_EQ(e2.mappings()[0].destination(), r2o0);
+    ASSERT_EQ(e2.columns().size(), 1);
+    EXPECT_EQ(e2.columns()[0].value(), wrap(g2c0m));
+    EXPECT_EQ(e2.columns()[0].variable(), r2o0);
 
     ASSERT_EQ(emit.columns().size(), 3);
     EXPECT_EQ(emit.columns()[0].source(), r0o0);
@@ -359,14 +371,14 @@ TEST_F(expand_relation_subquery_test, nesting) {
 
     expand_relation_subquery(graph);
 
-    // values - escape:e0 - escape:e1 - escape:e2 - emit
+    // values - project:e0 - project:e1 - project:e2 - emit
     ASSERT_EQ(graph.size(), 5);
     ASSERT_TRUE(graph.contains(g0r0));
     ASSERT_TRUE(graph.contains(r1));
     auto&& values = g0r0;
-    auto&& e0 = next<relation::intermediate::escape>(g0r0.output());
-    auto&& e1 = next<relation::intermediate::escape>(e0.output());
-    auto&& e2 = next<relation::intermediate::escape>(e1.output());
+    auto&& e0 = next<relation::project>(g0r0.output());
+    auto&& e1 = next<relation::project>(e0.output());
+    auto&& e2 = next<relation::project>(e1.output());
     auto&& emit = r1;
     EXPECT_TRUE(e2.output() > emit.input());
 
@@ -374,19 +386,19 @@ TEST_F(expand_relation_subquery_test, nesting) {
     auto&& g0c0m = values.columns()[0];
     EXPECT_NE(g0c0m, g0c0);
 
-    ASSERT_EQ(e0.mappings().size(), 1);
-    EXPECT_EQ(e0.mappings()[0].source(), g0c0m);
-    auto g1c0m = e0.mappings()[0].destination();
+    ASSERT_EQ(e0.columns().size(), 1);
+    EXPECT_EQ(e0.columns()[0].value(), wrap(g0c0m));
+    auto g1c0m = e0.columns()[0].variable();
     EXPECT_NE(g1c0m, g1c0);
 
-    ASSERT_EQ(e1.mappings().size(), 1);
-    EXPECT_EQ(e1.mappings()[0].source(), g1c0m);
-    auto g2c0m = e1.mappings()[0].destination();
+    ASSERT_EQ(e1.columns().size(), 1);
+    EXPECT_EQ(e1.columns()[0].value(), wrap(g1c0m));
+    auto g2c0m = e1.columns()[0].variable();
     EXPECT_NE(g2c0m, g2c0);
 
-    ASSERT_EQ(e2.mappings().size(), 1);
-    EXPECT_EQ(e2.mappings()[0].source(), g2c0m);
-    EXPECT_EQ(e2.mappings()[0].destination(), r0o0);
+    ASSERT_EQ(e2.columns().size(), 1);
+    EXPECT_EQ(e2.columns()[0].value(), wrap(g2c0m));
+    EXPECT_EQ(e2.columns()[0].variable(), r0o0);
 
     ASSERT_EQ(emit.columns().size(), 1);
     EXPECT_EQ(emit.columns()[0].source(), r0o0);
@@ -445,9 +457,9 @@ TEST_F(expand_relation_subquery_test, self_join) {
     ASSERT_TRUE(graph.contains(r2));
     ASSERT_TRUE(graph.contains(r3));
     auto&& v0 = g0r0;
-    auto&& e0 = next<relation::intermediate::escape>(g0r0.output());
+    auto&& e0 = next<relation::project>(g0r0.output());
     auto&& join = r2;
-    auto&& e1 = next<relation::intermediate::escape>(join.right());
+    auto&& e1 = next<relation::project>(join.right());
     auto&& v1 = next<relation::values>(e1.input());
     auto&& emit = r3;
 
@@ -460,13 +472,13 @@ TEST_F(expand_relation_subquery_test, self_join) {
     EXPECT_NE(g1c0m, g0c0);
     EXPECT_NE(g1c0m, g0c0m);
 
-    ASSERT_EQ(e0.mappings().size(), 1);
-    EXPECT_EQ(e0.mappings()[0].source(), g0c0m);
-    EXPECT_EQ(e0.mappings()[0].destination(), r0o0);
+    ASSERT_EQ(e0.columns().size(), 1);
+    EXPECT_EQ(e0.columns()[0].value(), wrap(g0c0m));
+    EXPECT_EQ(e0.columns()[0].variable(), r0o0);
 
-    ASSERT_EQ(e1.mappings().size(), 1);
-    EXPECT_EQ(e1.mappings()[0].source(), g1c0m);
-    EXPECT_EQ(e1.mappings()[0].destination(), r1o0);
+    ASSERT_EQ(e1.columns().size(), 1);
+    EXPECT_EQ(e1.columns()[0].value(), wrap(g1c0m));
+    EXPECT_EQ(e1.columns()[0].variable(), r1o0);
 
     ASSERT_EQ(emit.columns().size(), 2);
     EXPECT_EQ(emit.columns()[0].source(), r0o0);

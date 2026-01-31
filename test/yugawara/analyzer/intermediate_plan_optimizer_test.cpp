@@ -9,11 +9,11 @@
 #include <takatori/relation/scan.h>
 #include <takatori/relation/emit.h>
 #include <takatori/relation/filter.h>
+#include <takatori/relation/project.h>
 #include <takatori/relation/join_scan.h>
 
 #include <takatori/relation/intermediate/distinct.h>
 #include <takatori/relation/intermediate/join.h>
-#include <takatori/relation/intermediate/escape.h>
 
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/configurable_provider.h>
@@ -575,16 +575,16 @@ TEST_F(intermediate_plan_optimizer_test, subquery) {
     ASSERT_TRUE(r.contains(in));
     ASSERT_TRUE(r.contains(out));
 
-    auto&& escape = next<relation::intermediate::escape>(in.output());
+    auto&& escape = next<relation::project>(in.output());
 
     ASSERT_EQ(in.columns().size(), 1);
     EXPECT_EQ(in.columns()[0].source(), bindings(t0c0));
     auto c0m = in.columns()[0].destination();
     EXPECT_NE(c0m, c0);
 
-    ASSERT_EQ(escape.mappings().size(), 1);
-    EXPECT_EQ(escape.mappings()[0].source(), c0m);
-    EXPECT_EQ(escape.mappings()[0].destination(), o0);
+    ASSERT_EQ(escape.columns().size(), 1);
+    EXPECT_EQ(escape.columns()[0].value(), scalar::variable_reference(c0m));
+    EXPECT_EQ(escape.columns()[0].variable(), o0);
 
     ASSERT_EQ(out.columns().size(), 1);
     EXPECT_EQ(out.columns()[0].source(), o0);
