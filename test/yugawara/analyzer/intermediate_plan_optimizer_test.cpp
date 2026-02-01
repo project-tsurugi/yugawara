@@ -571,23 +571,17 @@ TEST_F(intermediate_plan_optimizer_test, subquery) {
     intermediate_plan_optimizer optimizer { options() };
     optimizer(r);
 
-    ASSERT_EQ(r.size(), 3);
+    ASSERT_EQ(r.size(), 2);
     ASSERT_TRUE(r.contains(in));
     ASSERT_TRUE(r.contains(out));
-
-    auto&& escape = next<relation::project>(in.output());
 
     ASSERT_EQ(in.columns().size(), 1);
     EXPECT_EQ(in.columns()[0].source(), bindings(t0c0));
     auto c0m = in.columns()[0].destination();
     EXPECT_NE(c0m, c0);
 
-    ASSERT_EQ(escape.columns().size(), 1);
-    EXPECT_EQ(escape.columns()[0].value(), scalar::variable_reference(c0m));
-    EXPECT_EQ(escape.columns()[0].variable(), o0);
-
     ASSERT_EQ(out.columns().size(), 1);
-    EXPECT_EQ(out.columns()[0].source(), o0);
+    EXPECT_EQ(out.columns()[0].source(), c0m);
 }
 
 } // namespace yugawara::analyzer
