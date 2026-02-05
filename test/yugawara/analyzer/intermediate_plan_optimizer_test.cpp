@@ -95,6 +95,41 @@ TEST_F(intermediate_plan_optimizer_test, simple) {
     EXPECT_EQ(out.columns()[0].source(), c0);
 }
 
+TEST_F(intermediate_plan_optimizer_test, remove_variable_aliases) {
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    auto a0 = bindings.stream_variable("a0");
+    auto&& project = r.insert(relation::project {
+            relation::project::column {
+                    a0,
+                    scalar::variable_reference { c0 },
+            },
+    });
+    auto&& out = r.insert(relation::emit { a0 });
+    in.output() >> project.input();
+    project.output() >> out.input();
+
+    intermediate_plan_optimizer optimizer { options() };
+    optimizer(r);
+
+    ASSERT_EQ(r.size(), 2);
+    ASSERT_TRUE(r.contains(in));
+    ASSERT_TRUE(r.contains(out));
+
+    ASSERT_EQ(in.columns().size(), 1);
+    EXPECT_EQ(in.columns()[0].source(), bindings(t0c0));
+    EXPECT_EQ(in.columns()[0].destination(), c0);
+
+    ASSERT_EQ(out.columns().size(), 1);
+    EXPECT_EQ(out.columns()[0].source(), c0);
+}
+
 TEST_F(intermediate_plan_optimizer_test, remove_redundant_stream_variables) {
     relation::graph_type r;
     auto c0 = bindings.stream_variable("c0");
