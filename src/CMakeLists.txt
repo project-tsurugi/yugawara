@@ -101,7 +101,7 @@ add_library(yugawara
     yugawara/analyzer/details/boolean_constants.cpp
     yugawara/analyzer/details/intermediate_plan_optimizer_options.cpp
     yugawara/analyzer/details/decompose_projections.cpp
-    yugawara/analyzer/details/remove_redundant_stream_variables.cpp
+    yugawara/analyzer/details/remove_unused_stream_variables.cpp
     yugawara/analyzer/details/stream_variable_flow_info.cpp
     yugawara/analyzer/details/stream_variable_flow_info_entry.cpp
     yugawara/analyzer/details/decompose_predicate.cpp

@@ -1,4 +1,4 @@
-#include <yugawara/analyzer/details/remove_redundant_stream_variables.h>
+#include <yugawara/analyzer/details/remove_unused_stream_variables.h>
 
 #include <gtest/gtest.h>
 
@@ -42,7 +42,7 @@ namespace yugawara::analyzer::details {
 // import test utils
 using namespace ::yugawara::testing;
 
-class remove_redundant_stream_variables_test : public ::testing::Test {
+class remove_unused_stream_variables_test : public ::testing::Test {
 protected:
     type::repository types;
     binding::factory bindings;
@@ -96,11 +96,11 @@ protected:
     });
 
     void apply(relation::graph_type& graph) {
-        details::remove_redundant_stream_variables(graph);
+        details::remove_unused_stream_variables(graph);
     }
 };
 
-TEST_F(remove_redundant_stream_variables_test, find) {
+TEST_F(remove_unused_stream_variables_test, find) {
     /*
      * find:r0 - emit:ro
      */
@@ -131,7 +131,7 @@ TEST_F(remove_redundant_stream_variables_test, find) {
     EXPECT_EQ(r0.columns()[0].destination(), c1);
 }
 
-TEST_F(remove_redundant_stream_variables_test, scan) {
+TEST_F(remove_unused_stream_variables_test, scan) {
     /*
      * scan:r0 - emit:ro
      */
@@ -159,7 +159,7 @@ TEST_F(remove_redundant_stream_variables_test, scan) {
     EXPECT_EQ(r0.columns()[0].destination(), c1);
 }
 
-TEST_F(remove_redundant_stream_variables_test, values) {
+TEST_F(remove_unused_stream_variables_test, values) {
     /*
      * find:r0 - emit:ro
      */
@@ -203,7 +203,7 @@ TEST_F(remove_redundant_stream_variables_test, values) {
     }
 }
 
-TEST_F(remove_redundant_stream_variables_test, join_relation) {
+TEST_F(remove_unused_stream_variables_test, join_relation) {
     /*
      *  scan:rl - join_relation:r0 - emit:ro
      *           /
@@ -261,7 +261,7 @@ TEST_F(remove_redundant_stream_variables_test, join_relation) {
     EXPECT_EQ(rr.columns()[1].destination(), cr2);
 }
 
-TEST_F(remove_redundant_stream_variables_test, join_find) {
+TEST_F(remove_unused_stream_variables_test, join_find) {
     /*
      * scan:r0 - join_find:r1 - emit:ro
      */
@@ -325,7 +325,7 @@ TEST_F(remove_redundant_stream_variables_test, join_find) {
     EXPECT_EQ(r1.condition(), compare(c1, j1));
 }
 
-TEST_F(remove_redundant_stream_variables_test, join_scan) {
+TEST_F(remove_unused_stream_variables_test, join_scan) {
     /*
      * scan:r0 - join_scan:r1 - emit:ro
      */
@@ -391,7 +391,7 @@ TEST_F(remove_redundant_stream_variables_test, join_scan) {
     EXPECT_EQ(r1.condition(), compare(c1, j1));
 }
 
-TEST_F(remove_redundant_stream_variables_test, apply) {
+TEST_F(remove_unused_stream_variables_test, apply) {
     /*
      * scan:r0 - apply:r1 - emit:ro
      */
@@ -455,7 +455,7 @@ TEST_F(remove_redundant_stream_variables_test, apply) {
     EXPECT_EQ(r1.columns()[0].variable(), x1);
 }
 
-TEST_F(remove_redundant_stream_variables_test, project) {
+TEST_F(remove_unused_stream_variables_test, project) {
     /*
      * scan:r0 - project:r1 - emit:ro
      */
@@ -539,7 +539,7 @@ TEST_F(remove_redundant_stream_variables_test, project) {
     EXPECT_EQ(r1.columns()[2].value(), constant(3));
 }
 
-TEST_F(remove_redundant_stream_variables_test, project_dead) {
+TEST_F(remove_unused_stream_variables_test, project_dead) {
     /*
      * scan:r0 - project:r1 - emit:ro
      */
@@ -584,7 +584,7 @@ TEST_F(remove_redundant_stream_variables_test, project_dead) {
     EXPECT_EQ(r0.columns()[1].destination(), c2);
 }
 
-TEST_F(remove_redundant_stream_variables_test, filter) {
+TEST_F(remove_unused_stream_variables_test, filter) {
     /*
      * scan:r0 - filter:r1 - emit:ro
      */
@@ -630,7 +630,7 @@ TEST_F(remove_redundant_stream_variables_test, filter) {
     }));
 }
 
-TEST_F(remove_redundant_stream_variables_test, buffer) {
+TEST_F(remove_unused_stream_variables_test, buffer) {
     /*
      * scan:r0 - buffer:r1 - emit:ro0
      *                 \
@@ -669,7 +669,7 @@ TEST_F(remove_redundant_stream_variables_test, buffer) {
     EXPECT_EQ(r0.columns()[1].destination(), c2);
 }
 
-TEST_F(remove_redundant_stream_variables_test, identify_keep) {
+TEST_F(remove_unused_stream_variables_test, identify_keep) {
     /*
      * scan:r0 - identify:r1 - filter:r2 - emit:ro
      */
@@ -724,7 +724,7 @@ TEST_F(remove_redundant_stream_variables_test, identify_keep) {
     }));
 }
 
-TEST_F(remove_redundant_stream_variables_test, identify_dead) {
+TEST_F(remove_unused_stream_variables_test, identify_dead) {
     /*
      * scan:r0 - identify:r1 - filter:r2 - emit:ro
      */
@@ -779,7 +779,7 @@ TEST_F(remove_redundant_stream_variables_test, identify_dead) {
     }));
 }
 
-TEST_F(remove_redundant_stream_variables_test, aggregate_relation) {
+TEST_F(remove_unused_stream_variables_test, aggregate_relation) {
     /*
      * scan:r0 - aggregate_relation:r1 - emit:ro
      */
@@ -838,7 +838,7 @@ TEST_F(remove_redundant_stream_variables_test, aggregate_relation) {
     EXPECT_EQ(a0.destination(), x2);
 }
 
-TEST_F(remove_redundant_stream_variables_test, aggregate_relation_key_only) {
+TEST_F(remove_unused_stream_variables_test, aggregate_relation_key_only) {
     /*
      * scan:r0 - aggregate_relation:r1 - emit:ro
      */
@@ -879,7 +879,7 @@ TEST_F(remove_redundant_stream_variables_test, aggregate_relation_key_only) {
     EXPECT_EQ(r1.group_keys()[0], c0);
 }
 
-TEST_F(remove_redundant_stream_variables_test, distinct_relation) {
+TEST_F(remove_unused_stream_variables_test, distinct_relation) {
     /*
      * scan:r0 - distinct_relation:r1 - emit:ro
      */
@@ -918,7 +918,7 @@ TEST_F(remove_redundant_stream_variables_test, distinct_relation) {
     EXPECT_EQ(r1.group_keys()[0], c0);
 }
 
-TEST_F(remove_redundant_stream_variables_test, limit_relation) {
+TEST_F(remove_unused_stream_variables_test, limit_relation) {
     /*
      * scan:r0 - limit_relation:r1 - emit:ro
      */
@@ -963,7 +963,7 @@ TEST_F(remove_redundant_stream_variables_test, limit_relation) {
     EXPECT_EQ(r1.sort_keys()[0].variable(), c1);
 }
 
-TEST_F(remove_redundant_stream_variables_test, intersection_relation) {
+TEST_F(remove_unused_stream_variables_test, intersection_relation) {
     /*
      * scan:rl -\
      *           intersection_relation:r0 - emit:ro
@@ -1020,7 +1020,7 @@ TEST_F(remove_redundant_stream_variables_test, intersection_relation) {
     EXPECT_EQ(rr.columns()[1].destination(), cr2);
 }
 
-TEST_F(remove_redundant_stream_variables_test, difference_relation) {
+TEST_F(remove_unused_stream_variables_test, difference_relation) {
     /*
      * scan:rl -\
      *           difference_relation:r0 - emit:ro
@@ -1077,7 +1077,7 @@ TEST_F(remove_redundant_stream_variables_test, difference_relation) {
     EXPECT_EQ(rr.columns()[1].destination(), cr2);
 }
 
-TEST_F(remove_redundant_stream_variables_test, emit) {
+TEST_F(remove_unused_stream_variables_test, emit) {
     /*
      * scan:r0 - emit:ro
      */
@@ -1110,7 +1110,7 @@ TEST_F(remove_redundant_stream_variables_test, emit) {
     EXPECT_EQ(r1.columns()[0].source(), c1);
 }
 
-TEST_F(remove_redundant_stream_variables_test, write) {
+TEST_F(remove_unused_stream_variables_test, write) {
     /*
      * scan:r0 - write:r1
      */
@@ -1157,7 +1157,7 @@ TEST_F(remove_redundant_stream_variables_test, write) {
     EXPECT_EQ(r1.columns()[0].destination(), t1c2);
 }
 
-TEST_F(remove_redundant_stream_variables_test, escape) {
+TEST_F(remove_unused_stream_variables_test, escape) {
     /*
      * scan:r0 - escape:r1 - emit:ro
      */

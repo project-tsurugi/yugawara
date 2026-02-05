@@ -96,7 +96,7 @@ add_test_executable(yugawara/analyzer/details/remove_variable_aliases_test.cpp)
 
 # optimizer
 add_test_executable(yugawara/analyzer/details/decompose_predicate_test.cpp)
-add_test_executable(yugawara/analyzer/details/remove_redundant_stream_variables_test.cpp)
+add_test_executable(yugawara/analyzer/details/remove_unused_stream_variables_test.cpp)
 add_test_executable(yugawara/analyzer/details/stream_variable_flow_info_test.cpp)
 add_test_executable(yugawara/analyzer/details/predicate_decomposer_test.cpp)
 add_test_executable(yugawara/analyzer/details/collect_stream_variables_test.cpp)

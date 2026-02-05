@@ -4,7 +4,7 @@
 
 #include "details/expand_relation_subquery.h"
 #include "details/remove_variable_aliases.h"
-#include "details/remove_redundant_stream_variables.h"
+#include "details/remove_unused_stream_variables.h"
 #include "details/remove_redundant_conditions.h"
 #include "details/push_down_filters.h"
 #include "details/flow_volume_info.h"
@@ -46,7 +46,7 @@ void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& g
     details::expand_relation_subquery(graph);
     details::remove_variable_aliases(graph);
     // details::decompose_projections(graph);
-    details::remove_redundant_stream_variables(graph);
+    details::remove_unused_stream_variables(graph);
     details::collect_local_variables(
             graph,
             options_.runtime_features().contains(runtime_feature::always_inline_scalar_local_variables));

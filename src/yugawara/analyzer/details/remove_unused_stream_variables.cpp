@@ -1,4 +1,4 @@
-#include "remove_redundant_stream_variables.h"
+#include "remove_unused_stream_variables.h"
 
 #include <vector>
 
@@ -320,7 +320,7 @@ private:
 
 } // namespace
 
-void remove_redundant_stream_variables(::takatori::relation::graph_type& graph) {
+void remove_unused_stream_variables(::takatori::relation::graph_type& graph) {
     engine e {};
     e.process(graph);
 }
