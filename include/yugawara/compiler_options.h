@@ -36,6 +36,12 @@ public:
     static constexpr bool default_enable_disjunction_range_hinting = true;
 
     /**
+     * @brief the default value for enabling external variable inlining.
+     * @see enable_external_variable_inlining()
+     */
+    static constexpr bool default_enable_external_variable_inlining = false;
+
+    /**
      * @brief creates a new instance with default options.
      * @param runtime_features the supported runtime features
      * @param storage_processor the storage element prototype processor for accepting storage element definitions
@@ -116,6 +122,17 @@ public:
     /// @copydoc enable_disjunction_range_hinting()
     [[nodiscard]] bool enable_disjunction_range_hinting() const noexcept;
 
+    /**
+     * @brief returns whether to inline external variables.
+     * @details if disabled, the optimizer keeps external variable references as-is.
+     * @return true if external variable inlining is enabled
+     * @return false otherwise
+     */
+    [[nodiscard]] bool& enable_external_variable_inlining() noexcept;
+
+    /// @copydoc enable_external_variable_inlining()
+    [[nodiscard]] bool enable_external_variable_inlining() const noexcept;
+
 private:
     runtime_feature_set runtime_features_ { default_runtime_features };
     restricted_feature_set restricted_features_ { default_restricted_features };
@@ -123,6 +140,7 @@ private:
     ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> index_estimator_ {};
 
     bool enable_disjunction_range_hinting_ { default_enable_disjunction_range_hinting };
+    bool enable_external_variable_inlining_ { default_enable_external_variable_inlining };
 };
 
 } // namespace yugawara

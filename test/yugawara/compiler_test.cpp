@@ -33,6 +33,7 @@
 
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/configurable_provider.h>
+#include <yugawara/variable/declaration.h>
 #include <yugawara/extension/relation/subquery.h>
 
 #include <yugawara/testing/utils.h>
@@ -1295,6 +1296,91 @@ TEST_F(compiler_test, feat_cte) {
 
     ASSERT_EQ(r2.columns().size(), 1);
     EXPECT_EQ(r2.columns()[0], c1p0);
+
+    dump(result);
+}
+
+TEST_F(compiler_test, fix_external_variable_inlining) {
+    /*
+     * SELECT c0, :q0 FROM t0
+     * =>
+     * r0:scan t0 (c0, c1, c2)
+     * r1:project (x0=c0, x1=:q0)
+     * r2:emit (x0, x1)
+     * =>
+     * r0:scan t0 (c0)
+     * r1:project (x1=:q0)
+     * r2:emit (c0, x1)
+     */
+    relation::graph_type graph;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = graph.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+                    { bindings(t0c1), c1 },
+                    { bindings(t0c2), c2 },
+            },
+    });
+    auto q0 = bindings.external_variable(variable::declaration {
+            "q0",
+            t::int4 {},
+    });
+    auto x0 = bindings.stream_variable("x0");
+    auto x1 = bindings.stream_variable("x1");
+    auto& r1 = graph.insert(relation::project {
+            {
+                    relation::project::column {
+                            x0,
+                            scalar::variable_reference { c0 },
+                    },
+                    relation::project::column {
+                            x1,
+                            scalar::variable_reference { q0 },
+                    },
+            },
+    });
+    auto&& r2 = graph.insert(relation::emit {
+            x0,
+            x1,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    auto opts = options();
+    opts.enable_external_variable_inlining() = false;
+    auto result = compiler()(opts, std::move(graph));
+    ASSERT_TRUE(result);
+
+    auto&& c = downcast<statement::execute>(result.statement());
+
+    /*
+     * p0:
+     *   r0:scan t0 (c0)
+     *   r1:project (x1=:q0)
+     *   r2:emit c0, x1
+     */
+    ASSERT_EQ(c.execution_plan().size(), 1);
+    auto&& p0 = find(c.execution_plan(), r0);
+
+    ASSERT_EQ(p0.operators().size(), 3);
+    ASSERT_TRUE(p0.operators().contains(r0));
+    ASSERT_TRUE(p0.operators().contains(r1));
+    ASSERT_TRUE(p0.operators().contains(r2));
+
+    ASSERT_EQ(r0.columns().size(), 1);
+    EXPECT_EQ(r0.columns()[0].source(), bindings(t0c0));
+    auto&& c1p0 = r0.columns()[0].destination();
+
+    ASSERT_EQ(r1.columns().size(), 1);
+    auto&& x1p0 = r1.columns()[0].variable();
+    EXPECT_EQ(r1.columns()[0].value(), scalar::variable_reference { q0 });
+
+    ASSERT_EQ(r2.columns().size(), 2);
+    EXPECT_EQ(r2.columns()[0], c1p0);
+    EXPECT_EQ(r2.columns()[1], x1p0);
 
     dump(result);
 }

@@ -64,4 +64,12 @@ bool compiler_options::enable_disjunction_range_hinting() const noexcept {
     return enable_disjunction_range_hinting_;
 }
 
+bool& compiler_options::enable_external_variable_inlining() noexcept {
+    return enable_external_variable_inlining_;
+}
+
+bool compiler_options::enable_external_variable_inlining() const noexcept {
+    return enable_external_variable_inlining_;
+}
+
 } // namespace yugawara

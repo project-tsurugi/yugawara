@@ -11,6 +11,8 @@
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/string_builder.h>
 
+#include <yugawara/binding/extract.h>
+
 namespace yugawara::analyzer::details {
 
 namespace descriptor = ::takatori::descriptor;
@@ -26,8 +28,11 @@ namespace {
 
 class engine {
 public:
-    explicit engine(relation::graph_type& graph) :
-        graph_ { graph }
+    explicit engine(
+            relation::graph_type& graph,
+            bool extract_host_variables) :
+        graph_ { graph },
+        extract_external_variables_ { extract_host_variables }
     {}
 
     void process() {
@@ -96,9 +101,8 @@ public:
             rewrite(column.value());
 
             // register if this column is an alias definition
-            if (column.value().kind() == scalar::variable_reference::tag) {
-                auto&& vref = unsafe_downcast<scalar::variable_reference>(column.value());
-                define_alias(vref.variable(), column.variable());
+            if (auto original = extract_variable(column.value())) {
+                define_alias(*original, column.variable());
 
                 // removes this alias column
                 iter = columns.erase(iter);
@@ -220,6 +224,7 @@ public:
 
 private:
     relation::graph_type& graph_;
+    bool extract_external_variables_;
     ::tsl::hopscotch_map<
         descriptor::variable,
         descriptor::variable> alias_map_; // alias -> original
@@ -233,6 +238,25 @@ private:
         if (!success) {
             throw_exception(std::logic_error("redefine variable alias"));
         }
+    }
+
+    [[nodiscard]] optional_ptr<descriptor::variable const> extract_variable(scalar::expression const& expr) const {
+        if (expr.kind() != scalar::variable_reference::tag) {
+            return {};
+        }
+        auto&& var_ref = unsafe_downcast<scalar::variable_reference>(expr);
+        auto var_kind = binding::kind_of(var_ref.variable());
+
+        // always extract stream variables
+        if (var_kind == binding::variable_info_kind::stream_variable) {
+            return var_ref.variable();
+        }
+        // optionally extract external variables
+        if (extract_external_variables_ && var_kind == binding::variable_info_kind::external_variable) {
+            return var_ref.variable();
+        }
+        // otherwise, do not extract
+        return {};
     }
 
     void rewrite(descriptor::variable& variable) {
@@ -293,8 +317,11 @@ private:
 
 } // namespace
 
-void remove_variable_aliases(relation::graph_type& graph) {
-    engine e { graph };
+void remove_variable_aliases(relation::graph_type& graph, bool extract_external_variables) {
+    engine e {
+            graph,
+            extract_external_variables,
+    };
     e.process();
 }
 

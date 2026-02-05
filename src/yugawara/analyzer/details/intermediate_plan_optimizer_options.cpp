@@ -36,4 +36,11 @@ bool intermediate_plan_optimizer_options::enable_disjunction_range_hinting() con
     return enable_disjunction_range_hinting_;
 }
 
+bool& intermediate_plan_optimizer_options::enable_external_variable_inlining() noexcept {
+    return enable_external_variable_inlining_;
+}
+
+bool intermediate_plan_optimizer_options::enable_external_variable_inlining() const noexcept {
+    return enable_external_variable_inlining_;
+}
 } // namespace yugawara::analyzer::details

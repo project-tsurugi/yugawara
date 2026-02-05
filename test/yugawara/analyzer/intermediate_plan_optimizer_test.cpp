@@ -18,6 +18,7 @@
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/extension/relation/subquery.h>
+#include <yugawara/variable/declaration.h>
 
 #include <yugawara/testing/utils.h>
 
@@ -128,6 +129,105 @@ TEST_F(intermediate_plan_optimizer_test, remove_variable_aliases) {
 
     ASSERT_EQ(out.columns().size(), 1);
     EXPECT_EQ(out.columns()[0].source(), c0);
+}
+
+TEST_F(intermediate_plan_optimizer_test, remove_variable_aliases_enable_external_variable_inlining) {
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    auto q0 = bindings.external_variable(variable::declaration {
+            "q0",
+            t::int4 {},
+    });
+    auto a0 = bindings.stream_variable("a0");
+    auto a1 = bindings.stream_variable("a1");
+    auto&& project = r.insert(relation::project {
+            relation::project::column {
+                    a0,
+                    scalar::variable_reference { c0 },
+            },
+            relation::project::column {
+                    a1,
+                    scalar::variable_reference { q0 },
+            },
+    });
+    auto&& out = r.insert(relation::emit { a0, a1 });
+    in.output() >> project.input();
+    project.output() >> out.input();
+
+    auto opts = options();
+    opts.enable_external_variable_inlining() = true;
+    intermediate_plan_optimizer optimizer { std::move(opts) };
+    optimizer(r);
+
+    ASSERT_EQ(r.size(), 2);
+    ASSERT_TRUE(r.contains(in));
+    ASSERT_TRUE(r.contains(out));
+
+    ASSERT_EQ(in.columns().size(), 1);
+    EXPECT_EQ(in.columns()[0].source(), bindings(t0c0));
+    EXPECT_EQ(in.columns()[0].destination(), c0);
+
+    ASSERT_EQ(out.columns().size(), 2);
+    EXPECT_EQ(out.columns()[0].source(), c0);
+    EXPECT_EQ(out.columns()[1].source(), q0);
+}
+
+TEST_F(intermediate_plan_optimizer_test, remove_variable_aliases_disable_external_variable_inlining) {
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    auto q0 = bindings.external_variable(variable::declaration {
+            "q0",
+            t::int4 {},
+    });
+    auto a0 = bindings.stream_variable("a0");
+    auto a1 = bindings.stream_variable("a1");
+    auto&& project = r.insert(relation::project {
+            relation::project::column {
+                    a0,
+                    scalar::variable_reference { c0 },
+            },
+            relation::project::column {
+                    a1,
+                    scalar::variable_reference { q0 },
+            },
+    });
+    auto&& out = r.insert(relation::emit { a0, a1 });
+    in.output() >> project.input();
+    project.output() >> out.input();
+
+    auto opts = options();
+    opts.enable_external_variable_inlining() = false;
+    intermediate_plan_optimizer optimizer { std::move(opts) };
+    optimizer(r);
+
+    ASSERT_EQ(r.size(), 3);
+    ASSERT_TRUE(r.contains(in));
+    ASSERT_TRUE(r.contains(project));
+    ASSERT_TRUE(r.contains(out));
+
+    ASSERT_EQ(in.columns().size(), 1);
+    EXPECT_EQ(in.columns()[0].source(), bindings(t0c0));
+    EXPECT_EQ(in.columns()[0].destination(), c0);
+
+    ASSERT_EQ(project.columns().size(), 1);
+    EXPECT_EQ(project.columns()[0].variable(), a1);
+    EXPECT_EQ(project.columns()[0].value(), scalar::variable_reference(q0));
+
+    ASSERT_EQ(out.columns().size(), 2);
+    EXPECT_EQ(out.columns()[0].source(), c0);
+    EXPECT_EQ(out.columns()[1].source(), a1);
 }
 
 TEST_F(intermediate_plan_optimizer_test, remove_redundant_stream_variables) {

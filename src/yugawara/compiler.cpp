@@ -154,6 +154,7 @@ private:
         sub.options().runtime_features() = options_.runtime_features();
         sub.options().index_estimator(options_.index_estimator());
         sub.options().enable_disjunction_range_hinting() = options_.enable_disjunction_range_hinting();
+        sub.options().enable_external_variable_inlining() = options_.enable_external_variable_inlining();
         sub(graph);
     }
 

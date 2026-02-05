@@ -50,11 +50,23 @@ public:
     /// @copydoc enable_disjunction_range_hinting()
     [[nodiscard]] bool enable_disjunction_range_hinting() const noexcept;
 
+    /**
+     * @brief returns whether to inline external variables.
+     * @details if disabled, the optimizer keeps external variable references as-is.
+     * @return true if external variable inlining is enabled
+     * @return false otherwise
+     */
+    [[nodiscard]] bool& enable_external_variable_inlining() noexcept;
+
+    /// @copydoc enable_external_variable_inlining()
+    [[nodiscard]] bool enable_external_variable_inlining() const noexcept;
+
 private:
     ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> index_estimator_ {};
     runtime_feature_set runtime_features_ { runtime_feature_all };
 
     bool enable_disjunction_range_hinting_ {};
+    bool enable_external_variable_inlining_ {};
 };
 
 } // namespace yugawara::analyzer::details

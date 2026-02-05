@@ -35,6 +35,7 @@
 #include <yugawara/aggregate/declaration.h>
 #include <yugawara/extension/relation/subquery.h>
 #include <yugawara/storage/configurable_provider.h>
+#include <yugawara/variable/declaration.h>
 
 #include <yugawara/testing/utils.h>
 
@@ -107,8 +108,8 @@ protected:
             }
     });
 
-    void apply(relation::graph_type& graph) {
-        remove_variable_aliases(graph);
+    void apply(relation::graph_type& graph, bool extract_external_variables = false) {
+        remove_variable_aliases(graph, extract_external_variables);
         dump(graph, std::cout);
     }
 };
@@ -1410,6 +1411,92 @@ TEST_F(remove_variable_aliases_test, subquery) {
     r0.output() >> ro.input();
 
     EXPECT_THROW(apply(p), std::logic_error);
+}
+
+TEST_F(remove_variable_aliases_test, external_variable_keep) {
+    /*
+     * values:r0 - project:r1 - emit:ro
+     */
+    relation::graph_type p;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& r0 = p.insert(relation::values {
+            { c0, },
+            {
+                    { constant(0), },
+                    { constant(1), },
+            },
+    });
+    auto q0 = bindings.external_variable(variable::declaration {
+            "q0",
+            t::int4 {},
+    });
+    auto a0 = bindings.stream_variable("a0");
+    auto a1 = bindings.stream_variable("a1");
+    auto&& r1 = p.insert(relation::project {
+            relation::project::column { a0, scalar::variable_reference { c0 } },
+            relation::project::column { a1, scalar::variable_reference { q0 } },
+    });
+    auto&& ro = p.insert(relation::emit {
+            a0,
+            a1,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> ro.input();
+
+    apply(p, false);
+
+    ASSERT_EQ(r0.columns().size(), 1);
+    EXPECT_EQ(r0.columns()[0], c0);
+
+    ASSERT_EQ(r1.columns().size(), 1);
+    EXPECT_EQ(r1.columns()[0].variable(), a1);
+    EXPECT_EQ(r1.columns()[0].value(), scalar::variable_reference { q0 });
+
+    ASSERT_EQ(ro.columns().size(), 2);
+    EXPECT_EQ(ro.columns()[0].source(), c0);
+    EXPECT_EQ(ro.columns()[1].source(), a1);
+}
+
+TEST_F(remove_variable_aliases_test, external_variable_inline) {
+    /*
+     * values:r0 - project:r1 - emit:ro
+     */
+    relation::graph_type p;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& r0 = p.insert(relation::values {
+            { c0, },
+            {
+                    { constant(0), },
+                    { constant(1), },
+            },
+    });
+    auto q0 = bindings.external_variable(variable::declaration {
+            "q0",
+            t::int4 {},
+    });
+    auto a0 = bindings.stream_variable("a0");
+    auto a1 = bindings.stream_variable("a1");
+    auto&& r1 = p.insert(relation::project {
+            relation::project::column { a0, scalar::variable_reference { c0 } },
+            relation::project::column { a1, scalar::variable_reference { q0 } },
+    });
+    auto&& ro = p.insert(relation::emit {
+            a0,
+            a1,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> ro.input();
+
+    apply(p, true);
+
+    ASSERT_EQ(r0.columns().size(), 1);
+    EXPECT_EQ(r0.columns()[0], c0);
+
+    ASSERT_EQ(r1.columns().size(), 0);
+
+    ASSERT_EQ(ro.columns().size(), 2);
+    EXPECT_EQ(ro.columns()[0].source(), c0);
+    EXPECT_EQ(ro.columns()[1].source(), q0);
 }
 
 } // namespace yugawara::analyzer::details
