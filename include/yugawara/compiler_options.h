@@ -27,7 +27,10 @@ public:
      * @brief the default list of restricted features.
      * @see restricted_features()
      */
-    static constexpr restricted_feature_set default_restricted_features {};
+    static constexpr restricted_feature_set default_restricted_features {
+            // FIXME: remove after TRUNCATE TABLE statement was enabled
+            restricted_feature::statement_truncate_table,
+    };
 
     /**
      * @brief the default value for enabling disjunction range hinting.
