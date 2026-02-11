@@ -77,6 +77,13 @@ public:
         }
     }
 
+    void operator()(tstatement::truncate_table const& statement) {
+        validate(restricted_feature::statement_truncate_table, statement.region());
+        if (statement.options().contains(tstatement::truncate_table_option_kind::restart_identity)) {
+            validate(restricted_feature::statement_truncate_table_restart_identity, statement.region());
+        }
+    }
+
     void operator()(tplan::step const&) {
         // do nothing
     }

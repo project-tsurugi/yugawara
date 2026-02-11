@@ -15,6 +15,7 @@
 
 #include <takatori/statement/execute.h>
 #include <takatori/statement/write.h>
+#include <takatori/statement/truncate_table.h>
 
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/binding/factory.h>
@@ -245,6 +246,59 @@ TEST_F(collect_restricted_features_test, statement_write_update_not_restricted) 
                     {},
                     {},
             }));
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, statement_truncate_table_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_truncate_table },
+            ::takatori::statement::truncate_table {
+                    factory(t0),
+            });
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::statement_truncate_table);
+}
+
+TEST_F(collect_restricted_features_test, statement_truncate_table_not_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_write_delete },
+            ::takatori::statement::truncate_table {
+                    factory(t0),
+            });
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, statement_truncate_table_restart_identity_restricted_not_set) {
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_truncate_table_restart_identity },
+            ::takatori::statement::truncate_table {
+                    factory(t0),
+            });
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, statement_truncate_table_restart_identity_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_truncate_table_restart_identity },
+            ::takatori::statement::truncate_table {
+                    factory(t0),
+                    {
+                            ::takatori::statement::truncate_table_option_kind::restart_identity,
+                    },
+            });
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::statement_truncate_table_restart_identity);
+}
+
+TEST_F(collect_restricted_features_test, statement_truncate_table_restart_identity_not_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_write_update },
+            ::takatori::statement::truncate_table {
+                    factory(t0),
+                    {
+                            ::takatori::statement::truncate_table_option_kind::restart_identity,
+                    },
+            });
     ASSERT_EQ(result.size(), 0);
 }
 

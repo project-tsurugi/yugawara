@@ -83,6 +83,12 @@ enum class restricted_feature {
 
     /// @brief restrict `write` statement with update operation.
     statement_write_update,
+
+    /// @brief restrict `truncate table` statement.
+    statement_truncate_table,
+
+    /// @brief restrict `truncate table` statement with restart identity.
+    statement_truncate_table_restart_identity,
 };
 
 /**
@@ -91,7 +97,7 @@ enum class restricted_feature {
 using restricted_feature_set = ::takatori::util::enum_set<
         restricted_feature,
         restricted_feature::relation_buffer,
-        restricted_feature::statement_write_update>;
+        restricted_feature::statement_truncate_table_restart_identity>;
 
 /// @brief all scalar expressions of restricted_feature_set.
 constexpr restricted_feature_set restricted_feature_scalar_expressions {};
@@ -125,6 +131,8 @@ constexpr restricted_feature_set restricted_feature_exchange_steps {
 constexpr restricted_feature_set restricted_feature_statements {
         restricted_feature::statement_write_delete,
         restricted_feature::statement_write_update,
+        restricted_feature::statement_truncate_table,
+        restricted_feature::statement_truncate_table_restart_identity,
 };
 
 /**
@@ -155,6 +163,8 @@ inline constexpr std::string_view to_string_view(restricted_feature value) noexc
         case kind::exchange_group: return "group exchange"sv;
         case kind::statement_write_delete: return "write statement with delete operation"sv;
         case kind::statement_write_update: return "write statement with update operation"sv;
+        case kind::statement_truncate_table: return "truncate table statement"sv;
+        case kind::statement_truncate_table_restart_identity: return "truncate table statement with restart identity option"sv;
     }
     std::abort();
 }
