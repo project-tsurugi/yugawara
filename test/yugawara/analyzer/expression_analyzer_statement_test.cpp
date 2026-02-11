@@ -28,6 +28,7 @@
 #include <takatori/statement/execute.h>
 #include <takatori/statement/write.h>
 #include <takatori/statement/create_table.h>
+#include <takatori/statement/truncate_table.h>
 
 #include <takatori/util/optional_ptr.h>
 
@@ -511,6 +512,22 @@ TEST_F(expression_analyzer_statement_test, create_table_default_value_function_i
     auto b = analyzer.resolve(stmt, true);
     EXPECT_FALSE(b);
     EXPECT_FALSE(ok());
+}
+
+TEST_F(expression_analyzer_statement_test, truncate_table) {
+    auto table = std::make_shared<storage::table>(::takatori::util::clone_tag, storage::table {
+            "T0",
+            {
+                    { "C0", t::int4() },
+                    { "C1", t::int4() },
+                    { "C2", t::int4() },
+            },
+    });
+    statement::truncate_table stmt {
+            bindings(table),
+    };
+    auto b = analyzer.resolve(stmt, true);
+    EXPECT_TRUE(b);
 }
 
 } // namespace yugawara::analyzer
