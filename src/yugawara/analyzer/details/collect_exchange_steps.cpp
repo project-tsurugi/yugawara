@@ -427,6 +427,7 @@ private:
         static constexpr relation::join_kind_set left_mandatory {
                 relation::join_kind::inner,
                 relation::join_kind::left_outer,
+                relation::join_kind::left_outer_at_most_one,
                 relation::join_kind::semi,
                 relation::join_kind::anti,
         };

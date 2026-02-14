@@ -620,6 +620,54 @@ TEST_F(push_down_filters_test, join_relation_left_outer_over_left) {
     EXPECT_EQ(rj.condition(), compare(varref(cl0), varref(cr1)));
 }
 
+TEST_F(push_down_filters_test, join_relation_left_outer_over_left_at_most_one) {
+    /*
+     * scan:rl -\
+     *           join_relation(left on:l0=r0):rj - filter(l0=1):rf...
+     * scan:rr -/
+     */
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto cl1 = bindings.stream_variable("cl1");
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto&& rl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, cl0 },
+                    { t0c1, cl1 },
+            },
+    });
+    auto&& rr = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t1c0, cr0 },
+                    { t1c1, cr1 },
+            },
+    });
+    auto&& rj = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer_at_most_one,
+            compare(varref(cl0), varref(cr1)),
+    });
+    auto&& rf = r.insert(relation::filter {
+            compare(varref(cl0), constant(1))
+    });
+    rl.output() >> rj.left();
+    rr.output() >> rj.right();
+    rj.output() >> rf.input();
+
+    connect(rf.output());
+    apply(r);
+
+    ASSERT_EQ(r.size(), 6);
+    auto&& f0 = next<relation::filter>(rl.output());
+    EXPECT_GT(f0.output(), rj.left());
+
+    EXPECT_EQ(f0.condition(), compare(varref(cl0), constant(1)));
+    EXPECT_EQ(rf.condition(), boolean(true));
+    EXPECT_EQ(rj.condition(), compare(varref(cl0), varref(cr1)));
+}
+
 TEST_F(push_down_filters_test, join_relation_left_outer_flush_right) {
     /*
      * scan:rl -\
@@ -647,6 +695,54 @@ TEST_F(push_down_filters_test, join_relation_left_outer_flush_right) {
     });
     auto&& rj = r.insert(relation::intermediate::join {
             relation::join_kind::left_outer,
+            compare(varref(cl0), varref(cr1)),
+    });
+    auto&& rf = r.insert(relation::filter {
+            compare(varref(cr0), constant(1))
+    });
+    rl.output() >> rj.left();
+    rr.output() >> rj.right();
+    rj.output() >> rf.input();
+
+    connect(rf.output());
+    apply(r);
+
+    ASSERT_EQ(r.size(), 6);
+    auto&& f0 = next<relation::filter>(rj.output());
+    EXPECT_GT(f0.output(), rf.input());
+
+    EXPECT_EQ(f0.condition(), compare(varref(cr0), constant(1)));
+    EXPECT_EQ(rf.condition(), boolean(true));
+    EXPECT_EQ(rj.condition(), compare(varref(cl0), varref(cr1)));
+}
+
+TEST_F(push_down_filters_test, join_relation_left_outer_flush_right_at_most_one) {
+    /*
+     * scan:rl -\
+     *           join_relation(left on:l0=r0):rj - filter(r0=1):rf...
+     * scan:rr -/
+     */
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto cl1 = bindings.stream_variable("cl1");
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto&& rl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, cl0 },
+                    { t0c1, cl1 },
+            },
+    });
+    auto&& rr = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t1c0, cr0 },
+                    { t1c1, cr1 },
+            },
+    });
+    auto&& rj = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer_at_most_one,
             compare(varref(cl0), varref(cr1)),
     });
     auto&& rf = r.insert(relation::filter {

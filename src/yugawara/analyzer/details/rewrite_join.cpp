@@ -154,10 +154,12 @@ private:
                 join_kind::semi,
                 join_kind::anti,
                 join_kind::left_outer,
+                join_kind::left_outer_at_most_one,
         };
         static constexpr join_kind_set direct {
                 join_kind::anti,
                 join_kind::left_outer,
+                join_kind::left_outer_at_most_one,
         };
         if (!allow.contains(expr.operator_kind())) {
             return;

@@ -232,6 +232,14 @@ public:
         pass(expr.right(), empty_mask());
     }
 
+    void operator()(
+            enum_tag_t<relation::join_kind::left_outer_at_most_one>,
+            relation::intermediate::join& expr,
+            mask_type&& mask) {
+        // same as left outer join
+        operator()(enum_tag<relation::join_kind::left_outer>, expr, std::move(mask));
+    }
+
     void operator()(enum_tag_t<relation::join_kind::semi>, relation::intermediate::join& expr, mask_type&& mask) {
         // same as inner join
         operator()(enum_tag<relation::join_kind::inner>, expr, std::move(mask));
