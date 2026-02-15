@@ -1,16 +1,12 @@
 #pragma once
 
 #include <initializer_list>
-#include <ostream>
-#include <string>
-#include <string_view>
 
 #include <takatori/scalar/extension.h>
 #include <takatori/tree/tree_element_vector.h>
 #include <takatori/descriptor/aggregate_function.h>
 
 #include <takatori/util/clone_tag.h>
-#include <takatori/util/meta_type.h>
 #include <takatori/util/reference_vector.h>
 #include <takatori/util/rvalue_reference_wrapper.h>
 
