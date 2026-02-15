@@ -12,11 +12,11 @@ using namespace std::string_view_literals;
 
 using ::takatori::util::unsafe_downcast;
 
-details::extension_scalar_property_scanner::extension_scalar_property_scanner(
+extension_scalar_property_scanner::extension_scalar_property_scanner(
         ::takatori::serializer::object_scanner const& scanner,
-        ::takatori::serializer::object_acceptor& acceptor) noexcept
-    : scanner_(scanner)
-    , acceptor_(acceptor)
+        ::takatori::serializer::object_acceptor& acceptor) noexcept :
+    scanner_ { scanner },
+    acceptor_ { acceptor }
 {}
 
 void extension_scalar_property_scanner::process(takatori::scalar::extension const& element) {
@@ -26,9 +26,16 @@ void extension_scalar_property_scanner::process(takatori::scalar::extension cons
 
     using namespace extension::scalar;
 
-    if (element.extension_id() == aggregate_function_call::extension_tag) {
-        properties(unsafe_downcast<aggregate_function_call>(element));
-        return;
+    switch (element.extension_id()) {
+        case aggregate_function_call::extension_tag:
+             properties(unsafe_downcast<aggregate_function_call>(element));
+             break;
+        case subquery::extension_tag:
+            properties(unsafe_downcast<subquery>(element));
+            break;
+        default:
+            // no more information
+            break;
     }
 }
 
@@ -43,6 +50,16 @@ void extension_scalar_property_scanner::properties(extension::scalar::aggregate_
         accept(argument);
     }
     acceptor_.array_end();
+    acceptor_.property_end();
+}
+
+void extension_scalar_property_scanner::properties(extension::scalar::subquery const& element) {
+    acceptor_.property_begin("query_graph"sv);
+    accept(element.query_graph());
+    acceptor_.property_end();
+
+    acceptor_.property_begin("output_column"sv);
+    accept(element.output_column());
     acceptor_.property_end();
 }
 

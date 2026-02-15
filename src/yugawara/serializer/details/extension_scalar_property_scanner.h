@@ -6,6 +6,7 @@
 #include <takatori/serializer/object_scanner.h>
 
 #include <yugawara/extension/scalar/aggregate_function_call.h>
+#include <yugawara/extension/scalar/subquery.h>
 
 namespace yugawara::serializer::details {
 
@@ -22,6 +23,8 @@ private:
     ::takatori::serializer::object_acceptor& acceptor_;
 
     void properties(extension::scalar::aggregate_function_call const& element);
+
+    void properties(extension::scalar::subquery const& element);
 
     template<class T>
     void accept(::takatori::util::optional_ptr<T const> element);

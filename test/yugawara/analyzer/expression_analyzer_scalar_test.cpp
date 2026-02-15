@@ -29,12 +29,16 @@
 #include <takatori/scalar/let.h>
 #include <takatori/scalar/function_call.h>
 
+#include <takatori/relation/graph.h>
+#include <takatori/relation/values.h>
+
 #include <takatori/util/optional_ptr.h>
 
 #include <yugawara/binding/factory.h>
 #include <yugawara/extension/type/error.h>
 #include <yugawara/extension/type/pending.h>
 #include <yugawara/extension/scalar/aggregate_function_call.h>
+#include <yugawara/extension/scalar/subquery.h>
 
 namespace yugawara::analyzer {
 
@@ -1826,6 +1830,31 @@ TEST_F(expression_analyzer_scalar_test, aggregate_function_call_inconsistent) {
     auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int4());
     EXPECT_TRUE(find(expr.arguments()[0], code::inconsistent_type));
+}
+
+TEST_F(expression_analyzer_scalar_test, extension_subquery) {
+    auto i0 = bindings.stream_variable("i0");
+    auto i1 = bindings.stream_variable("i1");
+    auto o0 = bindings.stream_variable("o0");
+    auto o1 = bindings.stream_variable("o1");
+
+    ::takatori::relation::graph_type graph {};
+    graph.insert(::takatori::relation::values {
+            { i0, i1, },
+            {
+                    {
+                            vref { decl(t::int4 {}) },
+                            vref { decl(t::int8 {}) },
+                    },
+            },
+    });
+    extension::scalar::subquery expr {
+            std::move(graph),
+            i1,
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::int8());
+    EXPECT_TRUE(ok());
 }
 
 } // namespace yugawara::analyzer

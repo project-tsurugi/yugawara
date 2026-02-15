@@ -5,6 +5,8 @@
 #include <takatori/util/downcast.h>
 #include <takatori/util/vector_print_support.h>
 
+#include "../subquery_util.h"
+
 namespace yugawara::extension::relation {
 
 using ::takatori::util::optional_ptr;
@@ -82,24 +84,6 @@ std::vector<subquery::mapping_type>& subquery::mappings() noexcept {
 
 std::vector<subquery::mapping_type> const& subquery::mappings() const noexcept {
     return mappings_;
-}
-
-template<class TPort, class TGraph>
-static optional_ptr<TPort> find_output_port_internal(TGraph& graph) noexcept {
-    using output_port_type = TPort;
-    optional_ptr<output_port_type> result {};
-    for (auto&& expr : graph) {
-        for (auto&& output : expr.output_ports()) {
-            if (output.opposite() == nullptr) {
-                if (result) {
-                    // ambiguous
-                    return {};
-                }
-                result.reset(output);
-            }
-        }
-    }
-    return result;
 }
 
 optional_ptr<takatori::relation::expression::output_port_type> subquery::find_output_port() noexcept {

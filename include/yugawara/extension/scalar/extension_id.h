@@ -25,17 +25,20 @@ enum extension_id : ::takatori::scalar::extension::extension_id_type {
     /// @brief pseudo aggregate function call expression.
     aggregate_function_call_id,
 
+    /// @brief pseudo scalar subquery expression.
+    subquery_id,
+
     /// @brief the minimum unused ID.
     min_unused_id,
 };
 
 /**
- * @brief returns whether or not the given ID is known compiler extension ID.
+ * @brief returns whether the given ID is known compiler extension ID.
  * @param id the extension ID
  * @return true if it is the known extension ID
  * @return false otherwise
  */
-inline constexpr bool is_known_compiler_extension(::takatori::scalar::extension::extension_id_type id) noexcept {
+constexpr bool is_known_compiler_extension(::takatori::scalar::extension::extension_id_type id) noexcept {
     return static_cast<::takatori::scalar::extension::extension_id_type>(error_id) <= id
             && id < static_cast<::takatori::scalar::extension::extension_id_type>(min_unused_id);
 }
@@ -45,12 +48,12 @@ inline constexpr bool is_known_compiler_extension(::takatori::scalar::extension:
  * @param value the target value
  * @return the corresponded string representation
  */
-constexpr inline std::string_view to_string_view(extension_id value) noexcept {
+constexpr std::string_view to_string_view(extension_id value) noexcept {
     using namespace std::string_view_literals;
-    using kind = extension_id;
     switch (value) {
-        case kind::error_id: return "error"sv;
-        case kind::aggregate_function_call_id: return "aggregate_function_call"sv;
+        case error_id: return "error"sv;
+        case aggregate_function_call_id: return "aggregate_function_call"sv;
+        case subquery_id: return "subquery"sv;
         default: return "(unknown extension kind)"sv;
     }
 }

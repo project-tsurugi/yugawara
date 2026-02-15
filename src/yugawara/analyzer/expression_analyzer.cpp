@@ -35,6 +35,7 @@
 
 #include <yugawara/extension/type/error.h>
 #include <yugawara/extension/scalar/aggregate_function_call.h>
+#include <yugawara/extension/scalar/subquery.h>
 #include <yugawara/extension/relation/subquery.h>
 
 #include <yugawara/binding/extract.h>
@@ -486,14 +487,17 @@ public:
     }
 
     type_ptr operator()(scalar::extension const& expr) {
-        using extension::scalar::extension_id;
-        if (expr.extension_id() == extension_id::aggregate_function_call_id) {
-            return operator()(unsafe_downcast<extension::scalar::aggregate_function_call>(expr));
+        switch (expr.extension_id()) {
+            case extension::scalar::aggregate_function_call::extension_tag:
+                return operator()(unsafe_downcast<extension::scalar::aggregate_function_call>(expr));
+            case extension::scalar::subquery::extension_tag:
+                return operator()(unsafe_downcast<extension::scalar::subquery>(expr));
+            default:
+                throw_exception(std::domain_error(string_builder {}
+                        << "unknown scalar expression extension: "
+                        << expr.extension_id()
+                        << string_builder::to_string));
         }
-        throw_exception(std::domain_error(string_builder {}
-                << "unknown scalar expression extension: "
-                << expr.extension_id()
-                << string_builder::to_string));
     }
 
     type_ptr operator()(extension::scalar::aggregate_function_call const& expr) {
@@ -502,6 +506,23 @@ public:
             validate_function_call(expr, func);
         }
         return func.shared_return_type();
+    }
+
+    type_ptr operator()(extension::scalar::subquery const& expr) {
+        // resolve subquery graph
+        auto r = resolve(expr.query_graph());
+        if (!r) {
+            return std::make_shared<extension::type::error>();
+        }
+        if (auto&& resolution = resolve_stream_column(expr.output_column())) {
+            if (auto type = ana_.inspect(resolution)) {
+                return type;
+            }
+        }
+        return raise({
+                code::unresolved_variable,
+                extract_region(expr),
+        });
     }
 
     // FIXME: more expressions
