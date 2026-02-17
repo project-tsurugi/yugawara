@@ -58,6 +58,10 @@ void extension_relation_property_scanner::properties(extension::relation::subque
     }
     acceptor_.array_end();
     acceptor_.property_end();
+
+    acceptor_.property_begin("is_clone"sv);
+    acceptor_.boolean(element.is_clone());
+    acceptor_.property_end();
 }
 
 template <class T>

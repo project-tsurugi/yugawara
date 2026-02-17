@@ -29,8 +29,9 @@ public:
      * @param mappings the variable mappings
      *      each source represents the subquery output column,
      *      and destination represents the outer query column
+     * @param is_clone whether this subquery is a clone of another subquery
      */
-    explicit subquery(graph_type query_graph, std::vector<mapping_type> mappings) noexcept;
+    explicit subquery(graph_type query_graph, std::vector<mapping_type> mappings, bool is_clone = false) noexcept;
 
     /**
      * @brief creates a new object.
@@ -92,6 +93,19 @@ public:
     [[nodiscard]] ::takatori::util::optional_ptr<output_port_type const> find_output_port() const noexcept;
 
     /**
+     * @brief returns whether this subquery is a clone of another subquery.
+     * @details This is used to distinguish original subqueries and cloned subqueries for optimization purposes.
+     *      This does not affect the semantics of the query, and it is not considered in equality comparison.
+     *      If it is true, another subquery may have the same variable declarations.
+     * @return true if this is a clone
+     * @return false otherwise
+     */
+    [[nodiscard]] bool& is_clone() noexcept;
+
+    /// @copydoc is_clone()
+    [[nodiscard]] bool is_clone() const noexcept;
+
+    /**
      * @brief returns whether the two elements are equivalent.
      * @details This operation does not consider which the input/output ports are connected to.
      * @param a the first element
@@ -127,6 +141,7 @@ private:
     output_port_type output_;
     graph_type query_graph_;
     std::vector<mapping_type> mappings_;
+    bool is_clone_;
 };
 
 } // namespace yugawara::extension::relation

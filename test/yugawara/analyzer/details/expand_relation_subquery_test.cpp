@@ -80,7 +80,58 @@ TEST_F(expand_relation_subquery_test, simple) {
     auto&& emit = r1;
 
     ASSERT_EQ(values.columns().size(), 1);
-    auto&& g0c0m = values.columns()[0];
+    EXPECT_EQ(values.columns()[0], g0c0);
+
+    ASSERT_EQ(project.columns().size(), 1);
+    EXPECT_EQ(project.columns()[0].value(), wrap(g0c0));
+    EXPECT_EQ(project.columns()[0].variable(), r0o0);
+
+    ASSERT_EQ(emit.columns().size(), 1);
+    EXPECT_EQ(emit.columns()[0].source(), r0o0);
+}
+
+TEST_F(expand_relation_subquery_test, clone) {
+    /* inner query: g0
+     *   values:g0r0 -*
+     */
+    relation::graph_type g0 {};
+    auto g0c0 = bindings.stream_variable("g0c0");
+    auto&& g0r0 = g0.insert(relation::values {
+            {
+                    g0c0,
+            },
+            {},
+    });
+
+    /* outer query: graph
+     *   subquery:r0 -- emit:r1
+     */
+    relation::graph_type graph {};
+    auto r0o0 = bindings.stream_variable("r0o0");
+    auto&& r0 = graph.insert(extension::relation::subquery {
+            std::move(g0),
+            {
+                    { g0c0, r0o0 },
+            },
+            true, // is_clone
+    });
+    auto&& r1 = graph.insert(relation::emit {
+            { r0o0, "o0" },
+    });
+    r0.output() >> r1.input();
+
+    expand_relation_subquery(graph);
+
+    // values - project - emit
+    ASSERT_EQ(graph.size(), 3);
+    ASSERT_TRUE(graph.contains(g0r0));
+    ASSERT_TRUE(graph.contains(r1));
+    auto&& values = g0r0;
+    auto&& project = next<relation::project>(g0r0.output());
+    auto&& emit = r1;
+
+    ASSERT_EQ(values.columns().size(), 1);
+    auto g0c0m = values.columns()[0];
     EXPECT_NE(g0c0m, g0c0);
 
     ASSERT_EQ(project.columns().size(), 1);
@@ -151,22 +202,20 @@ TEST_F(expand_relation_subquery_test, complex) {
     auto&& emit = r1;
 
     ASSERT_EQ(values.columns().size(), 1);
-    auto&& g0c0m = values.columns()[0];
-    EXPECT_NE(g0c0m, g0c0);
+    EXPECT_EQ(values.columns()[0], g0c0);
 
-    EXPECT_EQ(filter.condition(), compare(scalar::variable_reference { g0c0m }, constant(10)));
+    EXPECT_EQ(filter.condition(), compare(scalar::variable_reference { g0c0 }, constant(10)));
 
     ASSERT_EQ(project.columns().size(), 1);
-    auto&& g0c1m = project.columns()[0].variable();
-    EXPECT_NE(g0c1m, g0c1);
+    EXPECT_EQ(project.columns()[0].variable(), g0c1);
     EXPECT_EQ(project.columns()[0].value(), (scalar::binary {
             scalar::binary_operator::add,
-            scalar::variable_reference { g0c0m },
+            scalar::variable_reference { g0c0 },
             constant(1),
     }));
 
     ASSERT_EQ(escape.columns().size(), 1);
-    EXPECT_EQ(escape.columns()[0].value(), wrap(g0c1m));
+    EXPECT_EQ(escape.columns()[0].value(), wrap(g0c1));
     EXPECT_EQ(escape.columns()[0].variable(), r0o0);
 
     ASSERT_EQ(emit.columns().size(), 1);
@@ -285,27 +334,24 @@ TEST_F(expand_relation_subquery_test, multiple_subqueries) {
     EXPECT_TRUE(e2.output() > j1.right());
 
     ASSERT_EQ(v0.columns().size(), 1);
-    auto&& g0c0m = v0.columns()[0];
-    EXPECT_NE(g0c0m, g0c0);
+    EXPECT_EQ(v0.columns()[0], g0c0);
 
     ASSERT_EQ(v1.columns().size(), 1);
-    auto&& g1c0m = v1.columns()[0];
-    EXPECT_NE(g1c0m, g1c0);
+    EXPECT_EQ(v1.columns()[0], g1c0);
 
     ASSERT_EQ(v2.columns().size(), 1);
-    auto&& g2c0m = v2.columns()[0];
-    EXPECT_NE(g2c0m, g2c0);
+    EXPECT_EQ(v2.columns()[0], g2c0);
 
     ASSERT_EQ(e0.columns().size(), 1);
-    EXPECT_EQ(e0.columns()[0].value(), wrap(g0c0m));
+    EXPECT_EQ(e0.columns()[0].value(), wrap(g0c0));
     EXPECT_EQ(e0.columns()[0].variable(), r0o0);
 
     ASSERT_EQ(e1.columns().size(), 1);
-    EXPECT_EQ(e1.columns()[0].value(), wrap(g1c0m));
+    EXPECT_EQ(e1.columns()[0].value(), wrap(g1c0));
     EXPECT_EQ(e1.columns()[0].variable(), r1o0);
 
     ASSERT_EQ(e2.columns().size(), 1);
-    EXPECT_EQ(e2.columns()[0].value(), wrap(g2c0m));
+    EXPECT_EQ(e2.columns()[0].value(), wrap(g2c0));
     EXPECT_EQ(e2.columns()[0].variable(), r2o0);
 
     ASSERT_EQ(emit.columns().size(), 3);
@@ -383,21 +429,18 @@ TEST_F(expand_relation_subquery_test, nesting) {
     EXPECT_TRUE(e2.output() > emit.input());
 
     ASSERT_EQ(values.columns().size(), 1);
-    auto&& g0c0m = values.columns()[0];
-    EXPECT_NE(g0c0m, g0c0);
+    EXPECT_EQ(values.columns()[0], g0c0);
 
     ASSERT_EQ(e0.columns().size(), 1);
-    EXPECT_EQ(e0.columns()[0].value(), wrap(g0c0m));
-    auto g1c0m = e0.columns()[0].variable();
-    EXPECT_NE(g1c0m, g1c0);
+    EXPECT_EQ(e0.columns()[0].value(), wrap(g0c0));
+    EXPECT_EQ(e0.columns()[0].variable(), g1c0);
 
     ASSERT_EQ(e1.columns().size(), 1);
-    EXPECT_EQ(e1.columns()[0].value(), wrap(g1c0m));
-    auto g2c0m = e1.columns()[0].variable();
-    EXPECT_NE(g2c0m, g2c0);
+    EXPECT_EQ(e1.columns()[0].value(), wrap(g1c0));
+    EXPECT_EQ(e1.columns()[0].variable(), g2c0);
 
     ASSERT_EQ(e2.columns().size(), 1);
-    EXPECT_EQ(e2.columns()[0].value(), wrap(g2c0m));
+    EXPECT_EQ(e2.columns()[0].value(), wrap(g2c0));
     EXPECT_EQ(e2.columns()[0].variable(), r0o0);
 
     ASSERT_EQ(emit.columns().size(), 1);
@@ -464,16 +507,14 @@ TEST_F(expand_relation_subquery_test, self_join) {
     auto&& emit = r3;
 
     ASSERT_EQ(v0.columns().size(), 1);
-    auto&& g0c0m = v0.columns()[0];
-    EXPECT_NE(g0c0m, g0c0);
+    EXPECT_EQ(v0.columns()[0], g0c0);
 
     ASSERT_EQ(v1.columns().size(), 1);
     auto&& g1c0m = v1.columns()[0];
     EXPECT_NE(g1c0m, g0c0);
-    EXPECT_NE(g1c0m, g0c0m);
 
     ASSERT_EQ(e0.columns().size(), 1);
-    EXPECT_EQ(e0.columns()[0].value(), wrap(g0c0m));
+    EXPECT_EQ(e0.columns()[0].value(), wrap(g0c0));
     EXPECT_EQ(e0.columns()[0].variable(), r0o0);
 
     ASSERT_EQ(e1.columns().size(), 1);

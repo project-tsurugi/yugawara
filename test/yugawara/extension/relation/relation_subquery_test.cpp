@@ -102,6 +102,8 @@ TEST_F(relation_subquery_test, clone) {
 
     ASSERT_EQ(copy->mappings().size(), 1);
     EXPECT_EQ(expr.mappings(), copy->mappings());
+
+    EXPECT_TRUE(copy->is_clone());
 }
 
 TEST_F(relation_subquery_test, output) {

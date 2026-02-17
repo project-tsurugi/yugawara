@@ -465,7 +465,7 @@ public:
 private:
     exchange_map_type& exchange_map_;
     stream_variable_rewriter_context& context_;
-    scalar_expression_variable_rewriter scalar_rewriter_;
+    scalar_expression_variable_rewriter& scalar_rewriter_;
     bool check_undefined_ {};
 
     void rewrite(::takatori::scalar::expression& expr) {

@@ -712,11 +712,10 @@ TEST_F(intermediate_plan_optimizer_test, subquery) {
 
     ASSERT_EQ(in.columns().size(), 1);
     EXPECT_EQ(in.columns()[0].source(), bindings(t0c0));
-    auto c0m = in.columns()[0].destination();
-    EXPECT_NE(c0m, c0);
+    EXPECT_EQ(in.columns()[0].destination(), c0);
 
     ASSERT_EQ(out.columns().size(), 1);
-    EXPECT_EQ(out.columns()[0].source(), c0m);
+    EXPECT_EQ(out.columns()[0].source(), c0);
 }
 
 } // namespace yugawara::analyzer

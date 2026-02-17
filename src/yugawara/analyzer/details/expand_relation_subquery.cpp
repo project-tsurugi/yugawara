@@ -43,8 +43,11 @@ public:
     }
 
     void process(extension::relation::subquery& expr) {
-        // escape all variables in subquery
-        rewrite_stream_variables(expr);
+        if (expr.is_clone()) {
+            // NOTE: if this is a clone, the variables in the subquery may be shared with another subquery.
+            rewrite_stream_variables(expr);
+            expr.is_clone() = false;
+        }
 
         std::vector<::takatori::relation::project::column> mappings {};
         mappings.reserve(expr.mappings().size());
