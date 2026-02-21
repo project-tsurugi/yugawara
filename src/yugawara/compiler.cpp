@@ -6,6 +6,7 @@
 #include <takatori/util/clonable.h>
 
 #include <yugawara/analyzer/expression_analyzer.h>
+#include <yugawara/analyzer/intermediate_plan_normalizer.h>
 #include <yugawara/analyzer/intermediate_plan_optimizer.h>
 #include <yugawara/analyzer/step_plan_builder.h>
 
@@ -145,8 +146,14 @@ private:
     }
 
     plan::graph_type do_compile(relation::graph_type&& intermediate) {
+        do_normalize(intermediate);
         do_optimize(intermediate);
         return do_plan(std::move(intermediate));
+    }
+
+    void do_normalize(relation::graph_type& graph) {
+        analyzer::intermediate_plan_normalizer sub {};
+        sub(graph);
     }
 
     void do_optimize(relation::graph_type& graph) {

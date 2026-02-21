@@ -92,8 +92,11 @@ add_test_executable(yugawara/analyzer/details/scalar_expression_variable_rewrite
 add_test_executable(yugawara/analyzer/details/collect_exchange_columns_test.cpp)
 add_test_executable(yugawara/analyzer/details/rewrite_stream_variables_test.cpp)
 add_test_executable(yugawara/analyzer/details/rewrite_stream_variables_subquery_test.cpp)
-add_test_executable(yugawara/analyzer/details/expand_relation_subquery_test.cpp)
 add_test_executable(yugawara/analyzer/details/remove_variable_aliases_test.cpp)
+
+# normalizer
+add_test_executable(yugawara/analyzer/details/expand_subquery_relation_test.cpp)
+add_test_executable(yugawara/analyzer/intermediate_plan_normalizer_test.cpp)
 
 # optimizer
 add_test_executable(yugawara/analyzer/details/decompose_predicate_test.cpp)

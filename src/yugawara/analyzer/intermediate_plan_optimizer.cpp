@@ -2,7 +2,6 @@
 
 #include <utility>
 
-#include "details/expand_relation_subquery.h"
 #include "details/remove_variable_aliases.h"
 #include "details/remove_unused_stream_variables.h"
 #include "details/remove_redundant_conditions.h"
@@ -43,7 +42,6 @@ static constexpr details::collect_join_keys_feature_set compute_join_keys_featur
 }
 
 void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& graph) {
-    details::expand_relation_subquery(graph);
     details::remove_variable_aliases(
             graph,
             options_.enable_external_variable_inlining());

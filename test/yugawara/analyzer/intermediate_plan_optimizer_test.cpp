@@ -17,7 +17,6 @@
 
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/configurable_provider.h>
-#include <yugawara/extension/relation/subquery.h>
 #include <yugawara/variable/declaration.h>
 
 #include <yugawara/testing/utils.h>
@@ -680,42 +679,6 @@ TEST_F(intermediate_plan_optimizer_test, between) {
         EXPECT_EQ(f1.condition(), compare(varref(c0), constant(100), comparison_operator::less_equal));
         EXPECT_EQ(f2.condition(), compare(constant(0), varref(c0), comparison_operator::less_equal));
     }
-}
-
-TEST_F(intermediate_plan_optimizer_test, subquery) {
-    relation::graph_type inner;
-    auto c0 = bindings.stream_variable("c0");
-    auto&& in = inner.insert(relation::scan {
-            bindings(*i0),
-            {
-                    { bindings(t0c0), c0 },
-            },
-    });
-
-    relation::graph_type r;
-    auto o0 = bindings.stream_variable("o0");
-    auto&& subquery = r.insert(extension::relation::subquery {
-            std::move(inner),
-            {
-                    { c0, o0 },
-            },
-    });
-    auto&& out = r.insert(relation::emit { o0 });
-    subquery.output() >> out.input();
-
-    intermediate_plan_optimizer optimizer { options() };
-    optimizer(r);
-
-    ASSERT_EQ(r.size(), 2);
-    ASSERT_TRUE(r.contains(in));
-    ASSERT_TRUE(r.contains(out));
-
-    ASSERT_EQ(in.columns().size(), 1);
-    EXPECT_EQ(in.columns()[0].source(), bindings(t0c0));
-    EXPECT_EQ(in.columns()[0].destination(), c0);
-
-    ASSERT_EQ(out.columns().size(), 1);
-    EXPECT_EQ(out.columns()[0].source(), c0);
 }
 
 } // namespace yugawara::analyzer

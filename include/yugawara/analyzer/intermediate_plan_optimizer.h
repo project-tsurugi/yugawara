@@ -37,6 +37,9 @@ public:
     /**
      * @brief optimizes the given intermediate execution plan.
      * @param graph the target intermediate execution plan
+     * @attention the input graph must be a normalized intermediate execution plan.
+     *      Apply intermediate_plan_normalizer before execute this function.
+     * @see intermediate_plan_normalizer
      */
     void operator()(::takatori::relation::graph_type& graph);
 

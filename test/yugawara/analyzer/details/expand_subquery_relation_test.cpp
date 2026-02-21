@@ -1,4 +1,4 @@
-#include <yugawara/analyzer/details/expand_relation_subquery.h>
+#include <yugawara/analyzer/details/expand_subquery.h>
 
 #include <gtest/gtest.h>
 
@@ -23,7 +23,7 @@ using namespace ::yugawara::testing;
 using ::takatori::util::downcast;
 using ::takatori::util::clone_unique;
 
-class expand_relation_subquery_test : public ::testing::Test {
+class expand_subquery_relation_test : public ::testing::Test {
 protected:
     binding::factory bindings;
 
@@ -40,7 +40,7 @@ protected:
     }
 };
 
-TEST_F(expand_relation_subquery_test, simple) {
+TEST_F(expand_subquery_relation_test, simple) {
     /* inner query: g0
      *   values:g0r0 -*
      */
@@ -69,7 +69,7 @@ TEST_F(expand_relation_subquery_test, simple) {
     });
     r0.output() >> r1.input();
 
-    expand_relation_subquery(graph);
+    expand_subquery(graph);
 
     // values - project - emit
     ASSERT_EQ(graph.size(), 3);
@@ -90,7 +90,7 @@ TEST_F(expand_relation_subquery_test, simple) {
     EXPECT_EQ(emit.columns()[0].source(), r0o0);
 }
 
-TEST_F(expand_relation_subquery_test, clone) {
+TEST_F(expand_subquery_relation_test, clone) {
     /* inner query: g0
      *   values:g0r0 -*
      */
@@ -120,7 +120,7 @@ TEST_F(expand_relation_subquery_test, clone) {
     });
     r0.output() >> r1.input();
 
-    expand_relation_subquery(graph);
+    expand_subquery(graph);
 
     // values - project - emit
     ASSERT_EQ(graph.size(), 3);
@@ -142,7 +142,7 @@ TEST_F(expand_relation_subquery_test, clone) {
     EXPECT_EQ(emit.columns()[0].source(), r0o0);
 }
 
-TEST_F(expand_relation_subquery_test, complex) {
+TEST_F(expand_subquery_relation_test, complex) {
     /* inner query: g0
      *   values:g0r0 -- filter:g0r1 -- project:g0r2 -*
      */
@@ -187,7 +187,7 @@ TEST_F(expand_relation_subquery_test, complex) {
     });
     r0.output() >> r1.input();
 
-    expand_relation_subquery(graph);
+    expand_subquery(graph);
 
     // values - filter - project - escape - emit
     ASSERT_EQ(graph.size(), 5);
@@ -222,7 +222,7 @@ TEST_F(expand_relation_subquery_test, complex) {
     EXPECT_EQ(emit.columns()[0].source(), r0o0);
 }
 
-TEST_F(expand_relation_subquery_test, multiple_subqueries) {
+TEST_F(expand_subquery_relation_test, multiple_subqueries) {
     /* inner query: g0
      *   values:g0r0 -*
      */
@@ -305,7 +305,7 @@ TEST_F(expand_relation_subquery_test, multiple_subqueries) {
     r2.output() >> r4.right();
     r4.output() >> r5.input();
 
-    expand_relation_subquery(graph);
+    expand_subquery(graph);
 
     /* values:v0 - project:e0 -\
      *                          join:j0 -\
@@ -360,7 +360,7 @@ TEST_F(expand_relation_subquery_test, multiple_subqueries) {
     EXPECT_EQ(emit.columns()[2].source(), r2o0);
 }
 
-TEST_F(expand_relation_subquery_test, nesting) {
+TEST_F(expand_subquery_relation_test, nesting) {
     /* inner query: g0
      *   values:g0r0 -*
      */
@@ -415,7 +415,7 @@ TEST_F(expand_relation_subquery_test, nesting) {
     });
     r0.output() >> r1.input();
 
-    expand_relation_subquery(graph);
+    expand_subquery(graph);
 
     // values - project:e0 - project:e1 - project:e2 - emit
     ASSERT_EQ(graph.size(), 5);
@@ -447,7 +447,7 @@ TEST_F(expand_relation_subquery_test, nesting) {
     EXPECT_EQ(emit.columns()[0].source(), r0o0);
 }
 
-TEST_F(expand_relation_subquery_test, self_join) {
+TEST_F(expand_subquery_relation_test, self_join) {
     /* inner query: g0
      *   values:g0r0 -*
      */
@@ -488,7 +488,7 @@ TEST_F(expand_relation_subquery_test, self_join) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    expand_relation_subquery(graph);
+    expand_subquery(graph);
 
     /*
      * values:v0 -- emit:e0 -\
