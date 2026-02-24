@@ -19,7 +19,6 @@
 
 namespace yugawara::analyzer::details {
 
-namespace descriptor = ::takatori::descriptor;
 namespace relation = ::takatori::relation;
 namespace plan = ::takatori::plan;
 
@@ -79,10 +78,6 @@ public:
                     << expr
                     << string_builder::to_string));
         }
-    }
-
-    void force_raise_undefined() {
-        raise_undefined(true);
     }
 
     void operator()(plan::process& step) {
@@ -492,16 +487,11 @@ private:
         }
     }
 
-    void raise_undefined(bool force = false) {
-        if (!check_undefined_ && !force) {
+    void raise_undefined() {
+        if (!check_undefined_) {
             return;
         }
-        context_.each_undefined([&](descriptor::variable const& variable) {
-            throw_exception(std::domain_error(string_builder {}
-                    << "undefined variable: "
-                    << variable
-                    << string_builder::to_string));
-        });
+        context_.raise_undefined();
     }
 
     template<class Columns>
@@ -587,8 +577,8 @@ void rewrite_stream_variables(
 }
 
 void rewrite_stream_variables(extension::relation::subquery& subquery) {
-    exchange_column_info_map exchange_map {};
     stream_variable_rewriter_context context {};
+    exchange_column_info_map exchange_map {};
     scalar_expression_variable_rewriter scalar_rewriter {};
     engine e { exchange_map, context, scalar_rewriter, false };
 
@@ -601,7 +591,21 @@ void rewrite_stream_variables(extension::relation::subquery& subquery) {
             [&](relation::expression& expr) {
                 e.process(expr);
             });
-    e.force_raise_undefined();
+
+    context.raise_undefined();
+}
+
+void rewrite_stream_variables(
+        stream_variable_rewriter_context& context,
+        ::takatori::relation::graph_type& graph) {
+    exchange_column_info_map exchange_map {};
+    scalar_expression_variable_rewriter scalar_rewriter {};
+    engine e { exchange_map, context, scalar_rewriter, false };
+    relation::sort_from_downstream(
+            graph,
+            [&](relation::expression& expr) {
+                e.process(expr);
+            });
 }
 
 } // namespace yugawara::analyzer::details

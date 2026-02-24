@@ -25,6 +25,7 @@ fuchsia-*,\
 google-*,\
 -google-build-using-namespace,\
 -google-readability-namespace-comments,\
+-google-readability-avoid-underscore-in-googletest-name,\
 -google-readability-todo,\
 -google-runtime-references,\
 hicpp-*,\
@@ -35,7 +36,9 @@ llvm-*,\
 -llvm-include-order,\
 -llvm-header-guard,\
 -llvm-namespace-comment,\
+-llvm-prefer-static-over-anonymous-namespace,\
 -llvm-qualified-auto,\
+-llvm-use-ranges,\
 misc-*,\
 -misc-const-correctness,\
 -misc-include-cleaner,\

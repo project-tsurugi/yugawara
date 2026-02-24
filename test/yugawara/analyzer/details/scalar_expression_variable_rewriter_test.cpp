@@ -10,7 +10,14 @@
 #include <takatori/scalar/let.h>
 #include <takatori/scalar/binary.h>
 
+#include <takatori/relation/graph.h>
+#include <takatori/relation/values.h>
+
 #include <yugawara/binding/factory.h>
+
+#include <yugawara/extension/scalar/subquery.h>
+#include <yugawara/extension/relation/subquery.h>
+
 #include <yugawara/type/repository.h>
 
 #include <yugawara/testing/utils.h>
@@ -24,6 +31,12 @@ class scalar_expression_variable_rewriter_test : public ::testing::Test {
 protected:
     type::repository types;
     binding::factory bindings;
+
+    void check_context(stream_variable_rewriter_context& context) {
+        context.each_undefined([](auto& variable) {
+            ADD_FAILURE() << "undefined variable: " << variable;
+        });
+    }
 };
 
 TEST_F(scalar_expression_variable_rewriter_test, simple) {
@@ -34,6 +47,7 @@ TEST_F(scalar_expression_variable_rewriter_test, simple) {
     stream_variable_rewriter_context context {};
     scalar_expression_variable_rewriter rewriter {};
     rewriter(context, expr);
+    check_context(context);
     // ok.
 }
 
@@ -160,6 +174,84 @@ TEST_F(scalar_expression_variable_rewriter_test, nesting) {
     EXPECT_NE(c1, c1m);
     EXPECT_EQ(v0.variable(), c0m);
     EXPECT_EQ(v1.variable(), c1m);
+}
+
+TEST_F(scalar_expression_variable_rewriter_test, scalar_subquery) {
+    /*
+     * values:r0 -*
+     */
+    relation::graph_type g0;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& r0 = g0.insert(relation::values {
+            {
+                    c0,
+            },
+            {},
+    });
+
+    extension::scalar::subquery e0 {
+            std::move(g0),
+            c0,
+    };
+    stream_variable_rewriter_context context {};
+    scalar_expression_variable_rewriter rewriter {};
+    rewriter(context, e0);
+    check_context(context);
+
+    auto c0m = context.find(c0);
+    EXPECT_NE(c0, c0m);
+
+    EXPECT_EQ(e0.output_column(), c0m);
+
+    ASSERT_EQ(r0.columns().size(), 1);
+    EXPECT_EQ(r0.columns()[0], c0m);
+}
+
+TEST_F(scalar_expression_variable_rewriter_test, scalar_subquery_nesting) {
+    /*
+     * values:r0 -*
+     */
+    relation::graph_type g0;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& r0 = g0.insert(relation::values {
+            {
+                    c0,
+            },
+            {},
+    });
+
+    relation::graph_type g1;
+    auto c1 = bindings.stream_variable("c1");
+    auto&& r1 = g1.insert(extension::relation::subquery {
+            std::move(g0),
+            {
+                    { c0, c1 },
+            },
+            true,
+    });
+
+    extension::scalar::subquery e0 {
+            std::move(g1),
+            c1,
+    };
+    stream_variable_rewriter_context context {};
+    scalar_expression_variable_rewriter rewriter {};
+    rewriter(context, e0);
+    check_context(context);
+
+    EXPECT_FALSE(context.find(c0));
+    auto c1m = context.find(c1);
+    ASSERT_TRUE(c1m);;
+    EXPECT_NE(c1m, c1);
+
+    EXPECT_EQ(e0.output_column(), c1m);
+
+    ASSERT_EQ(r0.columns().size(), 1);
+    EXPECT_EQ(r0.columns()[0], c0);
+
+    ASSERT_EQ(r1.mappings().size(), 1);
+    EXPECT_EQ(r1.mappings()[0].source(), c0);
+    EXPECT_EQ(r1.mappings()[0].destination(), c1m);
 }
 
 } // namespace yugawara::analyzer::details

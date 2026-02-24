@@ -96,6 +96,7 @@ add_test_executable(yugawara/analyzer/details/remove_variable_aliases_test.cpp)
 
 # normalizer
 add_test_executable(yugawara/analyzer/details/expand_subquery_relation_test.cpp)
+add_test_executable(yugawara/analyzer/details/expand_subquery_scalar_test.cpp)
 add_test_executable(yugawara/analyzer/intermediate_plan_normalizer_test.cpp)
 
 # optimizer

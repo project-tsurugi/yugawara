@@ -142,6 +142,7 @@ add_library(yugawara
     yugawara/serializer/details/extension_type_property_scanner.cpp
     yugawara/serializer/details/extension_scalar_property_scanner.cpp
     yugawara/serializer/details/extension_relation_property_scanner.cpp
+    yugawara/serializer/utils.cpp
 )
 
 target_include_directories(yugawara

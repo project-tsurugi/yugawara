@@ -34,6 +34,15 @@ void stream_variable_rewriter_context::each_undefined(consumer_type const& consu
     }
 }
 
+void stream_variable_rewriter_context::raise_undefined() {
+    each_undefined([&](::takatori::descriptor::variable const& variable) {
+        throw_exception(std::domain_error(string_builder {}
+                << "undefined variable: "
+                << variable
+                << string_builder::to_string));
+    });
+}
+
 bool stream_variable_rewriter_context::try_rewrite_define(::takatori::descriptor::variable& variable) {
     if (auto it = mappings_.find(variable); it != mappings_.end()) {
         auto&& e = it.value();

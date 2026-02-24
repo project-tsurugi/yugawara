@@ -4,8 +4,13 @@
 
 namespace yugawara::analyzer {
 
-void intermediate_plan_normalizer::operator()(takatori::relation::graph_type& graph) {
-    details::expand_subquery(graph);
+
+std::vector<intermediate_plan_normalizer::diagnostic_type> intermediate_plan_normalizer::operator()(
+        ::takatori::relation::graph_type& graph) {
+    if (auto diagnostics = details::expand_subquery(graph); !diagnostics.empty()) {
+        return diagnostics;
+    }
+    return {};
 }
 
 } // namespace yugawara::analyzer

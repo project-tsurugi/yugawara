@@ -62,6 +62,29 @@ std::vector<diagnostic_type> build_error(analyzer::expression_analyzer const& an
     return results;
 }
 
+[[nodiscard]] code_type convert(analyzer::intermediate_plan_normalizer_code source) noexcept {
+    using from = decltype(source);
+    using to = code_type;
+    switch (source) {
+        case from::unknown: return to::unknown;
+        case from::unsupported_scalar_subquery_placement: return to::unsupported_feature;
+    }
+    std::abort();
+}
+
+std::vector<diagnostic_type> build_error(
+        std::vector<analyzer::intermediate_plan_normalizer::diagnostic_type>& diagnostics) {
+    std::vector<diagnostic_type> results;
+    results.reserve(diagnostics.size());
+    for (auto&& d : diagnostics) {
+        results.emplace_back(
+                convert(d.code()),
+                d.message(),
+                d.location());
+    }
+    return results;
+}
+
 either<std::vector<diagnostic_type>, info_type> do_inspect(std::function<void(analyzer::expression_analyzer&)> const& action) {
     auto exprs = std::make_shared<analyzer::expression_mapping>();
     auto vars = std::make_shared<analyzer::variable_mapping>();
@@ -96,7 +119,11 @@ public:
         expression_mapping_->clear();
         variable_mapping_->clear();
 
-        auto steps = do_compile(std::move(plan));
+        if (auto diagnostics = do_normalize(plan); !diagnostics.empty()) {
+            return result_type { std::move(diagnostics) };
+        }
+        do_optimize(plan);
+        auto steps = do_plan(std::move(plan));
 
         auto stmt = std::make_unique<statement::execute>(std::move(steps));
         return compile(std::move(stmt));
@@ -145,15 +172,12 @@ private:
         };
     }
 
-    plan::graph_type do_compile(relation::graph_type&& intermediate) {
-        do_normalize(intermediate);
-        do_optimize(intermediate);
-        return do_plan(std::move(intermediate));
-    }
-
-    void do_normalize(relation::graph_type& graph) {
+    [[nodiscard]] std::vector<diagnostic_type> do_normalize(relation::graph_type& graph) {
         analyzer::intermediate_plan_normalizer sub {};
-        sub(graph);
+        if (auto diagnostics = sub(graph); !diagnostics.empty()) {
+            return build_error(diagnostics);
+        }
+        return {};
     }
 
     void do_optimize(relation::graph_type& graph) {

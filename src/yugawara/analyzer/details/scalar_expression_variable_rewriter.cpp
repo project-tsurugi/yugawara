@@ -2,10 +2,16 @@
 
 #include <takatori/scalar/walk.h>
 
+#include <takatori/util/downcast.h>
 #include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/factory.h>
+
+#include <yugawara/extension/scalar/extension_id.h>
+#include <yugawara/extension/scalar/subquery.h>
+
+#include "rewrite_stream_variables.h"
 
 namespace yugawara::analyzer::details {
 
@@ -13,6 +19,7 @@ namespace scalar = ::takatori::scalar;
 
 using ::takatori::util::string_builder;
 using ::takatori::util::throw_exception;
+using ::takatori::util::unsafe_downcast;
 
 namespace {
 
@@ -21,13 +28,15 @@ public:
     explicit engine(
             scalar_expression_variable_rewriter::context_type& context,
             scalar_expression_variable_rewriter::local_map_type& locals,
-            scalar_expression_variable_rewriter::local_stack_type& stack) noexcept
-        : exchange_map_(context)
-        , locals_(locals)
-        , stack_(stack)
+            scalar_expression_variable_rewriter::local_stack_type& stack) noexcept :
+        context_ { context },
+        locals_ { locals },
+        stack_ { stack }
     {}
 
-    constexpr void operator()(scalar::expression&) noexcept {}
+    void operator()(scalar::expression const& expr) const noexcept {
+        (void) expr;
+    }
 
     bool operator()(scalar::let& expr) {
         std::size_t stack_mark = stack_.size();
@@ -70,11 +79,29 @@ public:
             expr.variable() = it->second;
             return;
         }
-        exchange_map_.rewrite_use(expr.variable());
+        context_.rewrite_use(expr.variable());
+    }
+
+    void operator()(scalar::extension& expr) {
+        switch (expr.extension_id()) {
+            case extension::scalar::subquery::extension_tag:
+                operator()(unsafe_downcast<extension::scalar::subquery&>(expr));
+                break;
+            default:
+                throw_exception(std::domain_error(string_builder {}
+                        << "unknown extension of scalar expression: "
+                        << expr.extension_id()
+                        << string_builder::to_string));
+        }
+    }
+
+    void operator()(extension::scalar::subquery& expr) {
+        context_.rewrite_use(expr.output_column());
+        rewrite_stream_variables(context_, expr.query_graph());
     }
 
 private:
-    scalar_expression_variable_rewriter::context_type& exchange_map_;
+    scalar_expression_variable_rewriter::context_type& context_;
     scalar_expression_variable_rewriter::local_map_type& locals_;
     scalar_expression_variable_rewriter::local_stack_type& stack_;
 

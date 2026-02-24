@@ -9,6 +9,8 @@
 #include <takatori/relation/emit.h>
 #include <takatori/relation/intermediate/join.h>
 
+#include <takatori/util/vector_print_support.h>
+
 #include <yugawara/binding/factory.h>
 
 #include <yugawara/extension/relation/subquery.h>
@@ -22,6 +24,7 @@ using namespace ::yugawara::testing;
 
 using ::takatori::util::downcast;
 using ::takatori::util::clone_unique;
+using ::takatori::util::print_support;
 
 class expand_subquery_relation_test : public ::testing::Test {
 protected:
@@ -38,6 +41,7 @@ protected:
         }
         throw std::domain_error("expected variable_reference");
     }
+
 };
 
 TEST_F(expand_subquery_relation_test, simple) {
@@ -69,7 +73,8 @@ TEST_F(expand_subquery_relation_test, simple) {
     });
     r0.output() >> r1.input();
 
-    expand_subquery(graph);
+    auto diagnostics = expand_subquery(graph);
+    ASSERT_TRUE(diagnostics.empty()) << print_support(diagnostics);
 
     // values - project - emit
     ASSERT_EQ(graph.size(), 3);
@@ -120,7 +125,8 @@ TEST_F(expand_subquery_relation_test, clone) {
     });
     r0.output() >> r1.input();
 
-    expand_subquery(graph);
+    auto diagnostics = expand_subquery(graph);
+    ASSERT_TRUE(diagnostics.empty()) << print_support(diagnostics);
 
     // values - project - emit
     ASSERT_EQ(graph.size(), 3);
@@ -187,7 +193,8 @@ TEST_F(expand_subquery_relation_test, complex) {
     });
     r0.output() >> r1.input();
 
-    expand_subquery(graph);
+    auto diagnostics = expand_subquery(graph);
+    ASSERT_TRUE(diagnostics.empty()) << print_support(diagnostics);
 
     // values - filter - project - escape - emit
     ASSERT_EQ(graph.size(), 5);
@@ -305,7 +312,8 @@ TEST_F(expand_subquery_relation_test, multiple_subqueries) {
     r2.output() >> r4.right();
     r4.output() >> r5.input();
 
-    expand_subquery(graph);
+    auto diagnostics = expand_subquery(graph);
+    ASSERT_TRUE(diagnostics.empty()) << print_support(diagnostics);
 
     /* values:v0 - project:e0 -\
      *                          join:j0 -\
@@ -415,7 +423,8 @@ TEST_F(expand_subquery_relation_test, nesting) {
     });
     r0.output() >> r1.input();
 
-    expand_subquery(graph);
+    auto diagnostics = expand_subquery(graph);
+    ASSERT_TRUE(diagnostics.empty()) << print_support(diagnostics);
 
     // values - project:e0 - project:e1 - project:e2 - emit
     ASSERT_EQ(graph.size(), 5);
@@ -488,7 +497,8 @@ TEST_F(expand_subquery_relation_test, self_join) {
     r1.output() >> r2.right();
     r2.output() >> r3.input();
 
-    expand_subquery(graph);
+    auto diagnostics = expand_subquery(graph);
+    ASSERT_TRUE(diagnostics.empty()) << print_support(diagnostics);
 
     /*
      * values:v0 -- emit:e0 -\

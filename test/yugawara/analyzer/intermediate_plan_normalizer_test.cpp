@@ -5,12 +5,18 @@
 #include <takatori/relation/graph.h>
 #include <takatori/relation/find.h>
 #include <takatori/relation/scan.h>
+#include <takatori/relation/values.h>
 #include <takatori/relation/emit.h>
 #include <takatori/relation/join_scan.h>
 #include <takatori/relation/project.h>
+#include <takatori/relation/intermediate/join.h>
+
+#include <takatori/util/vector_print_support.h>
 
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/configurable_provider.h>
+
+#include <yugawara/extension/scalar/subquery.h>
 #include <yugawara/extension/relation/subquery.h>
 
 #include <yugawara/testing/utils.h>
@@ -21,8 +27,8 @@ namespace yugawara::analyzer {
 using namespace ::yugawara::testing;
 
 using ::takatori::scalar::comparison_operator;
-
 using ::takatori::relation::endpoint_kind;
+using ::takatori::util::print_support;
 
 class intermediate_plan_normalizer_test: public ::testing::Test {
 protected:
@@ -80,7 +86,8 @@ TEST_F(intermediate_plan_normalizer_test, relation_subquery) {
     subquery.output() >> out.input();
 
     intermediate_plan_normalizer normalizer {};
-    normalizer(r);
+    auto diagnostics = normalizer(r);
+    ASSERT_TRUE(diagnostics.empty()) << print_support(diagnostics);
 
     ASSERT_EQ(r.size(), 3);
     ASSERT_TRUE(r.contains(in));
@@ -98,6 +105,81 @@ TEST_F(intermediate_plan_normalizer_test, relation_subquery) {
 
     ASSERT_EQ(out.columns().size(), 1);
     EXPECT_EQ(out.columns()[0].source(), q0);
+}
+
+TEST_F(intermediate_plan_normalizer_test, scalar_subquery) {
+    /* inner query: g0
+     *   values:sv -*
+     */
+    relation::graph_type g0 {};
+    auto c0 = bindings.stream_variable("c0");
+    auto&& sv = g0.insert(relation::values {
+            {
+                    c0,
+            },
+            {},
+    });
+
+    /* outer query: graph
+     *   values:rv -- project[g0->c2]:r0 -- emit:re
+     */
+    relation::graph_type graph {};
+    auto c1 = bindings.stream_variable("c1");
+    auto&& rv = graph.insert(relation::values {
+            {
+                    c1,
+            },
+            {},
+    });
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = graph.insert(relation::project {
+            relation::project::column {
+                    extension::scalar::subquery { std::move(g0), c0 },
+                    c2,
+            },
+    });
+    auto&& re = graph.insert(relation::emit {
+            c1,
+            c2,
+    });
+    rv.output() >> r0.input();
+    r0.output() >> re.input();
+
+    intermediate_plan_normalizer normalizer {};
+    auto diagnostics = normalizer(graph);
+    ASSERT_TRUE(diagnostics.empty()) << print_support(diagnostics);
+
+    /*
+     * values:rv[->c1] --\
+     *                    join -- project[c0->c2]:r0 -- emit[c1, c2]:re
+     * values:sv[->c0] --/
+     *
+     */
+    ASSERT_EQ(graph.size(), 5);
+    ASSERT_TRUE(graph.contains(sv));
+    ASSERT_TRUE(graph.contains(rv));
+    ASSERT_TRUE(graph.contains(r0));
+    ASSERT_TRUE(graph.contains(re));
+    auto&& join = next<relation::intermediate::join>(rv.output());
+    EXPECT_GT(rv.output(), join.left());
+    EXPECT_GT(sv.output(), join.right());
+
+    ASSERT_EQ(sv.columns().size(), 1);
+    EXPECT_EQ(sv.columns()[0], c0);
+
+    ASSERT_EQ(rv.columns().size(), 1);
+    EXPECT_EQ(rv.columns()[0], c1);
+
+    EXPECT_EQ(join.operator_kind(), relation::join_kind::left_outer_at_most_one);
+    EXPECT_FALSE(join.condition());
+
+    ASSERT_EQ(r0.columns().size(), 1);
+    EXPECT_EQ(r0.columns()[0].value(), scalar::variable_reference { c0 });
+    EXPECT_EQ(r0.columns()[0].variable(), c2);
+
+    ASSERT_EQ(re.columns().size(), 2);
+    EXPECT_EQ(re.columns()[0].source(), c1);
+    EXPECT_EQ(re.columns()[1].source(), c2);
 }
 
 } // namespace yugawara::analyzer

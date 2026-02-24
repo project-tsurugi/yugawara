@@ -27,6 +27,12 @@ public:
     void each_undefined(consumer_type const& consumer);
 
     /**
+     * @brief raises an exception if there is any used but not defined variable.
+     * @throws std::logic_error if there is any used but not defined variable
+     */
+    void raise_undefined();
+
+    /**
      * @brief rewrites the variable only if it was used.
      * @param variable the target stream variable
      * @return true if it was used, and then the variable would be modified

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include <takatori/relation/graph.h>
 
 #include <yugawara/diagnostic.h>
@@ -25,7 +27,7 @@ public:
      * @brief normalizes the given intermediate execution plan.
      * @param graph the target intermediate execution plan
      */
-    void operator()(::takatori::relation::graph_type& graph);
+    [[nodiscard]] std::vector<diagnostic_type> operator()(::takatori::relation::graph_type& graph);
 };
 
 } // namespace yugawara::analyzer
