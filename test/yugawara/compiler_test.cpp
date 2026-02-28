@@ -39,6 +39,7 @@
 #include <yugawara/variable/declaration.h>
 
 #include <yugawara/extension/scalar/subquery.h>
+#include <yugawara/extension/scalar/exists.h>
 #include <yugawara/extension/relation/subquery.h>
 
 #include <yugawara/testing/utils.h>
@@ -1505,6 +1506,113 @@ TEST_F(compiler_test, feat_scalar_subquery_no_broadcast) {
     ASSERT_EQ(r2.columns().size(), 2);
     EXPECT_EQ(r2.columns()[0], cvm);
     EXPECT_EQ(r2.columns()[1], c0m);
+
+    dump(result);
+}
+
+TEST_F(compiler_test, feat_exists_filter_no_broadcast) {
+    // disable broadcast joins
+    runtime_features.erase(runtime_feature::broadcast_exchange);
+
+    /*
+     * SELECT
+     *   t0.c0
+     * FROM t0
+     * WHERE EXISTS (VALUES (1) AS rv(cv))
+     * =>
+     * scan[t0(c0, c1, c2)] --\
+     *                         join -- emit[c0]
+     * values[->cv] ----------/
+     * =>
+     * p0:
+     *   scan[t0(c0)]:rs -- offer:o0
+     * p1:
+     *   values[]:rv -- offer:o1
+     * p2:
+     *   take_cogroup:t0 -- join_group:j0 -- emit[c0]:e0
+     * plan:
+     *   p0 -- group:g0 --\
+     *                     p2
+     *   p1 -- group:g0 --/
+     */
+    relation::graph_type subgraph;
+    auto cv = bindings.stream_variable("cv");
+    auto&& rv = subgraph.insert(relation::values {
+            {
+                    cv,
+            },
+            {
+                    { constant(1) },
+            },
+    });
+
+    relation::graph_type graph;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = graph.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+                    { bindings(t0c1), c1 },
+                    { bindings(t0c2), c2 },
+            },
+    });
+    auto&& r1 = graph.insert(relation::filter {
+            extension::scalar::exists { std::move(subgraph) },
+    });
+    auto&& r2 = graph.insert(relation::emit {
+            c0,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    auto result = compiler()(options(), std::move(graph));
+    ASSERT_TRUE(result);
+
+    auto&& c = downcast<statement::execute>(result.statement());
+
+    ASSERT_EQ(c.execution_plan().size(), 5); // 3-processes and 2-exchanges
+    auto&& p0 = find(c.execution_plan(), r0);
+    auto&& p1 = find(c.execution_plan(), rv);
+    auto&& p2 = find(c.execution_plan(), r2);
+    ASSERT_EQ(p0.downstreams().size(), 1);
+    ASSERT_EQ(p1.downstreams().size(), 1);
+    ASSERT_EQ(p2.upstreams().size(), 2);
+
+    // p0
+    ASSERT_EQ(p0.operators().size(), 2);
+    auto&& o0 = next<relation::step::offer>(r0.output());
+    auto&& g0 = resolve<plan::group>(o0.destination());
+    ASSERT_EQ(g0.group_keys().size(), 0);
+
+    // p1
+    ASSERT_EQ(p1.operators().size(), 2);
+    auto&& o1 = next<relation::step::offer>(rv.output());
+    auto&& g1 = resolve<plan::group>(o1.destination());
+    ASSERT_EQ(g1.group_keys().size(), 0);
+
+    // p2
+    ASSERT_EQ(p2.operators().size(), 3);
+    auto&& j0 = next<relation::step::join>(r2.input());
+    auto&& t0 = next<relation::step::take_cogroup>(j0.input());
+
+    ASSERT_EQ(t0.groups().size(), 2);
+    auto&& t0g0 = t0.groups()[0];
+    auto&& t0g1 = t0.groups()[1];
+    EXPECT_EQ(resolve<plan::group>(t0g0.source()), g0);
+    EXPECT_EQ(resolve<plan::group>(t0g1.source()), g1);
+
+    ASSERT_EQ(t0g0.columns().size(), 1);
+    auto&& c0m = t0g0.columns()[0].destination();
+
+    ASSERT_EQ(t0g1.columns().size(), 0);
+
+    EXPECT_EQ(j0.operator_kind(), relation::join_kind::semi);
+    EXPECT_FALSE(j0.condition());
+
+    ASSERT_EQ(r2.columns().size(), 1);
+    EXPECT_EQ(r2.columns()[0], c0m);
 
     dump(result);
 }

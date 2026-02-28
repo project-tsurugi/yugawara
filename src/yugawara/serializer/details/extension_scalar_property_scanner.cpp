@@ -33,6 +33,9 @@ void extension_scalar_property_scanner::process(takatori::scalar::extension cons
         case subquery::extension_tag:
             properties(unsafe_downcast<subquery>(element));
             break;
+        case exists::extension_tag:
+            properties(unsafe_downcast<exists>(element));
+            break;
         default:
             // no more information
             break;
@@ -60,6 +63,12 @@ void extension_scalar_property_scanner::properties(extension::scalar::subquery c
 
     acceptor_.property_begin("output_column"sv);
     accept(element.output_column());
+    acceptor_.property_end();
+}
+
+void extension_scalar_property_scanner::properties(extension::scalar::exists const& element) {
+    acceptor_.property_begin("query_graph"sv);
+    accept(element.query_graph());
     acceptor_.property_end();
 }
 

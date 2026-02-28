@@ -28,6 +28,7 @@
 #include <yugawara/variable/quantification.h>
 #include <yugawara/extension/scalar/aggregate_function_call.h>
 #include <yugawara/extension/scalar/subquery.h>
+#include <yugawara/extension/scalar/exists.h>
 #include <yugawara/extension/relation/subquery.h>
 
 namespace yugawara::serializer {
@@ -467,6 +468,14 @@ TEST_F(object_scanner_test, extension_scalar_subquery) {
     print(extension::scalar::subquery {
             std::move(graph),
             bindings.stream_variable("result"),
+    });
+}
+
+TEST_F(object_scanner_test, extension_scalar_exists) {
+    ::takatori::relation::graph_type graph {};
+    graph.insert(::takatori::relation::values {{}, {}});
+    print(extension::scalar::exists {
+            std::move(graph),
     });
 }
 

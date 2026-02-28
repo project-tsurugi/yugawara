@@ -28,6 +28,9 @@ enum extension_id : ::takatori::scalar::extension::extension_id_type {
     /// @brief pseudo scalar subquery expression.
     subquery_id,
 
+    /// @brief pseudo exists predicate expression.
+    exists_id,
+
     /// @brief the minimum unused ID.
     min_unused_id,
 };
@@ -54,6 +57,7 @@ constexpr std::string_view to_string_view(extension_id value) noexcept {
         case error_id: return "error"sv;
         case aggregate_function_call_id: return "aggregate_function_call"sv;
         case subquery_id: return "subquery"sv;
+        case exists_id: return "exists"sv;
         default: return "(unknown extension kind)"sv;
     }
 }

@@ -12,12 +12,15 @@
 #include <takatori/relation/intermediate/dispatch.h>
 
 #include <takatori/tree/tree_element_vector.h>
+#include <takatori/type/primitive.h>
 
 #include <takatori/util/assertion.h>
 #include <takatori/util/clonable.h>
 #include <takatori/util/downcast.h>
+#include <takatori/util/enum_tag.h>
 #include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
+#include <takatori/value/primitive.h>
 
 #include <yugawara/diagnostic.h>
 
@@ -27,6 +30,7 @@
 #include <yugawara/extension/relation/subquery.h>
 #include <yugawara/extension/scalar/extension_id.h>
 #include <yugawara/extension/scalar/subquery.h>
+#include <yugawara/extension/scalar/exists.h>
 
 #include <yugawara/analyzer/intermediate_plan_normalizer_code.h>
 
@@ -111,13 +115,19 @@ private:
     extension::relation::subquery& target_;
 };
 
-class expand_scalar_subquery_command final : public expand_subquery_command {
+class expand_scalar_expression_command : public expand_subquery_command {
+public:
+    [[nodiscard]] virtual ::takatori::scalar::expression& target() noexcept = 0;
+    virtual void locate(::takatori::relation::expression::input_port_type& insertion_point) = 0;
+};
+
+class expand_scalar_subquery_command final : public expand_scalar_expression_command {
 public:
     explicit expand_scalar_subquery_command(std::unique_ptr<extension::scalar::subquery> target) noexcept:
         target_ { std::move(target) }
     {}
 
-    [[nodiscard]] extension::scalar::subquery& target() noexcept {
+    [[nodiscard]] extension::scalar::subquery& target() noexcept override {
         return *target_;
     }
 
@@ -128,7 +138,7 @@ public:
         return *insertion_point_;
     }
 
-    void locate(::takatori::relation::expression::input_port_type& insertion_point) {
+    void locate(::takatori::relation::expression::input_port_type& insertion_point) override {
         if (insertion_point_ != nullptr) {
             throw_exception(std::logic_error { "already located" });
         }
@@ -137,6 +147,80 @@ public:
 
 private:
     std::unique_ptr<extension::scalar::subquery> target_;
+    ::takatori::relation::expression::input_port_type* insertion_point_ {};
+};
+
+class expand_exists_filter_command final : public expand_scalar_expression_command {
+public:
+    explicit expand_exists_filter_command(
+            std::unique_ptr<extension::scalar::exists> target,
+            bool is_conditional_not) noexcept:
+        target_ { std::move(target) },
+        is_conditional_not_ { is_conditional_not }
+    {}
+
+    [[nodiscard]] extension::scalar::exists& target() noexcept override {
+        return *target_;
+    }
+
+    [[nodiscard]] bool is_conditional_not() const noexcept {
+        return is_conditional_not_;
+    }
+
+    [[nodiscard]] ::takatori::relation::expression::input_port_type& insertion_point() {
+        if (insertion_point_ == nullptr) {
+            throw_exception(std::logic_error { "not located" });
+        }
+        return *insertion_point_;
+    }
+
+    void locate(::takatori::relation::expression::input_port_type& insertion_point) override {
+        if (insertion_point_ != nullptr) {
+            throw_exception(std::logic_error { "already located" });
+        }
+        insertion_point_ = std::addressof(insertion_point);
+    }
+
+private:
+    std::unique_ptr<extension::scalar::exists> target_;
+    bool is_conditional_not_;
+    ::takatori::relation::expression::input_port_type* insertion_point_ {};
+};
+
+class expand_exists_value_command final : public expand_scalar_expression_command {
+public:
+    explicit expand_exists_value_command(
+            std::unique_ptr<extension::scalar::exists> target,
+            ::takatori::descriptor::variable output_column) noexcept:
+        target_ { std::move(target) },
+        output_column_ { std::move(output_column) }
+    {}
+
+    [[nodiscard]] extension::scalar::exists& target() noexcept override {
+        return *target_;
+    }
+
+    [[nodiscard]] ::takatori::descriptor::variable output_column() const noexcept {
+        return output_column_;
+    }
+
+    [[nodiscard]] ::takatori::relation::expression::input_port_type& insertion_point() {
+        if (insertion_point_ == nullptr) {
+            throw_exception(std::logic_error { "not located" });
+        }
+        return *insertion_point_;
+    }
+
+    void locate(::takatori::relation::expression::input_port_type& insertion_point) override {
+        if (insertion_point_ != nullptr) {
+            throw_exception(std::logic_error { "already located" });
+        }
+        insertion_point_ = std::addressof(insertion_point);
+    }
+
+private:
+    std::unique_ptr<extension::scalar::exists> target_;
+    ::takatori::descriptor::variable output_column_;
     ::takatori::relation::expression::input_port_type* insertion_point_ {};
 };
 
@@ -161,7 +245,7 @@ public:
         return diagnostics_;
     }
 
-    [[nodiscard]] std::vector<std::unique_ptr<expand_scalar_subquery_command>>& commands() noexcept {
+    [[nodiscard]] std::vector<std::unique_ptr<expand_scalar_expression_command>>& commands() noexcept {
         return commands_;
     }
 
@@ -189,7 +273,7 @@ public:
 private:
     insertion_context_kind context_kind_;
     std::vector<diagnostic_type> diagnostics_ {};
-    std::vector<std::unique_ptr<expand_scalar_subquery_command>> commands_ {};
+    std::vector<std::unique_ptr<expand_scalar_expression_command>> commands_ {};
     std::vector<::takatori::relation::expression*> worklist_ {};
 
     friend class insertion_context_operand_block;
@@ -652,13 +736,31 @@ public:
         return {};
     }
 
+    using conditional_not_t = ::takatori::util::enum_tag_t<::takatori::scalar::unary_operator::conditional_not>;
+
     [[nodiscard]] std::unique_ptr<::takatori::scalar::expression> operator()(
             ::takatori::scalar::unary& expr,
             insertion_context& context) const {
+        if (expr.operator_kind() == ::takatori::scalar::unary_operator::conditional_not) {
+            // NOTE: to handle `NOT EXISTS` or `NOT x IN (subquery)`, we try check operand first
+            if (auto replacement = ::takatori::scalar::dispatch(*this, expr.operand(), conditional_not_t {}, context)) {
+                return replacement;
+            }
+        }
         insertion_context_operand_block block { context };
+
         if (auto&& replacement = collect(context, expr.operand())) {
             expr.operand(std::move(replacement));
         }
+        return {};
+    }
+
+    [[nodiscard]] std::unique_ptr<::takatori::scalar::expression> operator()(
+            ::takatori::scalar::expression const& expr,
+            conditional_not_t,
+            insertion_context const& context) const noexcept {
+        (void) expr;
+        (void) context;
         return {};
     }
 
@@ -790,7 +892,9 @@ public:
             insertion_context& context) const {
         switch (expr.extension_id()) {
             case extension::scalar::subquery::extension_tag:
-                return operator()(unsafe_downcast<extension::scalar::subquery&>(expr), context);
+                return operator()(unsafe_downcast<extension::scalar::subquery>(expr), context);
+            case extension::scalar::exists::extension_tag:
+                return operator()(unsafe_downcast<extension::scalar::exists>(expr), context);
             default:
                 throw_exception(std::domain_error {
                     string_builder {}
@@ -802,25 +906,22 @@ public:
     }
 
     [[nodiscard]] std::unique_ptr<::takatori::scalar::expression> operator()(
+            ::takatori::scalar::extension& expr,
+            conditional_not_t,
+            insertion_context& context) const {
+        switch (expr.extension_id()) {
+            case extension::scalar::exists::extension_tag:
+                return operator()(unsafe_downcast<extension::scalar::exists>(expr), conditional_not_t {}, context);
+            default:
+                return {};
+        }
+    }
+
+    [[nodiscard]] std::unique_ptr<::takatori::scalar::expression> operator()(
             extension::scalar::subquery& expr,
             insertion_context& context) const {
-        switch (context.context_kind()) {
-            case insertion_context_kind::scan_criteria:
-                context.report(
-                    intermediate_plan_normalizer_code::unsupported_scalar_subquery_placement,
-                    expr,
-                    "subquery is not allowed in scan criteria"
-                );
-                return {};
-            case insertion_context_kind::join_criteria:
-                context.report(
-                    intermediate_plan_normalizer_code::unsupported_scalar_subquery_placement,
-                    expr,
-                    "subquery is not allowed in join criteria"
-                );
-                return {};
-            default:
-                break;
+        if (!check_subquery_context_kind(expr, context)) {
+            return {};
         }
         auto replacement = std::make_unique<::takatori::scalar::variable_reference>(expr.output_column());
         replacement->region() = expr.region();
@@ -832,6 +933,115 @@ public:
     }
 
 private:
+    [[nodiscard]] bool check_subquery_context_kind(
+            ::takatori::scalar::expression const& expr,
+            insertion_context& context) const {
+        switch (context.context_kind()) {
+            case insertion_context_kind::scan_criteria:
+                context.report(
+                    intermediate_plan_normalizer_code::unsupported_scalar_subquery_placement,
+                    expr,
+                    "subquery is not allowed in scan criteria"
+                );
+                return false;
+            case insertion_context_kind::join_criteria:
+                context.report(
+                    intermediate_plan_normalizer_code::unsupported_scalar_subquery_placement,
+                    expr,
+                    "subquery is not allowed in join criteria"
+                );
+                return false;
+            default:
+                return true;
+        }
+    }
+
+public:
+    [[nodiscard]] std::unique_ptr<::takatori::scalar::expression> operator()(
+            extension::scalar::exists& expr,
+            insertion_context& context) const {
+        return process_exists(expr, false, context);
+    }
+
+    [[nodiscard]] std::unique_ptr<::takatori::scalar::expression> operator()(
+            extension::scalar::exists& expr,
+            conditional_not_t,
+            insertion_context& context) const {
+        return process_exists(expr, true, context);
+    }
+
+private:
+    [[nodiscard]] std::unique_ptr<::takatori::scalar::expression> process_exists(
+            extension::scalar::exists& expr,
+            bool is_conditional_not,
+            insertion_context& context) const {
+        if (!check_subquery_context_kind(expr, context)) {
+            return {};
+        }
+        if (context.context_kind() == insertion_context_kind::filter_condition) {
+            // resolve `EXISTS` as a filter condition...
+            return process_exists_filter(expr, is_conditional_not, context);
+        }
+        // otherwise, resolve `EXISTS` as a generic boolean expression.
+        return process_exists_value(expr, is_conditional_not, context);
+    }
+
+    [[nodiscard]] std::unique_ptr<::takatori::scalar::expression> process_exists_filter(
+            extension::scalar::exists& expr,
+            bool is_conditional_not,
+            insertion_context& context) const {
+        /* NOTE:
+         * `EXISTS` is appeared as a top-level filter condition.
+         * We replace it as just `TRUE` and insert semi/anti join
+         * before the filter to check if the subquery returns any rows.
+         */
+        auto replacement = std::make_unique<::takatori::scalar::immediate>(
+                std::make_shared<::takatori::value::boolean>(true),
+                std::make_shared<::takatori::type::boolean>());
+        replacement->region() = expr.region();
+
+        context.add_worklist(expr.query_graph());
+        auto command = std::make_unique<expand_exists_filter_command>(
+                clone_unique(std::move(expr)),
+                is_conditional_not);
+
+        context.commands().emplace_back(std::move(command));
+        return replacement;
+    }
+
+    [[nodiscard]] std::unique_ptr<::takatori::scalar::expression> process_exists_value(
+            extension::scalar::exists& expr,
+            bool is_conditional_not,
+            insertion_context& context) const {
+        /**
+         * NOTE:
+         * `EXISTS` is appeared as a generic boolean expression (e.g. operand of other predicate).
+         * We replace it as `x IS TRUE` or `x IS NULL` and insert left outer join with the subquery.
+         */
+        auto output_column = binding::factory().stream_variable();
+        std::unique_ptr<::takatori::scalar::expression> replacement;
+        if (is_conditional_not) {
+            // `NOT EXISTS` -> `x IS NULL`
+            replacement = std::make_unique<::takatori::scalar::unary>(
+                    ::takatori::scalar::unary_operator::is_null,
+                    std::make_unique<::takatori::scalar::variable_reference>(output_column));
+        } else {
+            // `EXISTS` -> `x IS TRUE`
+            replacement = std::make_unique<::takatori::scalar::unary>(
+                    ::takatori::scalar::unary_operator::is_true,
+                    std::make_unique<::takatori::scalar::variable_reference>(output_column));
+        }
+        replacement->region() = expr.region();
+
+        context.add_worklist(expr.query_graph());
+        auto command = std::make_unique<expand_exists_value_command>(
+                clone_unique(std::move(expr)),
+                std::move(output_column));
+
+        context.commands().emplace_back(std::move(command));
+        return replacement;
+    }
+
     std::vector<std::unique_ptr<expand_subquery_command>> commands_ {};
     std::deque<::takatori::relation::expression*> worklist_ {};
     std::vector<diagnostic_type> diagnostics_ {};
@@ -945,6 +1155,8 @@ private:
 void process(expand_subquery_command& command);
 void process(expand_relation_subquery_command& command);
 void process(expand_scalar_subquery_command& command);
+void process(expand_exists_filter_command& command);
+void process(expand_exists_value_command& command);
 
 void process(expand_subquery_command& command) {
     if (auto* cmd = downcast<expand_relation_subquery_command>(&command)) {
@@ -952,6 +1164,14 @@ void process(expand_subquery_command& command) {
         return;
     }
     if (auto* cmd = downcast<expand_scalar_subquery_command>(&command)) {
+        process(*cmd);
+        return;
+    }
+    if (auto* cmd = downcast<expand_exists_filter_command>(&command)) {
+        process(*cmd);
+        return;
+    }
+    if (auto* cmd = downcast<expand_exists_value_command>(&command)) {
         process(*cmd);
         return;
     }
@@ -1008,6 +1228,84 @@ void process(expand_scalar_subquery_command& command) {
         throw_exception(std::domain_error { "subquery has no output port" });
     }
     join.right().connect_to(*subquery_output);
+    bypass(insertion_point, join);
+
+    ::takatori::relation::merge_into(std::move(expr.query_graph()), graph);
+}
+
+void process(expand_exists_filter_command& command) {
+    auto&& expr = command.target();
+    auto&& insertion_point = command.insertion_point();
+
+    /* NOTE:
+     *
+     * main   subquery
+     *  |        |
+     * SEMI/ANTI JOIN ON TRUE
+     */
+    auto&& graph = insertion_point.owner().owner();
+    auto&& join = graph.emplace<::takatori::relation::intermediate::join>(
+        // EXISTS -> semi, NOT EXISTS -> anti
+        command.is_conditional_not() ? ::takatori::relation::join_kind::anti : ::takatori::relation::join_kind::semi,
+        // ON TRUE
+        std::unique_ptr<::takatori::scalar::expression> {});
+    join.region() = expr.region();
+
+    // FIXME: for optimization, insert FETCH FIRST 1 ROW
+
+    auto subquery_output = expr.find_output_port();
+    if (!subquery_output) {
+        throw_exception(std::domain_error { "subquery has no output port" });
+    }
+    join.right().connect_to(*subquery_output);
+    bypass(insertion_point, join);
+
+    ::takatori::relation::merge_into(std::move(expr.query_graph()), graph);
+}
+
+void process(expand_exists_value_command& command) {
+    auto&& expr = command.target();
+    auto&& insertion_point = command.insertion_point();
+
+    /* NOTE:
+     *        subquery
+     *           |
+     *        project[TRUE -> output_column]
+     *           |
+     * main   FETCH FIRST 1 ROW
+     *  |        |
+     * LEFT OUTER JOIN ON TRUE
+     *  |
+     * ... [output_column IS TRUE/NULL]
+     */
+    auto&& graph = insertion_point.owner().owner();
+    std::vector<::takatori::relation::project::column> project_column {};
+    project_column.reserve(1);
+    project_column.emplace_back(
+            std::make_unique<::takatori::scalar::immediate>(
+                    std::make_shared<::takatori::value::boolean>(true),
+                    std::make_shared<::takatori::type::boolean>()),
+            command.output_column());
+
+    auto&& project = graph.emplace<::takatori::relation::project>(std::move(project_column));
+
+    auto&& fetch_first = graph.emplace<::takatori::relation::intermediate::limit>(1);
+
+    auto&& join = graph.emplace<::takatori::relation::intermediate::join>(
+        // LEFT OUTER JOIN
+        ::takatori::relation::join_kind::left_outer,
+        // ON TRUE
+        std::unique_ptr<::takatori::scalar::expression> {});
+    join.region() = expr.region();
+
+    auto subquery_output = expr.find_output_port();
+    if (!subquery_output) {
+        throw_exception(std::domain_error { "subquery has no output port" });
+    }
+
+    subquery_output->connect_to(project.input());
+    project.output().connect_to(fetch_first.input());
+    fetch_first.output().connect_to(join.right());
     bypass(insertion_point, join);
 
     ::takatori::relation::merge_into(std::move(expr.query_graph()), graph);

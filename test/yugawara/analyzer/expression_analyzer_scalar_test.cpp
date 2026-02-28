@@ -39,6 +39,7 @@
 #include <yugawara/extension/type/pending.h>
 #include <yugawara/extension/scalar/aggregate_function_call.h>
 #include <yugawara/extension/scalar/subquery.h>
+#include <yugawara/extension/scalar/exists.h>
 
 namespace yugawara::analyzer {
 
@@ -1835,8 +1836,6 @@ TEST_F(expression_analyzer_scalar_test, aggregate_function_call_inconsistent) {
 TEST_F(expression_analyzer_scalar_test, extension_subquery) {
     auto i0 = bindings.stream_variable("i0");
     auto i1 = bindings.stream_variable("i1");
-    auto o0 = bindings.stream_variable("o0");
-    auto o1 = bindings.stream_variable("o1");
 
     ::takatori::relation::graph_type graph {};
     graph.insert(::takatori::relation::values {
@@ -1855,6 +1854,50 @@ TEST_F(expression_analyzer_scalar_test, extension_subquery) {
     auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::int8());
     EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, extension_exists) {
+    auto i0 = bindings.stream_variable("i0");
+    auto i1 = bindings.stream_variable("i1");
+
+    ::takatori::relation::graph_type graph {};
+    graph.insert(::takatori::relation::values {
+            { i0, i1, },
+            {
+                    {
+                            vref { decl(t::int4 {}) },
+                            vref { decl(t::int8 {}) },
+                    },
+            },
+    });
+    extension::scalar::exists expr {
+            std::move(graph),
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::boolean());
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, extension_exists_invalid) {
+    auto i0 = bindings.stream_variable("i0");
+    auto i1 = bindings.stream_variable("i1");
+
+    ::takatori::relation::graph_type graph {};
+    graph.insert(::takatori::relation::values {
+            { i0, i1, },
+            {
+                    {
+                            vref { decl(t::int4 {}) },
+                            // mismatch number of columns
+                    },
+            },
+    });
+    extension::scalar::exists expr {
+            std::move(graph),
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::boolean());
+    EXPECT_FALSE(ok());
 }
 
 } // namespace yugawara::analyzer

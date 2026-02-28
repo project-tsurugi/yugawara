@@ -36,6 +36,7 @@
 #include <yugawara/extension/type/error.h>
 #include <yugawara/extension/scalar/aggregate_function_call.h>
 #include <yugawara/extension/scalar/subquery.h>
+#include <yugawara/extension/scalar/exists.h>
 #include <yugawara/extension/relation/subquery.h>
 
 #include <yugawara/binding/extract.h>
@@ -492,6 +493,8 @@ public:
                 return operator()(unsafe_downcast<extension::scalar::aggregate_function_call>(expr));
             case extension::scalar::subquery::extension_tag:
                 return operator()(unsafe_downcast<extension::scalar::subquery>(expr));
+            case extension::scalar::exists::extension_tag:
+                return operator()(unsafe_downcast<extension::scalar::exists>(expr));
             default:
                 throw_exception(std::domain_error(string_builder {}
                         << "unknown scalar expression extension: "
@@ -523,6 +526,16 @@ public:
                 code::unresolved_variable,
                 extract_region(expr),
         });
+    }
+
+    type_ptr operator()(extension::scalar::exists const& expr) {
+        if (validate_) {
+            auto r = resolve(expr.query_graph());
+            if (!r) {
+                return repo_.get(::takatori::type::boolean());
+            }
+        }
+        return repo_.get(::takatori::type::boolean());
     }
 
     // FIXME: more expressions

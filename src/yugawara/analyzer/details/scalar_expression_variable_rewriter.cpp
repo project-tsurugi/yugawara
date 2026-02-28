@@ -10,6 +10,7 @@
 
 #include <yugawara/extension/scalar/extension_id.h>
 #include <yugawara/extension/scalar/subquery.h>
+#include <yugawara/extension/scalar/exists.h>
 
 #include "rewrite_stream_variables.h"
 
@@ -85,7 +86,10 @@ public:
     void operator()(scalar::extension& expr) {
         switch (expr.extension_id()) {
             case extension::scalar::subquery::extension_tag:
-                operator()(unsafe_downcast<extension::scalar::subquery&>(expr));
+                operator()(unsafe_downcast<extension::scalar::subquery>(expr));
+                break;
+            case extension::scalar::exists::extension_tag:
+                operator()(unsafe_downcast<extension::scalar::exists>(expr));
                 break;
             default:
                 throw_exception(std::domain_error(string_builder {}
@@ -97,6 +101,10 @@ public:
 
     void operator()(extension::scalar::subquery& expr) {
         context_.rewrite_use(expr.output_column());
+        rewrite_stream_variables(context_, expr.query_graph());
+    }
+
+    void operator()(extension::scalar::exists& expr) {
         rewrite_stream_variables(context_, expr.query_graph());
     }
 
