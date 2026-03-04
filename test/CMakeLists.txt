@@ -72,6 +72,7 @@ add_test_executable(yugawara/schema/catalog_test.cpp)
 add_test_executable(yugawara/extension/scalar/aggregate_function_call_test.cpp)
 add_test_executable(yugawara/extension/scalar/scalar_subquery_test.cpp)
 add_test_executable(yugawara/extension/scalar/scalar_exists_test.cpp)
+add_test_executable(yugawara/extension/scalar/scalar_quantified_compare_test.cpp)
 add_test_executable(yugawara/extension/relation/relation_subquery_test.cpp)
 
 # analyzer
@@ -99,6 +100,7 @@ add_test_executable(yugawara/analyzer/details/remove_variable_aliases_test.cpp)
 add_test_executable(yugawara/analyzer/details/expand_subquery_relation_test.cpp)
 add_test_executable(yugawara/analyzer/details/expand_subquery_scalar_test.cpp)
 add_test_executable(yugawara/analyzer/details/expand_subquery_exists_test.cpp)
+add_test_executable(yugawara/analyzer/details/expand_subquery_quantified_compare_test.cpp)
 add_test_executable(yugawara/analyzer/intermediate_plan_normalizer_test.cpp)
 
 # optimizer

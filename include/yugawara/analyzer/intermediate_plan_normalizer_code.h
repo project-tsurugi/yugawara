@@ -12,6 +12,9 @@ enum class intermediate_plan_normalizer_code {
     /// @brief unknown diagnostic.
     unknown = 0,
 
+    /// @brief unsupported feature.
+    unsupported_feature,
+
     /// @brief scalar subquery is not supported here.
     unsupported_scalar_subquery_placement,
 };
@@ -26,6 +29,7 @@ constexpr std::string_view to_string_view(intermediate_plan_normalizer_code valu
     using kind = intermediate_plan_normalizer_code;
     switch (value) {
         case kind::unknown: return "unknown"sv;
+        case kind::unsupported_feature: return "unsupported_feature"sv;
         case kind::unsupported_scalar_subquery_placement: return "unsupported_scalar_subquery_placement"sv;
     }
     std::abort();

@@ -36,6 +36,9 @@ void extension_scalar_property_scanner::process(takatori::scalar::extension cons
         case exists::extension_tag:
             properties(unsafe_downcast<exists>(element));
             break;
+        case quantified_compare::extension_tag:
+            properties(unsafe_downcast<quantified_compare>(element));
+            break;
         default:
             // no more information
             break;
@@ -69,6 +72,28 @@ void extension_scalar_property_scanner::properties(extension::scalar::subquery c
 void extension_scalar_property_scanner::properties(extension::scalar::exists const& element) {
     acceptor_.property_begin("query_graph"sv);
     accept(element.query_graph());
+    acceptor_.property_end();
+}
+
+void extension_scalar_property_scanner::properties(extension::scalar::quantified_compare const& element) {
+    acceptor_.property_begin("operator_kind"sv);
+    accept(element.operator_kind());
+    acceptor_.property_end();
+
+    acceptor_.property_begin("quantifier"sv);
+    accept(element.quantifier());
+    acceptor_.property_end();
+
+    acceptor_.property_begin("left"sv);
+    accept(element.optional_left());
+    acceptor_.property_end();
+
+    acceptor_.property_begin("query_graph"sv);
+    accept(element.query_graph());
+    acceptor_.property_end();
+
+    acceptor_.property_begin("right_column"sv);
+    accept(element.right_column());
     acceptor_.property_end();
 }
 

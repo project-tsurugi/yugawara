@@ -37,6 +37,7 @@
 #include <yugawara/extension/scalar/aggregate_function_call.h>
 #include <yugawara/extension/scalar/subquery.h>
 #include <yugawara/extension/scalar/exists.h>
+#include <yugawara/extension/scalar/quantified_compare.h>
 #include <yugawara/extension/relation/subquery.h>
 
 #include <yugawara/binding/extract.h>
@@ -495,6 +496,8 @@ public:
                 return operator()(unsafe_downcast<extension::scalar::subquery>(expr));
             case extension::scalar::exists::extension_tag:
                 return operator()(unsafe_downcast<extension::scalar::exists>(expr));
+            case extension::scalar::quantified_compare::extension_tag:
+                return operator()(unsafe_downcast<extension::scalar::quantified_compare>(expr));
             default:
                 throw_exception(std::domain_error(string_builder {}
                         << "unknown scalar expression extension: "
@@ -533,6 +536,47 @@ public:
             auto r = resolve(expr.query_graph());
             if (!r) {
                 return repo_.get(::takatori::type::boolean());
+            }
+        }
+        return repo_.get(::takatori::type::boolean());
+    }
+
+    type_ptr operator()(extension::scalar::quantified_compare const& expr) {
+        if (validate_) {
+            auto r = resolve(expr.query_graph());
+            if (!r) {
+                return std::make_shared<extension::type::error>();
+            }
+            auto left = resolve(expr.left());
+            auto right_resolution = resolve_stream_column(expr.right_column());
+            if (is_unresolved_or_error(right_resolution)) {
+                return repo_.get(::takatori::type::boolean());
+            }
+            auto right = ana_.inspect(right_resolution);
+            auto lcat = type::category_of(*left);
+            auto rcat = type::category_of(*right);
+            if (lcat == category::unresolved || rcat == category::unresolved) {
+                return repo_.get(::takatori::type::boolean());
+            }
+            auto unify = type::unifying_conversion(*left, *right);
+            auto ucat = type::category_of(*unify);
+            if (ucat == category::unresolved) {
+                report(code::inconsistent_type,
+                        extract_region(expr.left()),
+                        *left,
+                        { rcat });
+            }
+            if (!type::is_comparable(expr.operator_kind(), *unify)) {
+                report({
+                        code::unsupported_type,
+                        string_builder {}
+                                << "unsupported comparison for the type: "
+                                << "operator=" << expr.operator_kind() << ", "
+                                << "quantifier=" << expr.quantifier() << ", "
+                                << "type=" << *unify
+                                << string_builder::to_string,
+                        extract_region(expr),
+                });
             }
         }
         return repo_.get(::takatori::type::boolean());

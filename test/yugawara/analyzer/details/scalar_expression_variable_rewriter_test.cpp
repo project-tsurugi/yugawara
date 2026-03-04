@@ -16,6 +16,7 @@
 #include <yugawara/binding/factory.h>
 
 #include <yugawara/extension/scalar/subquery.h>
+#include <yugawara/extension/scalar/quantified_compare.h>
 #include <yugawara/extension/relation/subquery.h>
 
 #include <yugawara/type/repository.h>
@@ -252,6 +253,46 @@ TEST_F(scalar_expression_variable_rewriter_test, scalar_subquery_nesting) {
     ASSERT_EQ(r1.mappings().size(), 1);
     EXPECT_EQ(r1.mappings()[0].source(), c0);
     EXPECT_EQ(r1.mappings()[0].destination(), c1m);
+}
+
+TEST_F(scalar_expression_variable_rewriter_test, quantified_compare) {
+    /*
+     * values:r0 -*
+     */
+    relation::graph_type g0;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& r0 = g0.insert(relation::values {
+            {
+                    c0,
+            },
+            {},
+    });
+
+    auto c1 = bindings.stream_variable("c1");
+    extension::scalar::quantified_compare e0 {
+            scalar::comparison_operator::equal,
+            scalar::quantifier::any,
+            scalar::variable_reference { c1 },
+            std::move(g0),
+            c0,
+    };
+    stream_variable_rewriter_context context {};
+    scalar_expression_variable_rewriter rewriter {};
+    rewriter(context, e0);
+    auto c1m = c1;
+    (void) context.try_rewrite_define(c1m);
+    EXPECT_NE(c1, c1m);
+    check_context(context);
+
+    auto c0m = context.find(c0);
+    ASSERT_TRUE(c0m);
+    EXPECT_NE(c0, c0m);
+
+    EXPECT_EQ(e0.left(), (scalar::variable_reference { c1m }));
+    EXPECT_EQ(e0.right_column(), c0m);
+
+    ASSERT_EQ(r0.columns().size(), 1);
+    EXPECT_EQ(r0.columns()[0], c0m);
 }
 
 } // namespace yugawara::analyzer::details

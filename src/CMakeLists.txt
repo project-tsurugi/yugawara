@@ -64,6 +64,7 @@ add_library(yugawara
     yugawara/extension/scalar/aggregate_function_call.cpp
     yugawara/extension/scalar/subquery.cpp
     yugawara/extension/scalar/exists.cpp
+    yugawara/extension/scalar/quantified_compare.cpp
     yugawara/extension/relation/subquery.cpp
 
     # analyzer

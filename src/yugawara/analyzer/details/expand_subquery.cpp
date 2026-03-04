@@ -31,6 +31,7 @@
 #include <yugawara/extension/scalar/extension_id.h>
 #include <yugawara/extension/scalar/subquery.h>
 #include <yugawara/extension/scalar/exists.h>
+#include <yugawara/extension/scalar/quantified_compare.h>
 
 #include <yugawara/analyzer/intermediate_plan_normalizer_code.h>
 
@@ -221,6 +222,36 @@ public:
 private:
     std::unique_ptr<extension::scalar::exists> target_;
     ::takatori::descriptor::variable output_column_;
+    ::takatori::relation::expression::input_port_type* insertion_point_ {};
+};
+
+class expand_quantified_compare_filter_command final : public expand_scalar_expression_command {
+public:
+    explicit expand_quantified_compare_filter_command(
+            std::unique_ptr<extension::scalar::quantified_compare> target) noexcept:
+        target_ { std::move(target) }
+    {}
+
+    [[nodiscard]] extension::scalar::quantified_compare& target() noexcept override {
+        return *target_;
+    }
+
+    [[nodiscard]] ::takatori::relation::expression::input_port_type& insertion_point() {
+        if (insertion_point_ == nullptr) {
+            throw_exception(std::logic_error { "not located" });
+        }
+        return *insertion_point_;
+    }
+
+    void locate(::takatori::relation::expression::input_port_type& insertion_point) override {
+        if (insertion_point_ != nullptr) {
+            throw_exception(std::logic_error { "already located" });
+        }
+        insertion_point_ = std::addressof(insertion_point);
+    }
+
+private:
+    std::unique_ptr<extension::scalar::quantified_compare> target_;
     ::takatori::relation::expression::input_port_type* insertion_point_ {};
 };
 
@@ -748,7 +779,6 @@ public:
             }
         }
         insertion_context_operand_block block { context };
-
         if (auto&& replacement = collect(context, expr.operand())) {
             expr.operand(std::move(replacement));
         }
@@ -895,6 +925,8 @@ public:
                 return operator()(unsafe_downcast<extension::scalar::subquery>(expr), context);
             case extension::scalar::exists::extension_tag:
                 return operator()(unsafe_downcast<extension::scalar::exists>(expr), context);
+            case extension::scalar::quantified_compare::extension_tag:
+                return operator()(unsafe_downcast<extension::scalar::quantified_compare>(expr), context);
             default:
                 throw_exception(std::domain_error {
                     string_builder {}
@@ -912,6 +944,8 @@ public:
         switch (expr.extension_id()) {
             case extension::scalar::exists::extension_tag:
                 return operator()(unsafe_downcast<extension::scalar::exists>(expr), conditional_not_t {}, context);
+            case extension::scalar::quantified_compare::extension_tag:
+                return operator()(unsafe_downcast<extension::scalar::quantified_compare>(expr), conditional_not_t {}, context);
             default:
                 return {};
         }
@@ -1042,6 +1076,100 @@ private:
         return replacement;
     }
 
+public:
+    [[nodiscard]] std::unique_ptr<::takatori::scalar::expression> operator()(
+            extension::scalar::quantified_compare& expr,
+            insertion_context& context) const {
+        return process_quantified_compare(expr, false, context);
+    }
+
+    [[nodiscard]] std::unique_ptr<::takatori::scalar::expression> operator()(
+            extension::scalar::quantified_compare& expr,
+            conditional_not_t,
+            insertion_context& context) const {
+        return process_quantified_compare(expr, true, context);
+    }
+
+private:
+    [[nodiscard]] std::unique_ptr<::takatori::scalar::expression> process_quantified_compare(
+            extension::scalar::quantified_compare& expr,
+            bool is_conditional_not,
+            insertion_context& context) const {
+        if (!check_subquery_context_kind(expr, context)) {
+            return {};
+        }
+        if (context.context_kind() == insertion_context_kind::filter_condition) {
+            // resolve `IN (subquery)` as a filter condition...
+            return process_quantified_compare_filter(expr, is_conditional_not, context);
+        }
+        context.report(
+            intermediate_plan_normalizer_code::unsupported_scalar_subquery_placement,
+            expr,
+            "quantified comparison (including IN (subquery)) is only allowed on top-level filter conditions"
+        );
+        return {};
+    }
+
+    [[nodiscard]] std::unique_ptr<::takatori::scalar::expression> process_quantified_compare_filter(
+            extension::scalar::quantified_compare& expr,
+            bool is_conditional_not,
+            insertion_context& context) const {
+        // apply de Morgan's law if this is under `NOT` operator.
+        auto n_operator = normalize(expr.operator_kind(), is_conditional_not);
+        auto n_quantifier = normalize(expr.quantifier(), is_conditional_not);
+        if (n_quantifier == ::takatori::scalar::quantifier::all) {
+            context.report(
+                intermediate_plan_normalizer_code::unsupported_feature,
+                expr,
+                "compare with 'ALL', 'NOT ANY', or 'NOT IN' with subquery is not supported"
+            );
+            return {};
+        }
+
+        // rewrite predicate itself
+        expr.operator_kind() = n_operator;
+        expr.quantifier() = n_quantifier;
+
+        /* NOTE:
+         * `x IN (subquery)` or `x op ANY (subquery)` is appeared as a top-level filter condition.
+         * We replace it as just `TRUE` and insert semi join with non-quantified comparison before the original filter.
+         */
+        auto replacement = std::make_unique<::takatori::scalar::immediate>(
+                std::make_shared<::takatori::value::boolean>(true),
+                std::make_shared<::takatori::type::boolean>());
+        replacement->region() = expr.region();
+
+        context.add_worklist(expr.query_graph());
+
+        auto command = std::make_unique<expand_quantified_compare_filter_command>(
+                clone_unique(std::move(expr)));
+
+        context.commands().emplace_back(std::move(command));
+        return replacement;
+    }
+
+    [[nodiscard]] ::takatori::scalar::comparison_operator normalize(
+            ::takatori::scalar::comparison_operator operator_,
+            bool is_conditional_not) const noexcept {
+        if (is_conditional_not) {
+            return ~operator_;
+        }
+        return operator_;
+    }
+
+    [[nodiscard]] ::takatori::scalar::quantifier normalize(
+            ::takatori::scalar::quantifier quantifier,
+            bool is_conditional_not) const noexcept {
+        if (is_conditional_not) {
+            if (quantifier == ::takatori::scalar::quantifier::any) {
+                return ::takatori::scalar::quantifier::all;
+            }
+            return ::takatori::scalar::quantifier::any;
+        }
+        return quantifier;
+    }
+
+
     std::vector<std::unique_ptr<expand_subquery_command>> commands_ {};
     std::deque<::takatori::relation::expression*> worklist_ {};
     std::vector<diagnostic_type> diagnostics_ {};
@@ -1157,6 +1285,7 @@ void process(expand_relation_subquery_command& command);
 void process(expand_scalar_subquery_command& command);
 void process(expand_exists_filter_command& command);
 void process(expand_exists_value_command& command);
+void process(expand_quantified_compare_filter_command& command);
 
 void process(expand_subquery_command& command) {
     if (auto* cmd = downcast<expand_relation_subquery_command>(&command)) {
@@ -1172,6 +1301,10 @@ void process(expand_subquery_command& command) {
         return;
     }
     if (auto* cmd = downcast<expand_exists_value_command>(&command)) {
+        process(*cmd);
+        return;
+    }
+    if (auto* cmd = downcast<expand_quantified_compare_filter_command>(&command)) {
         process(*cmd);
         return;
     }
@@ -1306,6 +1439,37 @@ void process(expand_exists_value_command& command) {
     subquery_output->connect_to(project.input());
     project.output().connect_to(fetch_first.input());
     fetch_first.output().connect_to(join.right());
+    bypass(insertion_point, join);
+
+    ::takatori::relation::merge_into(std::move(expr.query_graph()), graph);
+}
+
+void process(expand_quantified_compare_filter_command& command) {
+    auto&& expr = command.target();
+    BOOST_ASSERT(expr.quantifier() == ::takatori::scalar::quantifier::any); // NOLINT
+    auto&& insertion_point = command.insertion_point();
+
+    /* NOTE:
+     *
+     * main   subquery
+     *  |        |
+     * SEMI JOIN ON (left <comp> vref(right_column))
+     */
+    auto&& graph = insertion_point.owner().owner();
+    auto&& join = graph.emplace<::takatori::relation::intermediate::join>(
+        ::takatori::relation::join_kind::semi,
+        // ON (non-quantified comparison)
+        std::make_unique<::takatori::scalar::compare>(
+            expr.operator_kind(),
+            expr.release_left(),
+            std::make_unique<::takatori::scalar::variable_reference>(expr.right_column())));
+    join.region() = expr.region();
+
+    auto subquery_output = expr.find_output_port();
+    if (!subquery_output) {
+        throw_exception(std::domain_error { "subquery has no output port" });
+    }
+    join.right().connect_to(*subquery_output);
     bypass(insertion_point, join);
 
     ::takatori::relation::merge_into(std::move(expr.query_graph()), graph);

@@ -33,6 +33,7 @@
 #include <takatori/relation/values.h>
 
 #include <takatori/util/optional_ptr.h>
+#include <takatori/util/vector_print_support.h>
 
 #include <yugawara/binding/factory.h>
 #include <yugawara/extension/type/error.h>
@@ -40,6 +41,7 @@
 #include <yugawara/extension/scalar/aggregate_function_call.h>
 #include <yugawara/extension/scalar/subquery.h>
 #include <yugawara/extension/scalar/exists.h>
+#include <yugawara/extension/scalar/quantified_compare.h>
 
 namespace yugawara::analyzer {
 
@@ -1898,6 +1900,56 @@ TEST_F(expression_analyzer_scalar_test, extension_exists_invalid) {
     auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
     EXPECT_FALSE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, extension_quantified_compare) {
+    auto i0 = bindings.stream_variable("i0");
+    auto i1 = bindings.stream_variable("i1");
+
+    ::takatori::relation::graph_type graph {};
+    graph.insert(::takatori::relation::values {
+            { i0, i1, },
+            {
+                    {
+                            vref { decl(t::int4 {}) },
+                            vref { decl(t::int8 {}) },
+                    },
+            },
+    });
+    extension::scalar::quantified_compare expr {
+            s::comparison_operator::equal,
+            s::quantifier::any,
+            vref { decl(t::int4()) },
+            std::move(graph),
+            i1,
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::boolean());
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, extension_quantified_compare_invalid) {
+    auto i0 = bindings.stream_variable("i0");
+    ::takatori::relation::graph_type graph {};
+    graph.insert(::takatori::relation::values {
+            { i0, },
+            {
+                    {
+                            vref { decl(t::int4 {}) },
+                    },
+            },
+    });
+    extension::scalar::quantified_compare expr {
+            s::comparison_operator::equal,
+            s::quantifier::all,
+            vref { decl(t::boolean()) },
+            std::move(graph),
+            i0,
+    };
+    bless(expr.left());
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::boolean());
+    EXPECT_TRUE(find(expr.left(), code::inconsistent_type)) << ::takatori::util::print_support { analyzer.diagnostics() };
 }
 
 } // namespace yugawara::analyzer

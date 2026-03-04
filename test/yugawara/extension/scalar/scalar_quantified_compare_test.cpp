@@ -1,4 +1,4 @@
-#include <yugawara/extension/scalar/subquery.h>
+#include <yugawara/extension/scalar/quantified_compare.h>
 
 #include <gtest/gtest.h>
 
@@ -17,13 +17,13 @@
 
 namespace yugawara::extension::scalar {
 
-class scalar_subquery_test : public ::testing::Test {
+class scalar_quantified_compare_test : public ::testing::Test {
 public:
     binding::factory bindings;
 };
 
-static_assert(subquery::tag == ::takatori::scalar::extension::tag);
-static_assert(subquery::extension_tag == subquery_id);
+static_assert(quantified_compare::tag == ::takatori::scalar::extension::tag);
+static_assert(quantified_compare::extension_tag == quantified_compare_id);
 
 using ::takatori::util::clone_unique;
 
@@ -34,7 +34,7 @@ static ::takatori::scalar::immediate constant(int v) {
     };
 }
 
-TEST_F(scalar_subquery_test, simple) {
+TEST_F(scalar_quantified_compare_test, simple) {
     auto i0 = bindings.stream_variable("i0");
 
     ::takatori::relation::graph_type graph;
@@ -44,11 +44,14 @@ TEST_F(scalar_subquery_test, simple) {
             },
             {
                     {
-                            constant(1),
+                            constant(2),
                     },
             },
     });
-    subquery expr {
+    quantified_compare expr {
+            ::takatori::scalar::comparison_operator::equal,
+            ::takatori::scalar::quantifier::any,
+            constant(1),
             std::move(graph),
             i0,
     };
@@ -59,10 +62,13 @@ TEST_F(scalar_subquery_test, simple) {
     ASSERT_TRUE(output);
     EXPECT_TRUE(expr.query_graph().contains(output->owner()));
 
-    EXPECT_EQ(expr.output_column(), i0);
+    EXPECT_EQ(expr.operator_kind(), ::takatori::scalar::comparison_operator::equal);
+    EXPECT_EQ(expr.quantifier(), ::takatori::scalar::quantifier::any);
+    EXPECT_EQ(expr.left(), constant(1));
+    EXPECT_EQ(expr.right_column(), i0);
 }
 
-TEST_F(scalar_subquery_test, clone) {
+TEST_F(scalar_quantified_compare_test, clone) {
     auto i0 = bindings.stream_variable("i0");
 
     ::takatori::relation::graph_type graph;
@@ -72,11 +78,14 @@ TEST_F(scalar_subquery_test, clone) {
             },
             {
                     {
-                            constant(1),
+                            constant(2),
                     },
             },
     });
-    subquery expr {
+    quantified_compare expr {
+            ::takatori::scalar::comparison_operator::equal,
+            ::takatori::scalar::quantifier::any,
+            constant(1),
             std::move(graph),
             i0,
     };
@@ -92,10 +101,13 @@ TEST_F(scalar_subquery_test, clone) {
     EXPECT_TRUE(copy->query_graph().contains(output->owner()));
     EXPECT_FALSE(expr.query_graph().contains(output->owner()));
 
-    EXPECT_EQ(copy->output_column(), expr.output_column());
+    EXPECT_EQ(copy->operator_kind(), expr.operator_kind());
+    EXPECT_EQ(copy->quantifier(), expr.quantifier());
+    EXPECT_EQ(copy->left().kind(), expr.left().kind());
+    EXPECT_EQ(copy->right_column(), expr.right_column());
 }
 
-TEST_F(scalar_subquery_test, output) {
+TEST_F(scalar_quantified_compare_test, output) {
     auto i0 = bindings.stream_variable("i0");
 
     ::takatori::relation::graph_type graph;
@@ -105,11 +117,14 @@ TEST_F(scalar_subquery_test, output) {
             },
             {
                     {
-                            constant(1),
+                            constant(2),
                     },
             },
     });
-    subquery expr {
+    quantified_compare expr {
+            ::takatori::scalar::comparison_operator::equal,
+            ::takatori::scalar::quantifier::any,
+            constant(1),
             std::move(graph),
             i0,
     };

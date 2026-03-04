@@ -11,6 +11,7 @@
 #include <yugawara/extension/scalar/extension_id.h>
 #include <yugawara/extension/scalar/subquery.h>
 #include <yugawara/extension/scalar/exists.h>
+#include <yugawara/extension/scalar/quantified_compare.h>
 
 #include "rewrite_stream_variables.h"
 
@@ -91,6 +92,9 @@ public:
             case extension::scalar::exists::extension_tag:
                 operator()(unsafe_downcast<extension::scalar::exists>(expr));
                 break;
+            case extension::scalar::quantified_compare::extension_tag:
+                operator()(unsafe_downcast<extension::scalar::quantified_compare>(expr));
+                break;
             default:
                 throw_exception(std::domain_error(string_builder {}
                         << "unknown extension of scalar expression: "
@@ -105,6 +109,13 @@ public:
     }
 
     void operator()(extension::scalar::exists& expr) {
+        rewrite_stream_variables(context_, expr.query_graph());
+    }
+
+    void operator()(extension::scalar::quantified_compare& expr) {
+        // NOTE: explicitly visit left because extension cannot walk automatically
+        scalar::walk(*this, expr.left());
+        context_.rewrite_use(expr.right_column());
         rewrite_stream_variables(context_, expr.query_graph());
     }
 

@@ -8,6 +8,7 @@
 #include <yugawara/extension/scalar/aggregate_function_call.h>
 #include <yugawara/extension/scalar/subquery.h>
 #include <yugawara/extension/scalar/exists.h>
+#include <yugawara/extension/scalar/quantified_compare.h>
 
 namespace yugawara::serializer::details {
 
@@ -28,6 +29,8 @@ private:
     void properties(extension::scalar::subquery const& element);
 
     void properties(extension::scalar::exists const& element);
+
+    void properties(extension::scalar::quantified_compare const& element);
 
     template<class T>
     void accept(::takatori::util::optional_ptr<T const> element);

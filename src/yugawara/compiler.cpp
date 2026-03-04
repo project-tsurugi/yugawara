@@ -67,6 +67,7 @@ std::vector<diagnostic_type> build_error(analyzer::expression_analyzer const& an
     using to = code_type;
     switch (source) {
         case from::unknown: return to::unknown;
+        case from::unsupported_feature: return to::unsupported_feature;
         case from::unsupported_scalar_subquery_placement: return to::unsupported_feature;
     }
     std::abort();

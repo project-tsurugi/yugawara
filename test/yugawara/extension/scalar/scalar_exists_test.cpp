@@ -29,14 +29,13 @@ using ::takatori::util::clone_unique;
 
 static ::takatori::scalar::immediate constant(int v) {
     return ::takatori::scalar::immediate {
-        ::takatori::value::int4 { v },
-        ::takatori::type::int4  {},
-};
+            ::takatori::value::int4 { v },
+            ::takatori::type::int4  {},
+    };
 }
 
 TEST_F(scalar_exists_test, simple) {
     auto i0 = bindings.stream_variable("i0");
-    auto o0 = bindings.stream_variable("o0");
 
     ::takatori::relation::graph_type graph;
     graph.insert(::takatori::relation::values {
@@ -62,7 +61,6 @@ TEST_F(scalar_exists_test, simple) {
 
 TEST_F(scalar_exists_test, clone) {
     auto i0 = bindings.stream_variable("i0");
-    auto o0 = bindings.stream_variable("o0");
 
     ::takatori::relation::graph_type graph;
     graph.insert(::takatori::relation::values {
@@ -93,7 +91,6 @@ TEST_F(scalar_exists_test, clone) {
 
 TEST_F(scalar_exists_test, output) {
     auto i0 = bindings.stream_variable("i0");
-    auto o0 = bindings.stream_variable("o0");
 
     ::takatori::relation::graph_type graph;
     graph.insert(::takatori::relation::values {
