@@ -2075,16 +2075,20 @@ TEST_F(expand_subquery_scalar_test, scalar_coalesce) {
     auto output = bindings.stream_variable("output");
     auto r = build_scalar<scalar::coalesce>(output, [](extension::scalar::subquery&& subquery) {
         return scalar::coalesce {
-                constant(1),
-                std::move(subquery),
-                constant(3),
+                {
+                        constant(1),
+                        std::move(subquery),
+                        constant(3),
+                },
         };
     });
     ASSERT_TRUE(r);
     EXPECT_EQ(*r, (scalar::coalesce {
-            constant(1),
-            wrap(output),
-            constant(3),
+            {
+                    constant(1),
+                    wrap(output),
+                    constant(3),
+            },
     }));
 }
 
