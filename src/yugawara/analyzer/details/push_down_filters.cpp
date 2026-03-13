@@ -60,7 +60,7 @@ public:
     }
 
     [[nodiscard]] bool use(descriptor::variable const& variable) const {
-        return uses_.find(variable) != uses_.end();
+        return uses_.contains(variable);
     }
 
     [[nodiscard]] bool available() const noexcept {
@@ -318,7 +318,7 @@ public:
         for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
             auto&& predicate = predicates_[i];
             for (auto&& use : predicate.uses()) {
-                if (work_.find(use) == work_.end()) {
+                if (!work_.contains(use)) {
                     // found use other than the group key, just flush
                     flush(expr.output(), predicate);
                     mask.reset(i);
@@ -503,7 +503,7 @@ private:
         for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
             auto&& predicate = predicates_[i];
             for (auto&& use : predicate.uses()) {
-                if (work_.find(use) == work_.end()) {
+                if (!work_.contains(use)) {
                     // found use other than the group key, put a copy of selection
                     flush_copy(expr.output(), predicate);
                     break;

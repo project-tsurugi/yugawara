@@ -123,7 +123,7 @@ block_graph block_builder::build(relation::graph_type& expressions) {
                         << string_builder::to_string));
             }
             auto&& next = output.opposite()->owner();
-            if (saw.find(std::addressof(next)) == saw.end()) {
+            if (!saw.contains(std::addressof(next))) {
                 heads.emplace_back(std::addressof(next));
                 saw.emplace(std::addressof(next));
             }

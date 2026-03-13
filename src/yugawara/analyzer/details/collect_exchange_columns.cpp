@@ -387,7 +387,7 @@ public:
         if (!cogroup) {
             return;
         }
-        if (post_processed_.find(std::addressof(step)) != post_processed_.end()) {
+        if (post_processed_.contains(std::addressof(step))) {
             return;
         }
         post_processed_.insert(std::addressof(step));

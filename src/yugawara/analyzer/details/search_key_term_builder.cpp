@@ -41,7 +41,7 @@ public:
     }
 
     bool is(descriptor::variable const& variable) {
-        return keys_.find(variable) != keys_.end();
+        return keys_.contains(variable);
     }
 
     optional_ptr<descriptor::variable const> extract_if(scalar::expression const& expr) {

@@ -75,7 +75,7 @@ void exchange_column_info::touch(descriptor::variable const& variable) {
 }
 
 bool exchange_column_info::is_touched(descriptor::variable const& variable) const {
-    return touched_.find(variable) != touched_.end();
+    return touched_.contains(variable);
 }
 
 void exchange_column_info::clear_touched() {

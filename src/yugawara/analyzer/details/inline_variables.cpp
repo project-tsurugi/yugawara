@@ -158,7 +158,7 @@ void inline_variables::declare(
         ::takatori::descriptor::variable variable,
         std::unique_ptr<::takatori::scalar::expression> replacement) {
     auto key = variable.reference();
-    if (replacements_.find(key) == replacements_.end()) {
+    if (!replacements_.contains(key)) {
         variables_.emplace_back(std::move(variable));
     }
     replacements_.emplace(key, std::move(replacement));
