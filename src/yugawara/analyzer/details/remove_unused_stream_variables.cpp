@@ -230,7 +230,7 @@ private:
     }
 
     bool is_used(descriptor::variable const& variable) {
-        return used_.find(variable) != used_.end();
+        return used_.contains(variable);
     }
 
     void collect(scalar::expression& expr) {

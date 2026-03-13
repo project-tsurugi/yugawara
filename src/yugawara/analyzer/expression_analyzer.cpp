@@ -121,7 +121,7 @@ public:
     bool resolve_recursive(
             relation::expression const& expression,
             saw_set<relation::expression>& saw) {
-        if (saw.find(std::addressof(expression)) != saw.end()) {
+        if (saw.contains(std::addressof(expression))) {
             // already visited
             return true;
         }
