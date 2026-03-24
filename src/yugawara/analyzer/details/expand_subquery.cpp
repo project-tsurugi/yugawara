@@ -538,12 +538,24 @@ private:
                             std::move(context)
                     });
                     // remove the current column and fill it by subquery expansion.
-                    row_data.erase(iter_values);
+                    auto next_iter = row_data.erase(iter_values);
+                    iter_values = next_iter;
                 } else {
                     if (merge_error(context)) {
                         return {};
                     }
-                    ++iter_values;
+                    if (!context.commands().empty()) {
+                        // remove the current column and fill it by subquery expansion.
+                        auto [value_expr, next_iter] = row_data.release(iter_values);
+                        row_splits.emplace_back(split_info {
+                                column_index,
+                                std::move(value_expr),
+                                std::move(context)
+                        });
+                        iter_values = next_iter;
+                    } else {
+                        ++iter_values;
+                    }
                 }
                 ++column_index;
             }

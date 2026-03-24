@@ -1522,6 +1522,81 @@ TEST_F(expand_subquery_scalar_test, values_multiple_rows_middle) {
     EXPECT_EQ(re.columns()[2].source(), c3);
 }
 
+TEST_F(expand_subquery_scalar_test, values_subexpression) {
+    /* inner query: g0
+     *   values:sv -*
+     */
+    relation::graph_type g0 {};
+    auto c0 = bindings.stream_variable("c0");
+    auto&& sv = g0.insert(relation::values {
+            {
+                    c0,
+            },
+            {},
+    });
+
+    /* outer query: graph
+     *   values[(g0+1)->c1]:rv -- emit:re
+     */
+    relation::graph_type graph {};
+    auto c1 = bindings.stream_variable("c1");
+    auto&& rv = graph.insert(relation::values {
+            {
+                    c1,
+            },
+            {
+                    {
+                            scalar::binary {
+                                    scalar::binary_operator::add,
+                                    extension::scalar::subquery { std::move(g0), c0 },
+                                    constant(1),
+                            },
+                    },
+            },
+    });
+    auto&& re = graph.insert(relation::emit {
+            c1,
+    });
+    rv.output() >> re.input();
+
+    auto diagnostics = expand_subquery(graph);
+    ASSERT_TRUE(diagnostics.empty()) << print_support(diagnostics);
+
+    /*
+     * values:rv[] ------\
+     *                    join -- project[(c0+1)->c1]:r0 -- emit[c1, c2]:re
+     * values:sv[->c0] --/
+     */
+    dump(graph, std::cout);
+    ASSERT_EQ(graph.size(), 5);
+    ASSERT_TRUE(graph.contains(sv));
+    ASSERT_TRUE(graph.contains(rv));
+    ASSERT_TRUE(graph.contains(re));
+    auto&& join = next<relation::intermediate::join>(rv.output());
+    EXPECT_GT(rv.output(), join.left());
+    EXPECT_GT(sv.output(), join.right());
+    auto&& project = next<relation::project>(join.output());
+    EXPECT_GT(project.output(), re.input());
+
+    ASSERT_EQ(sv.columns().size(), 1);
+    EXPECT_EQ(sv.columns()[0], c0);
+
+    ASSERT_EQ(rv.columns().size(), 0);
+    ASSERT_EQ(rv.rows().size(), 1);
+    ASSERT_EQ(rv.rows()[0].elements().size(), 0);
+
+    ASSERT_EQ(project.columns().size(), 1);
+    EXPECT_EQ(project.columns()[0].value(), (scalar::binary {
+            scalar::binary_operator::add,
+            wrap(c0),
+            constant(1),
+    }));
+    EXPECT_EQ(project.columns()[0].variable(), c1);
+
+    ASSERT_EQ(re.columns().size(), 1);
+    EXPECT_EQ(re.columns()[0].source(), c1);
+}
+
 TEST_F(expand_subquery_scalar_test, relation_join_group_lower) {
     /* inner query: g0
      *   values:sv -*
