@@ -17,7 +17,7 @@ runs:
 
   steps:
     - name: Checkout_Takatori
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       if: ${{ inputs.checkout == 'true' }}
       with:
         repository: project-tsurugi/takatori
