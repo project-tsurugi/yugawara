@@ -3,7 +3,7 @@
 #include <ostream>
 
 #include <takatori/scalar/expression.h>
-#include <takatori/relation/endpoint_kind.h>
+#include <takatori/relation/comparison_semantics_kind.h>
 #include <takatori/util/optional_ptr.h>
 
 #include <yugawara/storage/column.h>
@@ -19,18 +19,20 @@ public:
      * @brief creates a new instance for the equivalence criteria.
      * @param column the target column
      * @param value the equivalent expression
+     * @param semantics the comparison semantics of equivalence
      */
     search_key_element(
             class column const& column,
-            ::takatori::scalar::expression const& value) noexcept;
+            ::takatori::scalar::expression const& value,
+            ::takatori::relation::comparison_semantics_kind semantics) noexcept;
 
     /**
      * @brief creates a new instance for the 1-dimensional range criteria.
      * @param column the target column
      * @param lower_value the lower bound value (nullable)
-     * @param lower_inclusive whether or not the lower bound is inclusive
+     * @param lower_inclusive whether the lower bound is inclusive
      * @param upper_value the upper bound value (nullable)
-     * @param upper_inclusive whether or not the upper bound is inclusive
+     * @param upper_inclusive whether the upper bound is inclusive
      */
     search_key_element(
             class column const& column,
@@ -46,14 +48,14 @@ public:
     [[nodiscard]] class column const& column() const noexcept;
 
     /**
-     * @brief returns whether or not the lower and upper bound is equivalent and both inclusive.
+     * @brief returns whether the lower and upper bound is equivalent and both inclusive.
      * @return true if the both bounds are equivalent
      * @return false if the both bounds represent a 1-dimensional range
      */
     [[nodiscard]] bool equivalent() const;
 
     /**
-     * @brief returns whether or not both the lower and upper bound exists.
+     * @brief returns whether both the lower and upper bound exists.
      * @return true the both bound exists
      * @return false otherwise
      */
@@ -67,6 +69,12 @@ public:
     [[nodiscard]] ::takatori::util::optional_ptr<::takatori::scalar::expression const> equivalent_value() const;
 
     /**
+     * @brief returns the comparison semantics of equivalence.
+     * @return the comparison semantics
+     */
+    [[nodiscard]] ::takatori::relation::comparison_semantics_kind equivalent_semantics() const noexcept;
+
+    /**
      * @brief returns the lower bound value.
      * @return the lower bound value
      * @return empty if the lower is unbound
@@ -74,7 +82,7 @@ public:
     [[nodiscard]] ::takatori::util::optional_ptr<::takatori::scalar::expression const> lower_value() const;
 
     /**
-     * @brief returns whether or not the lower bound is inclusive.
+     * @brief returns whether the lower bound is inclusive.
      * @return true if the lower bound is inclusive for the lower_value()
      * @return false if lower bound is exclusive for the lower_value()
      */
@@ -88,7 +96,7 @@ public:
     [[nodiscard]] ::takatori::util::optional_ptr<::takatori::scalar::expression const> upper_value() const;
 
     /**
-     * @brief returns whether or not the upper bound is inclusive.
+     * @brief returns whether the upper bound is inclusive.
      * @return true if the upper bound is inclusive for the upper_value()
      * @return false if upper bound is exclusive for the upper_value()
      */
@@ -97,6 +105,9 @@ public:
 private:
     class column const* column_;
     ::takatori::util::optional_ptr<::takatori::scalar::expression const> equivalent_value_ {};
+    ::takatori::relation::comparison_semantics_kind equivalent_semantics_ {
+        ::takatori::relation::comparison_semantics_kind::ternary
+    };
     ::takatori::util::optional_ptr<::takatori::scalar::expression const> lower_value_ {};
     bool lower_inclusive_ {};
     ::takatori::util::optional_ptr<::takatori::scalar::expression const> upper_value_ {};

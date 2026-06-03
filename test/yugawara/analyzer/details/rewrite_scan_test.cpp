@@ -24,6 +24,8 @@ using ::takatori::scalar::comparison_operator;
 
 class rewrite_scan_test: public ::testing::Test {
 protected:
+    using semantics = ::takatori::relation::comparison_semantics_kind;
+
     binding::factory bindings {};
 
     storage::configurable_provider storages;
@@ -120,6 +122,50 @@ TEST_F(rewrite_scan_test, point) {
     ASSERT_EQ(result.keys().size(), 1);
     EXPECT_EQ(result.keys()[0].variable(), bindings(t0c0));
     EXPECT_EQ(result.keys()[0].value(), constant(0));
+    EXPECT_EQ(result.keys()[0].semantics(), semantics::ternary);
+}
+
+TEST_F(rewrite_scan_test, point_is_not_distinct_from) {
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+                    { bindings(t0c1), c1 },
+            },
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+
+    auto&& f0 = r.insert(relation::filter {
+            compare(varref(c0), constant(0), comparison_operator::is_not_distinct_from),
+    });
+    in.output() >> f0.input();
+    f0.output() >> out.input();
+
+    auto x0 = storages.add_index(storage::index {
+            t0,
+            "x0",
+            {
+                    t0->columns()[0],
+            },
+    });
+    apply(r);
+
+    auto&& result = next<relation::find>(f0.input());
+    EXPECT_EQ(result.source(), bindings(*x0));
+
+    ASSERT_EQ(result.columns().size(), 2);
+    EXPECT_EQ(result.columns()[0].source(), bindings(t0c0));
+    EXPECT_EQ(result.columns()[1].source(), bindings(t0c1));
+    EXPECT_EQ(result.columns()[0].destination(), c0);
+    EXPECT_EQ(result.columns()[1].destination(), c1);
+
+    ASSERT_EQ(result.keys().size(), 1);
+    EXPECT_EQ(result.keys()[0].variable(), bindings(t0c0));
+    EXPECT_EQ(result.keys()[0].value(), constant(0));
+    EXPECT_EQ(result.keys()[0].semantics(), semantics::binary);
 }
 
 TEST_F(rewrite_scan_test, range) {
@@ -225,13 +271,81 @@ TEST_F(rewrite_scan_test, mixed) {
     ASSERT_EQ(result.lower().keys().size(), 1);
     EXPECT_EQ(result.lower().keys()[0].variable(), bindings(t0c0));
     EXPECT_EQ(result.lower().keys()[0].value(), constant(0));
+    EXPECT_EQ(result.lower().keys()[0].semantics(), semantics::ternary);
 
     EXPECT_EQ(result.upper().kind(), relation::endpoint_kind::prefixed_exclusive);
     ASSERT_EQ(result.upper().keys().size(), 2);
     EXPECT_EQ(result.upper().keys()[0].variable(), bindings(t0c0));
     EXPECT_EQ(result.upper().keys()[0].value(), constant(0));
+    EXPECT_EQ(result.upper().keys()[0].semantics(), semantics::ternary);
     EXPECT_EQ(result.upper().keys()[1].variable(), bindings(t0c1));
     EXPECT_EQ(result.upper().keys()[1].value(), constant(100));
+    EXPECT_EQ(result.upper().keys()[1].semantics(), semantics::ternary);
+}
+
+TEST_F(rewrite_scan_test, mixed_is_not_distinct_from) {
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+                    { bindings(t0c1), c1 },
+            },
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+
+    auto&& f0 = r.insert(relation::filter {
+            // C0 = 0 AND C1 < 100
+            land(
+                    compare(varref(c0), constant(0), comparison_operator::is_not_distinct_from),
+                    compare(varref(c1), constant(100), comparison_operator::less)),
+    });
+    in.output() >> f0.input();
+    f0.output() >> out.input();
+
+    auto x0 = storages.add_index(storage::index {
+            t0,
+            "x0",
+            {
+                    t0->columns()[0],
+                    t0->columns()[1],
+            },
+    });
+    auto x1 = storages.add_index(storage::index {
+            t0,
+            "x1",
+            {
+                    t0->columns()[1],
+                    t0->columns()[0],
+            },
+    });
+    apply(r);
+
+    auto&& result = next<relation::scan>(f0.input());
+    EXPECT_EQ(result.source(), bindings(*x0));
+
+    ASSERT_EQ(result.columns().size(), 2);
+    EXPECT_EQ(result.columns()[0].source(), bindings(t0c0));
+    EXPECT_EQ(result.columns()[1].source(), bindings(t0c1));
+    EXPECT_EQ(result.columns()[0].destination(), c0);
+    EXPECT_EQ(result.columns()[1].destination(), c1);
+
+    EXPECT_EQ(result.lower().kind(), relation::endpoint_kind::prefixed_inclusive);
+    ASSERT_EQ(result.lower().keys().size(), 1);
+    EXPECT_EQ(result.lower().keys()[0].variable(), bindings(t0c0));
+    EXPECT_EQ(result.lower().keys()[0].value(), constant(0));
+    EXPECT_EQ(result.lower().keys()[0].semantics(), semantics::binary);
+
+    EXPECT_EQ(result.upper().kind(), relation::endpoint_kind::prefixed_exclusive);
+    ASSERT_EQ(result.upper().keys().size(), 2);
+    EXPECT_EQ(result.upper().keys()[0].variable(), bindings(t0c0));
+    EXPECT_EQ(result.upper().keys()[0].value(), constant(0));
+    EXPECT_EQ(result.upper().keys()[0].semantics(), semantics::binary);
+    EXPECT_EQ(result.upper().keys()[1].variable(), bindings(t0c1));
+    EXPECT_EQ(result.upper().keys()[1].value(), constant(100));
+    EXPECT_EQ(result.upper().keys()[1].semantics(), semantics::ternary);
 }
 
 TEST_F(rewrite_scan_test, unique) {

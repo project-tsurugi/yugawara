@@ -14,6 +14,8 @@ bool is_comparable(::takatori::scalar::comparison_operator comparison, ::takator
     switch (comparison) {
         case op::equal:
         case op::not_equal:
+        case op::is_not_distinct_from:
+        case op::is_distinct_from:
             return is_equality_comparable(type);
         case op::less:
         case op::less_equal:

@@ -6,9 +6,11 @@ namespace yugawara::storage::details {
 
 search_key_element::search_key_element(
         class column const& column,
-        ::takatori::scalar::expression const& value) noexcept
-    : column_(std::addressof(column))
-    , equivalent_value_(value)
+        ::takatori::scalar::expression const& value,
+        ::takatori::relation::comparison_semantics_kind semantics) noexcept :
+    column_ { std::addressof(column) },
+    equivalent_value_ { value },
+    equivalent_semantics_ { semantics }
 {}
 
 search_key_element::search_key_element(
@@ -16,12 +18,12 @@ search_key_element::search_key_element(
         ::takatori::util::optional_ptr<::takatori::scalar::expression const> lower_value,
         bool lower_inclusive,
         ::takatori::util::optional_ptr<::takatori::scalar::expression const> upper_value,
-        bool upper_inclusive) noexcept
-    : column_(std::addressof(column))
-    , lower_value_(std::move(lower_value))
-    , lower_inclusive_(lower_inclusive)
-    , upper_value_(std::move(upper_value))
-    , upper_inclusive_(upper_inclusive)
+        bool upper_inclusive) noexcept :
+    column_ { std::addressof(column) },
+    lower_value_ { std::move(lower_value) },
+    lower_inclusive_ { lower_inclusive },
+    upper_value_ { std::move(upper_value) },
+    upper_inclusive_ { upper_inclusive }
 {}
 
 class column const& search_key_element::column() const noexcept {
@@ -38,6 +40,10 @@ bool search_key_element::bounded() const {
 
 ::takatori::util::optional_ptr<::takatori::scalar::expression const> search_key_element::equivalent_value() const {
     return equivalent_value_;
+}
+
+takatori::relation::comparison_semantics_kind search_key_element::equivalent_semantics() const noexcept {
+    return equivalent_semantics_;
 }
 
 ::takatori::util::optional_ptr<::takatori::scalar::expression const> search_key_element::lower_value() const {
@@ -61,7 +67,8 @@ std::ostream& operator<<(std::ostream& out, search_key_element const& value) {
     if (value.equivalent()) {
         return out << "term("
                    << "column= " << value.column() << ", "
-                   << "value=" << value.equivalent_value() << ")";
+                   << "value=" << value.equivalent_value() << ", "
+                   << "semantics=" << value.equivalent_semantics() << ")";
     }
     return out << "term("
                << "column= " << value.column() << ", "

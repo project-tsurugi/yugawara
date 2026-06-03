@@ -3,7 +3,10 @@
 #include <optional>
 
 #include <takatori/descriptor/variable.h>
+
 #include <takatori/scalar/expression.h>
+#include <takatori/relation/comparison_semantics_kind.h>
+
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/ownership_reference.h>
 
@@ -17,11 +20,13 @@ namespace yugawara::analyzer::details {
 class search_key_term {
 public:
     using expression_ref = ::takatori::util::ownership_reference<::takatori::scalar::expression>;
+    using equivalent_semantics_type = ::takatori::relation::comparison_semantics_kind;
     using index_search_key_type = storage::details::search_key_element;
 
     search_key_term(
             expression_ref term,
-            expression_ref factor) noexcept;
+            expression_ref factor,
+            equivalent_semantics_type semantics) noexcept;
 
     search_key_term(
             std::optional<expression_ref> lower_term,
@@ -37,6 +42,7 @@ public:
     [[nodiscard]] bool full_bounded() const;
     [[nodiscard]] ::takatori::util::optional_ptr<::takatori::descriptor::variable const> equivalent_key() const;
     [[nodiscard]] ::takatori::util::optional_ptr<::takatori::scalar::expression const> equivalent_factor() const;
+    [[nodiscard]] equivalent_semantics_type equivalent_semantics() const noexcept;
     [[nodiscard]] ::takatori::util::optional_ptr<::takatori::scalar::expression const> lower_factor() const;
     [[nodiscard]] bool lower_inclusive() const;
     [[nodiscard]] ::takatori::util::optional_ptr<::takatori::scalar::expression const> upper_factor() const;
@@ -52,6 +58,7 @@ public:
 private:
     std::optional<expression_ref> equivalent_term_ {};
     std::optional<expression_ref> equivalent_factor_ {};
+    equivalent_semantics_type equivalent_semantics_ { equivalent_semantics_type::ternary };
     std::optional<expression_ref> lower_term_ {};
     std::optional<expression_ref> lower_factor_ {};
     bool lower_inclusive_ {};

@@ -1,5 +1,6 @@
 #include "search_key_term.h"
 
+#include <takatori/relation/comparison_semantics_kind.h>
 #include <takatori/scalar/variable_reference.h>
 
 #include <takatori/util/clonable.h>
@@ -21,9 +22,11 @@ using expression_ref = ::takatori::util::ownership_reference<scalar::expression>
 
 search_key_term::search_key_term(
         expression_ref term,
-        expression_ref factor) noexcept :
-    equivalent_term_(std::move(term)),
-    equivalent_factor_(std::move(factor))
+        expression_ref factor,
+        equivalent_semantics_type equivalent_semantics) noexcept :
+    equivalent_term_ { std::move(term) },
+    equivalent_factor_ { std::move(factor) },
+    equivalent_semantics_ { equivalent_semantics }
 {}
 
 search_key_term::search_key_term(
@@ -33,12 +36,12 @@ search_key_term::search_key_term(
         std::optional<expression_ref> upper_term,
         std::optional<expression_ref> upper_factor,
         bool upper_inclusive) noexcept :
-    lower_term_(std::move(lower_term)),
-    lower_factor_(std::move(lower_factor)),
-    lower_inclusive_(lower_inclusive),
-    upper_term_(std::move(upper_term)),
-    upper_factor_(std::move(upper_factor)),
-    upper_inclusive_(upper_inclusive)
+    lower_term_ { std::move(lower_term) },
+    lower_factor_ { std::move(lower_factor) },
+    lower_inclusive_ { lower_inclusive },
+    upper_term_ { std::move(upper_term) },
+    upper_factor_ { std::move(upper_factor) },
+    upper_inclusive_ { upper_inclusive }
 {}
 
 search_key_term::operator bool() const noexcept {
@@ -57,6 +60,7 @@ search_key_term::index_search_key_type search_key_term::build_index_search_key(s
         return {
                 column,
                 *equivalent_factor(),
+                equivalent_semantics(),
         };
     }
     return {
@@ -88,6 +92,10 @@ bool search_key_term::full_bounded() const {
 
 optional_ptr<scalar::expression const> search_key_term::equivalent_factor() const {
     return get_if(equivalent_factor_);
+}
+
+search_key_term::equivalent_semantics_type search_key_term::equivalent_semantics() const noexcept {
+    return equivalent_semantics_;
 }
 
 optional_ptr<scalar::expression const> search_key_term::lower_factor() const {

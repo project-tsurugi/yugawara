@@ -204,14 +204,17 @@ void search_key_term_builder::build_term(factor_info_map::iterator begin, factor
     for (auto it = begin; it != end; ++it) {
         auto&& info = it->second;
         using kind = scalar::comparison_operator;
+        using semantics = ::takatori::relation::comparison_semantics_kind;
         switch (info.operator_kind) {
             case kind::equal:
+            case kind::is_not_distinct_from:
                 // equivalent
                 terms_.emplace(
                         it->first,
                         search_key_term {
                                 std::move(info.term),
                                 std::move(info.factor),
+                                info.operator_kind == kind::equal ? semantics::ternary : semantics::binary,
                         });
                 break;
 
@@ -240,6 +243,7 @@ void search_key_term_builder::build_term(factor_info_map::iterator begin, factor
                 break;
 
             case kind::not_equal:
+            case kind::is_distinct_from:
                 // unsupported
                 break;
         }

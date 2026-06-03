@@ -283,6 +283,7 @@ private:
         auto right_group_keys = empty<descriptor::variable>();
         left_group_keys.reserve(keys.size());
         right_group_keys.reserve(keys.size());
+        // FIXME: repair for ternary comparison semantics
         for (auto&& key : keys) {
             auto&& left = *extract_if_variable_ref(key.value());
             auto&& right = key.variable();

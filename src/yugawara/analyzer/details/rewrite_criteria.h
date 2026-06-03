@@ -26,7 +26,10 @@ void fill_search_key(
     for (std::size_t i = 0, n = terms.size(); i < n; ++i) {
         auto&& key = index.keys()[i];
         auto&& term = *terms[i];
-        keys.emplace_back(bindings(key.column()), term.purge_equivalent_factor());
+        keys.emplace_back(
+            bindings(key.column()),
+            term.purge_equivalent_factor(),
+            term.equivalent_semantics());
     }
 }
 
@@ -46,19 +49,20 @@ void add_endpoint_term(
         // FIXME: more flexible - we assume the scan key elements are "equivalent" style except the last one
         BOOST_ASSERT(term.equivalent()); // NOLINT
 
-        lower_keys.emplace_back(key, term.clone_equivalent_factor());
-        upper_keys.emplace_back(key, term.purge_equivalent_factor());
+        lower_keys.emplace_back(key, term.clone_equivalent_factor(), term.equivalent_semantics());
+        upper_keys.emplace_back(key, term.purge_equivalent_factor(), term.equivalent_semantics());
         return;
     }
 
     if (term.equivalent()) {
-        lower_keys.emplace_back(key, term.clone_equivalent_factor());
-        upper_keys.emplace_back(key, term.purge_equivalent_factor());
+        lower_keys.emplace_back(key, term.clone_equivalent_factor(), term.equivalent_semantics());
+        upper_keys.emplace_back(key, term.purge_equivalent_factor(), term.equivalent_semantics());
         lower.kind(relation::endpoint_kind::prefixed_inclusive);
         upper.kind(relation::endpoint_kind::prefixed_inclusive);
     } else {
+        constexpr auto default_semantics = ::takatori::relation::comparison_semantics_kind::ternary;
         if (term.lower_factor()) {
-            lower_keys.emplace_back(key, term.purge_lower_factor());
+            lower_keys.emplace_back(key, term.purge_lower_factor(), default_semantics);
             if (term.lower_inclusive()) {
                 lower.kind(relation::endpoint_kind::prefixed_inclusive);
             } else {
@@ -70,7 +74,7 @@ void add_endpoint_term(
             }
         }
         if (term.upper_factor()) {
-            upper_keys.emplace_back(key, term.purge_upper_factor());
+            upper_keys.emplace_back(key, term.purge_upper_factor(), default_semantics);
             if (term.upper_inclusive()) {
                 upper.kind(relation::endpoint_kind::prefixed_inclusive);
             } else {
