@@ -2,6 +2,7 @@
 
 #include <takatori/util/clonable.h>
 #include <takatori/util/downcast.h>
+#include <takatori/util/vector_print_support.h>
 
 #include "../subquery_util.h"
 
@@ -16,12 +17,47 @@ quantified_compare::quantified_compare(
         quantifier_type quantifier,
         std::unique_ptr<expression> left,
         graph_type query_graph,
+        std::vector<parameter_type> parameters,
         column_type right_column) noexcept:
     operator_kind_ { operator_kind },
     quantifier_ { quantifier },
     left_ { std::move(left) },
     query_graph_ { std::move(query_graph) },
+    parameters_ { std::move(parameters) },
     right_column_ { std::move(right_column) }
+{}
+
+quantified_compare::quantified_compare(
+        operator_kind_type operator_kind,
+        quantifier_type quantifier,
+        expression&& left,
+        graph_type query_graph,
+        std::vector<parameter_type> parameters,
+        column_type right_column) :
+    quantified_compare {
+            operator_kind,
+            quantifier,
+            clone_unique(std::move(left)),
+            std::move(query_graph),
+            std::move(parameters),
+            std::move(right_column),
+    }
+{}
+
+quantified_compare::quantified_compare(
+        operator_kind_type operator_kind,
+        quantifier_type quantifier,
+        std::unique_ptr<expression> left,
+        graph_type query_graph,
+        column_type right_column) noexcept:
+    quantified_compare {
+            operator_kind,
+            quantifier,
+            std::move(left),
+            std::move(query_graph),
+            {},
+            std::move(right_column),
+    }
 {}
 
 quantified_compare::quantified_compare(
@@ -35,6 +71,7 @@ quantified_compare::quantified_compare(
             quantifier,
             clone_unique(std::move(left)),
             std::move(query_graph),
+            {},
             std::move(right_column),
     }
 {}
@@ -45,6 +82,7 @@ quantified_compare::quantified_compare(takatori::util::clone_tag_t, quantified_c
             other.quantifier_,
             clone_unique(*other.left_),
             {},
+            other.parameters_,
             other.right_column_,
     }
 {
@@ -57,6 +95,7 @@ quantified_compare::quantified_compare(takatori::util::clone_tag_t, quantified_c
             other.quantifier_,
             std::move(other.left_),
             std::move(other.query_graph_),
+            std::move(other.parameters_),
             std::move(other.right_column_),
     }
 {}
@@ -128,6 +167,14 @@ quantified_compare::graph_type const& quantified_compare::query_graph() const no
     return query_graph_;
 }
 
+std::vector<quantified_compare::parameter_type>& quantified_compare::parameters() noexcept {
+    return parameters_;
+}
+
+std::vector<quantified_compare::parameter_type> const& quantified_compare::parameters() const noexcept {
+    return parameters_;
+}
+
 quantified_compare::column_type& quantified_compare::right_column() noexcept {
     return right_column_;
 }
@@ -158,6 +205,7 @@ std::ostream& operator<<(std::ostream& out, quantified_compare const& value) {
                << "quantifier=" << to_string_view(value.quantifier()) << ", "
                << "left=" << *value.optional_left() << ", "
                << "#steps=" << value.query_graph().size() << ", "
+               << "parameters=" << ::takatori::util::print_support { value.parameters() } << ", "
                << "right_column=" << value.right_column() << ")";
 }
 

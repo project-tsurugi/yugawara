@@ -43,6 +43,8 @@ using namespace ::yugawara::testing;
 
 class collect_exchange_steps_test : public ::testing::Test {
 protected:
+    using semantics = ::takatori::relation::comparison_semantics_kind;
+
     type::repository types;
     binding::factory bindings;
 
@@ -211,6 +213,7 @@ TEST_F(collect_exchange_steps_test, join_cogroup) {
                     relation::intermediate::join::key {
                             c2,
                             varref { c0 },
+                            semantics::ternary,
                     },
             },
             relation::endpoint_kind::prefixed_inclusive,
@@ -220,6 +223,105 @@ TEST_F(collect_exchange_steps_test, join_cogroup) {
                     relation::intermediate::join::key {
                             c2,
                             varref { c0 },
+                            semantics::ternary,
+                    },
+            },
+            relation::endpoint_kind::prefixed_inclusive,
+    };
+    auto& r3 = r.insert(relation::emit {
+            c1,
+            c3,
+    });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r3.input();
+
+    details::step_plan_builder_options options;
+    options.add(r2, join_strategy::cogroup);
+    plan::graph_type p;
+
+    /*
+     * scan:r0 - offer:r4 - [group]:e0 -\
+     *                                   take_cogroup:r6 - join_group:r7 - emit:r3
+     * scan:r1 - offer:r5 - [group]:e1 -/
+     */
+    details::collect_exchange_steps(r, p, options);
+    ASSERT_EQ(r.size(), 7);
+    EXPECT_TRUE(r.contains(r0));
+    EXPECT_TRUE(r.contains(r1));
+    EXPECT_TRUE(r.contains(r3));
+
+    auto&& r4 = next<offer>(r0.output());
+    auto&& r5 = next<offer>(r1.output());
+    auto&& r7 = next<relation::step::join>(r3.input());
+    auto&& r6 = next<take_cogroup>(r7.input());
+
+    auto&& e0 = resolve<plan::group>(r4.destination());
+    auto&& e1 = resolve<plan::group>(r5.destination());
+
+    ASSERT_EQ(p.size(), 2);
+    EXPECT_TRUE(p.contains(e0));
+    EXPECT_TRUE(p.contains(e1));
+
+    ASSERT_EQ(r6.groups().size(), 2);
+    EXPECT_EQ(r6.groups()[0].source(), r4.destination());
+    EXPECT_EQ(r6.groups()[1].source(), r5.destination());
+
+    ASSERT_EQ(e0.group_keys().size(), 1);
+    ASSERT_EQ(e0.group_keys()[0], c0);
+    EXPECT_EQ(e0.limit(), std::nullopt);
+
+    ASSERT_EQ(e1.group_keys().size(), 1);
+    ASSERT_EQ(e1.group_keys()[0], c2);
+    EXPECT_EQ(e1.limit(), std::nullopt);
+
+    EXPECT_EQ(r7.condition(), compare(c0, c2));
+}
+
+TEST_F(collect_exchange_steps_test, join_cogroup_is_not_distinct_from) {
+    /*
+     * scan:r0 -\
+     *           join_relation:r2 - emit:r3
+     * scan:r1 -/
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c1");
+    auto c3 = bindings.stream_variable("c1");
+    auto& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+            },
+    });
+    auto& r1 = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { t1c0, c2 },
+                    { t1c1, c3 },
+            },
+    });
+    auto& r2 = r.insert(relation::intermediate::join {
+            relation::join_kind::inner,
+    });
+    r2.lower() = relation::intermediate::join::endpoint {
+            {
+                    relation::intermediate::join::key {
+                            c2,
+                            varref { c0 },
+                            semantics::binary,
+                    },
+            },
+            relation::endpoint_kind::prefixed_inclusive,
+    };
+    r2.upper() = relation::intermediate::join::endpoint {
+            {
+                    relation::intermediate::join::key {
+                            c2,
+                            varref { c0 },
+                            semantics::binary,
                     },
             },
             relation::endpoint_kind::prefixed_inclusive,
@@ -366,7 +468,7 @@ TEST_F(collect_exchange_steps_test, join_cogroup_default) {
     ASSERT_EQ(e1.group_keys()[0], c2);
     EXPECT_EQ(e1.limit(), std::nullopt);
 
-    EXPECT_EQ(r7.condition(), nullptr);
+    EXPECT_EQ(r7.condition(), compare(c0, c2));
 }
 
 TEST_F(collect_exchange_steps_test, join_broadcast_find) {

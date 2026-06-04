@@ -101,6 +101,7 @@ add_test_executable(yugawara/analyzer/details/expand_subquery_relation_test.cpp)
 add_test_executable(yugawara/analyzer/details/expand_subquery_scalar_test.cpp)
 add_test_executable(yugawara/analyzer/details/expand_subquery_exists_test.cpp)
 add_test_executable(yugawara/analyzer/details/expand_subquery_quantified_compare_test.cpp)
+add_test_executable(yugawara/analyzer/details/rewrite_correlated_subquery_test.cpp)
 add_test_executable(yugawara/analyzer/intermediate_plan_normalizer_test.cpp)
 
 # optimizer

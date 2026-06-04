@@ -468,6 +468,12 @@ TEST_F(object_scanner_test, extension_scalar_subquery) {
     graph.insert(::takatori::relation::values {{}, {}});
     print(extension::scalar::subquery {
             std::move(graph),
+            {
+                    {
+                            bindings.stream_variable("i0"),
+                            bindings.stream_variable("o0"),
+                    },
+            },
             bindings.stream_variable("result"),
     });
 }
@@ -477,6 +483,12 @@ TEST_F(object_scanner_test, extension_scalar_exists) {
     graph.insert(::takatori::relation::values {{}, {}});
     print(extension::scalar::exists {
             std::move(graph),
+            {
+                    {
+                            bindings.stream_variable("i0"),
+                            bindings.stream_variable("o0"),
+                    },
+            },
     });
 }
 
@@ -491,6 +503,12 @@ TEST_F(object_scanner_test, extension_quantified_compare) {
                     t::int8 {}
             },
             std::move(graph),
+            {
+                    {
+                            bindings.stream_variable("i0"),
+                            bindings.stream_variable("o0"),
+                    },
+            },
             bindings.stream_variable("right"),
     });
 }

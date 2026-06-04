@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include <takatori/descriptor/variable.h>
 
 #include <takatori/scalar/comparison_operator.h>
@@ -7,6 +9,7 @@
 #include <takatori/scalar/quantifier.h>
 
 #include <takatori/relation/graph.h>
+#include <takatori/relation/details/mapping_element.h>
 
 #include <takatori/util/clone_tag.h>
 #include <takatori/util/optional_ptr.h>
@@ -34,11 +37,49 @@ public:
     /// @brief the query graph type.
     using graph_type = ::takatori::relation::expression::graph_type;
 
+    /// @brief parameter mapping type.
+    using parameter_type = ::takatori::relation::details::mapping_element;
+
     /// @brief output column type.
     using column_type = ::takatori::descriptor::variable;
 
     /// @brief the output port type.
     using output_port_type = ::takatori::relation::expression::output_port_type;
+
+    /**
+     * @brief creates a new object.
+     * @param operator_kind the comparison operator kind
+     * @param quantifier the quantifier
+     * @param left the left operand
+     * @param query_graph the right operand query graph
+     * @param parameters the query parameters for correlated sub-queries
+     * @param right_column the output column in the subquery
+     */
+    explicit quantified_compare(
+            operator_kind_type operator_kind,
+            quantifier_type quantifier,
+            std::unique_ptr<expression> left,
+            graph_type query_graph,
+            std::vector<parameter_type> parameters,
+            column_type right_column) noexcept;
+
+    /**
+     * @brief creates a new object.
+     * @param operator_kind the comparison operator kind
+     * @param quantifier the quantifier
+     * @param left the left operand
+     * @param query_graph the right operand query graph
+     * @param parameters the query parameters for correlated sub-queries
+     * @param right_column the output column in the subquery
+     * @attention this may take copies of given expressions
+     */
+    explicit quantified_compare(
+            operator_kind_type operator_kind,
+            quantifier_type quantifier,
+            expression&& left,
+            graph_type query_graph,
+            std::vector<parameter_type> parameters,
+            column_type right_column);
 
     /**
      * @brief creates a new object.
@@ -170,6 +211,16 @@ public:
     [[nodiscard]] graph_type const& query_graph() const noexcept;
 
     /**
+     * @brief returns the query parameters for correlated subqueries.
+     * @details the columns in outer query are in source of mappings, and in inner query are in destination.
+     * @return the query parameters
+     */
+    [[nodiscard]] std::vector<parameter_type>& parameters() noexcept;
+
+    /// @copydoc parameters()
+    [[nodiscard]] std::vector<parameter_type> const& parameters() const noexcept;
+
+    /**
      * @brief returns the right operand column in the subquery.
      * @return the right operand column
      */
@@ -235,6 +286,7 @@ private:
     quantifier_type quantifier_;
     std::unique_ptr<expression> left_;
     graph_type query_graph_;
+    std::vector<parameter_type> parameters_;
     column_type right_column_;
 };
 

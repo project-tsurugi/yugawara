@@ -197,10 +197,10 @@ TEST_F(step_plan_builder_test, join) {
     relation::graph_type r;
     auto cl0 = bindings.stream_variable("cl0");
     auto cl1 = bindings.stream_variable("cl1");
-    auto cl2 = bindings.stream_variable("cl1");
+    auto cl2 = bindings.stream_variable("cl2");
     auto cr0 = bindings.stream_variable("cr0");
     auto cr1 = bindings.stream_variable("cr1");
-    auto cr2 = bindings.stream_variable("cr1");
+    auto cr2 = bindings.stream_variable("cr2");
     auto& r0 = r.insert(relation::scan {
             bindings(*i0),
             {
@@ -217,6 +217,7 @@ TEST_F(step_plan_builder_test, join) {
                     { t1c2, cr2 },
             },
     });
+    // ON CL1 < 1 AND CL0 = CR0
     auto& r2 = r.insert(relation::intermediate::join {
             relation::join_kind::inner,
             scalar::compare {
@@ -276,15 +277,17 @@ TEST_F(step_plan_builder_test, join) {
     ASSERT_EQ(e0.group_keys().size(), 1);
     auto&& cl0el = e0.group_keys()[0];
 
-    ASSERT_EQ(e0.columns().size(), 1);
-    auto&& cl1el = e0.columns()[0];
+    ASSERT_EQ(e0.columns().size(), 2);
+    auto&& cl0elv = e0.columns()[0];
+    auto&& cl1el = e0.columns()[1];
 
     // er
     ASSERT_EQ(e1.group_keys().size(), 1);
     auto&& cr0er = e1.group_keys()[0];
 
-    ASSERT_EQ(e1.columns().size(), 1);
-    auto&& cr2er = e1.columns()[0];
+    ASSERT_EQ(e1.columns().size(), 2);
+    auto&& cr0erv = e1.columns()[0];
+    auto&& cr2er = e1.columns()[1];
 
     // scan - pl
     ASSERT_EQ(r0.columns().size(), 2);
@@ -294,13 +297,15 @@ TEST_F(step_plan_builder_test, join) {
     auto&& cl1pl = r0.columns()[1].destination();
 
     // offer - pl
-    ASSERT_EQ(r4.columns().size(), 2);
+    ASSERT_EQ(r4.columns().size(), 3);
     // -- values
-    EXPECT_EQ(r4.columns()[0].source(), cl1pl);
-    EXPECT_EQ(r4.columns()[0].destination(), cl1el);
+    EXPECT_EQ(r4.columns()[0].source(), cl0pl);
+    EXPECT_EQ(r4.columns()[0].destination(), cl0elv);
+    EXPECT_EQ(r4.columns()[1].source(), cl1pl);
+    EXPECT_EQ(r4.columns()[1].destination(), cl1el);
     // -- keys
-    EXPECT_EQ(r4.columns()[1].source(), cl0pl);
-    EXPECT_EQ(r4.columns()[1].destination(), cl0el);
+    EXPECT_EQ(r4.columns()[2].source(), cl0pl);
+    EXPECT_EQ(r4.columns()[2].destination(), cl0el);
 
     // scan - pr
     ASSERT_EQ(r1.columns().size(), 2);
@@ -310,33 +315,43 @@ TEST_F(step_plan_builder_test, join) {
     auto&& cr2pr = r1.columns()[1].destination();
 
     // offer - pr
-    ASSERT_EQ(r5.columns().size(), 2);
+    ASSERT_EQ(r5.columns().size(), 3);
     // -- values
-    EXPECT_EQ(r5.columns()[0].source(), cr2pr);
-    EXPECT_EQ(r5.columns()[0].destination(), cr2er);
+    EXPECT_EQ(r5.columns()[0].source(), cr0pr);
+    EXPECT_EQ(r5.columns()[0].destination(), cr0erv);
+    EXPECT_EQ(r5.columns()[1].source(), cr2pr);
+    EXPECT_EQ(r5.columns()[1].destination(), cr2er);
     // -- keys
-    EXPECT_EQ(r5.columns()[1].source(), cr0pr);
-    EXPECT_EQ(r5.columns()[1].destination(), cr0er);
+    EXPECT_EQ(r5.columns()[2].source(), cr0pr);
+    EXPECT_EQ(r5.columns()[2].destination(), cr0er);
 
     // take_cogroup
     ASSERT_EQ(r6.groups().size(), 2);
     auto&& gl = r6.groups()[0];
     auto&& gr = r6.groups()[1];
 
-    ASSERT_EQ(gl.columns().size(), 1);
-    EXPECT_EQ(gl.columns()[0].source(), cl1el);
-    auto&& cl1pj = gl.columns()[0].destination();
+    ASSERT_EQ(gl.columns().size(), 2);
+    EXPECT_EQ(gl.columns()[0].source(), cl0elv);
+    auto&& cl0pj = gl.columns()[0].destination();
+    EXPECT_EQ(gl.columns()[1].source(), cl1el);
+    auto&& cl1pj = gl.columns()[1].destination();
 
-    ASSERT_EQ(gr.columns().size(), 1);
-    EXPECT_EQ(gr.columns()[0].source(), cr2er);
-    auto&& cr2pj = gr.columns()[0].destination();
+    ASSERT_EQ(gr.columns().size(), 2);
+    EXPECT_EQ(gr.columns()[0].source(), cr0erv);
+    auto&& cr0pj = gr.columns()[0].destination();
+    EXPECT_EQ(gr.columns()[1].source(), cr2er);
+    auto&& cr2pj = gr.columns()[1].destination();
 
+    (void) cl0pj;
+    (void) cr0pj;
     // join_group
-    EXPECT_EQ(r7.condition(), (scalar::compare {
+    EXPECT_EQ(r7.condition(), land(
+        scalar::compare {
             scalar::comparison_operator::less,
             scalar::variable_reference { cl1pj },
             constant(1),
-    }));
+        },
+        compare(cl0pj, cr0pj)));
 
     ASSERT_EQ(r3.columns().size(), 1);
     EXPECT_EQ(r3.columns()[0].source(), cr2pj);

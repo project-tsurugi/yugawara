@@ -29,6 +29,8 @@ public:
 
     [[nodiscard]] variable_info_kind kind() const noexcept override;
 
+    [[nodiscard]] std::string_view label() const override;
+
     /**
      * @brief returns the target column.
      * @return the target column

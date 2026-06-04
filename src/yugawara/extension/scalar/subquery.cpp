@@ -1,6 +1,7 @@
 #include <yugawara/extension/scalar/subquery.h>
 
 #include <takatori/util/downcast.h>
+#include <takatori/util/vector_print_support.h>
 
 #include "../subquery_util.h"
 
@@ -9,14 +10,27 @@ namespace yugawara::extension::scalar {
 using ::takatori::util::optional_ptr;
 using ::takatori::util::unsafe_downcast;
 
-subquery::subquery(graph_type query_graph, column_type output_column) noexcept :
+subquery::subquery(
+        graph_type query_graph,
+        std::vector<parameter_type> parameters,
+        column_type output_column) noexcept :
     query_graph_ { std::move(query_graph) },
+    parameters_ { std::move(parameters) },
     output_column_ { std::move(output_column) }
+{}
+
+subquery::subquery(graph_type query_graph, column_type output_column) noexcept :
+    subquery {
+            std::move(query_graph),
+            {},
+            std::move(output_column)
+    }
 {}
 
 subquery::subquery(takatori::util::clone_tag_t, subquery const& other) :
     subquery {
             {},
+            other.parameters_,
             other.output_column_,
     }
 {
@@ -26,6 +40,7 @@ subquery::subquery(takatori::util::clone_tag_t, subquery const& other) :
 subquery::subquery(takatori::util::clone_tag_t, subquery&& other) :
     subquery {
             std::move(other.query_graph_),
+            std::move(other.parameters_),
             std::move(other.output_column_),
     }
 {}
@@ -48,6 +63,14 @@ subquery::graph_type& subquery::query_graph() noexcept {
 
 subquery::graph_type const& subquery::query_graph() const noexcept {
     return query_graph_;
+}
+
+std::vector<subquery::parameter_type>& subquery::parameters() noexcept {
+    return parameters_;
+}
+
+std::vector<subquery::parameter_type> const& subquery::parameters() const noexcept {
+    return parameters_;
 }
 
 subquery::column_type& subquery::output_column() noexcept {
@@ -77,6 +100,7 @@ bool operator!=(subquery const& a, subquery const& b) noexcept {
 std::ostream& operator<<(std::ostream& out, subquery const& value) {
     return out << to_string_view(static_cast<extension_id>(value.extension_id())) << "("
                << "#steps=" << value.query_graph().size() << ", "
+               << "parameters=" << ::takatori::util::print_support { value.parameters() } << ", "
                << "output_column=" << value.output_column() << ")";
 }
 

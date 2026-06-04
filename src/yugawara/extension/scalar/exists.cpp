@@ -1,6 +1,7 @@
 #include <yugawara/extension/scalar/exists.h>
 
 #include <takatori/util/downcast.h>
+#include <takatori/util/vector_print_support.h>
 
 #include "../subquery_util.h"
 
@@ -9,13 +10,24 @@ namespace yugawara::extension::scalar {
 using ::takatori::util::optional_ptr;
 using ::takatori::util::unsafe_downcast;
 
+exists::exists(
+        graph_type query_graph,
+        std::vector<parameter_type> parameters) noexcept :
+    query_graph_ { std::move(query_graph) },
+    parameters_ { std::move(parameters) }
+{}
+
 exists::exists(graph_type query_graph) noexcept :
-    query_graph_ { std::move(query_graph) }
+    exists {
+            std::move(query_graph),
+            {}
+    }
 {}
 
 exists::exists(takatori::util::clone_tag_t, exists const& other) :
     exists {
             {},
+            other.parameters_,
     }
 {
     ::takatori::relation::merge_into(other.query_graph_, query_graph_);
@@ -24,6 +36,7 @@ exists::exists(takatori::util::clone_tag_t, exists const& other) :
 exists::exists(takatori::util::clone_tag_t, exists&& other) :
     exists {
             std::move(other.query_graph_),
+            std::move(other.parameters_),
     }
 {}
 
@@ -47,6 +60,14 @@ exists::graph_type const& exists::query_graph() const noexcept {
     return query_graph_;
 }
 
+std::vector<exists::parameter_type>& exists::parameters() noexcept {
+    return parameters_;
+}
+
+std::vector<exists::parameter_type> const& exists::parameters() const noexcept {
+    return parameters_;
+}
+
 optional_ptr<exists::output_port_type> exists::find_output_port() noexcept {
     return find_output_port_internal<output_port_type>(query_graph_);
 }
@@ -65,7 +86,8 @@ bool operator!=(exists const& a, exists const& b) noexcept {
 
 std::ostream& operator<<(std::ostream& out, exists const& value) {
     return out << to_string_view(static_cast<extension_id>(value.extension_id())) << "("
-               << "#steps=" << value.query_graph().size() << ")";
+            << "#steps=" << value.query_graph().size() << ", "
+            << "parameters=" << ::takatori::util::print_support { value.parameters() } << ")";
 }
 
 bool exists::equals(extension const& other) const noexcept {

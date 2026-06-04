@@ -12,8 +12,11 @@
 #include <takatori/relation/filter.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/emit.h>
+#include <takatori/relation/buffer.h>
 #include <takatori/relation/intermediate/join.h>
 #include <takatori/relation/intermediate/limit.h>
+#include <takatori/relation/intermediate/escape.h>
+#include <takatori/relation/intermediate/distinct.h>
 
 #include <takatori/util/vector_print_support.h>
 
@@ -514,6 +517,106 @@ TEST_F(expand_subquery_quantified_compare_test, join_condition_unsupported) {
 
     auto diagnostics = expand_subquery(graph);
     EXPECT_TRUE(contains(diagnostics, code_type::unsupported_scalar_subquery_placement)) << print_support(diagnostics);
+}
+
+TEST_F(expand_subquery_quantified_compare_test, filter_correlation) {
+    /* inner query: g0
+     *   values:sv -*
+     */
+    relation::graph_type g0 {};
+    auto c0 = bindings.stream_variable("c0");
+    auto p0 = bindings.stream_variable("p0");
+    g0.insert(relation::values {
+            {
+                    c0,
+            },
+            {
+                    { varref(p0) },
+            },
+    });
+
+    /* outer query: graph
+     *   values:rv -- filter[c1 =any g0]:r0 -- emit:re
+     */
+    relation::graph_type graph {};
+    auto c1 = bindings.stream_variable("c1");
+    auto&& rv = graph.insert(relation::values {
+            {
+                    c1,
+            },
+            {},
+    });
+    auto&& r0 = graph.insert(relation::filter {
+            extension::scalar::quantified_compare {
+                    scalar::comparison_operator::equal,
+                    scalar::quantifier::any,
+                    wrap(c1),
+                    std::move(g0),
+                    {
+                            { c1, p0 },
+                    },
+                    c0,
+            },
+    });
+    auto&& re = graph.insert(relation::emit {
+            c1,
+    });
+    rv.output() >> r0.input();
+    r0.output() >> re.input();
+
+    auto diagnostics = expand_subquery(graph);
+    ASSERT_TRUE(diagnostics.empty()) << print_support(diagnostics);
+
+    /*
+     *                              +-- *1 --+
+     *                             /          \
+     * values:rv[->c1] -- buffer -+------------+-join -- filter[T]:r0 -- emit[c1]:re
+     *
+     * *1:
+     * ~~ escape[c1->p0]:e0 -- distinct[p0] -- escape[p0->x0]:e1 -- project[x0->c0]:j0 ~~
+     */
+    ASSERT_EQ(graph.size(), 9);
+    ASSERT_TRUE(graph.contains(rv));
+    ASSERT_TRUE(graph.contains(r0));
+    ASSERT_TRUE(graph.contains(re));
+    auto&& buffer = next<relation::buffer>(rv.output());
+    ASSERT_EQ(buffer.size(), 2);
+    auto&& join = next<relation::intermediate::join>(buffer.output_ports()[0]);
+
+    // (*1)
+    auto&& e0 = next<relation::intermediate::escape>(buffer.output_ports()[1]);
+    auto&& distinct = next<relation::intermediate::distinct>(e0.output());
+    auto&& e1 = next<relation::intermediate::escape>(distinct.output());
+    auto&& j0 = next<relation::project>(e1.output());
+    EXPECT_GT(j0.output(), join.right());
+
+    ASSERT_EQ(rv.columns().size(), 1);
+    EXPECT_EQ(rv.columns()[0], c1);
+
+    ASSERT_EQ(e0.mappings().size(), 1);
+    EXPECT_EQ(e0.mappings()[0].source(), c1);
+    EXPECT_EQ(e0.mappings()[0].destination(), p0);
+
+    ASSERT_EQ(distinct.group_keys().size(), 1);
+    EXPECT_EQ(distinct.group_keys()[0], p0);
+
+    ASSERT_EQ(e1.mappings().size(), 1);
+    EXPECT_EQ(e1.mappings()[0].source(), p0);
+    auto&& x0 = e1.mappings()[0].destination();
+
+    ASSERT_EQ(j0.columns().size(), 1);
+    EXPECT_EQ(j0.columns()[0].variable(), c0);
+    EXPECT_EQ(j0.columns()[0].value(), varref(x0));
+
+    EXPECT_EQ(join.operator_kind(), relation::join_kind::semi);
+    EXPECT_EQ(join.condition(), land(
+            compare(wrap(c1), wrap(c0)),
+            compare(c1, x0, scalar::comparison_operator::is_not_distinct_from)));
+
+    ASSERT_EQ(r0.condition(), boolean(true));
+
+    ASSERT_EQ(re.columns().size(), 1);
+    EXPECT_EQ(re.columns()[0].source(), c1);
 }
 
 } // namespace yugawara::analyzer::details

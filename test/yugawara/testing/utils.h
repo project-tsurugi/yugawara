@@ -167,8 +167,7 @@ resolve(descriptor::relation const& desc) {
     return downcast<T>(decl);
 }
 
-inline plan::process&
-find(plan::graph_type& g, relation::expression const& e) {
+inline plan::process& find(plan::graph_type& g, relation::expression const& e) {
     for (auto&& s : g) {
         if (s.kind() == plan::step_kind::process) {
             auto&& p = downcast<plan::process>(s);
@@ -181,6 +180,20 @@ find(plan::graph_type& g, relation::expression const& e) {
             << "missing process that contain: "
             << e
             << string_builder::to_string);
+}
+
+inline plan::process& find(plan::graph_type& g, std::function<bool(relation::expression const&)> const& predicate) {
+    for (auto&& s : g) {
+        if (s.kind() == plan::step_kind::process) {
+            auto&& p = downcast<plan::process>(s);
+            for (auto&& expr : p.operators()) {
+                if (predicate(expr)) {
+                    return p;
+                }
+            }
+        }
+    }
+    throw std::domain_error("missing process that contain given predicate");
 }
 
 template<class T>

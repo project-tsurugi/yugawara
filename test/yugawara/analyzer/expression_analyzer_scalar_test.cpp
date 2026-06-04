@@ -1858,6 +1858,35 @@ TEST_F(expression_analyzer_scalar_test, extension_subquery) {
     EXPECT_TRUE(ok());
 }
 
+TEST_F(expression_analyzer_scalar_test, extension_subquery_correlated) {
+    auto i0 = bindings.stream_variable("i0");
+    auto i1 = bindings.stream_variable("i1");
+    auto p0 = bindings.stream_variable("p0");
+    auto p1 = bindings.stream_variable("p1");
+
+    ::takatori::relation::graph_type graph {};
+    graph.insert(::takatori::relation::values {
+            { i0, i1, },
+            {
+                    {
+                            vref { p0 },
+                            vref { p1 },
+                    },
+            },
+    });
+    extension::scalar::subquery expr {
+            std::move(graph),
+            {
+                    { decl(t::int4 {}), p0 },
+                    { decl(t::int8 {}), p1 },
+            },
+            i1,
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::int8());
+    EXPECT_TRUE(ok());
+}
+
 TEST_F(expression_analyzer_scalar_test, extension_exists) {
     auto i0 = bindings.stream_variable("i0");
     auto i1 = bindings.stream_variable("i1");
@@ -1874,6 +1903,34 @@ TEST_F(expression_analyzer_scalar_test, extension_exists) {
     });
     extension::scalar::exists expr {
             std::move(graph),
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::boolean());
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, extension_exists_correlated) {
+    auto i0 = bindings.stream_variable("i0");
+    auto i1 = bindings.stream_variable("i1");
+    auto p0 = bindings.stream_variable("p0");
+    auto p1 = bindings.stream_variable("p1");
+
+    ::takatori::relation::graph_type graph {};
+    graph.insert(::takatori::relation::values {
+            { i0, i1, },
+            {
+                    {
+                            vref { p0 },
+                            vref { p1 },
+                    },
+            },
+    });
+    extension::scalar::exists expr {
+            std::move(graph),
+            {
+                    { decl(t::int4 {}), p0 },
+                    { decl(t::int8 {}), p1 },
+            },
     };
     auto r = analyzer.resolve(expr, true, repo);
     EXPECT_EQ(*r, t::boolean());
@@ -1921,6 +1978,38 @@ TEST_F(expression_analyzer_scalar_test, extension_quantified_compare) {
             s::quantifier::any,
             vref { decl(t::int4()) },
             std::move(graph),
+            i1,
+    };
+    auto r = analyzer.resolve(expr, true, repo);
+    EXPECT_EQ(*r, t::boolean());
+    EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_scalar_test, extension_quantified_compare_correlated) {
+    auto i0 = bindings.stream_variable("i0");
+    auto i1 = bindings.stream_variable("i1");
+    auto p0 = bindings.stream_variable("p0");
+    auto p1 = bindings.stream_variable("p1");
+
+    ::takatori::relation::graph_type graph {};
+    graph.insert(::takatori::relation::values {
+            { i0, i1, },
+            {
+                    {
+                            vref { decl(t::int4 {}) },
+                            vref { decl(t::int8 {}) },
+                    },
+            },
+    });
+    extension::scalar::quantified_compare expr {
+            s::comparison_operator::equal,
+            s::quantifier::any,
+            vref { decl(t::int4()) },
+            std::move(graph),
+            {
+                    { decl(t::int4 {}), p0 },
+                    { decl(t::int8 {}), p1 },
+            },
             i1,
     };
     auto r = analyzer.resolve(expr, true, repo);

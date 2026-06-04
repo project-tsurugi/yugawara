@@ -1,10 +1,13 @@
 #pragma once
 
+#include <vector>
+
 #include <takatori/descriptor/variable.h>
 
 #include <takatori/scalar/extension.h>
 
 #include <takatori/relation/graph.h>
+#include <takatori/relation/details/mapping_element.h>
 
 #include <takatori/util/clone_tag.h>
 
@@ -23,11 +26,25 @@ public:
     /// @brief the query graph type.
     using graph_type = ::takatori::relation::expression::graph_type;
 
+    /// @brief parameter mapping type.
+    using parameter_type = ::takatori::relation::details::mapping_element;
+
     /// @brief the output port type.
     using output_port_type = ::takatori::relation::expression::output_port_type;
 
     /// @brief output column type.
     using column_type = ::takatori::descriptor::variable;
+
+    /**
+     * @brief creates a new object.
+     * @param query_graph the query graph which represents this subquery operation
+     * @param parameters the query parameters for correlated sub-queries
+     * @param output_column the output column in the subquery
+     */
+    explicit subquery(
+            graph_type query_graph,
+            std::vector<parameter_type> parameters,
+            column_type output_column) noexcept;
 
     /**
      * @brief creates a new object.
@@ -71,6 +88,16 @@ public:
 
     /// @copydoc query_graph()
     [[nodiscard]] graph_type const& query_graph() const noexcept;
+
+    /**
+     * @brief returns the query parameters for correlated subqueries.
+     * @details the columns in outer query are in source of mappings, and in inner query are in destination.
+     * @return the query parameters
+     */
+    [[nodiscard]] std::vector<parameter_type>& parameters() noexcept;
+
+    /// @copydoc parameters()
+    [[nodiscard]] std::vector<parameter_type> const& parameters() const noexcept;
 
     /**
      * @brief returns the output column in the subquery.
@@ -135,6 +162,7 @@ protected:
 
 private:
     graph_type query_graph_;
+    std::vector<parameter_type> parameters_;
     column_type output_column_;
 };
 

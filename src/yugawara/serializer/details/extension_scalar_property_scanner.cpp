@@ -64,6 +64,24 @@ void extension_scalar_property_scanner::properties(extension::scalar::subquery c
     accept(element.query_graph());
     acceptor_.property_end();
 
+    acceptor_.property_begin("parameters"sv);
+    acceptor_.array_begin();
+    for (auto&& parameter : element.parameters()) {
+        acceptor_.struct_begin();
+
+        acceptor_.property_begin("source"sv);
+        accept(parameter.source());
+        acceptor_.property_end();
+
+        acceptor_.property_begin("destination"sv);
+        accept(parameter.destination());
+        acceptor_.property_end();
+
+        acceptor_.struct_end();
+    }
+    acceptor_.array_end();
+    acceptor_.property_end();
+
     acceptor_.property_begin("output_column"sv);
     accept(element.output_column());
     acceptor_.property_end();
@@ -72,6 +90,24 @@ void extension_scalar_property_scanner::properties(extension::scalar::subquery c
 void extension_scalar_property_scanner::properties(extension::scalar::exists const& element) {
     acceptor_.property_begin("query_graph"sv);
     accept(element.query_graph());
+    acceptor_.property_end();
+
+    acceptor_.property_begin("parameters"sv);
+    acceptor_.array_begin();
+    for (auto&& parameter : element.parameters()) {
+        acceptor_.struct_begin();
+
+        acceptor_.property_begin("source"sv);
+        accept(parameter.source());
+        acceptor_.property_end();
+
+        acceptor_.property_begin("destination"sv);
+        accept(parameter.destination());
+        acceptor_.property_end();
+
+        acceptor_.struct_end();
+    }
+    acceptor_.array_end();
     acceptor_.property_end();
 }
 
@@ -90,6 +126,24 @@ void extension_scalar_property_scanner::properties(extension::scalar::quantified
 
     acceptor_.property_begin("query_graph"sv);
     accept(element.query_graph());
+    acceptor_.property_end();
+
+    acceptor_.property_begin("parameters"sv);
+    acceptor_.array_begin();
+    for (auto&& parameter : element.parameters()) {
+        acceptor_.struct_begin();
+
+        acceptor_.property_begin("source"sv);
+        accept(parameter.source());
+        acceptor_.property_end();
+
+        acceptor_.property_begin("destination"sv);
+        accept(parameter.destination());
+        acceptor_.property_end();
+
+        acceptor_.struct_end();
+    }
+    acceptor_.array_end();
     acceptor_.property_end();
 
     acceptor_.property_begin("right_column"sv);

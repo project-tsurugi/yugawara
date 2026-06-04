@@ -138,6 +138,11 @@ public:
             }
             it = columns.erase(it);
         }
+        for (auto&& row : expr.rows()) {
+            for (auto&& cell : row.elements()) {
+                rewrite(cell);
+            }
+        }
         raise_undefined();
     }
 

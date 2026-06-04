@@ -16,6 +16,7 @@
 #include <takatori/relation/project.h>
 #include <takatori/relation/find.h>
 #include <takatori/relation/values.h>
+#include <takatori/relation/buffer.h>
 #include <takatori/relation/intermediate/join.h>
 #include <takatori/relation/intermediate/aggregate.h>
 #include <takatori/relation/step/join.h>
@@ -87,12 +88,23 @@ protected:
 
     descriptor::variable find_destination(
             descriptor::variable const& v,
-            std::vector<relation::details::mapping_element> const& mappings) {
-        auto iter = std::find_if(
-                mappings.begin(), mappings.end(),
-                [&](relation::details::mapping_element const& e) {
-                    return e.source() == v;
-                });
+            std::vector<relation::details::mapping_element> const& mappings,
+            std::size_t skip = 0) {
+        std::size_t round = skip + 1U;
+        auto iter = mappings.begin();
+        for (std::size_t step = 0; step < round; ++step) {
+            if (iter == mappings.end()) {
+                break;
+            }
+            if (step != 0) {
+                ++iter;
+            }
+            iter = std::find_if(
+                    iter, mappings.end(),
+                    [&](relation::details::mapping_element const& e) {
+                        return e.source() == v;
+                    });
+        }
         if (iter == mappings.end()) {
             throw std::domain_error(string_builder {}
                     << "missing mapping for: "
@@ -1719,15 +1731,17 @@ TEST_F(compiler_test, feat_quantified_compare_filter) {
     auto&& p0c0 = r0.columns()[0].destination();
     auto&& p0c1 = r0.columns()[1].destination();
 
-    ASSERT_EQ(o0.columns().size(), 2);
+    ASSERT_EQ(o0.columns().size(), 3);
     auto&& g0c0 = find_destination(p0c0, o0.columns());
     auto&& g0c1 = find_destination(p0c1, o0.columns());
+    auto&& g0c0k = find_destination(p0c0, o0.columns(), 1);
 
     ASSERT_EQ(g0.group_keys().size(), 1);
-    EXPECT_EQ(g0.group_keys()[0], g0c0);
+    EXPECT_EQ(g0.group_keys()[0], g0c0k);
 
-    ASSERT_EQ(g0.columns().size(), 1);
-    EXPECT_EQ(g0.columns()[0], g0c1);
+    ASSERT_EQ(g0.columns().size(), 2);
+    EXPECT_EQ(g0.columns()[0], g0c0);
+    EXPECT_EQ(g0.columns()[1], g0c1);
 
     // p1
     ASSERT_EQ(p1.operators().size(), 2);
@@ -1737,13 +1751,15 @@ TEST_F(compiler_test, feat_quantified_compare_filter) {
     ASSERT_EQ(rv.columns().size(), 1);
     auto&& p1cv = rv.columns()[0];
 
-    ASSERT_EQ(o1.columns().size(), 1);
+    ASSERT_EQ(o1.columns().size(), 2);
     auto&& g1cv = find_destination(p1cv, o1.columns());
+    auto&& g1cvk = find_destination(p1cv, o1.columns(), 1);
 
     ASSERT_EQ(g1.group_keys().size(), 1);
-    EXPECT_EQ(g1.group_keys()[0], g1cv);
+    EXPECT_EQ(g1.group_keys()[0], g1cvk);
 
-    ASSERT_EQ(g1.columns().size(), 0);
+    ASSERT_EQ(g1.columns().size(), 1);
+    EXPECT_EQ(g1.columns()[0], g1cv);
 
     // p2
     ASSERT_EQ(p2.operators().size(), 3);
@@ -1756,16 +1772,162 @@ TEST_F(compiler_test, feat_quantified_compare_filter) {
     EXPECT_EQ(resolve<plan::group>(t0g0.source()), g0);
     EXPECT_EQ(resolve<plan::group>(t0g1.source()), g1);
 
-    ASSERT_EQ(t0g0.columns().size(), 1);
+    ASSERT_EQ(t0g0.columns().size(), 2);
+    auto&& p2c0 = find_destination(g0c0, t0g0.columns());
     auto&& p2c1 = find_destination(g0c1, t0g0.columns());
 
-    ASSERT_EQ(t0g1.columns().size(), 0);
+    ASSERT_EQ(t0g1.columns().size(), 1);
+    auto&& p2cv = find_destination(g1cv, t0g1.columns());
 
     EXPECT_EQ(j0.operator_kind(), relation::join_kind::semi);
-    EXPECT_FALSE(j0.condition());
+
+    EXPECT_EQ(j0.condition(), compare(p2c0, p2cv));
 
     ASSERT_EQ(r2.columns().size(), 1);
     EXPECT_EQ(r2.columns()[0], p2c1);
+
+    dump(result);
+}
+
+TEST_F(compiler_test, feat_scalar_subquery_correlation) {
+    /*
+     * SELECT
+     *   (VALUES(t0.c0) AS rv(cv)),
+     * FROM t0
+     * =>
+     *                                   +-- *1 --+
+     *                                  /          \
+     * scan[t0(c0, c1, c2)] -- buffer -+------------+- join -- project[cv->c3] -- emit[c3, c0]
+     *
+     * *1:
+     * ~~ escape[c1->p0]:e1 -- distinct[p0] -- escape[p0->x0]:e1 -- project[x0->cv]:j0 ~~
+     * =>
+     * p0:
+     *   scan[t0(c0)]:r0 -- buffer:b0 --+-- offer:o0 => g0
+     *                                  |
+     *                                  +-- offer:o1 => g1
+     *
+     * p1:
+     *   g0 => take_group:t0 -- flatten:f0 -- offer:o2 => g2
+     *
+     * p2:
+     *   (left:g2, right:g1) => take_cogroup:t1 -- join_group:j0 -- emit[cv, c0]:r2
+     *
+     * plan:
+     *   p0 --+-- group:g0 --------------------+-- p2
+     *        |                                |
+     *        +-- group:g1 -- p1 -- group:g2 --+
+     */
+    relation::graph_type subgraph;
+    auto cv = bindings.stream_variable("cv");
+    auto c0p = bindings.stream_variable("c0p");
+    subgraph.insert(relation::values {
+            {
+                    cv,
+            },
+            {
+                    { varref(c0p) },
+            },
+    });
+
+    relation::graph_type graph;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = graph.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+                    { bindings(t0c1), c1 },
+                    { bindings(t0c2), c2 },
+            },
+    });
+    auto c3 = bindings.stream_variable("c3");
+    auto&& r1 = graph.insert(relation::project {
+            {
+                    relation::project::column {
+                            extension::scalar::subquery {
+                                    std::move(subgraph),
+                                    {
+                                            { c0, c0p },
+                                    },
+                                    cv,
+                            },
+                            c3,
+                    },
+            },
+    });
+    auto&& r2 = graph.insert(relation::emit {
+            c3,
+            c0,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    auto result = compiler()(options(), std::move(graph));
+    ASSERT_TRUE(result);
+
+    auto&& c = downcast<statement::execute>(result.statement());
+
+    ASSERT_EQ(c.execution_plan().size(), 6); // 3-processes and 6-exchanges
+    auto&& p0 = find(c.execution_plan(), r0);
+    ASSERT_EQ(p0.upstreams().size(), 0);
+    ASSERT_EQ(p0.downstreams().size(), 2);
+
+    auto&& p1 = find(c.execution_plan(), [](auto&& expr) { return expr.kind() == relation::expression_kind::flatten_group; });
+    ASSERT_EQ(p1.upstreams().size(), 1);
+    ASSERT_EQ(p1.downstreams().size(), 1);
+
+    auto&& p2 = find(c.execution_plan(), r2);
+    ASSERT_EQ(p2.upstreams().size(), 2);
+    ASSERT_EQ(p2.downstreams().size(), 0);
+
+    // p0
+    ASSERT_EQ(p0.operators().size(), 4);
+    auto&& b0 = next<relation::buffer>(r0.output());
+    ASSERT_EQ(b0.size(), 2);
+    auto&& o0 = next<relation::step::offer>(b0.output_ports()[0]);
+    auto&& o1 = next<relation::step::offer>(b0.output_ports()[1]);
+
+    auto&& g0 = resolve<plan::group>(o0.destination());
+    ASSERT_EQ(g0.group_keys().size(), 1);
+
+    auto&& g1 = resolve<plan::group>(o1.destination());
+    ASSERT_EQ(g0.group_keys().size(), 1);
+
+    // p1
+    ASSERT_EQ(p1.operators().size(), 3);
+    auto&& t0 = head<relation::step::take_group>(p1.operators());
+    ASSERT_EQ(resolve<plan::group>(t0.source()), g1);
+
+    auto&& f0 = next<relation::step::flatten>(t0.output());
+    auto&& o2 = next<relation::step::offer>(f0.output());
+
+    auto&& g2 = resolve<plan::group>(o2.destination());
+    ASSERT_EQ(g2.group_keys().size(), 1);
+
+    // p2
+    ASSERT_EQ(p2.operators().size(), 3);
+    auto&& t1 = head<relation::step::take_cogroup>(p2.operators());
+    auto&& j0 = next<relation::step::join>(t1.output());
+    EXPECT_GT(j0.output(), r2.input());
+
+    ASSERT_EQ(t1.groups().size(), 2);
+    EXPECT_EQ(resolve<plan::group>(t1.groups()[0].source()), g0);
+    EXPECT_EQ(resolve<plan::group>(t1.groups()[1].source()), g2);
+
+    ASSERT_EQ(t1.groups()[0].columns().size(), 1);
+    auto&& c0m = t1.groups()[0].columns()[0].destination();
+
+    ASSERT_EQ(t1.groups()[1].columns().size(), 1);
+    auto&& cvm = t1.groups()[1].columns()[0].destination();
+
+    EXPECT_EQ(j0.operator_kind(), relation::join_kind::left_outer_at_most_one);
+    EXPECT_FALSE(j0.condition());
+
+    ASSERT_EQ(r2.columns().size(), 2);
+    EXPECT_EQ(r2.columns()[0], cvm);
+    EXPECT_EQ(r2.columns()[1], c0m);
 
     dump(result);
 }

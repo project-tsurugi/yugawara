@@ -27,6 +27,8 @@ using ::takatori::scalar::comparison_operator;
 
 class rewrite_join_test: public ::testing::Test {
 protected:
+    using semantics = ::takatori::relation::comparison_semantics_kind;
+
     binding::factory bindings {};
 
     storage::configurable_provider storages;
@@ -156,6 +158,61 @@ TEST_F(rewrite_join_test, right_direct) {
     ASSERT_EQ(result.keys().size(), 1);
     EXPECT_EQ(result.keys()[0].variable(), bindings(t1c0));
     EXPECT_EQ(result.keys()[0].value(), varref(cl0));
+    EXPECT_EQ(result.keys()[0].semantics(), semantics::ternary);
+
+    EXPECT_EQ(result.condition(), nullptr);
+}
+
+TEST_F(rewrite_join_test, right_direct_is_not_distinct_from) {
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto&& inl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), cl0 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto&& inr = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), cr0 },
+            },
+    });
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::inner,
+            compare(cl0, cr0, comparison_operator::is_not_distinct_from),
+    });
+
+    auto&& out = r.insert(relation::emit { cl0, cr0 });
+    inl.output() >> join.left();
+    inr.output() >> join.right();
+    join.output() >> out.input();
+
+    auto x0 = storages.add_index(storage::index {
+            t1,
+            "x0",
+            {
+                    t1->columns()[0],
+            },
+    });
+    apply(r);
+
+    ASSERT_EQ(r.size(), 3);
+
+    auto&& result = next<relation::join_find>(out.input());
+    EXPECT_GT(inl.output(), result.left());
+
+    EXPECT_EQ(result.source(), bindings(*x0));
+
+    ASSERT_EQ(result.columns().size(), 1);
+    EXPECT_EQ(result.columns()[0].source(), bindings(t1c0));
+    EXPECT_EQ(result.columns()[0].destination(), cr0);
+
+    ASSERT_EQ(result.keys().size(), 1);
+    EXPECT_EQ(result.keys()[0].variable(), bindings(t1c0));
+    EXPECT_EQ(result.keys()[0].value(), varref(cl0));
+    EXPECT_EQ(result.keys()[0].semantics(), semantics::binary);
 
     EXPECT_EQ(result.condition(), nullptr);
 }
@@ -209,6 +266,61 @@ TEST_F(rewrite_join_test, left_direct) {
     ASSERT_EQ(result.keys().size(), 1);
     EXPECT_EQ(result.keys()[0].variable(), bindings(t0c0));
     EXPECT_EQ(result.keys()[0].value(), varref(cr0));
+    EXPECT_EQ(result.keys()[0].semantics(), semantics::ternary);
+
+    EXPECT_EQ(result.condition(), nullptr);
+}
+
+TEST_F(rewrite_join_test, left_direct_is_not_distinct_from) {
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto&& inl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), cl0 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto&& inr = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), cr0 },
+            },
+    });
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::inner,
+            compare(cl0, cr0, comparison_operator::is_not_distinct_from),
+    });
+
+    auto&& out = r.insert(relation::emit { cl0, cr0 });
+    inl.output() >> join.left();
+    inr.output() >> join.right();
+    join.output() >> out.input();
+
+    auto x0 = storages.add_index(storage::index {
+            t0,
+            "x0",
+            {
+                    t0->columns()[0],
+            },
+    });
+    apply(r);
+
+    ASSERT_EQ(r.size(), 3);
+
+    auto&& result = next<relation::join_find>(out.input());
+    EXPECT_GT(inr.output(), result.left());
+
+    EXPECT_EQ(result.source(), bindings(*x0));
+
+    ASSERT_EQ(result.columns().size(), 1);
+    EXPECT_EQ(result.columns()[0].source(), bindings(t0c0));
+    EXPECT_EQ(result.columns()[0].destination(), cl0);
+
+    ASSERT_EQ(result.keys().size(), 1);
+    EXPECT_EQ(result.keys()[0].variable(), bindings(t0c0));
+    EXPECT_EQ(result.keys()[0].value(), varref(cr0));
+    EXPECT_EQ(result.keys()[0].semantics(), semantics::binary);
 
     EXPECT_EQ(result.condition(), nullptr);
 }
@@ -275,6 +387,76 @@ TEST_F(rewrite_join_test, right_indirect) {
     EXPECT_EQ(result.keys()[1].variable(), bindings(t1c0));
     EXPECT_EQ(result.keys()[0].value(), constant(1));
     EXPECT_EQ(result.keys()[1].value(), varref(cl0));
+    EXPECT_EQ(result.keys()[0].semantics(), semantics::ternary);
+    EXPECT_EQ(result.keys()[1].semantics(), semantics::ternary);
+
+    EXPECT_EQ(result.condition(), nullptr);
+}
+
+TEST_F(rewrite_join_test, right_indirect_is_not_distinct_from) {
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto&& inl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), cl0 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto&& inr = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), cr0 },
+                    { bindings(t1c1), cr1 },
+            },
+    });
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::inner,
+            compare(cl0, cr0),
+    });
+
+    auto&& out = r.insert(relation::emit { cl0, cr0 });
+
+    auto&& filter = r.insert(relation::filter {
+            compare(varref(cr1), constant(1), comparison_operator::is_not_distinct_from),
+    });
+
+    inl.output() >> join.left();
+    inr.output() >> filter.input();
+    filter.output() >> join.right();
+    join.output() >> out.input();
+
+    auto x0 = storages.add_index(storage::index {
+            t1,
+            "x0",
+            {
+                    t1->columns()[1],
+                    t1->columns()[0],
+            },
+    });
+    apply(r);
+
+    ASSERT_EQ(r.size(), 3);
+
+    auto&& result = next<relation::join_find>(out.input());
+    EXPECT_GT(inl.output(), result.left());
+
+    EXPECT_EQ(result.source(), bindings(*x0));
+
+    ASSERT_EQ(result.columns().size(), 2);
+    EXPECT_EQ(result.columns()[0].source(), bindings(t1c0));
+    EXPECT_EQ(result.columns()[1].source(), bindings(t1c1));
+    EXPECT_EQ(result.columns()[0].destination(), cr0);
+    EXPECT_EQ(result.columns()[1].destination(), cr1);
+
+    ASSERT_EQ(result.keys().size(), 2);
+    EXPECT_EQ(result.keys()[0].variable(), bindings(t1c1));
+    EXPECT_EQ(result.keys()[1].variable(), bindings(t1c0));
+    EXPECT_EQ(result.keys()[0].value(), constant(1));
+    EXPECT_EQ(result.keys()[1].value(), varref(cl0));
+    EXPECT_EQ(result.keys()[0].semantics(), semantics::binary);
+    EXPECT_EQ(result.keys()[1].semantics(), semantics::ternary);
 
     EXPECT_EQ(result.condition(), nullptr);
 }
@@ -340,6 +522,75 @@ TEST_F(rewrite_join_test, left_indirect) {
     EXPECT_EQ(result.keys()[1].variable(), bindings(t0c0));
     EXPECT_EQ(result.keys()[0].value(), constant(1));
     EXPECT_EQ(result.keys()[1].value(), varref(cr0));
+    EXPECT_EQ(result.keys()[0].semantics(), semantics::ternary);
+    EXPECT_EQ(result.keys()[1].semantics(), semantics::ternary);
+
+    EXPECT_EQ(result.condition(), nullptr);
+}
+
+TEST_F(rewrite_join_test, left_indirect_is_not_distinct_from) {
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto cl1 = bindings.stream_variable("cl1");
+    auto&& inl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), cl0 },
+                    { bindings(t0c1), cl1 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto&& inr = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), cr0 },
+            },
+    });
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::inner,
+            compare(cl0, cr0),
+    });
+
+    auto&& out = r.insert(relation::emit { cl0, cr0 });
+
+    auto&& filter = r.insert(relation::filter {
+            compare(varref(cl1), constant(1), comparison_operator::is_not_distinct_from),
+    });
+    inl.output() >> filter.input();
+    filter.output() >> join.left();
+    inr.output() >> join.right();
+    join.output() >> out.input();
+
+    auto x0 = storages.add_index(storage::index {
+            t0,
+            "x0",
+            {
+                    t0->columns()[1],
+                    t0->columns()[0],
+            },
+    });
+    apply(r);
+
+    ASSERT_EQ(r.size(), 3);
+
+    auto&& result = next<relation::join_find>(out.input());
+    EXPECT_GT(inr.output(), result.left());
+
+    EXPECT_EQ(result.source(), bindings(*x0));
+
+    ASSERT_EQ(result.columns().size(), 2);
+    EXPECT_EQ(result.columns()[0].source(), bindings(t0c0));
+    EXPECT_EQ(result.columns()[1].source(), bindings(t0c1));
+    EXPECT_EQ(result.columns()[0].destination(), cl0);
+    EXPECT_EQ(result.columns()[1].destination(), cl1);
+
+    ASSERT_EQ(result.keys().size(), 2);
+    EXPECT_EQ(result.keys()[0].variable(), bindings(t0c1));
+    EXPECT_EQ(result.keys()[1].variable(), bindings(t0c0));
+    EXPECT_EQ(result.keys()[0].value(), constant(1));
+    EXPECT_EQ(result.keys()[1].value(), varref(cr0));
+    EXPECT_EQ(result.keys()[0].semantics(), semantics::binary);
+    EXPECT_EQ(result.keys()[1].semantics(), semantics::ternary);
 
     EXPECT_EQ(result.condition(), nullptr);
 }
@@ -489,6 +740,7 @@ TEST_F(rewrite_join_test, right_direct_outer) {
     ASSERT_EQ(result.keys().size(), 1);
     EXPECT_EQ(result.keys()[0].variable(), bindings(t1c0));
     EXPECT_EQ(result.keys()[0].value(), varref(cl0));
+    EXPECT_EQ(result.keys()[0].semantics(), semantics::ternary);
 
     EXPECT_EQ(result.condition(), nullptr);
 }
@@ -544,6 +796,7 @@ TEST_F(rewrite_join_test, right_direct_outer_at_most_one) {
     ASSERT_EQ(result.keys().size(), 1);
     EXPECT_EQ(result.keys()[0].variable(), bindings(t1c0));
     EXPECT_EQ(result.keys()[0].value(), varref(cl0));
+    EXPECT_EQ(result.keys()[0].semantics(), semantics::ternary);
 
     EXPECT_EQ(result.condition(), nullptr);
 }
@@ -948,6 +1201,7 @@ TEST_F(rewrite_join_test, indirect_rest) {
     ASSERT_EQ(result.keys().size(), 1);
     EXPECT_EQ(result.keys()[0].variable(), bindings(t1c0));
     EXPECT_EQ(result.keys()[0].value(), varref(cl0));
+    EXPECT_EQ(result.keys()[0].semantics(), semantics::ternary);
 
     EXPECT_EQ(result.condition(), compare(varref(cr1), constant(1)));
 }

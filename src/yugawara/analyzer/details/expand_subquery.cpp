@@ -17,6 +17,7 @@
 #include <takatori/util/assertion.h>
 #include <takatori/util/clonable.h>
 #include <takatori/util/downcast.h>
+#include <takatori/util/enum_set.h>
 #include <takatori/util/enum_tag.h>
 #include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
@@ -36,6 +37,7 @@
 #include <yugawara/analyzer/intermediate_plan_normalizer_code.h>
 
 #include "rewrite_stream_variables.h"
+#include "rewrite_correlated_subquery.h"
 
 namespace yugawara::analyzer::details {
 
@@ -66,29 +68,6 @@ void bypass(
     BOOST_ASSERT(!insertion.output().opposite()); // NOLINT
     if (auto downstream = insertion_point.reconnect_to(insertion.input())) {
         insertion.output().connect_to(*downstream);
-    }
-}
-
-void bypass(
-        ::takatori::relation::expression::input_port_type& insertion_point,
-        ::takatori::relation::intermediate::join& insertion) {
-    /*
-     * before:
-     *  upstream -- insertion_point
-     *
-     *  (absent) -[L]-\
-     *                 join -- (absent)
-     *  existing -[R]-/
-     *
-     * after:
-     *  upstream -[L]-\
-     *                 join -- insertion_point
-     *  existing -[R]-/
-     */
-    BOOST_ASSERT(!insertion.left().opposite());
-    BOOST_ASSERT(!insertion.output().opposite());
-    if (auto upstream = insertion_point.reconnect_to(insertion.output())) {
-        upstream->connect_to(insertion.left());
     }
 }
 
@@ -255,6 +234,17 @@ private:
     ::takatori::relation::expression::input_port_type* insertion_point_ {};
 };
 
+enum class collection_flag {
+    relation_subquery,
+    scalar_subquery,
+    correlated_subquery,
+};
+
+using collection_flag_set = ::takatori::util::enum_set<
+        collection_flag,
+        collection_flag::relation_subquery,
+        collection_flag::correlated_subquery>;
+
 enum class insertion_context_kind {
     scan_criteria,
     join_criteria,
@@ -264,9 +254,14 @@ enum class insertion_context_kind {
 
 class insertion_context {
 public:
-    explicit insertion_context(insertion_context_kind context_kind) noexcept :
+    explicit insertion_context(collection_flag_set collection_flags, insertion_context_kind context_kind) noexcept :
+        collection_flags_ { collection_flags },
         context_kind_ { context_kind }
     {}
+
+    [[nodiscard]] collection_flag_set collection_flags() const noexcept {
+        return collection_flags_;
+    }
 
     [[nodiscard]] insertion_context_kind context_kind() const noexcept {
         return context_kind_;
@@ -280,8 +275,8 @@ public:
         return commands_;
     }
 
-    [[nodiscard]] std::vector<::takatori::relation::expression*>& worklist() noexcept {
-        return worklist_;
+    [[nodiscard]] std::vector<std::pair<::takatori::relation::expression*, collection_flag_set>>& work_list() noexcept {
+        return work_list_;
     }
 
     void report(diagnostic_type diagnostic) {
@@ -295,17 +290,20 @@ public:
         report(diagnostic_type { code, std::move(message), occasion.region() });
     }
 
-    void add_worklist(::takatori::relation::graph_type& graph) {
+    void add_worklist(::takatori::relation::graph_type& graph, collection_flag_set extra_flags) {
+        auto flags = collection_flags_;
+        flags += extra_flags;
         for (auto& node : graph) {
-            worklist_.push_back(std::addressof(node));
+            work_list_.emplace_back(std::addressof(node), flags);
         }
     }
 
 private:
+    collection_flag_set collection_flags_;
     insertion_context_kind context_kind_;
     std::vector<diagnostic_type> diagnostics_ {};
     std::vector<std::unique_ptr<expand_scalar_expression_command>> commands_ {};
-    std::vector<::takatori::relation::expression*> worklist_ {};
+    std::vector<std::pair<::takatori::relation::expression*, collection_flag_set>> work_list_ {};
 
     friend class insertion_context_operand_block;
 };
@@ -341,11 +339,11 @@ public:
     collector() = default;
 
     [[nodiscard]] std::vector<diagnostic_type> collect(takatori::relation::graph_type& graph) {
-        add_worklist(graph);
-        while (!worklist_.empty() && diagnostics_.empty()) {
-            auto* node = worklist_.front();
-            worklist_.pop_front();
-            collect(*node);
+        add_worklist(graph, {});
+        while (!work_list_.empty() && diagnostics_.empty()) {
+            auto [node, flags] = work_list_.front();
+            work_list_.pop_front();
+            collect(*node, flags);
         }
 
         auto diagnostics = std::move(diagnostics_);
@@ -357,22 +355,22 @@ public:
     std::vector<std::unique_ptr<expand_subquery_command>> release() noexcept {
         std::vector results { std::move(commands_) };
         commands_.clear();
-        worklist_.clear();
+        work_list_.clear();
         return results;
     }
 
     // ---- relation expressions
 
-    void operator()(::takatori::relation::find& expr) {
-        insertion_context context { insertion_context_kind::scan_criteria };
+    void operator()(::takatori::relation::find& expr, collection_flag_set flags) {
+        insertion_context context { flags, insertion_context_kind::scan_criteria };
         if (!collect_keys(context, expr.keys())) {
             return;
         }
         validate_no_commands(expr, std::move(context));
     }
 
-    void operator()(::takatori::relation::scan& expr) {
-        insertion_context context { insertion_context_kind::scan_criteria };
+    void operator()(::takatori::relation::scan& expr, collection_flag_set flags) {
+        insertion_context context { flags, insertion_context_kind::scan_criteria };
         if (!collect_keys(context, expr.lower().keys())) {
             return;
         }
@@ -382,8 +380,8 @@ public:
         validate_no_commands(expr, std::move(context));
     }
 
-    void operator()(::takatori::relation::join_find& expr) {
-        insertion_context context { insertion_context_kind::join_criteria };
+    void operator()(::takatori::relation::join_find& expr, collection_flag_set flags) {
+        insertion_context context { flags, insertion_context_kind::join_criteria };
         if (!collect_keys(context, expr.keys())) {
             return;
         }
@@ -398,8 +396,8 @@ public:
         validate_no_commands(expr, std::move(context));
     }
 
-    void operator()(::takatori::relation::join_scan& expr) {
-        insertion_context context { insertion_context_kind::join_criteria };
+    void operator()(::takatori::relation::join_scan& expr, collection_flag_set flags) {
+        insertion_context context { flags, insertion_context_kind::join_criteria };
         if (!collect_keys(context, expr.lower().keys())) {
             return;
         }
@@ -417,16 +415,16 @@ public:
         validate_no_commands(expr, std::move(context));
     }
 
-    void operator()(::takatori::relation::apply& expr) {
-        insertion_context context { insertion_context_kind::generic_value };
+    void operator()(::takatori::relation::apply& expr, collection_flag_set flags) {
+        insertion_context context { flags, insertion_context_kind::generic_value };
         if (!collect_vector(context, expr.arguments())) {
             return;
         }
         merge_commands(expr.input(), std::move(context));
     }
 
-    void operator()(::takatori::relation::project& expr) {
-        insertion_context context { insertion_context_kind::generic_value };
+    void operator()(::takatori::relation::project& expr, collection_flag_set flags) {
+        insertion_context context { flags, insertion_context_kind::generic_value };
         for (auto&& column : expr.columns()) {
             if (auto&& replacement = collect(context, column.value())) {
                 column.value(std::move(replacement));
@@ -439,8 +437,8 @@ public:
         merge_commands(expr.input(), std::move(context));
     }
 
-    void operator()(::takatori::relation::filter& expr) {
-        insertion_context context { insertion_context_kind::filter_condition };
+    void operator()(::takatori::relation::filter& expr, collection_flag_set flags) {
+        insertion_context context { flags, insertion_context_kind::filter_condition };
         if (auto&& replacement = collect(context, expr.condition())) {
             expr.condition(std::move(replacement));
         }
@@ -450,29 +448,33 @@ public:
         merge_commands(expr.input(), std::move(context));
     }
 
-    void operator()(::takatori::relation::buffer const& expr) const noexcept {
+    void operator()(::takatori::relation::buffer const& expr, collection_flag_set flags) const noexcept {
         // NOTE: nothing to do
         (void) expr;
+        (void) flags;
     }
 
-    void operator()(::takatori::relation::identify const& expr) const noexcept {
+    void operator()(::takatori::relation::identify const& expr, collection_flag_set flags) const noexcept {
         // NOTE: nothing to do
         (void) expr;
+        (void) flags;
     }
 
-    void operator()(::takatori::relation::emit const& expr) const noexcept {
+    void operator()(::takatori::relation::emit const& expr, collection_flag_set flags) const noexcept {
         // NOTE: nothing to do
         (void) expr;
+        (void) flags;
     }
 
-    void operator()(::takatori::relation::write const& expr) const noexcept {
+    void operator()(::takatori::relation::write const& expr, collection_flag_set flags) const noexcept {
         // NOTE: nothing to do
         (void) expr;
+        (void) flags;
     }
 
-    void operator()(::takatori::relation::values& expr) {
+    void operator()(::takatori::relation::values& expr, collection_flag_set flags) {
         // first, extract splits for each row
-        auto splits = collect_values(expr);
+        auto splits = collect_values(expr, flags);
 
         // if there is no rewrite, we use original `values` expression.
         if (splits.empty()) {
@@ -517,7 +519,8 @@ private:
     };
 
     [[nodiscard]] std::vector<std::tuple<std::size_t, std::vector<split_info>>> collect_values(
-            ::takatori::relation::values& expr) {
+            ::takatori::relation::values& expr,
+            collection_flag_set flags) {
         std::vector<std::tuple<std::size_t, std::vector<split_info>>> splits {};
         std::size_t row_index = 0;
         auto&& rows = expr.rows();
@@ -527,7 +530,7 @@ private:
             std::size_t column_index = 0;
             for (auto iter_values = row_data.begin(); iter_values != row_data.end();) {
                 auto&& value = *iter_values;
-                insertion_context context { insertion_context_kind::generic_value };
+                insertion_context context { flags, insertion_context_kind::generic_value };
                 if (auto&& replacement = collect(context, value)) {
                     if (merge_error(context)) {
                         return {};
@@ -598,8 +601,8 @@ private:
         BOOST_ASSERT(row_start < row_end); // NOLINT
         std::vector<::takatori::relation::values::column> columns {};
         columns.reserve(expr.columns().size());
-        for (std::size_t index = 0, size = expr.columns().size(); index < size; ++index) {
-            columns.emplace_back(binding::factory {}.stream_variable());
+        for (auto&& column : expr.columns()) {
+            columns.emplace_back(binding::factory {}.stream_variable(column));
         }
         std::vector<::takatori::relation::values::row> rows {};
         rows.reserve(row_end - row_start);
@@ -650,10 +653,11 @@ private:
             mappings.reserve(current_columns.size());
             binding::factory factory {};
             for (std::size_t i = 0; i < current_columns.size(); ++i) {
+                auto&& column = shard->columns().at(i);
                 mappings.emplace_back(
-                    std::move(current_columns.at(i)),
-                    shard->columns().at(i),
-                    factory.stream_variable());
+                        std::move(current_columns.at(i)),
+                        column,
+                        factory.stream_variable(column));
             }
             auto&& union_all = expr.owner().emplace<::takatori::relation::intermediate::union_>(
                 ::takatori::relation::set_quantifier::all,
@@ -680,8 +684,8 @@ private:
     }
 
 public:
-    void operator()(::takatori::relation::intermediate::join& expr) {
-        insertion_context context { insertion_context_kind::join_criteria };
+    void operator()(::takatori::relation::intermediate::join& expr, collection_flag_set flags) {
+        insertion_context context { flags, insertion_context_kind::join_criteria };
         if (!collect_keys(context, expr.lower().keys())) {
             return;
         }
@@ -699,45 +703,52 @@ public:
         validate_no_commands(expr, std::move(context));
     }
 
-    void operator()(::takatori::relation::intermediate::aggregate const& expr) const noexcept {
+    void operator()(::takatori::relation::intermediate::aggregate const& expr, collection_flag_set flags) const noexcept {
         // NOTE: nothing to do
+        (void) flags;
         (void) expr;
     }
 
-    void operator()(::takatori::relation::intermediate::distinct const& expr) const noexcept {
+    void operator()(::takatori::relation::intermediate::distinct const& expr, collection_flag_set flags) const noexcept {
         // NOTE: nothing to do
         (void) expr;
+        (void) flags;
     }
 
-    void operator()(::takatori::relation::intermediate::limit const& expr) const noexcept {
+    void operator()(::takatori::relation::intermediate::limit const& expr, collection_flag_set flags) const noexcept {
         // NOTE: nothing to do
         (void) expr;
+        (void) flags;
     }
 
-    void operator()(::takatori::relation::intermediate::union_ const& expr) const noexcept {
+    void operator()(::takatori::relation::intermediate::union_ const& expr, collection_flag_set flags) const noexcept {
         // NOTE: nothing to do
         (void) expr;
+        (void) flags;
     }
 
-    void operator()(::takatori::relation::intermediate::intersection const& expr) const noexcept {
+    void operator()(::takatori::relation::intermediate::intersection const& expr, collection_flag_set flags) const noexcept {
         // NOTE: nothing to do
         (void) expr;
+        (void) flags;
     }
 
-    void operator()(::takatori::relation::intermediate::difference const& expr) const noexcept {
+    void operator()(::takatori::relation::intermediate::difference const& expr, collection_flag_set flags) const noexcept {
         // NOTE: nothing to do
         (void) expr;
+        (void) flags;
     }
 
-    void operator()(::takatori::relation::intermediate::escape const& expr) const noexcept {
+    void operator()(::takatori::relation::intermediate::escape const& expr, collection_flag_set flags) const noexcept {
         // NOTE: nothing to do
         (void) expr;
+        (void) flags;
     }
 
-    void operator()(::takatori::relation::intermediate::extension& expr) {
+    void operator()(::takatori::relation::intermediate::extension& expr, collection_flag_set flags) {
         switch (expr.extension_id()) {
             case extension::relation::subquery::extension_tag:
-                operator()(unsafe_downcast<extension::relation::subquery&>(expr));
+                operator()(unsafe_downcast<extension::relation::subquery&>(expr), flags);
                 break;
             default:
                 throw_exception(std::domain_error {
@@ -749,14 +760,16 @@ public:
         }
     }
 
-    void operator()(extension::relation::subquery& expr) {
+    void operator()(extension::relation::subquery& expr, collection_flag_set flags) {
         if (expr.is_clone()) {
             // NOTE: if this is a clone, the variables in the subquery may be shared with another subquery.
             rewrite_stream_variables(expr);
             expr.is_clone() = false;
         }
         commands_.emplace_back(std::make_unique<expand_relation_subquery_command>(expr));
-        add_worklist(expr.query_graph());
+        auto next_flags = flags;
+        next_flags.insert(collection_flag::relation_subquery);
+        add_worklist(expr.query_graph(), next_flags);
     }
 
     // ---- scalar expressions
@@ -966,12 +979,17 @@ public:
     [[nodiscard]] std::unique_ptr<::takatori::scalar::expression> operator()(
             extension::scalar::subquery& expr,
             insertion_context& context) const {
-        if (!check_subquery_context_kind(expr, context)) {
+        if (!check_common_subquery_placement(expr, context)) {
             return {};
         }
         auto replacement = std::make_unique<::takatori::scalar::variable_reference>(expr.output_column());
         replacement->region() = expr.region();
-        context.add_worklist(expr.query_graph());
+
+        collection_flag_set flags { collection_flag::scalar_subquery };
+        if (!expr.parameters().empty()) {
+            flags.insert(collection_flag::correlated_subquery);
+        }
+        context.add_worklist(expr.query_graph(), flags);
         auto command = std::make_unique<expand_scalar_subquery_command>(clone_unique(std::move(expr)));
 
         context.commands().emplace_back(std::move(command));
@@ -979,7 +997,7 @@ public:
     }
 
 private:
-    [[nodiscard]] bool check_subquery_context_kind(
+    [[nodiscard]] bool check_common_subquery_placement(
             ::takatori::scalar::expression const& expr,
             insertion_context& context) const {
         switch (context.context_kind()) {
@@ -998,8 +1016,17 @@ private:
                 );
                 return false;
             default:
-                return true;
+                break;
         }
+        if (context.collection_flags().contains(collection_flag::correlated_subquery)) {
+            context.report(
+                intermediate_plan_normalizer_code::unsupported_scalar_subquery_placement,
+                expr,
+                "correlated subquery cannot contain another subquery"
+            );
+            return false;
+        }
+        return true;
     }
 
 public:
@@ -1021,7 +1048,7 @@ private:
             extension::scalar::exists& expr,
             bool is_conditional_not,
             insertion_context& context) const {
-        if (!check_subquery_context_kind(expr, context)) {
+        if (!check_common_subquery_placement(expr, context)) {
             return {};
         }
         if (context.context_kind() == insertion_context_kind::filter_condition) {
@@ -1046,7 +1073,11 @@ private:
                 std::make_shared<::takatori::type::boolean>());
         replacement->region() = expr.region();
 
-        context.add_worklist(expr.query_graph());
+        collection_flag_set flags { collection_flag::scalar_subquery };
+        if (!expr.parameters().empty()) {
+            flags.insert(collection_flag::correlated_subquery);
+        }
+        context.add_worklist(expr.query_graph(), flags);
         auto command = std::make_unique<expand_exists_filter_command>(
                 clone_unique(std::move(expr)),
                 is_conditional_not);
@@ -1064,7 +1095,7 @@ private:
          * `EXISTS` is appeared as a generic boolean expression (e.g. operand of other predicate).
          * We replace it as `x IS TRUE` or `x IS NULL` and insert left outer join with the subquery.
          */
-        auto output_column = binding::factory().stream_variable();
+        auto output_column = binding::factory().stream_variable("exists");
         std::unique_ptr<::takatori::scalar::expression> replacement;
         if (is_conditional_not) {
             // `NOT EXISTS` -> `x IS NULL`
@@ -1079,7 +1110,11 @@ private:
         }
         replacement->region() = expr.region();
 
-        context.add_worklist(expr.query_graph());
+        collection_flag_set flags { collection_flag::scalar_subquery };
+        if (!expr.parameters().empty()) {
+            flags.insert(collection_flag::correlated_subquery);
+        }
+        context.add_worklist(expr.query_graph(), flags);
         auto command = std::make_unique<expand_exists_value_command>(
                 clone_unique(std::move(expr)),
                 std::move(output_column));
@@ -1107,7 +1142,7 @@ private:
             extension::scalar::quantified_compare& expr,
             bool is_conditional_not,
             insertion_context& context) const {
-        if (!check_subquery_context_kind(expr, context)) {
+        if (!check_common_subquery_placement(expr, context)) {
             return {};
         }
         if (context.context_kind() == insertion_context_kind::filter_condition) {
@@ -1151,8 +1186,11 @@ private:
                 std::make_shared<::takatori::type::boolean>());
         replacement->region() = expr.region();
 
-        context.add_worklist(expr.query_graph());
-
+        collection_flag_set flags { collection_flag::scalar_subquery };
+        if (!expr.parameters().empty()) {
+            flags.insert(collection_flag::correlated_subquery);
+        }
+        context.add_worklist(expr.query_graph(), flags);
         auto command = std::make_unique<expand_quantified_compare_filter_command>(
                 clone_unique(std::move(expr)));
 
@@ -1183,17 +1221,17 @@ private:
 
 
     std::vector<std::unique_ptr<expand_subquery_command>> commands_ {};
-    std::deque<::takatori::relation::expression*> worklist_ {};
+    std::deque<std::pair<::takatori::relation::expression*, collection_flag_set>> work_list_ {};
     std::vector<diagnostic_type> diagnostics_ {};
 
-    void add_worklist(::takatori::relation::graph_type& graph) {
+    void add_worklist(::takatori::relation::graph_type& graph, collection_flag_set flags) {
         for (auto& node : graph) {
-            worklist_.push_back(std::addressof(node));
+            work_list_.emplace_back(std::addressof(node), flags);
         }
     }
 
-    void collect(::takatori::relation::expression& expr) {
-        ::takatori::relation::intermediate::dispatch(*this, expr);
+    void collect(::takatori::relation::expression& expr, collection_flag_set flags) {
+        ::takatori::relation::intermediate::dispatch(*this, expr, flags);
     }
 
     /**
@@ -1229,7 +1267,7 @@ private:
         }
         merge_collection(diagnostics_, context.diagnostics());
         merge_collection(commands_, context.commands());
-        merge_collection(worklist_, context.worklist());
+        merge_collection(work_list_, context.work_list());
     }
 
     void validate_no_commands(::takatori::relation::expression const& expr, insertion_context&& context) {
@@ -1292,200 +1330,401 @@ private:
     }
 };
 
-void process(expand_subquery_command& command);
-void process(expand_relation_subquery_command& command);
-void process(expand_scalar_subquery_command& command);
-void process(expand_exists_filter_command& command);
-void process(expand_exists_value_command& command);
-void process(expand_quantified_compare_filter_command& command);
-
-void process(expand_subquery_command& command) {
-    if (auto* cmd = downcast<expand_relation_subquery_command>(&command)) {
-        process(*cmd);
-        return;
-    }
-    if (auto* cmd = downcast<expand_scalar_subquery_command>(&command)) {
-        process(*cmd);
-        return;
-    }
-    if (auto* cmd = downcast<expand_exists_filter_command>(&command)) {
-        process(*cmd);
-        return;
-    }
-    if (auto* cmd = downcast<expand_exists_value_command>(&command)) {
-        process(*cmd);
-        return;
-    }
-    if (auto* cmd = downcast<expand_quantified_compare_filter_command>(&command)) {
-        process(*cmd);
-        return;
-    }
-    throw_exception(std::domain_error { "unknown command for expanding subqueries" });
-}
-
-void process(expand_relation_subquery_command& command) {
-    auto&& expr = command.target();
-    auto&& graph = expr.owner();
-
-    // NOTE: rewrite variables before come here
-    BOOST_ASSERT(!expr.is_clone()); // NOLINT
-
-    std::vector<::takatori::relation::project::column> mappings {};
-    mappings.reserve(expr.mappings().size());
-    for (auto&& mapping : expr.mappings()) {
-        mappings.emplace_back(
-            std::make_unique<::takatori::scalar::variable_reference>(std::move(mapping.source())),
-            std::move(mapping.destination())
-        );
-    }
-    auto&& escape = graph.insert(::takatori::relation::project {
-            std::move(mappings)
-    });
-
-    auto subquery_output = expr.find_output_port();
-    if (!subquery_output) {
-        throw_exception(std::domain_error { "subquery has no output port" });
-    }
-    auto&& downstream = expr.output().opposite();
-    if (!downstream) {
-        throw_exception(std::domain_error { "dangling subquery" });
-    }
-    escape.input().connect_to(*subquery_output);
-    downstream->reconnect_to(escape.output());
-
-    ::takatori::relation::merge_into(std::move(expr.query_graph()), graph);
-    graph.erase(expr);
-}
-
-void process(expand_scalar_subquery_command& command) {
-    auto&& expr = command.target();
-    auto&& insertion_point = command.insertion_point();
-
-    auto&& graph = insertion_point.owner().owner();
-    auto&& join = graph.emplace<::takatori::relation::intermediate::join>(
-        ::takatori::relation::join_kind::left_outer_at_most_one,
-        // ON TRUE
-        std::unique_ptr<::takatori::scalar::expression> {});
-    join.region() = expr.region();
-
-    auto subquery_output = expr.find_output_port();
-    if (!subquery_output) {
-        throw_exception(std::domain_error { "subquery has no output port" });
-    }
-    join.right().connect_to(*subquery_output);
-    bypass(insertion_point, join);
-
-    ::takatori::relation::merge_into(std::move(expr.query_graph()), graph);
-}
-
-void process(expand_exists_filter_command& command) {
-    auto&& expr = command.target();
-    auto&& insertion_point = command.insertion_point();
-
-    /* NOTE:
-     *
-     * main   subquery
-     *  |        |
-     * SEMI/ANTI JOIN ON TRUE
-     */
-    auto&& graph = insertion_point.owner().owner();
-    auto&& join = graph.emplace<::takatori::relation::intermediate::join>(
-        // EXISTS -> semi, NOT EXISTS -> anti
-        command.is_conditional_not() ? ::takatori::relation::join_kind::anti : ::takatori::relation::join_kind::semi,
-        // ON TRUE
-        std::unique_ptr<::takatori::scalar::expression> {});
-    join.region() = expr.region();
-
-    // FIXME: for optimization, insert FETCH FIRST 1 ROW
-
-    auto subquery_output = expr.find_output_port();
-    if (!subquery_output) {
-        throw_exception(std::domain_error { "subquery has no output port" });
-    }
-    join.right().connect_to(*subquery_output);
-    bypass(insertion_point, join);
-
-    ::takatori::relation::merge_into(std::move(expr.query_graph()), graph);
-}
-
-void process(expand_exists_value_command& command) {
-    auto&& expr = command.target();
-    auto&& insertion_point = command.insertion_point();
-
-    /* NOTE:
-     *        subquery
-     *           |
-     *        project[TRUE -> output_column]
-     *           |
-     * main   FETCH FIRST 1 ROW
-     *  |        |
-     * LEFT OUTER JOIN ON TRUE
-     *  |
-     * ... [output_column IS TRUE/NULL]
-     */
-    auto&& graph = insertion_point.owner().owner();
-    std::vector<::takatori::relation::project::column> project_column {};
-    project_column.reserve(1);
-    project_column.emplace_back(
-            std::make_unique<::takatori::scalar::immediate>(
-                    std::make_shared<::takatori::value::boolean>(true),
-                    std::make_shared<::takatori::type::boolean>()),
-            command.output_column());
-
-    auto&& project = graph.emplace<::takatori::relation::project>(std::move(project_column));
-
-    auto&& fetch_first = graph.emplace<::takatori::relation::intermediate::limit>(1);
-
-    auto&& join = graph.emplace<::takatori::relation::intermediate::join>(
-        // LEFT OUTER JOIN
-        ::takatori::relation::join_kind::left_outer,
-        // ON TRUE
-        std::unique_ptr<::takatori::scalar::expression> {});
-    join.region() = expr.region();
-
-    auto subquery_output = expr.find_output_port();
-    if (!subquery_output) {
-        throw_exception(std::domain_error { "subquery has no output port" });
+class processor {
+public:
+    void process(expand_subquery_command& command) {
+        if (auto* cmd = downcast<expand_relation_subquery_command>(&command)) {
+            process(*cmd);
+            return;
+        }
+        if (auto* cmd = downcast<expand_scalar_subquery_command>(&command)) {
+            process(*cmd);
+            return;
+        }
+        if (auto* cmd = downcast<expand_exists_filter_command>(&command)) {
+            process(*cmd);
+            return;
+        }
+        if (auto* cmd = downcast<expand_exists_value_command>(&command)) {
+            process(*cmd);
+            return;
+        }
+        if (auto* cmd = downcast<expand_quantified_compare_filter_command>(&command)) {
+            process(*cmd);
+            return;
+        }
+        throw_exception(std::domain_error { "unknown command for expanding subqueries" });
     }
 
-    subquery_output->connect_to(project.input());
-    project.output().connect_to(fetch_first.input());
-    fetch_first.output().connect_to(join.right());
-    bypass(insertion_point, join);
-
-    ::takatori::relation::merge_into(std::move(expr.query_graph()), graph);
-}
-
-void process(expand_quantified_compare_filter_command& command) {
-    auto&& expr = command.target();
-    BOOST_ASSERT(expr.quantifier() == ::takatori::scalar::quantifier::any); // NOLINT
-    auto&& insertion_point = command.insertion_point();
-
-    /* NOTE:
-     *
-     * main   subquery
-     *  |        |
-     * SEMI JOIN ON (left <comp> vref(right_column))
-     */
-    auto&& graph = insertion_point.owner().owner();
-    auto&& join = graph.emplace<::takatori::relation::intermediate::join>(
-        ::takatori::relation::join_kind::semi,
-        // ON (non-quantified comparison)
-        std::make_unique<::takatori::scalar::compare>(
-            expr.operator_kind(),
-            expr.release_left(),
-            std::make_unique<::takatori::scalar::variable_reference>(expr.right_column())));
-    join.region() = expr.region();
-
-    auto subquery_output = expr.find_output_port();
-    if (!subquery_output) {
-        throw_exception(std::domain_error { "subquery has no output port" });
+    [[nodiscard]] std::vector<diagnostic_type>& diagnostics() noexcept {
+        return diagnostics_;
     }
-    join.right().connect_to(*subquery_output);
-    bypass(insertion_point, join);
 
-    ::takatori::relation::merge_into(std::move(expr.query_graph()), graph);
-}
+    void process(expand_relation_subquery_command& command) {
+        auto&& expr = command.target();
+        auto&& graph = expr.owner();
+
+        // NOTE: rewrite variables before come here
+        BOOST_ASSERT(!expr.is_clone()); // NOLINT
+
+        std::vector<::takatori::relation::project::column> mappings {};
+        mappings.reserve(expr.mappings().size());
+        for (auto&& mapping : expr.mappings()) {
+            mappings.emplace_back(
+                std::make_unique<::takatori::scalar::variable_reference>(std::move(mapping.source())),
+                std::move(mapping.destination())
+            );
+        }
+        auto&& escape = graph.insert(::takatori::relation::project {
+                std::move(mappings)
+        });
+
+        auto subquery_output = expr.find_output_port();
+        if (!subquery_output) {
+            throw_exception(std::domain_error { "subquery has no output port" });
+        }
+        auto&& downstream = expr.output().opposite();
+        if (!downstream) {
+            throw_exception(std::domain_error { "dangling subquery" });
+        }
+        escape.input().connect_to(*subquery_output);
+        downstream->reconnect_to(escape.output());
+
+        ::takatori::relation::merge_into(std::move(expr.query_graph()), graph);
+        graph.erase(expr);
+    }
+
+    void process(expand_scalar_subquery_command& command) {
+        std::optional<rewrite_correlated_subquery_result> correlation {};
+        if (!command.target().parameters().empty()) {
+            correlation.emplace(rewrite_correlated_subquery(command.target()));
+            if (correlation && !correlation->diagnostics().empty()) {
+                diagnostics_ = std::move(correlation->diagnostics());
+                return;
+            }
+        }
+
+        auto&& expr = command.target();
+        auto&& insertion_point = command.insertion_point();
+
+        auto&& graph = insertion_point.owner().owner();
+        auto&& join = graph.emplace<::takatori::relation::intermediate::join>(
+            ::takatori::relation::join_kind::left_outer_at_most_one,
+            // ON TRUE
+            std::unique_ptr<::takatori::scalar::expression> {});
+        join.region() = expr.region();
+
+        auto subquery_output = expr.find_output_port();
+        if (!subquery_output) {
+            throw_exception(std::domain_error { "subquery has no output port" });
+        }
+        join.right().connect_to(*subquery_output);
+        install(insertion_point, join, command.target().parameters(), std::move(correlation));
+
+        ::takatori::relation::merge_into(std::move(expr.query_graph()), graph);
+    }
+
+    void process(expand_exists_filter_command& command) {
+        std::optional<rewrite_correlated_subquery_result> correlation {};
+        if (!command.target().parameters().empty()) {
+            correlation.emplace(rewrite_correlated_subquery(command.target()));
+            if (correlation && !correlation->diagnostics().empty()) {
+                diagnostics_ = std::move(correlation->diagnostics());
+                return;
+            }
+        }
+
+        auto&& expr = command.target();
+        auto&& insertion_point = command.insertion_point();
+
+        /* NOTE:
+         *
+         * main   subquery
+         *  |        |
+         * SEMI/ANTI JOIN ON TRUE
+         */
+        auto&& graph = insertion_point.owner().owner();
+        auto&& join = graph.emplace<::takatori::relation::intermediate::join>(
+            // EXISTS -> semi, NOT EXISTS -> anti
+            command.is_conditional_not() ? ::takatori::relation::join_kind::anti : ::takatori::relation::join_kind::semi,
+            // ON TRUE
+            std::unique_ptr<::takatori::scalar::expression> {});
+        join.region() = expr.region();
+
+        // FIXME: for optimization, insert FETCH FIRST 1 ROW
+
+        auto subquery_output = expr.find_output_port();
+        if (!subquery_output) {
+            throw_exception(std::domain_error { "subquery has no output port" });
+        }
+        join.right().connect_to(*subquery_output);
+        install(insertion_point, join, command.target().parameters(), std::move(correlation));
+
+        ::takatori::relation::merge_into(std::move(expr.query_graph()), graph);
+    }
+
+    void process(expand_exists_value_command& command) {
+        if (!command.target().parameters().empty()) {
+            diagnostics_.emplace_back(
+                    intermediate_plan_normalizer_code::unsupported_scalar_subquery_placement,
+                    "correlated EXISTS predicate is only allowed on top-level filter conditions",
+                    command.target().region());
+            return;
+        }
+
+        auto&& expr = command.target();
+        auto&& insertion_point = command.insertion_point();
+
+        /* NOTE:
+         *        subquery
+         *           |
+         *        project[TRUE -> output_column]
+         *           |
+         * main   FETCH FIRST 1 ROW
+         *  |        |
+         * LEFT OUTER JOIN ON TRUE
+         *  |
+         * ... [output_column IS TRUE/NULL]
+         */
+        auto&& graph = insertion_point.owner().owner();
+        std::vector<::takatori::relation::project::column> project_column {};
+        project_column.reserve(1);
+        project_column.emplace_back(
+                std::make_unique<::takatori::scalar::immediate>(
+                        std::make_shared<::takatori::value::boolean>(true),
+                        std::make_shared<::takatori::type::boolean>()),
+                command.output_column());
+
+        auto&& project = graph.emplace<::takatori::relation::project>(std::move(project_column));
+
+        auto&& fetch_first = graph.emplace<::takatori::relation::intermediate::limit>(1);
+
+        auto&& join = graph.emplace<::takatori::relation::intermediate::join>(
+            // LEFT OUTER JOIN
+            ::takatori::relation::join_kind::left_outer,
+            // ON TRUE
+            std::unique_ptr<::takatori::scalar::expression> {});
+        join.region() = expr.region();
+
+        auto subquery_output = expr.find_output_port();
+        if (!subquery_output) {
+            throw_exception(std::domain_error { "subquery has no output port" });
+        }
+
+        subquery_output->connect_to(project.input());
+        project.output().connect_to(fetch_first.input());
+        fetch_first.output().connect_to(join.right());
+        install(insertion_point, join, command.target().parameters(), {});
+
+        ::takatori::relation::merge_into(std::move(expr.query_graph()), graph);
+    }
+
+    void process(expand_quantified_compare_filter_command& command) {
+        std::optional<rewrite_correlated_subquery_result> correlation {};
+        if (!command.target().parameters().empty()) {
+            correlation.emplace(rewrite_correlated_subquery(command.target()));
+            if (correlation && !correlation->diagnostics().empty()) {
+                diagnostics_ = std::move(correlation->diagnostics());
+                return;
+            }
+        }
+
+        auto&& expr = command.target();
+        BOOST_ASSERT(expr.quantifier() == ::takatori::scalar::quantifier::any); // NOLINT
+        auto&& insertion_point = command.insertion_point();
+
+        /* NOTE:
+         *
+         * main   subquery
+         *  |        |
+         * SEMI JOIN ON (left <comp> vref(right_column))
+         */
+        auto&& graph = insertion_point.owner().owner();
+        auto&& join = graph.emplace<::takatori::relation::intermediate::join>(
+            ::takatori::relation::join_kind::semi,
+            // ON (non-quantified comparison)
+            std::make_unique<::takatori::scalar::compare>(
+                expr.operator_kind(),
+                expr.release_left(),
+                std::make_unique<::takatori::scalar::variable_reference>(expr.right_column())));
+        join.region() = expr.region();
+
+        auto subquery_output = expr.find_output_port();
+        if (!subquery_output) {
+            throw_exception(std::domain_error { "subquery has no output port" });
+        }
+        join.right().connect_to(*subquery_output);
+        install(insertion_point, join, command.target().parameters(), std::move(correlation));
+
+        ::takatori::relation::merge_into(std::move(expr.query_graph()), graph);
+    }
+
+private:
+    std::vector<diagnostic_type> diagnostics_ {};
+
+    void install(
+            ::takatori::relation::expression::input_port_type& insertion_point,
+            ::takatori::relation::intermediate::join& merge_result,
+            std::vector<::takatori::relation::details::mapping_element> const& parameter_mappings,
+            std::optional<rewrite_correlated_subquery_result> correlation) {
+        // NOTE: left of "merge_result" is absent, and its right is connected to subquery output.
+        if (!correlation) {
+            /*
+             * non-correlated subquery:
+             * before:
+             *   (upstream)
+             *    |
+             *   (insertion_point)
+             *
+             * after:
+             *   (upstream)
+             *    |
+             *    |   subquery
+             *    |    |
+             *    |   /
+             *   join:merge_result
+             *    |
+             *   (insertion_point)
+             */
+            bypass(insertion_point, merge_result);
+            return;
+        }
+
+        /*
+         * correlated subquery:
+         * before:
+         *   (upstream)
+         *    |
+         *   (insertion_point)
+         *
+         * after:
+         *   (upstream)
+         *    |
+         *   buffer:parameter_branch
+         *    |   \
+         *    |   escape:parameter_escape
+         *    |    |
+         *    |   distinct:parameter_dedup
+         *    |    |
+         *    |   subquery
+         *    |    |
+         *    |   /
+         *   join:merge_result
+         *    |
+         *   (insertion_point)
+         */
+
+        // inject parameters
+        auto&& graph = merge_result.owner();
+        auto&& parameter_branch = graph.emplace<::takatori::relation::buffer>(2);
+        parameter_branch.output_ports().at(0).connect_to(merge_result.left());
+
+        auto&& parameter_escape = graph.emplace<::takatori::relation::intermediate::escape>(parameter_mappings);
+        parameter_branch.output_ports().at(1).connect_to(parameter_escape.input());
+
+        std::vector<::takatori::descriptor::variable> parameters {};
+        parameters.reserve(parameter_mappings.size());
+        for (auto&& mapping : parameter_mappings) {
+            parameters.emplace_back(mapping.destination());
+        }
+        auto&& parameter_dedup = graph.emplace<::takatori::relation::intermediate::distinct>(std::move(parameters));
+        parameter_escape.output().connect_to(parameter_dedup.input());
+
+        if (auto&& subquery_inputs = correlation->inputs(); subquery_inputs.size() == 1) {
+            auto&& subquery_input = subquery_inputs.at(0);
+            auto&& input_escape = graph.emplace<::takatori::relation::intermediate::escape>(subquery_input.mappings());
+            parameter_dedup.output().connect_to(input_escape.input());
+            input_escape.output().connect_to(subquery_input.input_port());
+        } else {
+            auto&& input_branch = graph.emplace<::takatori::relation::buffer>(subquery_inputs.size());
+            parameter_dedup.output().connect_to(input_branch.input());
+
+            std::size_t input_index = 0;
+            for (auto&& subquery_input : subquery_inputs) {
+                auto&& input_escape = graph.emplace<::takatori::relation::intermediate::escape>(subquery_input.mappings());
+                input_branch.output_ports().at(input_index).connect_to(input_escape.input());
+                input_escape.output().connect_to(subquery_input.input_port());
+                ++input_index;
+            }
+        }
+
+        // decorate join conditions
+        auto&& output_mappings = correlation->output_mappings();
+        BOOST_ASSERT(parameter_mappings.size() == output_mappings.size());
+        for (
+                std::size_t parameter_index = 0, parameter_size = parameter_mappings.size();
+                parameter_index < parameter_size;
+                ++parameter_index) {
+            auto&& parameter_pair = parameter_mappings.at(parameter_index);
+            auto&& output_pair = output_mappings.at(parameter_index);
+            auto left_column = parameter_pair.source();
+            auto right_column = output_pair.destination();
+            BOOST_ASSERT(parameter_pair.destination() == output_pair.source());
+
+            auto term = std::make_unique<::takatori::scalar::compare>(
+                    ::takatori::scalar::comparison_operator::is_not_distinct_from,
+                    std::make_unique<::takatori::scalar::variable_reference>(std::move(left_column)),
+                    std::make_unique<::takatori::scalar::variable_reference>(std::move(right_column)));
+            if (auto condition = merge_result.release_condition()) {
+                merge_result.condition(std::make_unique<::takatori::scalar::binary>(
+                        ::takatori::scalar::binary_operator::conditional_and,
+                        std::move(condition),
+                        std::move(term)));
+            } else {
+                merge_result.condition(std::move(term));
+            }
+        }
+
+        bypass(insertion_point, parameter_branch, merge_result);
+    }
+
+    void bypass(
+            ::takatori::relation::expression::input_port_type& insertion_point,
+            ::takatori::relation::intermediate::join& insertion) {
+        /*
+         * before:
+         *  upstream -- insertion_point
+         *
+         *  (absent) -[L]-\
+         *                 join -- (absent)
+         *  existing -[R]-/
+         *
+         * after:
+         *  upstream -[L]-\
+         *                 join -- insertion_point
+         *  existing -[R]-/
+         */
+        BOOST_ASSERT(!insertion.left().opposite());
+        BOOST_ASSERT(!insertion.output().opposite());
+        if (auto upstream = insertion_point.reconnect_to(insertion.output())) {
+            upstream->connect_to(insertion.left());
+        }
+    }
+
+    void bypass(
+            ::takatori::relation::expression::input_port_type& insertion_point,
+            ::takatori::relation::buffer& insertion_upstream,
+            ::takatori::relation::intermediate::join& insertion_downstream) {
+        /*
+         * before:
+         *  upstream -- insertion_point
+         *
+         *  (absent) -- buffer -- ... -[L]-\
+         *                                  join -- (absent)
+         *                   existing -[R]-/
+         *
+         * after:
+         *  upstream -- buffer -- ... -[L]-\
+         *                                  join -- insertion_point
+         *                   existing -[R]-/
+         */
+        BOOST_ASSERT(!insertion_upstream.input().opposite());
+        BOOST_ASSERT(!insertion_downstream.output().opposite());
+        if (auto upstream = insertion_point.reconnect_to(insertion_downstream.output())) {
+            upstream->connect_to(insertion_upstream.input());
+        }
+    }
+};
 
 } // namespace
 
@@ -1497,7 +1736,11 @@ std::vector<diagnostic_type> expand_subquery(takatori::relation::graph_type& gra
     }
     auto commands = subquery_collector.release();
     for (auto& command : commands) {
-        process(*command);
+        processor p {};
+        p.process(*command);
+        if (!p.diagnostics().empty()) {
+            return std::move(p.diagnostics());
+        }
         command = {};
     }
     return {};

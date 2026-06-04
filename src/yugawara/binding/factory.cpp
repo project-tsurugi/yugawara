@@ -1,5 +1,7 @@
 #include <yugawara/binding/factory.h>
 
+#include <takatori/util/maybe_shared_ptr.h>
+
 #include <yugawara/binding/variable_info.h>
 #include <yugawara/binding/function_info.h>
 #include <yugawara/binding/aggregate_function_info.h>
@@ -68,6 +70,11 @@ takatori::descriptor::variable factory::exchange_column(std::string_view label) 
 
 ::takatori::descriptor::variable factory::stream_variable(std::string_view label) {
     return create<variable_info_kind::stream_variable>(label);
+}
+
+::takatori::descriptor::variable factory::stream_variable(takatori::descriptor::variable const& declaration) {
+    auto&& info = unwrap(declaration);
+    return stream_variable(info.label());
 }
 
 ::takatori::descriptor::variable factory::local_variable(std::string_view label) {

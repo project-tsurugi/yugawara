@@ -110,6 +110,13 @@ public:
     [[nodiscard]] ::takatori::descriptor::variable stream_variable(std::string_view label = {});
 
     /**
+     * @brief returns a variable descriptor for new stream column from other variable.
+     * @param declaration the original variable
+     * @return the created variable descriptor
+     */
+    [[nodiscard]] ::takatori::descriptor::variable stream_variable(::takatori::descriptor::variable const& declaration);
+
+    /**
      * @brief returns a variable descriptor for a local variable declared in the scalar expression.
      * @param label the variable label (for debugging)
      * @return the created variable descriptor

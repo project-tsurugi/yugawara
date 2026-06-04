@@ -101,6 +101,7 @@ add_library(yugawara
     # normalizer
     yugawara/analyzer/intermediate_plan_normalizer.cpp
     yugawara/analyzer/details/expand_subquery.cpp
+    yugawara/analyzer/details/rewrite_correlated_subquery.cpp
 
     # optimizer
     yugawara/analyzer/intermediate_plan_optimizer.cpp

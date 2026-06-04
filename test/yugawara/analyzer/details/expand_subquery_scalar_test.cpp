@@ -25,8 +25,11 @@
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/emit.h>
+#include <takatori/relation/buffer.h>
 #include <takatori/relation/intermediate/join.h>
 #include <takatori/relation/intermediate/union.h>
+#include <takatori/relation/intermediate/escape.h>
+#include <takatori/relation/intermediate/distinct.h>
 
 #include <takatori/util/vector_print_support.h>
 
@@ -2354,6 +2357,202 @@ TEST_F(expand_subquery_scalar_test, scalar_subquery_nesting) {
     ASSERT_EQ(r1.columns().size(), 1);
     EXPECT_EQ(r1.columns()[0].value(), wrap(c2));
     EXPECT_EQ(r1.columns()[0].variable(), c4);
+}
+
+TEST_F(expand_subquery_scalar_test, correlation) {
+    /*
+     * SELECT
+     *   c1,
+     *   (
+     *      VALUES(rv.c1)
+     *   ) AS c2
+     * FROM (VALUES) AS rv(c1)
+     */
+
+    /* inner query: g0
+     *   values:sv -*
+     */
+    relation::graph_type g0 {};
+    auto c0 = bindings.stream_variable("c0");
+    auto p0 = bindings.stream_variable("p0");
+    g0.insert(relation::values {
+            {
+                    c0,
+            },
+            {
+                    { varref(p0) },
+            },
+    });
+
+    /* outer query: graph
+     *   values:rv -- project[g0->c2]:r0 -- emit:re
+     */
+    relation::graph_type graph {};
+    auto c1 = bindings.stream_variable("c1");
+    auto&& rv = graph.insert(relation::values {
+            {
+                    c1,
+            },
+            {},
+    });
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = graph.insert(relation::project {
+            relation::project::column {
+                    extension::scalar::subquery {
+                            std::move(g0),
+                            {
+                                    { c1, p0 },
+                            },
+                            c0,
+                    },
+                    c2,
+            },
+    });
+    auto&& re = graph.insert(relation::emit {
+            c1,
+            c2,
+    });
+    rv.output() >> r0.input();
+    r0.output() >> re.input();
+
+    auto diagnostics = expand_subquery(graph);
+    ASSERT_TRUE(diagnostics.empty()) << print_support(diagnostics);
+
+    /*
+     *                              +-- *1 --+
+     *                             /          \
+     * values:rv[->c1] -- buffer -+------------+-join -- project[c0->c2]:r0 -- emit[c1, c2]:re
+     *
+     * *1:
+     * ~~ escape[c1->p0]:e0 -- distinct[p0] -- escape[p0->x0]:e1 -- project[x0->c0]:j0 ~~
+     */
+    ASSERT_EQ(graph.size(), 9);
+    ASSERT_TRUE(graph.contains(rv));
+    ASSERT_TRUE(graph.contains(r0));
+    ASSERT_TRUE(graph.contains(re));
+    auto&& buffer = next<relation::buffer>(rv.output());
+    ASSERT_EQ(buffer.size(), 2);
+    auto&& join = next<relation::intermediate::join>(buffer.output_ports()[0]);
+
+    // (*1)
+    auto&& e0 = next<relation::intermediate::escape>(buffer.output_ports()[1]);
+    auto&& distinct = next<relation::intermediate::distinct>(e0.output());
+    auto&& e1 = next<relation::intermediate::escape>(distinct.output());
+    auto&& j0 = next<relation::project>(e1.output());
+    EXPECT_GT(j0.output(), join.right());
+
+    ASSERT_EQ(rv.columns().size(), 1);
+    EXPECT_EQ(rv.columns()[0], c1);
+
+    ASSERT_EQ(e0.mappings().size(), 1);
+    EXPECT_EQ(e0.mappings()[0].source(), c1);
+    EXPECT_EQ(e0.mappings()[0].destination(), p0);
+
+    ASSERT_EQ(distinct.group_keys().size(), 1);
+    EXPECT_EQ(distinct.group_keys()[0], p0);
+
+    ASSERT_EQ(e1.mappings().size(), 1);
+    EXPECT_EQ(e1.mappings()[0].source(), p0);
+    auto&& x0 = e1.mappings()[0].destination();
+
+    ASSERT_EQ(j0.columns().size(), 1);
+    EXPECT_EQ(j0.columns()[0].variable(), c0);
+    EXPECT_EQ(j0.columns()[0].value(), varref(x0));
+
+    EXPECT_EQ(join.operator_kind(), relation::join_kind::left_outer_at_most_one);
+    EXPECT_EQ(join.condition(), compare(c1, x0, scalar::comparison_operator::is_not_distinct_from));
+
+    ASSERT_EQ(r0.columns().size(), 1);
+    EXPECT_EQ(r0.columns()[0].value(), wrap(c0));
+    EXPECT_EQ(r0.columns()[0].variable(), c2);
+
+    ASSERT_EQ(re.columns().size(), 2);
+    EXPECT_EQ(re.columns()[0].source(), c1);
+    EXPECT_EQ(re.columns()[1].source(), c2);
+}
+
+TEST_F(expand_subquery_scalar_test, scalar_subquery_nesting_in_correlation) {
+    /*
+     * SELECT
+     *   c3,
+     *   (
+     *     SELECT
+     *       (
+     *          VALUES (...) AS sv0(c0)
+     *       ) AS c2
+     *     FROM (VALUES (rv.c3)) AS sv1(c1)
+     *   ) AS c4
+     * FROM (VALUES (...)) AS rv(c3)
+     */
+
+    /* inner query: g0
+     *   values:sv0 -*
+     */
+    relation::graph_type g0 {};
+    auto c0 = bindings.stream_variable("c0");
+    g0.insert(relation::values {
+            {
+                    c0,
+            },
+            {},
+    });
+
+    /* inner query: g1
+     *   values:sv1 -- project[g0->c2]:r0 -- emit:re
+     */
+    relation::graph_type g1 {};
+    auto c1 = bindings.stream_variable("c1");
+    auto p0 = bindings.stream_variable("p0");
+    auto&& sv1 = g0.insert(relation::values {
+            {
+                    c1,
+            },
+            {
+                    { varref(p0) },
+            },
+    });
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = g1.insert(relation::project {
+            relation::project::column {
+                    extension::scalar::subquery { std::move(g0), c0 },
+                    c2,
+            },
+    });
+    sv1.output() >> r0.input();
+
+    /* outer query: graph
+     *   values:rv -- project[g1->c3]:r1 -- emit:re
+     */
+    relation::graph_type graph {};
+    auto c3 = bindings.stream_variable("c3");
+    auto&& rv = graph.insert(relation::values {
+            {
+                    c3,
+            },
+            {},
+    });
+    auto c4 = bindings.stream_variable("c2");
+    auto&& r1 = graph.insert(relation::project {
+            relation::project::column {
+                    extension::scalar::subquery {
+                            std::move(g1),
+                            {
+                                    { c3, p0 },
+                            },
+                            c2,
+                    },
+                    c4,
+            },
+    });
+    auto&& re = graph.insert(relation::emit {
+            c3,
+            c4,
+    });
+    rv.output() >> r1.input();
+    r1.output() >> re.input();
+
+    auto diagnostics = expand_subquery(graph);
+    ASSERT_TRUE(contains(diagnostics, code_type::unsupported_scalar_subquery_placement));
 }
 
 } // namespace yugawara::analyzer::details

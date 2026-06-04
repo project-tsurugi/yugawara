@@ -18,6 +18,10 @@ variable_info_kind table_column_info::kind() const noexcept {
     return tag;
 }
 
+std::string_view table_column_info::label() const {
+    return column_->simple_name();
+}
+
 yugawara::storage::column const& table_column_info::column() const noexcept {
     return *column_;
 }

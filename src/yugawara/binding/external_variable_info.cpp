@@ -18,6 +18,10 @@ variable_info_kind external_variable_info::kind() const noexcept {
     return variable_info_kind::external_variable;
 }
 
+std::string_view external_variable_info::label() const {
+    return declaration_->name();
+}
+
 yugawara::variable::declaration const& external_variable_info::declaration() const noexcept {
     return *declaration_;
 }

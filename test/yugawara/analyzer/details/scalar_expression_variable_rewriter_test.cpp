@@ -255,6 +255,61 @@ TEST_F(scalar_expression_variable_rewriter_test, scalar_subquery_nesting) {
     EXPECT_EQ(r1.mappings()[0].destination(), c1m);
 }
 
+TEST_F(scalar_expression_variable_rewriter_test, scalar_subquery_correlated) {
+    /*
+     * values:r0 -*
+     */
+    relation::graph_type g0;
+    auto c0 = bindings.stream_variable("c0");
+    auto p0 = bindings.stream_variable("p0");
+    auto&& r0 = g0.insert(relation::values {
+            {
+                    c0,
+            },
+            {
+                    {
+                            scalar::variable_reference { p0 },
+                    },
+            },
+    });
+
+    auto p0d = bindings.stream_variable("p0d");
+    extension::scalar::subquery e0 {
+            std::move(g0),
+            {
+                    { p0d, p0 }
+            },
+            c0,
+    };
+    stream_variable_rewriter_context context {};
+    scalar_expression_variable_rewriter rewriter {};
+    rewriter(context, e0);
+    auto p0dm = p0d;
+    ASSERT_TRUE(context.try_rewrite_define(p0dm));
+    EXPECT_NE(p0dm, p0d);
+    check_context(context);
+
+    auto c0m = context.find(c0);
+    ASSERT_TRUE(c0m);
+    EXPECT_NE(c0, c0m);
+    auto p0m = context.find(p0);
+    ASSERT_TRUE(p0m);
+    EXPECT_NE(p0m, p0);
+
+    EXPECT_EQ(e0.output_column(), c0m);
+
+    ASSERT_EQ(e0.parameters().size(), 1);
+    EXPECT_EQ(e0.parameters()[0].source(), p0dm);
+    EXPECT_EQ(e0.parameters()[0].destination(), p0m);
+
+    ASSERT_EQ(r0.columns().size(), 1);
+    EXPECT_EQ(r0.columns()[0], c0m);
+
+    ASSERT_EQ(r0.rows().size(), 1);
+    ASSERT_EQ(r0.rows()[0].elements().size(), 1);
+    EXPECT_EQ(r0.rows()[0].elements()[0], (scalar::variable_reference { *p0m }));
+}
+
 TEST_F(scalar_expression_variable_rewriter_test, quantified_compare) {
     /*
      * values:r0 -*
@@ -293,6 +348,65 @@ TEST_F(scalar_expression_variable_rewriter_test, quantified_compare) {
 
     ASSERT_EQ(r0.columns().size(), 1);
     EXPECT_EQ(r0.columns()[0], c0m);
+}
+
+TEST_F(scalar_expression_variable_rewriter_test, quantified_compare_correlated) {
+    /*
+     * values:r0 -*
+     */
+    relation::graph_type g0;
+    auto c0 = bindings.stream_variable("c0");
+    auto p0 = bindings.stream_variable("p0");
+    auto&& r0 = g0.insert(relation::values {
+            {
+                    c0,
+            },
+            {
+                    {
+                            scalar::variable_reference { p0 },
+                    },
+            },
+    });
+
+    auto p0d = bindings.stream_variable("p0d");
+    auto c1 = bindings.stream_variable("c1");
+    extension::scalar::quantified_compare e0 {
+            scalar::comparison_operator::equal,
+            scalar::quantifier::any,
+            scalar::variable_reference { c1 },
+            std::move(g0),
+            {
+                    { p0d, p0 }
+            },
+            c0,
+    };
+    stream_variable_rewriter_context context {};
+    scalar_expression_variable_rewriter rewriter {};
+    rewriter(context, e0);
+    auto c1m = c1;
+    ASSERT_TRUE(context.try_rewrite_define(c1m));
+    EXPECT_NE(c1, c1m);
+    auto p0dm = p0d;
+    ASSERT_TRUE(context.try_rewrite_define(p0dm));
+    EXPECT_NE(p0dm, p0d);
+    check_context(context);
+
+    auto c0m = context.find(c0);
+    ASSERT_TRUE(c0m);
+    EXPECT_NE(c0, c0m);
+    auto p0m = context.find(p0);
+    ASSERT_TRUE(p0m);
+    EXPECT_NE(p0m, p0);
+
+    EXPECT_EQ(e0.left(), (scalar::variable_reference { c1m }));
+    EXPECT_EQ(e0.right_column(), c0m);
+
+    ASSERT_EQ(r0.columns().size(), 1);
+    EXPECT_EQ(r0.columns()[0], c0m);
+
+    ASSERT_EQ(r0.rows().size(), 1);
+    ASSERT_EQ(r0.rows()[0].elements().size(), 1);
+    EXPECT_EQ(r0.rows()[0].elements()[0], (scalar::variable_reference { *p0m }));
 }
 
 } // namespace yugawara::analyzer::details

@@ -44,7 +44,7 @@ public:
         return tag;
     }
 
-    [[nodiscard]] std::string_view label() const noexcept {
+    [[nodiscard]] std::string_view label() const override {
         return label_;
     }
 

@@ -106,10 +106,12 @@ public:
     void operator()(extension::scalar::subquery& expr) {
         context_.rewrite_use(expr.output_column());
         rewrite_stream_variables(context_, expr.query_graph());
+        process_parameters(expr.parameters());
     }
 
     void operator()(extension::scalar::exists& expr) {
         rewrite_stream_variables(context_, expr.query_graph());
+        process_parameters(expr.parameters());
     }
 
     void operator()(extension::scalar::quantified_compare& expr) {
@@ -117,6 +119,7 @@ public:
         scalar::walk(*this, expr.left());
         context_.rewrite_use(expr.right_column());
         rewrite_stream_variables(context_, expr.query_graph());
+        process_parameters(expr.parameters());
     }
 
 private:
@@ -126,6 +129,18 @@ private:
 
     binding::factory factory() noexcept {
         return {};
+    }
+
+    void process_parameters(std::vector<::takatori::relation::details::mapping_element>& parameters) {
+        for (auto&& it = parameters.begin(); it != parameters.end();) {
+            auto&& column = *it;
+            if (context_.try_rewrite_define(column.destination())) {
+                context_.rewrite_use(column.source());
+                ++it;
+            } else {
+                it = parameters.erase(it);
+            }
+        }
     }
 };
 

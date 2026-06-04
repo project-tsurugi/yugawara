@@ -3,6 +3,8 @@
 #include <tsl/hopscotch_set.h>
 
 #include <takatori/scalar/variable_reference.h>
+#include <takatori/scalar/binary.h>
+#include <takatori/scalar/compare.h>
 
 #include <takatori/relation/intermediate/dispatch.h>
 
@@ -283,10 +285,26 @@ private:
         auto right_group_keys = empty<descriptor::variable>();
         left_group_keys.reserve(keys.size());
         right_group_keys.reserve(keys.size());
-        // FIXME: repair for ternary comparison semantics
+
+        auto condition = expr.release_condition();
         for (auto&& key : keys) {
             auto&& left = *extract_if_variable_ref(key.value());
             auto&& right = key.variable();
+            if (key.semantics() == ::takatori::relation::comparison_semantics_kind::ternary) {
+                // repair NULL-aware comparison
+                auto cmp = std::make_unique<::takatori::scalar::compare>(
+                        ::takatori::scalar::comparison_operator::equal,
+                        std::make_unique<::takatori::scalar::variable_reference>(left),
+                        std::make_unique<::takatori::scalar::variable_reference>(right));
+                if (condition == nullptr) {
+                    condition = std::move(cmp);
+                } else {
+                    condition = std::make_unique<::takatori::scalar::binary>(
+                            ::takatori::scalar::binary_operator::conditional_and,
+                            std::move(condition),
+                            std::move(cmp));
+                }
+            }
             left_group_keys.emplace_back(std::move(left));
             right_group_keys.emplace_back(std::move(right));
         }
@@ -320,7 +338,7 @@ private:
         auto&& take = add<relation::step::take_cogroup>(std::move(groups));
         auto&& replacement = add<relation::step::join>(
                 expr.operator_kind(),
-                expr.release_condition());
+                std::move(condition));
         take.output() >> replacement.input();
 
         migrate(expr.left(), left_offer.input());

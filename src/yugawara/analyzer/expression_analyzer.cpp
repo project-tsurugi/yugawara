@@ -515,10 +515,13 @@ public:
     }
 
     type_ptr operator()(extension::scalar::subquery const& expr) {
+        if (!resolve_subquery_parameters(expr)) {
+            return error_type();
+        }
         // resolve subquery graph
         auto r = resolve(expr.query_graph());
         if (!r) {
-            return std::make_shared<extension::type::error>();
+            return error_type();
         }
         if (auto&& resolution = resolve_stream_column(expr.output_column())) {
             if (auto type = ana_.inspect(resolution)) {
@@ -531,21 +534,38 @@ public:
         });
     }
 
+    template<class Expr>
+    bool resolve_subquery_parameters(Expr const& expr) {
+        bool saw_error = false;
+        for (auto&& mapping : expr.parameters()) { // NOLINT(readability-use-anyofallof) w/ side effects
+            auto&& source = resolve_stream_column(mapping.source());
+            if (is_unresolved_or_error(source)) {
+                saw_error = true;
+            } else {
+                ana_.variables().bind(mapping.destination(), source, true);
+            }
+        }
+        return !saw_error;
+    }
+
     type_ptr operator()(extension::scalar::exists const& expr) {
         if (validate_) {
-            auto r = resolve(expr.query_graph());
-            if (!r) {
+            if (!resolve_subquery_parameters(expr)) {
                 return repo_.get(::takatori::type::boolean());
             }
+            resolve(expr.query_graph());
         }
         return repo_.get(::takatori::type::boolean());
     }
 
     type_ptr operator()(extension::scalar::quantified_compare const& expr) {
         if (validate_) {
+            if (!resolve_subquery_parameters(expr)) {
+                return repo_.get(::takatori::type::boolean());
+            }
             auto r = resolve(expr.query_graph());
             if (!r) {
-                return std::make_shared<extension::type::error>();
+                return repo_.get(::takatori::type::boolean());
             }
             auto left = resolve(expr.left());
             auto right_resolution = resolve_stream_column(expr.right_column());
@@ -1924,8 +1944,7 @@ private:
 
     [[nodiscard]] type_ptr raise(diagnostic_type diagnostic) {
         report(std::move(diagnostic));
-        static auto result = std::make_shared<extension::type::error>();
-        return result;
+        return error_type();
     }
 
     [[nodiscard]] type_ptr raise(
@@ -1934,6 +1953,10 @@ private:
             ::takatori::type::data const& actual,
             type::category_set expected) {
         report(c, region, actual, expected);
+        return error_type();
+    }
+
+    [[nodiscard]] type_ptr error_type() {
         static auto result = std::make_shared<extension::type::error>();
         return result;
     }

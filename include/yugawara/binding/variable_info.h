@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string_view>
+
 #include <takatori/descriptor/variable.h>
 #include <takatori/util/object.h>
 
@@ -32,6 +34,12 @@ public:
      * @return the variable kind
      */
     [[nodiscard]] virtual variable_info_kind kind() const noexcept = 0;
+
+    /**
+     * @brief returns the label of this variable
+     * @return the variable label
+     */
+    [[nodiscard]] virtual std::string_view label() const = 0;
 
     /**
      * @brief returns whether or not the two relations are equivalent.
