@@ -8,6 +8,7 @@
 #include <takatori/scalar/binary.h>
 #include <takatori/scalar/compare.h>
 #include <takatori/scalar/function_call.h>
+#include <takatori/scalar/coalesce.h>
 
 #include <takatori/relation/graph.h>
 #include <takatori/relation/values.h>
@@ -1347,7 +1348,7 @@ TEST_F(rewrite_correlated_subquery_test, aggregate_grouped) {
     EXPECT_EQ(query.output_column(), c2);
 }
 
-TEST_F(rewrite_correlated_subquery_test, aggregate_scalar) {
+TEST_F(rewrite_correlated_subquery_test, aggregate_scalar_require_parameters_default_null) {
     /*
      * subquery: (v0a) -> (v0p)
      *   values[c0]:r0 -- aggregate[c1:=f(c0, v0p)]:r1 => c1
@@ -1396,7 +1397,237 @@ TEST_F(rewrite_correlated_subquery_test, aggregate_scalar) {
     };
 
     auto result = rewrite_correlated_subquery(query);
-    ASSERT_TRUE(contains(result.diagnostics(), code_type::unsupported_feature)) << print_support(result.diagnostics());
+    ASSERT_TRUE(result) << print_support(result.diagnostics());
+
+    /*
+     *                                      () -[L]-\
+     *                                               +- join:j1  => c1
+     * () -- project[c0:=0]:j0 -- aggregate:r1 -[R]-/
+     */
+    ASSERT_EQ(query.query_graph().size(), 3);
+    ASSERT_TRUE(query.query_graph().contains(r1));
+
+    auto&& inputs = result.inputs();
+    ASSERT_EQ(inputs.size(), 2);
+
+    ASSERT_EQ(inputs[0].mappings().size(), 1);
+    EXPECT_EQ(inputs[0].mappings()[0].source(), v0p);
+    auto&& v0pm0 = inputs[0].mappings()[0].destination();
+
+    auto&& j0 = downcast<relation::project>(inputs[0].input_port().owner());
+    EXPECT_FALSE(j0.input().opposite());
+    EXPECT_GT(j0.output(), r1.input());
+
+    ASSERT_EQ(j0.columns().size(), 1);
+    EXPECT_EQ(j0.columns()[0].variable(), c0);
+    EXPECT_EQ(j0.columns()[0].value(), constant(0));
+
+    ASSERT_EQ(r1.group_keys().size(), 1);
+    EXPECT_EQ(r1.group_keys()[0], v0pm0);
+
+    EXPECT_EQ(r1.columns()[0].arguments()[0], c0);
+    EXPECT_EQ(r1.columns()[0].arguments()[1], v0pm0);
+    EXPECT_EQ(r1.columns()[0].destination(), c1);
+
+    ASSERT_EQ(inputs[1].mappings().size(), 1);
+    EXPECT_EQ(inputs[1].mappings()[0].source(), v0p);
+    auto&& v0pm1 = inputs[1].mappings()[0].destination();
+
+    auto&& j1 = downcast<relation::intermediate::join>(inputs[1].input_port().owner());
+    EXPECT_EQ(j1.operator_kind(), relation::join_kind::left_outer);
+    EXPECT_EQ(j1.condition(), compare(v0pm1, v0pm0, scalar::comparison_operator::is_not_distinct_from));
+    EXPECT_FALSE(j1.left().opposite());
+    EXPECT_GT(r1.output(), j1.right());
+    EXPECT_FALSE(j1.output().opposite());
+
+    EXPECT_EQ(query.output_column(), c1);
+}
+
+TEST_F(rewrite_correlated_subquery_test, aggregate_scalar_require_parameters_default_zero) {
+    /*
+     * subquery: (v0a) -> (v0p)
+     *   values[c0:=v0p]:r0 -- aggregate[c1:=f(c0)]:r1 => c1
+     */
+    auto v0a = bindings.stream_variable("v0a");
+    auto v0p = bindings.frame_variable("v0p");
+    relation::graph_type g;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& r0 = g.insert(relation::values {
+            {
+                    c0,
+            },
+            {
+                    { varref(v0p) },
+            },
+    });
+
+    auto c1 = bindings.stream_variable("c1");
+    auto&& sf = bindings.aggregate_function({
+            aggregate::declaration::minimum_user_function_id + 1,
+            "count",
+            ::takatori::type::int4 {},
+            {
+                    ::takatori::type::int4 {},
+            },
+    });
+    auto&& r1 = g.insert(relation::intermediate::aggregate {
+            {},
+            {
+                    {
+                            sf,
+                            { c0 },
+                            c1,
+                    },
+            },
+    });
+    r0.output() >> r1.input();
+
+    extension::scalar::subquery query {
+            std::move(g),
+            {
+                    { v0a, v0p },
+            },
+            c1,
+    };
+
+    auto result = rewrite_correlated_subquery(query);
+    ASSERT_TRUE(result) << print_support(result.diagnostics());
+
+    /*
+     *                                                () -[L]-\
+     *                                                         +- join:j1 -- project[c1:=coalesce(c1e, 0)]:j2  => c1
+     * () -- project[c0:=0]:j0 -- aggregate[c1e:=...]:r1 -[R]-/
+     */
+    ASSERT_EQ(query.query_graph().size(), 4);
+    ASSERT_TRUE(query.query_graph().contains(r1));
+
+    auto&& inputs = result.inputs();
+    ASSERT_EQ(inputs.size(), 2);
+
+    ASSERT_EQ(inputs[0].mappings().size(), 1);
+    EXPECT_EQ(inputs[0].mappings()[0].source(), v0p);
+    auto&& v0pm0 = inputs[0].mappings()[0].destination();
+
+    auto&& j0 = downcast<relation::project>(inputs[0].input_port().owner());
+    EXPECT_FALSE(j0.input().opposite());
+    EXPECT_GT(j0.output(), r1.input());
+
+    ASSERT_EQ(j0.columns().size(), 1);
+    EXPECT_EQ(j0.columns()[0].variable(), c0);
+    EXPECT_EQ(j0.columns()[0].value(), varref(v0pm0));
+
+    ASSERT_EQ(r1.group_keys().size(), 1);
+    EXPECT_EQ(r1.group_keys()[0], v0pm0);
+
+    EXPECT_EQ(r1.columns()[0].arguments()[0], c0);
+    auto&& c1e = r1.columns()[0].destination();
+
+    ASSERT_EQ(inputs[1].mappings().size(), 1);
+    EXPECT_EQ(inputs[1].mappings()[0].source(), v0p);
+    auto&& v0pm1 = inputs[1].mappings()[0].destination();
+
+    auto&& j1 = downcast<relation::intermediate::join>(inputs[1].input_port().owner());
+    EXPECT_EQ(j1.operator_kind(), relation::join_kind::left_outer);
+    EXPECT_EQ(j1.condition(), compare(v0pm1, v0pm0, scalar::comparison_operator::is_not_distinct_from));
+    EXPECT_FALSE(j1.left().opposite());
+    EXPECT_GT(r1.output(), j1.right());
+
+    auto&& j2 = next<relation::project>(j1.output());
+    ASSERT_EQ(j2.columns().size(), 1);
+    EXPECT_EQ(j2.columns()[0].variable(), c1);
+    // NOTE: for CI environment
+    auto&& coalesce = downcast<scalar::coalesce>(j2.columns()[0].value());
+    ASSERT_EQ(coalesce.alternatives().size(), 2);
+    EXPECT_EQ(coalesce.alternatives()[0], varref(c1e));
+    EXPECT_EQ(coalesce.alternatives()[1], constant(0));
+
+    EXPECT_FALSE(j2.output().opposite());
+
+    EXPECT_EQ(query.output_column(), c1);
+}
+
+TEST_F(rewrite_correlated_subquery_test, aggregate_scalar_without_parameters) {
+    /*
+     * subquery: (v0a) -> (v0p)
+     *   values[c0]:r0 -- aggregate[c1:=f(c0)]:r1 -- filter[c1=v0p]:r2 -- => c1
+     */
+    auto v0a = bindings.stream_variable("v0a");
+    auto v0p = bindings.frame_variable("v0p");
+    relation::graph_type g;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& r0 = g.insert(relation::values {
+            {
+                    c0,
+            },
+            {
+                    { constant() },
+            },
+    });
+
+    auto c1 = bindings.stream_variable("c1");
+    auto&& sf = bindings.aggregate_function({
+            aggregate::declaration::minimum_user_function_id + 1,
+            "sf",
+            ::takatori::type::int4 {},
+            {
+                    ::takatori::type::int4 {},
+            },
+    });
+    auto&& r1 = g.insert(relation::intermediate::aggregate {
+            {},
+            {
+                    {
+                            sf,
+                            { c0 },
+                            c1,
+                    },
+            },
+    });
+    auto&& r2 = g.insert(relation::filter {
+            compare(c0, v0p)
+    });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    extension::scalar::subquery query {
+            std::move(g),
+            {
+                    { v0a, v0p },
+            },
+            c1,
+    };
+
+    auto result = rewrite_correlated_subquery(query);
+    ASSERT_TRUE(result) << print_support(result.diagnostics());
+
+    /*
+     * values[c0]:r0 -- aggregate:r1 -\
+     *                                 +- join:j0 -- filter[c0=v0p]:r2 => c1
+     *                           () --/
+     */
+    ASSERT_EQ(query.query_graph().size(), 4);
+    ASSERT_TRUE(query.query_graph().contains(r0));
+    ASSERT_TRUE(query.query_graph().contains(r1));
+    ASSERT_TRUE(query.query_graph().contains(r2));
+
+    auto&& inputs = result.inputs();
+    ASSERT_EQ(inputs.size(), 1);
+
+    auto&& parameters = inputs[0].mappings();
+    ASSERT_EQ(parameters.size(), 1);
+    EXPECT_EQ(parameters[0].source(), v0p);
+    auto&& v0pm = parameters[0].destination();
+
+    auto&& j0 = downcast<relation::intermediate::join>(inputs[0].input_port().owner());
+
+    EXPECT_GT(r1.output(), j0.right());
+    EXPECT_GT(j0.output(), r2.input());
+
+    ASSERT_EQ(r1.group_keys().size(), 0);
+
+    EXPECT_EQ(r2.condition(), compare(c0, v0pm));
+
+    EXPECT_EQ(query.output_column(), c1);
 }
 
 TEST_F(rewrite_correlated_subquery_test, distinct) {
@@ -1581,7 +1812,7 @@ TEST_F(rewrite_correlated_subquery_test, union_left) {
     /*
      * () -- project[c0:=v0p]:j0 -\
      *                             +- union:r2 => c2
-     *   () -- project[c0:=1]:j0 -/
+     *   () -- project[c0:=1]:j1 -/
      */
     ASSERT_EQ(query.query_graph().size(), 3);
     ASSERT_TRUE(query.query_graph().contains(r2));

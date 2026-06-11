@@ -46,6 +46,7 @@ add_library(yugawara
     yugawara/binding/table_info.cpp
     yugawara/binding/extract.cpp
     yugawara/binding/factory.cpp
+    yugawara/binding/aggregate_function_utils.cpp
 
     # variable binding
     yugawara/variable/declaration.cpp

@@ -20,6 +20,7 @@
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/binding/aggregate_function_utils.h>
 
 #include <yugawara/extension/scalar/extension_id.h>
 #include <yugawara/extension/scalar/subquery.h>
@@ -55,7 +56,8 @@ public:
     inspector_task(inspector_task prototype, relation::expression& target) noexcept: // NOLINT
         target_ { target },
         required_ { prototype.required_ },
-        saw_parameters_ { std::move(prototype.saw_parameters_) },
+        saw_parameters_ { prototype.saw_parameters_ },
+        saw_parameters_in_aggregate_ { prototype.saw_parameters_in_aggregate_ },
         parent_task_ { std::move(prototype.parent_task_) },
         branch_ { prototype.branch_ }
     {}
@@ -80,13 +82,15 @@ public:
     }
 
     [[nodiscard]] bool has_parameter_access() const noexcept {
-        return !saw_parameters_.empty();
+        return saw_parameters_ || saw_parameters_in_aggregate_;
     }
 
-    void saw_parameter(descriptor::variable& parameter) {
-        if (!saw_parameters_.contains(parameter)) {
-            saw_parameters_.emplace(parameter);
-        }
+    [[nodiscard]] bool& saw_parameters() noexcept {
+        return saw_parameters_;
+    }
+
+    [[nodiscard]] bool& saw_parameters_in_aggregate() noexcept {
+        return saw_parameters_in_aggregate_;
     }
 
     [[nodiscard]] std::shared_ptr<inspector_task> parent_task() noexcept {
@@ -144,7 +148,8 @@ public:
 private:
     relation::expression& target_;
     bool required_ {};
-    ::tsl::hopscotch_set<::takatori::descriptor::variable> saw_parameters_ {};
+    bool saw_parameters_ { false };
+    bool saw_parameters_in_aggregate_ { false };
     std::weak_ptr<inspector_task> parent_task_ {};
 
     static constexpr std::size_t child_tasks_size = 2;
@@ -334,10 +339,16 @@ public:
 
     void operator()(relation::intermediate::aggregate& expr, inspector_task& task) {
         if (expr.group_keys().empty()) {
-            report(diagnostic_code_type::unsupported_feature, expr,
-                    "aggregation without GROUP BY in correlated subquery is not supported");
-            return;
+            for (auto&& column : expr.columns()) {
+                auto default_kind = binding::default_kind_of(column.function());
+                if (default_kind == binding::aggregate_function_default_kind::unknown) {
+                    report(diagnostic_code_type::unsupported_feature, expr,
+                            "aggregation without GROUP BY in correlated subquery is not supported");
+                    return;
+                }
+            }
         }
+        auto saw_parameters = std::exchange(task.saw_parameters(), false);
         for (auto&& key : expr.group_keys()) {
             saw_variable(task, expr, key);
         }
@@ -346,7 +357,13 @@ public:
                 saw_variable(task, expr, argument);
             }
         }
-        schedule_next(std::move(task), expr.input());
+        task.saw_parameters_in_aggregate() = std::exchange(task.saw_parameters(), saw_parameters);
+        if (expr.group_keys().empty()) {
+            // split task for scalar aggregation, because this may requires upstream input of correlated columns
+            schedule_split(std::move(task), expr.input());
+        } else {
+            schedule_next(std::move(task), expr.input());
+        }
     }
 
     void operator()(relation::intermediate::distinct& expr, inspector_task& task) {
@@ -488,6 +505,9 @@ private:
 
     template<class Expr>
     void saw_variable(inspector_task& task, Expr const& expr, ::takatori::descriptor::variable& variable) {
+        if (task.saw_parameters()) {
+            return;
+        }
         if (!parameters_.contains(variable)) {
             return;
         }
@@ -495,7 +515,7 @@ private:
             report(diagnostic_code_type::unsupported_feature, expr, "scan parameter cannot contain correlated columns");
             return;
         }
-        task.saw_parameter(variable);
+        task.saw_parameters() = true;
     }
 
     optional_ptr<relation::expression> upstream(relation::expression::input_port_type& input) {
@@ -516,6 +536,19 @@ private:
         if (auto next = upstream(input)) {
             work_list_.emplace_back(std::move(task), *next);
         }
+    }
+
+    void schedule_split(inspector_task task, relation::expression::input_port_type& input) {
+        if (auto next = upstream(input)) {
+            schedule_split(std::move(task), *next);
+        }
+    }
+
+    void schedule_split(inspector_task task, relation::expression& next) {
+        auto required = task.required();
+        auto parent = std::make_shared<inspector_task>(std::move(task));
+        all_tasks_.emplace_back(parent);
+        work_list_.emplace_back(std::move(parent), next, 0, required);
     }
 
     void schedule_split(
@@ -590,6 +623,18 @@ public:
             case join_kind::full_outer:
                 // keep both
                 break;
+        }
+    }
+
+    void operator()(relation::intermediate::aggregate const& expr, inspector_task& task) {
+        // only for scalar aggregation
+        BOOST_ASSERT(expr.group_keys().empty());
+        (void) expr;
+
+        // NOTE: this may become right-term of left outer join,
+        //       so we can prune the upstream except if aggregate itself contains parameters.
+        if (!task.saw_parameters_in_aggregate()) {
+            prune(task, 0);
         }
     }
 
@@ -754,7 +799,7 @@ public:
          *        +-- join --*
          *   () -/
          */
-        process_input_operator(expr, context);
+        process_source_operator(expr, context);
     }
 
     void operator()(relation::scan& expr, rewriter_context& context) {
@@ -768,21 +813,21 @@ public:
          *        +-- join --*
          *   () -/
          */
-        process_input_operator(expr, context);
+        process_source_operator(expr, context);
     }
 
     template<class Expr>
-    void process_input_operator(Expr& expr, rewriter_context& context) {
+    void process_source_operator(Expr& expr, rewriter_context& context) {
         auto&& graph = expr.owner();
         auto&& join = graph.template emplace<relation::intermediate::join>(relation::join_kind::inner);
         if (auto downstream = expr.output().reconnect_to(join.right())) {
             join.output().connect_to(*downstream);
         }
-        auto input_mappings = prepare_input_context(context);
+        auto input_mappings = prepare_source_context(context);
         context.upstream_input().emplace(join.left(), std::move(input_mappings));
     }
 
-     std::vector<relation::details::mapping_element> prepare_input_context(rewriter_context& context) {
+     std::vector<relation::details::mapping_element> prepare_source_context(rewriter_context& context) {
         auto&& context_mappings = context.mappings();
         context_mappings.reserve(parameters_.size());
         auto&& input_mappings = std::vector<relation::details::mapping_element>();
@@ -891,7 +936,7 @@ public:
         }
         graph.erase(expr);
 
-        auto input_mappings = prepare_input_context(context);
+        auto input_mappings = prepare_source_context(context);
         // process created 'project' operator.
         operator()(project, context);
 
@@ -945,7 +990,100 @@ public:
         context.mappings() = upstream_context->mappings();
     }
 
-    void operator()(relation::intermediate::aggregate& expr, rewriter_context const& context) {
+    void operator()(relation::intermediate::aggregate& expr, rewriter_context& context) {
+        if (expr.group_keys().empty()) {
+            process_scalar_aggregation(expr, context);
+        } else {
+            process_group_aggregation(expr, context);
+        }
+    }
+
+    void process_scalar_aggregation(relation::intermediate::aggregate& expr, rewriter_context& context) {
+        BOOST_ASSERT(context.empty());
+        auto&& upstream_context = find_upstream_context(context, 0);
+        if (!upstream_context) {
+            // no upstream context to require correlated columns, so we treat this as source operator like `scan`.
+            BOOST_ASSERT(!context.task()->saw_parameters_in_aggregate());
+            process_source_operator(expr, context);
+            return;
+        }
+
+        /*
+         *                      () -[L]-\
+         *                               join[left, on=<corr>] -- project[coalesce] --*
+         * (upstream) -- aggregate -[R]-/
+         */
+        auto&& graph = expr.owner();
+
+        // promote scalar aggregation to group aggregation using correlated columns
+        process_group_aggregation(expr, *upstream_context);
+
+        // escape aggregate output if it returns other than null by default
+        std::vector<relation::project::column> project_columns {};
+        project_columns.reserve(expr.columns().size());
+        for (auto&& aggregate_column : expr.columns()) {
+            auto default_kind = binding::default_kind_of(aggregate_column.function());
+            BOOST_ASSERT(default_kind != binding::aggregate_function_default_kind::unknown);
+            if (default_kind == binding::aggregate_function_default_kind::null) {
+                continue;
+            }
+            auto origin = aggregate_column.destination();
+            auto temporal = binding::factory {}.stream_variable(origin);
+            aggregate_column.destination() = temporal;
+
+            ::takatori::util::reference_vector<::takatori::scalar::expression> alternatives {};
+            alternatives.reserve(2);
+            alternatives.emplace_back<scalar::variable_reference>(std::move(temporal));
+            alternatives.push_back(binding::default_value_of(aggregate_column.function()));
+            project_columns.emplace_back(
+                    std::move(origin),
+                    std::make_unique<scalar::coalesce>(std::move(alternatives)));
+        }
+
+        auto&& downstream_mappings = prepare_source_context(context);
+
+        // build join condition
+        std::unique_ptr<scalar::expression> join_condition {};
+        for (auto&& parameter : parameters_) {
+            auto left_parameter = context.get(parameter);
+            auto right_parameter = upstream_context->get(parameter);
+            // L.parameter <=> R.parameter
+            auto term = std::make_unique<scalar::compare>(
+                    scalar::comparison_operator::is_not_distinct_from,
+                    std::make_unique<scalar::variable_reference>(std::move(left_parameter)),
+                    std::make_unique<scalar::variable_reference>(std::move(right_parameter)));
+            if (join_condition) {
+                join_condition = std::make_unique<scalar::binary>(
+                        scalar::binary_operator::conditional_and,
+                        std::move(join_condition),
+                        std::move(term));
+            } else {
+                join_condition = std::move(term);
+            }
+        }
+
+        auto&& join = graph.emplace<relation::intermediate::join>(
+                relation::join_kind::left_outer,
+                std::move(join_condition));
+
+        auto downstream_input = expr.output().reconnect_to(join.right());
+
+        if (!project_columns.empty()) {
+            auto&& project = graph.emplace<relation::project>(std::move(project_columns));
+            join.output().connect_to(project.input());
+            if (downstream_input) {
+                project.output().connect_to(*downstream_input);
+            }
+        } else {
+            if (downstream_input) {
+                join.output().connect_to(*downstream_input);
+            }
+        }
+
+        context.upstream_input().emplace(join.left(), std::move(downstream_mappings));
+    }
+
+    void process_group_aggregation(relation::intermediate::aggregate& expr, rewriter_context const& context) {
         BOOST_ASSERT(!context.empty());
 
         auto&& group_keys = expr.group_keys();
