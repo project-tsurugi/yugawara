@@ -1265,7 +1265,7 @@ TEST_F(rewrite_correlated_subquery_test, join_relation_full_outer) {
     EXPECT_TRUE(contains(result.diagnostics(), code_type::unsupported_feature)) << print_support(result.diagnostics());
 }
 
-TEST_F(rewrite_correlated_subquery_test, aggregate) {
+TEST_F(rewrite_correlated_subquery_test, aggregate_grouped) {
     /*
      * subquery: (v0a) -> (v0p)
      *   values[c0, c1]:r0 -- aggregate[by:c0, c2:=f(c1, v0p)]:r1 => c2
@@ -1277,10 +1277,10 @@ TEST_F(rewrite_correlated_subquery_test, aggregate) {
     auto c1 = bindings.stream_variable("c1");
     auto&& r0 = g.insert(relation::values {
             {
-                    c0,
+                    c0, c1,
             },
             {
-                    { constant() },
+                    { constant(0), constant(1) },
             },
     });
 
@@ -1345,6 +1345,58 @@ TEST_F(rewrite_correlated_subquery_test, aggregate) {
     EXPECT_EQ(r1.columns()[0].arguments()[1], v0pm);
 
     EXPECT_EQ(query.output_column(), c2);
+}
+
+TEST_F(rewrite_correlated_subquery_test, aggregate_scalar) {
+    /*
+     * subquery: (v0a) -> (v0p)
+     *   values[c0]:r0 -- aggregate[c1:=f(c0, v0p)]:r1 => c1
+     */
+    auto v0a = bindings.stream_variable("v0a");
+    auto v0p = bindings.frame_variable("v0p");
+    relation::graph_type g;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& r0 = g.insert(relation::values {
+            {
+                    c0,
+            },
+            {
+                    { constant() },
+            },
+    });
+
+    auto c1 = bindings.stream_variable("c1");
+    auto&& sf = bindings.aggregate_function({
+            aggregate::declaration::minimum_user_function_id + 1,
+            "sf",
+            ::takatori::type::int4 {},
+            {
+                    ::takatori::type::int4 {},
+                    ::takatori::type::int4 {},
+            },
+    });
+    auto&& r1 = g.insert(relation::intermediate::aggregate {
+            {},
+            {
+                    {
+                            sf,
+                            { c0, v0p },
+                            c1,
+                    },
+            },
+    });
+    r0.output() >> r1.input();
+
+    extension::scalar::subquery query {
+            std::move(g),
+            {
+                    { v0a, v0p },
+            },
+            c1,
+    };
+
+    auto result = rewrite_correlated_subquery(query);
+    ASSERT_TRUE(contains(result.diagnostics(), code_type::unsupported_feature)) << print_support(result.diagnostics());
 }
 
 TEST_F(rewrite_correlated_subquery_test, distinct) {

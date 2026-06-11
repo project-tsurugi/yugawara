@@ -333,6 +333,11 @@ public:
     }
 
     void operator()(relation::intermediate::aggregate& expr, inspector_task& task) {
+        if (expr.group_keys().empty()) {
+            report(diagnostic_code_type::unsupported_feature, expr,
+                    "aggregation without GROUP BY in correlated subquery is not supported");
+            return;
+        }
         for (auto&& key : expr.group_keys()) {
             saw_variable(task, expr, key);
         }
