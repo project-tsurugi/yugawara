@@ -28,6 +28,7 @@ namespace {
 bool is_definable(::takatori::descriptor::variable const& v) {
     static constexpr binding::variable_info_kind_set definables {
             binding::variable_info_kind::stream_variable,
+            binding::variable_info_kind::frame_variable,
             binding::variable_info_kind::local_variable,
     };
     return definables.contains(binding::kind_of(v));

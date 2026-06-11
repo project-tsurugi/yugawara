@@ -206,6 +206,7 @@ public:
     void operator()(scalar::variable_reference const& expr) {
         auto kind = binding::kind_of(expr.variable());
         if (kind == binding::variable_info_kind::stream_variable
+                || kind == binding::variable_info_kind::frame_variable
                 || kind == binding::variable_info_kind::local_variable) {
             used_.emplace(expr.variable());
         }

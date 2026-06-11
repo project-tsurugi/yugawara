@@ -247,8 +247,9 @@ private:
         auto&& var_ref = unsafe_downcast<scalar::variable_reference>(expr);
         auto var_kind = binding::kind_of(var_ref.variable());
 
-        // always extract stream variables
-        if (var_kind == binding::variable_info_kind::stream_variable) {
+        // always extract stream/frame variables
+        if (var_kind == binding::variable_info_kind::stream_variable
+                || var_kind == binding::variable_info_kind::frame_variable) {
             return var_ref.variable();
         }
         // optionally extract external variables

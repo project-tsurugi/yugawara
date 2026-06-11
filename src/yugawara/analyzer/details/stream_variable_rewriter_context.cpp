@@ -74,14 +74,10 @@ void stream_variable_rewriter_context::force_rewrite_define(takatori::descriptor
     }
 
     // not found, create new entry
-    std::string_view label {};
-    if (auto info = binding::extract_if<binding::variable_info_kind::stream_variable>(variable)) {
-        label = info->label();
-    }
     auto [it, success] = mappings_.emplace(
             variable,
             entry {
-                    binding::factory {}.stream_variable(label),
+                    binding::factory {}.stream_variable(variable),
                     status_t::defined, // make it defined immediately
             });
     (void) success;
@@ -93,10 +89,10 @@ void stream_variable_rewriter_context::rewrite_use(::takatori::descriptor::varia
     using kind = binding::variable_info_kind;
     switch (binding::kind_of(variable)) {
         case kind::external_variable:
-        case kind::frame_variable:
             break;
 
-        case kind::stream_variable: {
+        case kind::stream_variable:
+        case kind::frame_variable: {
             if (auto it = mappings_.find(variable); it != mappings_.end()) {
                 auto&& e = it->second;
                 switch (e.status) {
@@ -115,12 +111,11 @@ void stream_variable_rewriter_context::rewrite_use(::takatori::descriptor::varia
                 }
                 break;
             }
-            auto&& info = binding::extract<kind::stream_variable>(variable);
             binding::factory f {};
             auto [it, success] = mappings_.emplace(
                     variable,
                     entry {
-                            f.stream_variable(info.label()),
+                            f.stream_variable(variable),
                             status_t::undefined,
                     });
             (void) success;

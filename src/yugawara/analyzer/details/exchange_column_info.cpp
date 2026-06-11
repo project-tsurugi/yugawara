@@ -1,5 +1,7 @@
 #include "exchange_column_info.h"
 
+#include <takatori/util/exception.h>
+
 #include <yugawara/binding/factory.h>
 #include <yugawara/binding/extract.h>
 
@@ -8,6 +10,8 @@
 namespace yugawara::analyzer::details {
 
 namespace descriptor = ::takatori::descriptor;
+
+using ::takatori::util::throw_exception;
 
 exchange_column_info::size_type exchange_column_info::count() const noexcept {
     return entries_.size();
@@ -49,9 +53,8 @@ descriptor::variable const& exchange_column_info::allocate(descriptor::variable 
             return *v;
         }
     }
-    auto&& info = binding::extract<binding::variable_info_kind::stream_variable>(variable);
     binding::factory f {};
-    auto&& entry = entries_.emplace_back(variable, f.exchange_column(info.label()));
+    auto&& entry = entries_.emplace_back(variable, f.exchange_column(variable));
     auto [it, success] = index_.emplace(variable, entries_.size() - 1);
     (void) it;
     (void) success; // may be false if the variable is already bound
@@ -61,7 +64,10 @@ descriptor::variable const& exchange_column_info::allocate(descriptor::variable 
 void exchange_column_info::bind(
         descriptor::variable variable,
         descriptor::variable replacement) {
-    (void) binding::extract<binding::variable_info_kind::stream_variable>(variable);
+    auto kind = binding::kind_of(variable);
+    if (kind != binding::variable_info_kind::stream_variable && kind != binding::variable_info_kind::frame_variable) {
+        throw_exception(std::logic_error { "exchange column source must be a stream variable or frame variable" });
+    }
     (void) binding::extract<binding::variable_info_kind::exchange_column>(replacement);
     entries_.emplace_back(variable, std::move(replacement));
     auto [it, success] = index_.emplace(std::move(variable), entries_.size() - 1);

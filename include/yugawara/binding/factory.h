@@ -83,6 +83,13 @@ public:
     [[nodiscard]] ::takatori::descriptor::variable exchange_column(std::string_view label = {});
 
     /**
+     * @brief returns a variable descriptor for a new exchange column from other variable.
+     * @param declaration the original declaration
+     * @return the created variable descriptor
+     */
+    [[nodiscard]] ::takatori::descriptor::variable exchange_column(::takatori::descriptor::variable const& declaration);
+
+    /**
      * @brief creates a new external variable descriptor.
      * @param declaration the original declaration
      */
@@ -101,6 +108,13 @@ public:
      * @return the created variable descriptor
      */
     [[nodiscard]] ::takatori::descriptor::variable frame_variable(std::string_view label = {});
+
+    /**
+     * @brief returns a variable descriptor for new frame variable from other variable.
+     * @param declaration the original variable
+     * @return the created variable descriptor
+     */
+    [[nodiscard]] ::takatori::descriptor::variable frame_variable(::takatori::descriptor::variable const& declaration);
 
     /**
      * @brief returns a variable descriptor for a new stream column.

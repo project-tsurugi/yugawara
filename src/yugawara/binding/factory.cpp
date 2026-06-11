@@ -56,6 +56,11 @@ takatori::descriptor::variable factory::exchange_column(std::string_view label) 
     return create<variable_info_kind::exchange_column>(label);
 }
 
+takatori::descriptor::variable factory::exchange_column(takatori::descriptor::variable const& declaration) {
+    auto&& info = unwrap(declaration);
+    return exchange_column(info.label());
+}
+
 ::takatori::descriptor::variable factory::external_variable(std::shared_ptr<variable::declaration const> declaration) {
     return wrap(std::make_shared<external_variable_info>(std::move(declaration)));
 }
@@ -66,6 +71,11 @@ takatori::descriptor::variable factory::exchange_column(std::string_view label) 
 
 ::takatori::descriptor::variable factory::frame_variable(std::string_view label) {
     return create<variable_info_kind::frame_variable>(label);
+}
+
+takatori::descriptor::variable factory::frame_variable(takatori::descriptor::variable const& declaration) {
+    auto&& info = unwrap(declaration);
+    return frame_variable(info.label());
 }
 
 ::takatori::descriptor::variable factory::stream_variable(std::string_view label) {
