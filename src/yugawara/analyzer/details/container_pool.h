@@ -51,7 +51,7 @@ public:
         if (entries_.empty()) {
             return {};
         }
-        auto result = entries_.back();
+        auto result = std::move(entries_.back());
         entries_.pop_back();
         return result;
     }
