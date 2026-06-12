@@ -395,8 +395,7 @@ public:
         binding::factory factory;
         std::unordered_multimap<descriptor::variable::reference_type, descriptor::variable> replace {};
         for (auto&& key : step.group_keys()) {
-            auto&& source = binding::extract<binding::variable_info_kind::exchange_column>(key);
-            auto replacement = factory.exchange_column(source.label());
+            auto replacement = factory.exchange_column(key);
             replace.emplace(key, replacement);
             key = std::move(replacement);
         }
