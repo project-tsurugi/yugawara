@@ -258,6 +258,7 @@ private:
 struct liveness {
     block const* const define {};
     block const* use {};
+    bool sticky {};
 };
 
 // FIXME: using hopscotch_map is prefer, but some compilation errors will occur around polymorphic_allocator
@@ -332,7 +333,7 @@ private:
             // kill used blocks
             for (auto it = lvs.begin(); it != lvs.end();) {
                 auto&& lv = it->second;
-                if (lv.use == bp) { // last use = self
+                if (!lv.sticky && lv.use == bp) { // last use = self
                     // NOTE: we don't record as kill because this is on tail of graph (trivial kill)
                     it = lvs.erase(it);
                 } else {
@@ -348,7 +349,7 @@ private:
             auto&& succ_info = get_info(succp);
             for (auto it = lvs.begin(); it != lvs.end();) {
                 auto&& lv = it->second;
-                if (lv.use == bp) { // last use = self
+                if (!lv.sticky && lv.use == bp) { // last use = self
                     succ_info.kill().emplace(it->first);
                     it = lvs.erase(it);
                 } else {
@@ -360,36 +361,20 @@ private:
             branches.reserve(succs.size());
             for (auto&& succ : succs) {
                 auto const* succp = std::addressof(succ);
-                process(succp, branches.emplace_back(lvs));
-            }
-            still_live.reserve(succs.size());
-            for (auto it = lvs.begin(); it != lvs.end();) {
-                still_live.clear();
-                auto&& v = it->first;
-                std::size_t index = 0;
-                for (auto&& lvs_branch : branches) {
-                    if (lvs_branch.find(v) != lvs_branch.end()) {
-                        // liveness entry still exists
-                        still_live.emplace_back(std::addressof(succs[index]));
-                    }
-                    ++index;
+                // mark all defined variables as "sticky" to avoid killing in branches
+                auto&& succ_lvs = branches.emplace_back(lvs);
+                for (auto&& [variable, liveness]: succ_lvs) {
+                    (void) variable;
+                    liveness.sticky = true;
                 }
-                // used in all branches
-                if (still_live.empty()) {
-                    // just remove the entry (already killed in branch)
-                    it = lvs.erase(it);
-                } else if (still_live.size() < branches.size()) {
-                    // kill the first block of branches, ...
-                    for (auto const* bp_branch : still_live) {
-                        auto&& info_branch = get_info(bp_branch);
-                        info_branch.kill().emplace(v);
+                process(succp, succ_lvs);
+            }
+            // remove entry if the variable is used in the branch
+            for (auto&& succ_lvs : branches) {
+                for (auto&& [variable, liveness]: succ_lvs) {
+                    if (auto iter = lvs.find(variable); iter != lvs.end()) {
+                        lvs.erase(iter);
                     }
-
-                    // and remove the entry
-                    it = lvs.erase(it);
-                } else {
-                    // no branches use the variable
-                    ++it;
                 }
             }
         }
@@ -397,7 +382,7 @@ private:
         // kill defined (but not used) variables
         for (auto it = lvs.begin(); it != lvs.end();) {
             auto&& [v, lv] = *it;
-            if (lv.define == bp) {
+            if (!lv.sticky && lv.define == bp) {
                 BOOST_ASSERT(lv.use == nullptr); // NOLINT
                 info.kill().emplace(v);
                 it = lvs.erase(it);

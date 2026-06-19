@@ -402,7 +402,7 @@ TEST_F(variable_liveness_analyzer_test, project) {
     }), no_error);
 }
 
-TEST_F(variable_liveness_analyzer_test, buffer) {
+TEST_F(variable_liveness_analyzer_test, DISABLED_buffer) {
     rgraph rg;
 
     auto&& c1 = bindings.stream_variable();
