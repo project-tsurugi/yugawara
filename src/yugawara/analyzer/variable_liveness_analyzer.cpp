@@ -1,5 +1,7 @@
 #include <yugawara/analyzer/variable_liveness_analyzer.h>
 
+#include <tsl/hopscotch_map.h>
+
 #include <takatori/scalar/dispatch.h>
 #include <takatori/scalar/walk.h>
 
@@ -258,11 +260,10 @@ private:
 struct liveness {
     block const* const define {};
     block const* use {};
-    bool sticky {};
+    bool inherited {};
 };
 
-// FIXME: using hopscotch_map is prefer, but some compilation errors will occur around polymorphic_allocator
-using liveness_map = std::unordered_map<
+using liveness_map = tsl::hopscotch_map<
         std::reference_wrapper<::takatori::descriptor::variable const>,
         liveness,
         std::hash<::takatori::descriptor::variable>,
@@ -294,17 +295,14 @@ public:
 private:
     block_info_map& blocks_;
 
-    // find use in branches for each defined variable
-    std::vector<block const*> still_live {};
-
     // NOLINTNEXTLINE(readability-function-cognitive-complexity)
     void process(block const* bp, liveness_map& lvs) {
         auto&& info = get_info(bp);
 
         // collect all defined variables
         for (auto&& v : info.define()) {
-            auto [it, success] = lvs.try_emplace(v, liveness { bp }); // define here
-            (void) it;
+            auto [iter, success] = lvs.try_emplace(v, liveness { bp }); // define here
+            (void) iter;
             if (!success) {
                 throw_exception(std::domain_error(string_builder {}
                         << "multiple definition: " << v
@@ -314,14 +312,14 @@ private:
         }
 
         // marks all used blocks
-        for (auto&& v : info.use()) {
-            if (is_definable(v)) {
-                if (auto it = lvs.find(v); it != lvs.end()) {
-                    auto&& lv = it->second;
-                    lv.use = bp;
+        for (auto&& variable : info.use()) {
+            if (is_definable(variable)) {
+                if (auto it = lvs.find(variable); it != lvs.end()) {
+                    auto&& liveness = it.value();
+                    liveness.use = bp;
                 } else {
                     throw_exception(std::domain_error(string_builder {}
-                            << "undefined variable: " << v
+                            << "undefined variable: " << variable
                             << " in block " << bp->front()
                             << string_builder::to_string));
                 }
@@ -330,64 +328,65 @@ private:
 
         auto succs = bp->downstreams();
         if (succs.empty()) {
-            // kill used blocks
-            for (auto it = lvs.begin(); it != lvs.end();) {
-                auto&& lv = it->second;
-                if (!lv.sticky && lv.use == bp) { // last use = self
-                    // NOTE: we don't record as kill because this is on tail of graph (trivial kill)
-                    it = lvs.erase(it);
+            // kill each variable if it is not used in this *tail* block
+            for (auto iter = lvs.begin(); iter != lvs.end();) {
+                auto&& variable = iter.key();
+                auto&& liveness = iter.value();
+                if (liveness.use != bp && !liveness.inherited) {
+                    info.kill().emplace(variable);
+                    // remove killed entry
+                    iter = lvs.erase(iter);
                 } else {
-                    ++it;
-                }
-            }
-        } else if (succs.size() == 1) {
-            // NOTE: continue to the succeeding block
-            auto const* succp = std::addressof(succs[0]);
-            process(succp, lvs);
-
-            // kill used blocks
-            auto&& succ_info = get_info(succp);
-            for (auto it = lvs.begin(); it != lvs.end();) {
-                auto&& lv = it->second;
-                if (!lv.sticky && lv.use == bp) { // last use = self
-                    succ_info.kill().emplace(it->first);
-                    it = lvs.erase(it);
-                } else {
-                    ++it;
+                    ++iter;
                 }
             }
         } else {
+            // block may end with buffer operator (succs.size() >= 2).
+            // NOTE: in current implementation, we never kill variables declared before this block including this.
             std::vector<liveness_map> branches {};
             branches.reserve(succs.size());
             for (auto&& succ : succs) {
                 auto const* succp = std::addressof(succ);
-                // mark all defined variables as "sticky" to avoid killing in branches
+                // mark all defined variables as "inherited" to avoid killing in branches
                 auto&& succ_lvs = branches.emplace_back(lvs);
-                for (auto&& [variable, liveness]: succ_lvs) {
-                    (void) variable;
-                    liveness.sticky = true;
+                for (auto iter = succ_lvs.begin(); iter != succ_lvs.end(); ++iter) {
+                    auto&& liveness = iter.value();
+                    liveness.use = nullptr;
+                    liveness.inherited = true;
                 }
                 process(succp, succ_lvs);
             }
-            // remove entry if the variable is used in the branch
+            // inherit use info from branches
             for (auto&& succ_lvs : branches) {
-                for (auto&& [variable, liveness]: succ_lvs) {
+                for (auto succ_lvs_iter = succ_lvs.begin(); succ_lvs_iter != succ_lvs.end(); ++succ_lvs_iter) {
+                    auto&& variable = succ_lvs_iter.key();
+                    auto&& succ_liveness = succ_lvs_iter.value();
+                    // NOTE: may mark kill if the inherited variable is not used in individual branches
+                    if (!succ_liveness.inherited || succ_liveness.use == nullptr) {
+                        continue;
+                    }
                     if (auto iter = lvs.find(variable); iter != lvs.end()) {
-                        lvs.erase(iter);
+                        auto&& decl_liveness = iter.value();
+                        if (decl_liveness.use != succ_liveness.use) {
+                            decl_liveness.use = succ_liveness.use;
+                        }
                     }
                 }
             }
         }
 
-        // kill defined (but not used) variables
-        for (auto it = lvs.begin(); it != lvs.end();) {
-            auto&& [v, lv] = *it;
-            if (!lv.sticky && lv.define == bp) {
-                BOOST_ASSERT(lv.use == nullptr); // NOLINT
-                info.kill().emplace(v);
-                it = lvs.erase(it);
+        // remove liveness map entries defined in this block
+        for (auto iter = lvs.begin(); iter != lvs.end();) {
+            auto&& variable = iter.key();
+            auto&& liveness = iter.value();
+            if (liveness.define == bp) {
+                // kill variable if no one use this variable
+                if (liveness.use == nullptr) {
+                    info.kill().emplace(variable);
+                }
+                iter = lvs.erase(iter);
             } else {
-                ++it;
+                ++iter;
             }
         }
     }

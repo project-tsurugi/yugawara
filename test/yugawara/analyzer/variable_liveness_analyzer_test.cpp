@@ -27,7 +27,12 @@
 
 #include <yugawara/testing/error_set.h>
 
+#include <yugawara/testing/utils.h>
+
 namespace yugawara::analyzer {
+
+// import test utils
+using namespace ::yugawara::testing;
 
 using testing::error_set;
 
@@ -66,19 +71,19 @@ public:
 
     binding::factory bindings;
     ::takatori::plan::forward f1 {
-            bindings.exchange_column(),
-            bindings.exchange_column(),
-            bindings.exchange_column(),
+            bindings.exchange_column("f1-1"),
+            bindings.exchange_column("f1-2"),
+            bindings.exchange_column("f1-3"),
     };
     ::takatori::plan::forward f2 {
-            bindings.exchange_column(),
-            bindings.exchange_column(),
-            bindings.exchange_column(),
+            bindings.exchange_column("f2-1"),
+            bindings.exchange_column("f2-2"),
+            bindings.exchange_column("f2-3"),
     };
     ::takatori::plan::forward f3 {
-            bindings.exchange_column(),
-            bindings.exchange_column(),
-            bindings.exchange_column(),
+            bindings.exchange_column("f3-1"),
+            bindings.exchange_column("f3-2"),
+            bindings.exchange_column("f3-3"),
     };
 };
 
@@ -402,89 +407,445 @@ TEST_F(variable_liveness_analyzer_test, project) {
     }), no_error);
 }
 
-TEST_F(variable_liveness_analyzer_test, DISABLED_buffer) {
+TEST_F(variable_liveness_analyzer_test, buffer_decl_root_use_self) {
+    /*
+     * b1[+c@c]--+-- b2[]
+     *           |
+     *           +-- b3[]
+     */
     rgraph rg;
 
-    auto&& c1 = bindings.stream_variable();
-    auto&& c2 = bindings.stream_variable();
-    auto&& c3 = bindings.stream_variable();
-    auto&& r1 = rg.insert(take {
+    auto&& c = bindings.stream_variable("c");
+    auto&& x = bindings.stream_variable("x");
+    auto&& r11 = rg.insert(take {
             bindings.exchange(f1),
             {
-                    { f1.columns()[0], c1 },
-                    { f1.columns()[1], c2 },
-                    { f1.columns()[2], c3 },
+                    { f1.columns()[0], x },
+                    { f1.columns()[1], c },
             },
     });
-    auto&& r2 = rg.insert(buffer { 2 });
-    auto&& r3 = rg.insert(offer {
+    auto&& r12 = rg.insert(relation::filter {
+            varref { c }
+    });
+    auto&& r13 = rg.insert(buffer { 2 });
+    auto&& r21 = rg.insert(offer {
             bindings.exchange(f2),
             {
-                    { c1, f2.columns()[0] },
-                    { c1, f2.columns()[1] },
-                    { c1, f2.columns()[2] },
+                    { x, f2.columns()[0] },
             },
     });
-    auto&& r4 = rg.insert(offer {
+    auto&& r31 = rg.insert(offer {
             bindings.exchange(f3),
             {
-                    { c2, f3.columns()[0] },
-                    { c2, f3.columns()[1] },
-                    { c2, f3.columns()[2] },
+                    { x, f3.columns()[0] },
             },
     });
-    r1.output() >> r2.input();
-    r2.output_ports()[0] >> r3.input();
-    r2.output_ports()[1] >> r4.input();
+    r11.output() >> r12.input();
+    r12.output() >> r13.input();
+    r13.output_ports()[0] >> r21.input();
+    r13.output_ports()[1] >> r31.input();
 
     auto bg = block_builder::build(rg);
     variable_liveness_analyzer analyzer { bg };
 
     ASSERT_EQ(bg.size(), 3);
-    auto&& b0 = *find_unique_head(bg); // r1 .. r2
-    auto&& b1 = b0.downstream(r2.output_ports()[0]); // r3
-    auto&& b2 = b0.downstream(r2.output_ports()[1]); // r4
+    auto&& b1 = *find_unique_head(bg); // r1x
 
-    auto&& n0 = analyzer.inspect(b0);
-    EXPECT_EQ(eq(n0.define(), {
-            c1,
-            c2,
-            c3,
-    }), no_error);
-
-    EXPECT_EQ(eq(n0.use(), {
-            f1.columns()[0],
-            f1.columns()[1],
-            f1.columns()[2],
-    }), no_error);
-
-    EXPECT_EQ(eq(n0.kill(), {
-            c3,
-    }), no_error);
+    ASSERT_EQ(b1.downstreams().size(), 2);
+    auto&& b2 = b1.downstreams()[0]; // r2x
+    auto&& b3 = b1.downstreams()[1]; // r3x
 
     auto&& n1 = analyzer.inspect(b1);
-    EXPECT_EQ(eq(n1.define(), {
-    }), no_error);
-
-    EXPECT_EQ(eq(n1.use(), {
-            c1,
-    }), no_error);
-
-    EXPECT_EQ(eq(n1.kill(), {
-            c2,
-    }), no_error);
+    EXPECT_EQ(eq(n1.define(), { c, x }), no_error);
+    EXPECT_EQ(eq(n1.use(), { c, f1.columns()[0], f1.columns()[1] }), no_error);
+    EXPECT_EQ(eq(n1.kill(), {}), no_error);;
 
     auto&& n2 = analyzer.inspect(b2);
-    EXPECT_EQ(eq(n2.define(), {
-    }), no_error);
+    EXPECT_EQ(eq(n2.define(), {}), no_error);
+    EXPECT_EQ(eq(n2.use(), { x }), no_error);
+    EXPECT_EQ(eq(n2.kill(), {}), no_error) << "don't kill 'c' because it is declared before branch";
 
-    EXPECT_EQ(eq(n2.use(), {
-            c2,
-    }), no_error);
+    auto&& n3 = analyzer.inspect(b3);
+    EXPECT_EQ(eq(n3.define(), {}), no_error);
+    EXPECT_EQ(eq(n3.use(), { x }), no_error);
+    EXPECT_EQ(eq(n3.kill(), {}), no_error) << "don't kill 'c' because it is declared before branch";
+}
 
-    EXPECT_EQ(eq(n2.kill(), {
-            c1,
-    }), no_error);
+TEST_F(variable_liveness_analyzer_test, buffer_decl_root_use_none) {
+    /*
+     * b1[+c]--+-- b2[]
+     *         |
+     *         +-- b3[]
+     */
+    rgraph rg;
+
+    auto&& c = bindings.stream_variable("c");
+    auto&& x = bindings.stream_variable("x");
+    auto&& r11 = rg.insert(take {
+            bindings.exchange(f1),
+            {
+                    { f1.columns()[0], x },
+                    { f1.columns()[1], c },
+            },
+    });
+    auto&& r12 = rg.insert(buffer { 2 });
+    auto&& r21 = rg.insert(offer {
+            bindings.exchange(f2),
+            {
+                    { x, f2.columns()[0] },
+            },
+    });
+    auto&& r31 = rg.insert(offer {
+            bindings.exchange(f3),
+            {
+                    { x, f3.columns()[0] },
+            },
+    });
+    r11.output() >> r12.input();
+    r12.output_ports()[0] >> r21.input();
+    r12.output_ports()[1] >> r31.input();
+
+    auto bg = block_builder::build(rg);
+    variable_liveness_analyzer analyzer { bg };
+
+    ASSERT_EQ(bg.size(), 3);
+    auto&& b1 = *find_unique_head(bg); // r1x
+
+    ASSERT_EQ(b1.downstreams().size(), 2);
+    auto&& b2 = b1.downstreams()[0]; // r2x
+    auto&& b3 = b1.downstreams()[1]; // r3x
+
+    auto&& n1 = analyzer.inspect(b1);
+    EXPECT_EQ(eq(n1.define(), { c, x }), no_error);
+    EXPECT_EQ(eq(n1.use(), { f1.columns()[0], f1.columns()[1] }), no_error);
+    EXPECT_EQ(eq(n1.kill(), { c }), no_error);
+
+    auto&& n2 = analyzer.inspect(b2);
+    EXPECT_EQ(eq(n2.define(), {}), no_error);
+    EXPECT_EQ(eq(n2.use(), { x }), no_error);
+    EXPECT_EQ(eq(n2.kill(), {}), no_error);
+
+    auto&& n3 = analyzer.inspect(b3);
+    EXPECT_EQ(eq(n3.define(), {}), no_error);
+    EXPECT_EQ(eq(n3.use(), { x }), no_error);
+    EXPECT_EQ(eq(n3.kill(), {}), no_error);
+}
+
+TEST_F(variable_liveness_analyzer_test, buffer_decl_root_use_left) {
+    /*
+     * b1[+c]--+-- b2[@c]
+     *         |
+     *         +-- b3[]
+     */
+    rgraph rg;
+
+    auto&& c = bindings.stream_variable("c");
+    auto&& x = bindings.stream_variable("x");
+    auto&& r11 = rg.insert(take {
+            bindings.exchange(f1),
+            {
+                    { f1.columns()[0], x },
+                    { f1.columns()[1], c },
+            },
+    });
+    auto&& r12 = rg.insert(buffer { 2 });
+    auto&& r21 = rg.insert(offer {
+            bindings.exchange(f2),
+            {
+                    { x, f2.columns()[0] },
+                    { c, f2.columns()[1] },
+            },
+    });
+    auto&& r31 = rg.insert(offer {
+            bindings.exchange(f3),
+            {
+                    { x, f3.columns()[0] },
+            },
+    });
+    r11.output() >> r12.input();
+    r12.output_ports()[0] >> r21.input();
+    r12.output_ports()[1] >> r31.input();
+
+    auto bg = block_builder::build(rg);
+    variable_liveness_analyzer analyzer { bg };
+
+    ASSERT_EQ(bg.size(), 3);
+    auto&& b1 = *find_unique_head(bg); // r1x
+
+    ASSERT_EQ(b1.downstreams().size(), 2);
+    auto&& b2 = b1.downstreams()[0]; // r2x
+    auto&& b3 = b1.downstreams()[1]; // r3x
+
+    auto&& n1 = analyzer.inspect(b1);
+    EXPECT_EQ(eq(n1.define(), { c, x }), no_error);
+    EXPECT_EQ(eq(n1.use(), { f1.columns()[0], f1.columns()[1] }), no_error);
+    EXPECT_EQ(eq(n1.kill(), {}), no_error);
+
+    auto&& n2 = analyzer.inspect(b2);
+    EXPECT_EQ(eq(n2.define(), {}), no_error);
+    EXPECT_EQ(eq(n2.use(), { x, c }), no_error);
+    EXPECT_EQ(eq(n2.kill(), {}), no_error);
+
+    auto&& n3 = analyzer.inspect(b3);
+    EXPECT_EQ(eq(n3.define(), {}), no_error);
+    EXPECT_EQ(eq(n3.use(), { x }), no_error);
+    EXPECT_EQ(eq(n3.kill(), {}), no_error);
+}
+
+TEST_F(variable_liveness_analyzer_test, buffer_decl_root_use_right) {
+    /*
+     * b1[+c]--+-- b2[]
+     *         |
+     *         +-- b3[@c]
+     */
+    rgraph rg;
+
+    auto&& c = bindings.stream_variable("c");
+    auto&& x = bindings.stream_variable("x");
+    auto&& r11 = rg.insert(take {
+            bindings.exchange(f1),
+            {
+                    { f1.columns()[0], x },
+                    { f1.columns()[1], c },
+            },
+    });
+    auto&& r12 = rg.insert(buffer { 2 });
+    auto&& r21 = rg.insert(offer {
+            bindings.exchange(f2),
+            {
+                    { x, f2.columns()[0] },
+            },
+    });
+    auto&& r31 = rg.insert(offer {
+            bindings.exchange(f3),
+            {
+                    { x, f3.columns()[0] },
+                    { c, f3.columns()[1] },
+            },
+    });
+    r11.output() >> r12.input();
+    r12.output_ports()[0] >> r21.input();
+    r12.output_ports()[1] >> r31.input();
+
+    auto bg = block_builder::build(rg);
+    variable_liveness_analyzer analyzer { bg };
+
+    ASSERT_EQ(bg.size(), 3);
+    auto&& b1 = *find_unique_head(bg); // r1x
+
+    ASSERT_EQ(b1.downstreams().size(), 2);
+    auto&& b2 = b1.downstreams()[0]; // r2x
+    auto&& b3 = b1.downstreams()[1]; // r3x
+
+    auto&& n1 = analyzer.inspect(b1);
+    EXPECT_EQ(eq(n1.define(), { c, x }), no_error);
+    EXPECT_EQ(eq(n1.use(), { f1.columns()[0], f1.columns()[1] }), no_error);
+    EXPECT_EQ(eq(n1.kill(), {}), no_error);
+
+    auto&& n2 = analyzer.inspect(b2);
+    EXPECT_EQ(eq(n2.define(), {}), no_error);
+    EXPECT_EQ(eq(n2.use(), { x }), no_error);
+    EXPECT_EQ(eq(n2.kill(), {}), no_error);
+
+    auto&& n3 = analyzer.inspect(b3);
+    EXPECT_EQ(eq(n3.define(), {}), no_error);
+    EXPECT_EQ(eq(n3.use(), { x, c }), no_error);
+    EXPECT_EQ(eq(n3.kill(), {}), no_error);
+}
+
+TEST_F(variable_liveness_analyzer_test, buffer_decl_root_use_both) {
+    /*
+     * b1[+c]--+-- b2[@c]
+     *         |
+     *         +-- b3[@c]
+     */
+    rgraph rg;
+
+    auto&& c = bindings.stream_variable("c");
+    auto&& x = bindings.stream_variable("x");
+    auto&& r11 = rg.insert(take {
+            bindings.exchange(f1),
+            {
+                    { f1.columns()[0], x },
+                    { f1.columns()[1], c },
+            },
+    });
+    auto&& r12 = rg.insert(buffer { 2 });
+    auto&& r21 = rg.insert(offer {
+            bindings.exchange(f2),
+            {
+                    { x, f2.columns()[0] },
+                    { c, f2.columns()[1] },
+            },
+    });
+    auto&& r31 = rg.insert(offer {
+            bindings.exchange(f3),
+            {
+                    { x, f3.columns()[0] },
+                    { c, f3.columns()[1] },
+            },
+    });
+    r11.output() >> r12.input();
+    r12.output_ports()[0] >> r21.input();
+    r12.output_ports()[1] >> r31.input();
+
+    auto bg = block_builder::build(rg);
+    variable_liveness_analyzer analyzer { bg };
+
+    ASSERT_EQ(bg.size(), 3);
+    auto&& b1 = *find_unique_head(bg); // r1x
+
+    ASSERT_EQ(b1.downstreams().size(), 2);
+    auto&& b2 = b1.downstreams()[0]; // r2x
+    auto&& b3 = b1.downstreams()[1]; // r3x
+
+    auto&& n1 = analyzer.inspect(b1);
+    EXPECT_EQ(eq(n1.define(), { c, x }), no_error);
+    EXPECT_EQ(eq(n1.use(), { f1.columns()[0], f1.columns()[1] }), no_error);
+    EXPECT_EQ(eq(n1.kill(), {}), no_error);
+
+    auto&& n2 = analyzer.inspect(b2);
+    EXPECT_EQ(eq(n2.define(), {}), no_error);
+    EXPECT_EQ(eq(n2.use(), { x, c }), no_error);
+    EXPECT_EQ(eq(n2.kill(), {}), no_error);
+
+    auto&& n3 = analyzer.inspect(b3);
+    EXPECT_EQ(eq(n3.define(), {}), no_error);
+    EXPECT_EQ(eq(n3.use(), { x, c }), no_error);
+    EXPECT_EQ(eq(n3.kill(), {}), no_error);
+}
+
+TEST_F(variable_liveness_analyzer_test, buffer_branch_root_use_self) {
+    /*
+     * b1[]--+-- b2[]
+     *       |
+     *       +-- b3[+c@c]
+     */
+    rgraph rg;
+
+    auto&& x = bindings.stream_variable("x");
+    auto&& r11 = rg.insert(take {
+            bindings.exchange(f1),
+            {
+                    { f1.columns()[0], x },
+            },
+    });
+    auto&& r12 = rg.insert(buffer { 2 });
+    auto&& r21 = rg.insert(offer {
+            bindings.exchange(f2),
+            {
+                    { x, f2.columns()[0] },
+            },
+    });
+    auto&& c = bindings.stream_variable("c");
+    auto&& r31 = rg.insert(relation::project {
+            relation::project::column {
+                    varref { x },
+                    c,
+            },
+    });
+    auto&& r32 = rg.insert(offer {
+            bindings.exchange(f3),
+            {
+                    { x, f3.columns()[0] },
+                    { c, f3.columns()[1] },
+            },
+    });
+    r11.output() >> r12.input();
+    r12.output_ports()[0] >> r21.input();
+    r12.output_ports()[1] >> r31.input();
+    r31.output() >> r32.input();
+
+    auto bg = block_builder::build(rg);
+    variable_liveness_analyzer analyzer { bg };
+
+    ASSERT_EQ(bg.size(), 3);
+    auto&& b1 = *find_unique_head(bg); // r1x
+
+    ASSERT_EQ(b1.downstreams().size(), 2);
+    auto&& b2 = b1.downstreams()[0]; // r2x
+    auto&& b3 = b1.downstreams()[1]; // r3x
+
+    auto&& n1 = analyzer.inspect(b1);
+    EXPECT_EQ(eq(n1.define(), { x }), no_error);
+    EXPECT_EQ(eq(n1.use(), { f1.columns()[0] }), no_error);
+    EXPECT_EQ(eq(n1.kill(), {}), no_error);
+
+    auto&& n2 = analyzer.inspect(b2);
+    EXPECT_EQ(eq(n2.define(), {}), no_error);
+    EXPECT_EQ(eq(n2.use(), { x }), no_error);
+    EXPECT_EQ(eq(n2.kill(), {}), no_error);
+
+    auto&& n3 = analyzer.inspect(b3);
+    EXPECT_EQ(eq(n3.define(), { c }), no_error);
+    EXPECT_EQ(eq(n3.use(), { x, c }), no_error);
+    EXPECT_EQ(eq(n3.kill(), {}), no_error);
+}
+
+TEST_F(variable_liveness_analyzer_test, buffer_branch_root_use_none) {
+    /*
+     * b1[]--+-- b2[]
+     *       |
+     *       +-- b3[+c]
+     */
+    rgraph rg;
+
+    auto&& x = bindings.stream_variable("x");
+    auto&& r11 = rg.insert(take {
+            bindings.exchange(f1),
+            {
+                    { f1.columns()[0], x },
+            },
+    });
+    auto&& r12 = rg.insert(buffer { 2 });
+    auto&& r21 = rg.insert(offer {
+            bindings.exchange(f2),
+            {
+                    { x, f2.columns()[0] },
+            },
+    });
+    auto&& c = bindings.stream_variable("c");
+    auto&& r31 = rg.insert(relation::project {
+            relation::project::column {
+                    varref { x },
+                    c,
+            },
+    });
+    auto&& r32 = rg.insert(offer {
+            bindings.exchange(f3),
+            {
+                    { x, f3.columns()[0] },
+            },
+    });
+    r11.output() >> r12.input();
+    r12.output_ports()[0] >> r21.input();
+    r12.output_ports()[1] >> r31.input();
+    r31.output() >> r32.input();
+
+    auto bg = block_builder::build(rg);
+    variable_liveness_analyzer analyzer { bg };
+
+    ASSERT_EQ(bg.size(), 3);
+    auto&& b1 = *find_unique_head(bg); // r1x
+
+    ASSERT_EQ(b1.downstreams().size(), 2);
+    auto&& b2 = b1.downstreams()[0]; // r2x
+    auto&& b3 = b1.downstreams()[1]; // r3x
+
+    auto&& n1 = analyzer.inspect(b1);
+    EXPECT_EQ(eq(n1.define(), { x }), no_error);
+    EXPECT_EQ(eq(n1.use(), { f1.columns()[0] }), no_error);
+    EXPECT_EQ(eq(n1.kill(), {}), no_error);
+
+    auto&& n2 = analyzer.inspect(b2);
+    EXPECT_EQ(eq(n2.define(), {}), no_error);
+    EXPECT_EQ(eq(n2.use(), { x }), no_error);
+    EXPECT_EQ(eq(n2.kill(), {}), no_error);
+
+    auto&& n3 = analyzer.inspect(b3);
+    EXPECT_EQ(eq(n3.define(), { c }), no_error);
+    EXPECT_EQ(eq(n3.use(), { x }), no_error);
+    EXPECT_EQ(eq(n3.kill(), { c }), no_error);
 }
 
 TEST_F(variable_liveness_analyzer_test, identify) {
