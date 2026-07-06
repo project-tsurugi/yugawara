@@ -4,9 +4,6 @@
 #include <string>
 #include <string_view>
 
-#include <cstdint>
-#include <cstdlib>
-
 #include <takatori/util/enum_set.h>
 
 namespace yugawara {
@@ -84,6 +81,15 @@ enum class restricted_feature {
     /// @brief restrict `write` statement with update operation.
     statement_write_update,
 
+    /// @brief restrict `alter table rename` statement.
+    statement_rename_table,
+
+    /// @brief restrict `alter index rename` statement.
+    statement_rename_index,
+
+    /// @brief restrict `alter table rename column` statement.
+    statement_rename_column,
+
     /// @brief restrict `truncate table` statement.
     statement_truncate_table,
 
@@ -131,6 +137,9 @@ constexpr restricted_feature_set restricted_feature_exchange_steps {
 constexpr restricted_feature_set restricted_feature_statements {
         restricted_feature::statement_write_delete,
         restricted_feature::statement_write_update,
+        restricted_feature::statement_rename_table,
+        restricted_feature::statement_rename_index,
+        restricted_feature::statement_rename_column,
         restricted_feature::statement_truncate_table,
         restricted_feature::statement_truncate_table_restart_identity,
 };
@@ -140,7 +149,7 @@ constexpr restricted_feature_set restricted_feature_statements {
  * @param value the target value
  * @return the corresponded string representation
  */
-inline constexpr std::string_view to_string_view(restricted_feature value) noexcept {
+constexpr std::string_view to_string_view(restricted_feature value) noexcept {
     using namespace std::string_view_literals;
     using kind = restricted_feature;
     switch (value) {
@@ -163,6 +172,9 @@ inline constexpr std::string_view to_string_view(restricted_feature value) noexc
         case kind::exchange_group: return "group exchange"sv;
         case kind::statement_write_delete: return "write statement with delete operation"sv;
         case kind::statement_write_update: return "write statement with update operation"sv;
+        case kind::statement_rename_table: return "rename table statement"sv;
+        case kind::statement_rename_index: return "rename index statement"sv;
+        case kind::statement_rename_column: return "rename column statement"sv;
         case kind::statement_truncate_table: return "truncate table statement"sv;
         case kind::statement_truncate_table_restart_identity: return "truncate table statement with restart identity option"sv;
     }

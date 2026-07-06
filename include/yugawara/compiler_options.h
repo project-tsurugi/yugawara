@@ -43,7 +43,6 @@ public:
 
     /**
      * @brief creates a new instance with default options.
-     * @param runtime_features the supported runtime features
      * @param storage_processor the storage element prototype processor for accepting storage element definitions
      * @param index_estimator the index estimator for index selection
      * @see runtime_features()

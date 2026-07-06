@@ -26,8 +26,11 @@
 #include <takatori/statement/execute.h>
 #include <takatori/statement/write.h>
 #include <takatori/statement/create_table.h>
-#include <takatori/statement/drop_table.h>
 #include <takatori/statement/create_index.h>
+#include <takatori/statement/rename_table.h>
+#include <takatori/statement/rename_index.h>
+#include <takatori/statement/rename_column.h>
+#include <takatori/statement/drop_table.h>
 #include <takatori/statement/drop_index.h>
 #include <takatori/statement/grant_table.h>
 #include <takatori/statement/revoke_table.h>
@@ -459,20 +462,6 @@ TEST_F(compiler_test, create_table_default_value_immediate_inconsistent) {
     EXPECT_TRUE(find_diagnostic(compiler_code::inconsistent_type, result));
 }
 
-TEST_F(compiler_test, drop_table) {
-    auto sch = std::make_shared<schema::declaration>("SC");
-    auto result = compiler()(options(), statement::drop_table {
-            bindings(sch),
-            bindings(t0),
-    });
-    ASSERT_TRUE(result);
-    dump(result);
-
-    auto&& c = downcast<statement::drop_table>(result.statement());
-    auto&& r = binding::extract(c.target());
-    EXPECT_EQ(std::addressof(r), t0.get());
-}
-
 TEST_F(compiler_test, create_index) {
     auto sch = std::make_shared<schema::declaration>("SC");
     auto result = compiler()(options(), statement::create_index {
@@ -489,6 +478,76 @@ TEST_F(compiler_test, create_index) {
     EXPECT_EQ(r.shared_table(), t0);
 }
 
+TEST_F(compiler_test, rename_table) {
+    auto sch = std::make_shared<schema::declaration>("SC");
+    auto result = compiler()(options(), statement::rename_table {
+            bindings(sch),
+            bindings(t0),
+            "T1",
+    });
+    ASSERT_TRUE(result);
+    dump(result);
+
+    auto&& c = downcast<statement::rename_table>(result.statement());
+    auto&& schema = binding::extract(c.schema());
+    auto&& table = binding::extract(c.target());
+    EXPECT_EQ(*sch, schema);
+    EXPECT_EQ(*t0, table);
+    EXPECT_EQ("T1", c.replacement());
+}
+
+TEST_F(compiler_test, rename_index) {
+    auto sch = std::make_shared<schema::declaration>("SC");
+    auto result = compiler()(options(), statement::rename_index {
+            bindings(sch),
+            bindings(i0),
+            "I1",
+    });
+    ASSERT_TRUE(result);
+    dump(result);
+
+    auto&& c = downcast<statement::rename_index>(result.statement());
+    auto&& schema = binding::extract(c.schema());
+    auto&& index = binding::extract<storage::index>(c.target());
+    EXPECT_EQ(*sch, schema);
+    EXPECT_EQ(*i0, index);
+    EXPECT_EQ("I1", c.replacement());
+}
+
+TEST_F(compiler_test, rename_column) {
+    auto sch = std::make_shared<schema::declaration>("SC");
+    auto result = compiler()(options(), statement::rename_column {
+            bindings(t0),
+            bindings(t0->columns()[0]),
+            "x",
+    });
+    ASSERT_TRUE(result);
+    dump(result);
+
+    auto&& c = downcast<statement::rename_column>(result.statement());
+    auto&& table = binding::extract(c.table());
+    auto&& column = binding::extract<storage::column>(c.target());
+    EXPECT_EQ(*t0, table);
+    EXPECT_EQ(t0->columns()[0], column);
+    EXPECT_EQ("x", c.replacement());
+}
+
+TEST_F(compiler_test, drop_table) {
+    auto sch = std::make_shared<schema::declaration>("SC");
+    auto result = compiler()(options(), statement::drop_table {
+            bindings(sch),
+            bindings(t0),
+    });
+    ASSERT_TRUE(result);
+    dump(result);
+
+    auto&& c = downcast<statement::drop_table>(result.statement());
+    auto&& schema = binding::extract(c.schema());
+    auto&& table = binding::extract(c.target());
+    EXPECT_EQ(*sch, schema);
+    EXPECT_EQ(*t0, table);
+}
+
 TEST_F(compiler_test, drop_index) {
     auto sch = std::make_shared<schema::declaration>("SC");
     auto result = compiler()(options(), statement::drop_index {
@@ -499,8 +558,10 @@ TEST_F(compiler_test, drop_index) {
     dump(result);
 
     auto&& c = downcast<statement::drop_index>(result.statement());
-    auto&& r = binding::extract<storage::index>(c.target());
-    EXPECT_EQ(std::addressof(r), i0.get());
+    auto&& schema = binding::extract(c.schema());
+    auto&& index = binding::extract<storage::index>(c.target());
+    EXPECT_EQ(*sch, schema);
+    EXPECT_EQ(*i0, index);
 }
 
 TEST_F(compiler_test, grant_table) {

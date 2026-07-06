@@ -1815,11 +1815,6 @@ public:
         return true;
     }
 
-    bool operator()(statement::drop_table const& stmt) {
-        (void) stmt;
-        return true;
-    }
-
     bool operator()(statement::create_index const& stmt) {
         if (validate_) {
             bool success = true;
@@ -1857,6 +1852,26 @@ public:
             }
             return success;
         }
+        return true;
+    }
+
+    bool operator()(statement::rename_table const& stmt) {
+        (void) stmt;
+        return true;
+    }
+
+    bool operator()(statement::rename_index const& stmt) {
+        (void) stmt;
+        return true;
+    }
+
+    bool operator()(statement::rename_column const& stmt) {
+        (void) stmt;
+        return true;
+    }
+
+    bool operator()(statement::drop_table const& stmt) {
+        (void) stmt;
         return true;
     }
 

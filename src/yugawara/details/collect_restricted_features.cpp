@@ -77,6 +77,18 @@ public:
         }
     }
 
+    void operator()(tstatement::rename_table const& statement) {
+        validate(restricted_feature::statement_rename_table, statement.region());
+    }
+
+    void operator()(tstatement::rename_index const& statement) {
+        validate(restricted_feature::statement_rename_index, statement.region());
+    }
+
+    void operator()(tstatement::rename_column const& statement) {
+        validate(restricted_feature::statement_rename_column, statement.region());
+    }
+
     void operator()(tstatement::truncate_table const& statement) {
         validate(restricted_feature::statement_truncate_table, statement.region());
         if (statement.options().contains(tstatement::truncate_table_option_kind::restart_identity)) {

@@ -15,6 +15,9 @@
 
 #include <takatori/statement/execute.h>
 #include <takatori/statement/write.h>
+#include <takatori/statement/rename_table.h>
+#include <takatori/statement/rename_index.h>
+#include <takatori/statement/rename_column.h>
 #include <takatori/statement/truncate_table.h>
 
 #include <yugawara/storage/configurable_provider.h>
@@ -34,7 +37,6 @@ protected:
     binding::factory factory;
 
     std::shared_ptr<storage::configurable_provider> storages = std::make_shared<storage::configurable_provider>();
-    std::shared_ptr<analyzer::index_estimator> indices {};
 
     std::shared_ptr<storage::table> t0 = storages->add_table({
             "T0",
@@ -246,6 +248,81 @@ TEST_F(collect_restricted_features_test, statement_write_update_not_restricted) 
                     {},
                     {},
             }));
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, statement_rename_table_restricted) {
+    auto schema = std::make_shared<schema::declaration>("s");
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_rename_table },
+            ::takatori::statement::rename_table {
+                    factory(schema),
+                    factory(t0),
+                    "X",
+            });
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::statement_rename_table);
+}
+
+TEST_F(collect_restricted_features_test, statement_rename_table_not_restricted) {
+    auto schema = std::make_shared<schema::declaration>("s");
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_rename_index },
+            ::takatori::statement::rename_table {
+                    factory(schema),
+                    factory(t0),
+                    "X",
+            });
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, statement_rename_index_restricted) {
+    auto schema = std::make_shared<schema::declaration>("s");
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_rename_index },
+            ::takatori::statement::rename_index {
+                    factory(schema),
+                    factory(i0),
+                    "X",
+            });
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::statement_rename_index);
+}
+
+TEST_F(collect_restricted_features_test, statement_rename_index_not_restricted) {
+    auto schema = std::make_shared<schema::declaration>("s");
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_rename_table },
+            ::takatori::statement::rename_index {
+                    factory(schema),
+                    factory(i0),
+                    "X",
+            });
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, statement_rename_column_restricted) {
+    auto schema = std::make_shared<schema::declaration>("s");
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_rename_column },
+            ::takatori::statement::rename_column {
+                    factory(t0),
+                    factory(t0->columns()[0]),
+                    "X",
+            });
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::statement_rename_column);
+}
+
+TEST_F(collect_restricted_features_test, statement_rename_column_not_restricted) {
+    auto schema = std::make_shared<schema::declaration>("s");
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_rename_table },
+            ::takatori::statement::rename_column {
+                    factory(t0),
+                    factory(t0->columns()[0]),
+                    "X",
+            });
     ASSERT_EQ(result.size(), 0);
 }
 
