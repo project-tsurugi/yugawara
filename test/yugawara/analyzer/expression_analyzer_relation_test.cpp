@@ -47,6 +47,7 @@
 #include <takatori/plan/group.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/binding/external_relation_info.h>
 #include <yugawara/extension/type/error.h>
 #include <yugawara/extension/relation/subquery.h>
 
@@ -951,6 +952,68 @@ TEST_F(expression_analyzer_relation_test, take_flat) {
     EXPECT_TRUE(ok());
 
     EXPECT_EQ(resolve(v1), resolve(c1));
+}
+
+TEST_F(expression_analyzer_relation_test, take_flat_external_relation_type_hint) {
+    auto&& c1 = bindings.exchange_column();
+    binding::external_relation_info relation { 1, { c1 } };
+    relation.add_type(c1, t::int4 {});
+    auto v1 = bindings.stream_variable();
+    rs::take_flat expr {
+            bindings(std::move(relation)),
+            {
+                    { c1, v1, },
+            }
+    };
+
+    auto b = analyzer.resolve(expr, true, false, repo);
+    ASSERT_TRUE(b) << *this;
+    EXPECT_TRUE(ok());
+
+    EXPECT_EQ(resolve(c1).kind(), variable_resolution_kind::unknown);
+    EXPECT_EQ(resolve(v1), resolve(c1));
+    EXPECT_EQ(type(v1), t::int4 {});
+}
+
+TEST_F(expression_analyzer_relation_test, take_flat_external_relation_type_hint_already_bound) {
+    auto&& c1 = bindings.exchange_column();
+    analyzer.variables().bind(c1, t::int8 {});
+    binding::external_relation_info relation { 1, { c1 } };
+    relation.add_type(c1, t::int4 {});
+    auto v1 = bindings.stream_variable();
+    rs::take_flat expr {
+            bindings(std::move(relation)),
+            {
+                    { c1, v1, },
+            }
+    };
+
+    auto b = analyzer.resolve(expr, true, false, repo);
+    ASSERT_TRUE(b) << *this;
+    EXPECT_TRUE(ok());
+
+    EXPECT_EQ(resolve(v1), resolve(c1));
+    EXPECT_EQ(type(v1), t::int8 {});
+}
+
+TEST_F(expression_analyzer_relation_test, take_flat_external_relation_without_type_hint) {
+    auto c1 = bless(bindings.exchange_column());
+    binding::external_relation_info relation { 1, { c1 } };
+    auto v1 = bindings.stream_variable();
+    rs::take_flat expr {
+            bindings(std::move(relation)),
+            {
+                    { c1, v1, },
+            }
+    };
+
+    analyzer.allow_unresolved(false);
+    auto b = analyzer.resolve(expr, true, false, repo);
+    EXPECT_FALSE(b);
+    EXPECT_TRUE(find(c1.region(), code::unresolved_variable)) << *this;
+
+    EXPECT_FALSE(resolve(c1));
+    EXPECT_FALSE(resolve(v1));
 }
 
 TEST_F(expression_analyzer_relation_test, take_group) {

@@ -41,6 +41,7 @@
 #include <yugawara/extension/relation/subquery.h>
 
 #include <yugawara/binding/extract.h>
+#include <yugawara/binding/external_relation_info.h>
 
 #include <yugawara/storage/table.h>
 
@@ -1476,6 +1477,9 @@ public:
     }
 
     bool operator()(relation::step::take_flat const& expr) {
+        if (auto info = binding::extract_if<binding::external_relation_info>(expr.source())) {
+            bind_type_hints(*info, expr.columns());
+        }
         return resolve_exchange_columns(expr, expr.columns());
     }
 
@@ -2208,6 +2212,20 @@ private:
             ana_.variables().bind(column.destination(), resolution, true);
         }
         return true;
+    }
+
+    template<class Seq>
+    void bind_type_hints(binding::external_relation_info const& info, Seq const& columns) {
+        for (auto&& column : columns) {
+            auto&& variable = column.source();
+            if (ana_.variables().find(variable)) {
+                // NOTE: the existing resolution has priority over the type hints
+                continue;
+            }
+            if (auto type = info.find_type_shared(variable)) {
+                ana_.variables().bind(variable, std::move(type), true);
+            }
+        }
     }
 
     variable_resolution const& resolve_table_column(descriptor::variable const& variable) {
