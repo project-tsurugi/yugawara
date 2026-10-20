@@ -53,6 +53,7 @@ void binding_scanner::scan(binding::relation_info const& element) {
     switch (element.kind()) {
         case k::index: properties(unsafe_downcast<binding::index_info>(element)); break;
         case k::exchange: properties(unsafe_downcast<binding::exchange_info>(element)); break;
+        case k::external: properties(unsafe_downcast<binding::external_relation_info>(element)); break;
     }
 
     acceptor_.struct_end();
@@ -475,6 +476,42 @@ void binding_scanner::properties(binding::index_info const& element) {
 
 void binding_scanner::properties(binding::exchange_info const& element) {
     properties(element.declaration());
+}
+
+void binding_scanner::properties(binding::external_relation_info const& element) {
+    acceptor_.property_begin("relation_id"sv);
+    acceptor_.unsigned_integer(element.relation_id());
+    acceptor_.property_end();
+
+    acceptor_.property_begin("columns"sv);
+    acceptor_.array_begin();
+    for (auto&& column : element.columns()) {
+        scanner_(column, acceptor_);
+    }
+    acceptor_.array_end();
+    acceptor_.property_end();
+
+    // NOTE: "hints" is a virtual property, which consists of the hints (e.g. find_type())
+    // for each variable in columns(); hints of variables not in columns() are not shown
+    acceptor_.property_begin("hints"sv);
+    acceptor_.array_begin();
+    for (auto&& column : element.columns()) {
+        if (auto type = element.find_type(column)) {
+            acceptor_.struct_begin();
+
+            acceptor_.property_begin("column"sv);
+            scanner_(column, acceptor_);
+            acceptor_.property_end();
+
+            acceptor_.property_begin("type"sv);
+            scanner_(*type, acceptor_);
+            acceptor_.property_end();
+
+            acceptor_.struct_end();
+        }
+    }
+    acceptor_.array_end();
+    acceptor_.property_end();
 }
 
 } // namespace yugawara::serializer::details

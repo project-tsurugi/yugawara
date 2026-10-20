@@ -70,6 +70,7 @@ add_test_executable(yugawara/schema/catalog_test.cpp)
 
 # binding information
 add_test_executable(yugawara/binding/relation_info_test.cpp)
+add_test_executable(yugawara/binding/external_relation_info_test.cpp)
 
 # extensions
 add_test_executable(yugawara/extension/scalar/aggregate_function_call_test.cpp)

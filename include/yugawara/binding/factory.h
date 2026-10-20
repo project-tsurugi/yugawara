@@ -26,6 +26,8 @@
 #include <yugawara/storage/index.h>
 #include <yugawara/storage/column.h>
 
+#include <yugawara/binding/external_relation_info.h>
+
 namespace yugawara::binding {
 
 /**
@@ -60,6 +62,20 @@ public:
      * @param declaration the original declaration
      */
     [[nodiscard]] ::takatori::descriptor::relation exchange(::takatori::plan::exchange const& declaration);
+
+    /**
+     * @brief creates a new external relation descriptor.
+     * @param info the external relation information
+     * @attention the columns and the type hints must be configured before calling this
+     */
+    [[nodiscard]] ::takatori::descriptor::relation external_relation(std::shared_ptr<external_relation_info> info);
+
+    /**
+     * @brief creates a new external relation descriptor.
+     * @param info the external relation information
+     * @attention the columns and the type hints must be configured before calling this
+     */
+    [[nodiscard]] ::takatori::descriptor::relation external_relation(external_relation_info&& info);
 
     /**
      * @brief returns a variable descriptor for the existing table column.
@@ -197,6 +213,12 @@ public:
 
     /// @copydoc exchange()
     [[nodiscard]] ::takatori::descriptor::relation operator()(::takatori::plan::exchange const& declaration);
+
+    /// @copydoc external_relation(std::shared_ptr<external_relation_info>)
+    [[nodiscard]] ::takatori::descriptor::relation operator()(std::shared_ptr<external_relation_info> info);
+
+    /// @copydoc external_relation(external_relation_info&&)
+    [[nodiscard]] ::takatori::descriptor::relation operator()(external_relation_info&& info);
 
     /// @copydoc table_column()
     [[nodiscard]] ::takatori::descriptor::variable operator()(storage::column const& declaration);

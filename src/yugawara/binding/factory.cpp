@@ -14,6 +14,7 @@
 
 #include <yugawara/binding/index_info.h>
 #include <yugawara/binding/exchange_info.h>
+#include <yugawara/binding/external_relation_info.h>
 
 #include "variable_info_impl.h"
 
@@ -31,6 +32,14 @@ using ::takatori::util::maybe_shared_ptr;
 
 ::takatori::descriptor::relation factory::exchange(::takatori::plan::exchange const& declaration) {
     return wrap(std::make_shared<exchange_info>(declaration));
+}
+
+::takatori::descriptor::relation factory::external_relation(std::shared_ptr<external_relation_info> info) {
+    return wrap(std::move(info));
+}
+
+::takatori::descriptor::relation factory::external_relation(external_relation_info&& info) {
+    return external_relation(std::make_shared<external_relation_info>(::takatori::util::clone_tag, std::move(info)));
 }
 
 ::takatori::descriptor::variable factory::table_column(storage::column const& declaration) {
@@ -134,6 +143,14 @@ takatori::descriptor::variable factory::frame_variable(takatori::descriptor::var
 
 ::takatori::descriptor::relation factory::operator()(::takatori::plan::exchange const& declaration) {
     return exchange(declaration);
+}
+
+::takatori::descriptor::relation factory::operator()(std::shared_ptr<external_relation_info> info) {
+    return external_relation(std::move(info));
+}
+
+::takatori::descriptor::relation factory::operator()(external_relation_info&& info) {
+    return external_relation(std::move(info));
 }
 
 ::takatori::descriptor::variable factory::operator()(storage::column const& declaration) {

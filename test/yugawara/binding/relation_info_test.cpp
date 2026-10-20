@@ -16,6 +16,7 @@
 #include <yugawara/binding/relation_info_kind.h>
 #include <yugawara/binding/index_info.h>
 #include <yugawara/binding/exchange_info.h>
+#include <yugawara/binding/external_relation_info.h>
 
 #include <yugawara/storage/table.h>
 #include <yugawara/storage/index.h>
@@ -168,6 +169,56 @@ TEST_F(relation_info_test, different_kind) {
     auto b = bindings.exchange(exchange1);
     EXPECT_NE(a, b);
     EXPECT_NE(b, a);
+}
+
+TEST_F(relation_info_test, different_kind_external) {
+    auto external = bindings.external_relation(external_relation_info { 1, {} });
+    auto index = bindings.index(*index1);
+    auto exchange = bindings.exchange(exchange1);
+    EXPECT_NE(external, index);
+    EXPECT_NE(index, external);
+    EXPECT_NE(external, exchange);
+    EXPECT_NE(exchange, external);
+}
+
+TEST_F(relation_info_test, kind_of_external) {
+    auto desc = bindings.external_relation(external_relation_info { 1, {} });
+    EXPECT_EQ(kind_of(desc), relation_info_kind::external);
+}
+
+TEST_F(relation_info_test, extract_external) {
+    auto info = std::make_shared<external_relation_info>(1, std::vector<descriptor::variable> {});
+    auto desc = bindings.external_relation(info);
+    EXPECT_EQ(std::addressof(extract<external_relation_info>(desc)), info.get());
+}
+
+TEST_F(relation_info_test, extract_external_mismatch) {
+    auto external_desc = bindings.external_relation(external_relation_info { 1, {} });
+    auto index_desc = bindings.index(*index1);
+    auto exchange_desc = bindings.exchange(exchange1);
+    EXPECT_THROW((void) extract<storage::index>(external_desc), std::invalid_argument);
+    EXPECT_THROW((void) extract<plan::exchange>(external_desc), std::invalid_argument);
+    EXPECT_THROW((void) extract<external_relation_info>(index_desc), std::invalid_argument);
+    EXPECT_THROW((void) extract<external_relation_info>(exchange_desc), std::invalid_argument);
+}
+
+TEST_F(relation_info_test, extract_if_external) {
+    auto info = std::make_shared<external_relation_info>(1, std::vector<descriptor::variable> {});
+    auto desc = bindings.external_relation(info);
+
+    auto found = extract_if<external_relation_info>(desc);
+    ASSERT_TRUE(found);
+    EXPECT_EQ(found.get(), info.get());
+
+    EXPECT_FALSE(extract_if<storage::index>(desc));
+    EXPECT_FALSE(extract_if<plan::exchange>(desc));
+}
+
+TEST_F(relation_info_test, extract_if_external_mismatch) {
+    auto index_desc = bindings.index(*index1);
+    auto exchange_desc = bindings.exchange(exchange1);
+    EXPECT_FALSE(extract_if<external_relation_info>(index_desc));
+    EXPECT_FALSE(extract_if<external_relation_info>(exchange_desc));
 }
 
 TEST_F(relation_info_test, kind_to_string) {

@@ -11,7 +11,7 @@
 namespace yugawara::binding {
 
 /**
- * @brief represents kind of external relations from executions.
+ * @brief represents kind of relations which relational operators refer from outside of their operator graph.
  * @see relation_info
  */
 enum class relation_info_kind {
@@ -19,13 +19,15 @@ enum class relation_info_kind {
     index,
     /// @brief an upstream exchange.
     exchange,
+    /// @brief a relation outside of the system.
+    external,
 };
 
 /// @brief an enum set of relation_info_kind.
 using relation_info_kind_set = ::takatori::util::enum_set<
         relation_info_kind,
         relation_info_kind::index,
-        relation_info_kind::exchange>;
+        relation_info_kind::external>;
 
 /**
  * @brief returns string representation of the value.
@@ -38,6 +40,7 @@ inline constexpr std::string_view to_string_view(relation_info_kind value) noexc
     switch (value) {
         case kind::index: return "index"sv;
         case kind::exchange: return "exchange"sv;
+        case kind::external: return "external"sv;
     }
     std::abort();
 }

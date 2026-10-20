@@ -19,6 +19,7 @@
 #include <takatori/statement/drop_table.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/binding/external_relation_info.h>
 
 #include <yugawara/extension/type/error.h>
 #include <yugawara/extension/type/pending.h>
@@ -213,6 +214,22 @@ TEST_F(object_scanner_test, index) {
 
 TEST_F(object_scanner_test, exchange) {
     print(bindings(::takatori::plan::forward {}));
+}
+
+TEST_F(object_scanner_test, external_relation) {
+    auto c0 = bindings.exchange_column("c0");
+    auto c1 = bindings.exchange_column("c1");
+    auto x0 = bindings.exchange_column("x0");
+    binding::external_relation_info info { 1, { c0, c1 } };
+    info.add_type(c0, std::make_shared<t::int4>());
+    // not in columns: must not be shown
+    info.add_type(x0, std::make_shared<t::int8>());
+    print(bindings(std::move(info)));
+}
+
+TEST_F(object_scanner_test, external_relation_without_hints) {
+    auto c0 = bindings.exchange_column("c0");
+    print(bindings(binding::external_relation_info { 2, { c0 } }));
 }
 
 TEST_F(object_scanner_test, function) {

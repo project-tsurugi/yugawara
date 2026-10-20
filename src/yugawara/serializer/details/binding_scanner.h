@@ -20,6 +20,7 @@
 
 #include <yugawara/binding/index_info.h>
 #include <yugawara/binding/exchange_info.h>
+#include <yugawara/binding/external_relation_info.h>
 
 #include <yugawara/storage/index.h>
 #include <yugawara/storage/sequence.h>
@@ -77,6 +78,7 @@ private:
 
     void properties(binding::index_info const& element);
     void properties(binding::exchange_info const& element);
+    void properties(binding::external_relation_info const& element);
 };
 
 } // namespace yugawara::serializer::details

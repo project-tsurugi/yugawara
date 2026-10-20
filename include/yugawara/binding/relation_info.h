@@ -9,7 +9,7 @@
 namespace yugawara::binding {
 
 /**
- * @brief an abstract interface of binding for external relations.
+ * @brief an abstract interface of binding for relations which relational operators refer from outside of their operator graph.
  */
 class relation_info : public ::takatori::descriptor::relation::entity_type {
 public:

@@ -37,6 +37,7 @@ add_library(yugawara
     yugawara/binding/relation_info.cpp
     yugawara/binding/exchange_info.cpp
     yugawara/binding/index_info.cpp
+    yugawara/binding/external_relation_info.cpp
     yugawara/binding/variable_info.cpp
     yugawara/binding/table_column_info.cpp
     yugawara/binding/external_variable_info.cpp

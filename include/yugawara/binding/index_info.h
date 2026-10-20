@@ -16,7 +16,7 @@ namespace yugawara::binding {
  */
 class index_info : public relation_info {
 public:
-    /// @brief the external relation kind.
+    /// @brief the relation kind.
     static constexpr relation_info_kind tag = relation_info_kind::index;
 
     /**

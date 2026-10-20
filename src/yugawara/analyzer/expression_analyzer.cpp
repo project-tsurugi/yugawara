@@ -2054,7 +2054,7 @@ private:
         auto keys_count = keys.size();
         std::size_t index = 0;
         for (auto&& key : keys) { // NOLINT(readability-use-anyofallof) w/ side effects
-            auto&& varres = resolve_external_relation_column(key.variable());
+            auto&& varres = resolve_source_relation_column(key.variable());
             auto var = ana_.inspect(varres);
             auto val = resolve(key.value());
             if (is_unresolved_or_error(var) || is_unresolved_or_error(val)) {
@@ -2189,7 +2189,7 @@ private:
     template<class ReadLike>
     [[nodiscard]] bool resolve_read_like(ReadLike const& expr) {
         for (auto&& column : expr.columns()) { // NOLINT(readability-use-anyofallof) w/ side effects
-            auto&& resolution = resolve_external_relation_column(column.source());
+            auto&& resolution = resolve_source_relation_column(column.source());
             if (is_unresolved_or_error(resolution)) {
                 return false;
             }
@@ -2268,7 +2268,7 @@ private:
         return true;
     }
 
-    variable_resolution const& resolve_external_relation_column(descriptor::variable const& variable) {
+    variable_resolution const& resolve_source_relation_column(descriptor::variable const& variable) {
         if (auto&& resolution = ana_.variables().find(variable)) {
             return resolution;
         }

@@ -16,6 +16,7 @@
 
 #include <yugawara/binding/index_info.h>
 #include <yugawara/binding/exchange_info.h>
+#include <yugawara/binding/external_relation_info.h>
 
 namespace yugawara::binding {
 
@@ -129,6 +130,18 @@ using exchange_extract = impl::descriptor_extract<descriptor::relation, ::takato
 exchange_extract::result_type exchange_extract::extract(descriptor_type const& desc, bool fail_if_mismatch) {
     if (auto info = unwrap_as<exchange_info>(desc, fail_if_mismatch)) {
         return info->declaration();
+    }
+    return {};
+}
+
+using external_relation_extract = impl::descriptor_extract<descriptor::relation, external_relation_info>;
+external_relation_extract::result_type external_relation_extract::extract(descriptor_type const& desc, bool fail_if_mismatch) {
+    return unwrap_as<external_relation_info>(desc, fail_if_mismatch);
+}
+
+external_relation_extract::pointer_type external_relation_extract::extract_shared(descriptor_type const& desc, bool fail_if_mismatch) {
+    if (unwrap_as<external_relation_info>(desc, fail_if_mismatch)) {
+        return std::static_pointer_cast<external_relation_info const>(desc.shared_entity());
     }
     return {};
 }

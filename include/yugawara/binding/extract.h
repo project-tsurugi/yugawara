@@ -25,6 +25,7 @@
 
 #include "variable_info_kind.h"
 #include "relation_info_kind.h"
+#include "external_relation_info.h"
 
 namespace yugawara::binding {
 
@@ -122,6 +123,20 @@ struct descriptor_extract<::takatori::descriptor::relation, ::takatori::plan::ex
     using entity_type = ::takatori::plan::exchange;
     using result_type = ::takatori::util::optional_ptr<entity_type const>;
     [[nodiscard]] static result_type extract(descriptor_type const& desc, bool fail_if_mismatch);
+};
+
+/**
+ * @brief extracts external relations from relation descriptors.
+ * @note unlike the other relations, the extracted entity is the binding information itself.
+ */
+template<>
+struct descriptor_extract<::takatori::descriptor::relation, external_relation_info> : std::true_type {
+    using descriptor_type = ::takatori::descriptor::relation;
+    using entity_type = external_relation_info;
+    using result_type = ::takatori::util::optional_ptr<entity_type const>;
+    using pointer_type = std::shared_ptr<entity_type const>;
+    [[nodiscard]] static result_type extract(descriptor_type const& desc, bool fail_if_mismatch);
+    [[nodiscard]] static pointer_type extract_shared(descriptor_type const& desc, bool fail_if_mismatch);
 };
 
 } // namespace impl
