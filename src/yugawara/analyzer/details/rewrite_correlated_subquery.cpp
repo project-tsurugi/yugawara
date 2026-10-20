@@ -880,12 +880,14 @@ public:
     void operator()(relation::buffer const& expr, rewriter_context const& context) {
         BOOST_ASSERT(!context.empty());
         (void) expr;
+        (void) context;
         BOOST_ASSERT_MSG(false, "buffer operator is filtered");
     }
 
     void operator()(relation::identify const& expr, rewriter_context const& context) {
         BOOST_ASSERT(!context.empty());
         (void) expr;
+        (void) context;
     }
 
     void operator()(relation::emit& expr, rewriter_context const& context) {
