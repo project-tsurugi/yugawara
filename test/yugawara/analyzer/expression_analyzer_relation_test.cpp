@@ -1,5 +1,7 @@
 #include <yugawara/analyzer/expression_analyzer.h>
 
+#include <stdexcept>
+
 #include <gtest/gtest.h>
 
 #include <takatori/document/basic_document.h>
@@ -386,6 +388,43 @@ TEST_F(expression_analyzer_relation_test, join_scan) {
     auto b = analyzer.resolve(expr, true, false, repo);
     ASSERT_TRUE(b) << *this;
     EXPECT_TRUE(ok());
+}
+
+TEST_F(expression_analyzer_relation_test, join_find_external_relation) {
+    auto&& c1 = bindings.exchange_column();
+    analyzer.variables().bind(c1, t::int4 {});
+    auto v1 = bindings.stream_variable();
+    r::join_find expr {
+            r::join_find::operator_kind_type::inner,
+            bindings(binding::external_relation_info { 1, { c1 } }),
+            {
+                    r::join_find::column {
+                            c1,
+                            v1,
+                    }
+            },
+            {},
+    };
+    EXPECT_THROW((void) analyzer.resolve(expr, true, false, repo), std::domain_error);
+}
+
+TEST_F(expression_analyzer_relation_test, join_scan_external_relation) {
+    auto&& c1 = bindings.exchange_column();
+    analyzer.variables().bind(c1, t::int4 {});
+    auto v1 = bindings.stream_variable();
+    r::join_scan expr {
+            r::join_scan::operator_kind_type::inner,
+            bindings(binding::external_relation_info { 1, { c1 } }),
+            {
+                    r::join_scan::column {
+                            c1,
+                            v1,
+                    }
+            },
+            {},
+            {},
+    };
+    EXPECT_THROW((void) analyzer.resolve(expr, true, false, repo), std::domain_error);
 }
 
 TEST_F(expression_analyzer_relation_test, apply) {
@@ -1136,6 +1175,112 @@ TEST_F(expression_analyzer_relation_test, offer_union) {
     EXPECT_TRUE(ok());
 
     EXPECT_EQ(type(c1), t::int8 {});
+}
+
+TEST_F(expression_analyzer_relation_test, offer_external_relation) {
+    auto&& c1 = bindings.exchange_column();
+    rs::offer expr {
+            bindings(binding::external_relation_info { 1, { c1 } }),
+            {
+                    { decl(t::int4 {}), c1, },
+            }
+    };
+
+    auto b = analyzer.resolve(expr, true, false, repo);
+    ASSERT_TRUE(b) << *this;
+    EXPECT_TRUE(ok());
+
+    EXPECT_EQ(type(c1), t::int4 {});
+}
+
+TEST_F(expression_analyzer_relation_test, offer_index) {
+    auto t1 = storages_.add_table(storage::table {
+            "T1",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+    auto i1 = storages_.add_index(storage::index {
+            t1,
+            "I1",
+    });
+    auto&& c1 = bindings.exchange_column();
+    rs::offer expr {
+            bindings(*i1),
+            {
+                    { decl(t::int4 {}), c1, },
+            }
+    };
+    EXPECT_THROW((void) analyzer.resolve(expr, true, false, repo), std::domain_error);
+}
+
+TEST_F(expression_analyzer_relation_test, take_flat_index) {
+    auto t1 = storages_.add_table(storage::table {
+            "T1",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+    auto i1 = storages_.add_index(storage::index {
+            t1,
+            "I1",
+    });
+    auto&& c1 = bindings.exchange_column();
+    analyzer.variables().bind(c1, t::int4 {});
+    auto v1 = bindings.stream_variable();
+    rs::take_flat expr {
+            bindings(*i1),
+            {
+                    { c1, v1, },
+            }
+    };
+    EXPECT_THROW((void) analyzer.resolve(expr, true, false, repo), std::domain_error);
+}
+
+TEST_F(expression_analyzer_relation_test, take_group_external_relation) {
+    auto&& c1 = bindings.exchange_column();
+    analyzer.variables().bind(c1, t::int4 {});
+    auto v1 = bindings.stream_variable();
+    rs::take_group expr {
+            bindings(binding::external_relation_info { 1, { c1 } }),
+            {
+                    { c1, v1, },
+            }
+    };
+    EXPECT_THROW((void) analyzer.resolve(expr, true, false, repo), std::domain_error);
+}
+
+TEST_F(expression_analyzer_relation_test, take_cogroup_external_relation) {
+    auto&& c1 = bindings.exchange_column();
+    analyzer.variables().bind(c1, t::int4 {});
+    auto v1 = bindings.stream_variable();
+    rs::take_cogroup expr {
+            {
+                    bindings(binding::external_relation_info { 1, { c1 } }),
+                    {
+                            { c1, v1, },
+                    }
+            },
+    };
+    EXPECT_THROW((void) analyzer.resolve(expr, true, false, repo), std::domain_error);
+}
+
+TEST_F(expression_analyzer_relation_test, take_cogroup_forward) {
+    auto&& c1 = bindings.exchange_column();
+    analyzer.variables().bind(c1, t::int4 {});
+    p::forward exchange {
+            c1,
+    };
+    auto v1 = bindings.stream_variable();
+    rs::take_cogroup expr {
+            {
+                    bindings(exchange),
+                    {
+                            { c1, v1, },
+                    }
+            },
+    };
+    EXPECT_THROW((void) analyzer.resolve(expr, true, false, repo), std::domain_error);
 }
 
 } // namespace yugawara::analyzer

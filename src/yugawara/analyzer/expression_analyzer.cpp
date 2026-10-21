@@ -1165,6 +1165,11 @@ public:
     }
 
     bool operator()(relation::join_find const& expr) {
+        static constexpr binding::relation_info_kind_set sources {
+                binding::relation_info_kind::index,
+                binding::relation_info_kind::exchange,
+        };
+        validate_relation_kind(expr, expr.source(), sources);
         if (!resolve_read_like(expr)) {
             return false;
         }
@@ -1180,6 +1185,11 @@ public:
     }
 
     bool operator()(relation::join_scan const& expr) {
+        static constexpr binding::relation_info_kind_set sources {
+                binding::relation_info_kind::index,
+                binding::relation_info_kind::exchange,
+        };
+        validate_relation_kind(expr, expr.source(), sources);
         if (!resolve_read_like(expr)) {
             return false;
         }
@@ -1477,6 +1487,11 @@ public:
     }
 
     bool operator()(relation::step::take_flat const& expr) {
+        static constexpr binding::relation_info_kind_set sources {
+                binding::relation_info_kind::exchange,
+                binding::relation_info_kind::external,
+        };
+        validate_relation_kind(expr, expr.source(), sources);
         if (auto info = binding::extract_if<binding::external_relation_info>(expr.source())) {
             bind_type_hints(*info, expr.columns());
         }
@@ -1484,22 +1499,29 @@ public:
     }
 
     bool operator()(relation::step::take_group const& expr) {
+        static constexpr binding::relation_info_kind_set sources {
+                binding::relation_info_kind::exchange,
+        };
+        validate_relation_kind(expr, expr.source(), sources);
         return resolve_exchange_columns(expr, expr.columns());
     }
 
     bool operator()(relation::step::take_cogroup const& expr) { // NOLINT(*-function-cognitive-complexity)
+        static constexpr binding::relation_info_kind_set sources {
+                binding::relation_info_kind::exchange,
+        };
         std::optional<std::size_t> group_count {};
         for (auto&& group : expr.groups()) {
-            auto exchange = binding::extract_if<plan::exchange>(group.source());
-            if (!exchange || exchange->kind() != plan::step_kind::group) {
-                report({
-                        code::unknown,
-                        "take_cogroup source must be a group exchange",
-                        expr.region(),
-                });
-                return false;
+            validate_relation_kind(expr, group.source(), sources);
+            auto&& exchange = binding::extract<plan::exchange>(group.source());
+            if (exchange.kind() != plan::step_kind::group) {
+                throw_exception(std::domain_error(string_builder {}
+                        << "incompatible exchange kind for " << expr.kind() << ": "
+                        << "expected " << plan::step_kind::group << ", "
+                        << "but was " << exchange.kind()
+                        << string_builder::to_string));
             }
-            auto&& group_exchange = unsafe_downcast<plan::group>(*exchange);
+            auto&& group_exchange = unsafe_downcast<plan::group>(exchange);
             if (!group_count) {
                 group_count = group_exchange.group_keys().size();
             } else if (*group_count != group_exchange.group_keys().size()) {
@@ -1557,6 +1579,11 @@ public:
     }
 
     bool operator()(relation::step::offer const& expr) {
+        static constexpr binding::relation_info_kind_set destinations {
+                binding::relation_info_kind::exchange,
+                binding::relation_info_kind::external,
+        };
+        validate_relation_kind(expr, expr.destination(), destinations);
         for (auto&& column : expr.columns()) { // NOLINT(readability-use-anyofallof) w/ side effects
             auto&& source = resolve_stream_column(column.source());
             if (is_unresolved_or_error(source)) {
@@ -2212,6 +2239,19 @@ private:
             ana_.variables().bind(column.destination(), resolution, true);
         }
         return true;
+    }
+
+    static void validate_relation_kind(
+            relation::expression const& expr,
+            descriptor::relation const& target,
+            binding::relation_info_kind_set expected) {
+        if (auto kind = binding::kind_of(target); !expected.contains(kind)) {
+            throw_exception(std::domain_error(string_builder {}
+                    << "incompatible relation kind for " << expr.kind() << ": "
+                    << "expected one of " << expected << ", "
+                    << "but was " << kind
+                    << string_builder::to_string));
+        }
     }
 
     template<class Seq>
