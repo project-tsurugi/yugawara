@@ -408,6 +408,24 @@ TEST_F(expression_analyzer_relation_test, join_find_external_relation) {
     EXPECT_THROW((void) analyzer.resolve(expr, true, false, repo), std::domain_error);
 }
 
+TEST_F(expression_analyzer_relation_test, join_find_external_relation_without_validation) {
+    auto&& c1 = bindings.exchange_column();
+    analyzer.variables().bind(c1, t::int4 {});
+    auto v1 = bindings.stream_variable();
+    r::join_find expr {
+            r::join_find::operator_kind_type::inner,
+            bindings(binding::external_relation_info { 1, { c1 } }),
+            {
+                    r::join_find::column {
+                            c1,
+                            v1,
+                    }
+            },
+            {},
+    };
+    EXPECT_THROW((void) analyzer.resolve(expr, false, false, repo), std::domain_error);
+}
+
 TEST_F(expression_analyzer_relation_test, join_scan_external_relation) {
     auto&& c1 = bindings.exchange_column();
     analyzer.variables().bind(c1, t::int4 {});
@@ -425,6 +443,25 @@ TEST_F(expression_analyzer_relation_test, join_scan_external_relation) {
             {},
     };
     EXPECT_THROW((void) analyzer.resolve(expr, true, false, repo), std::domain_error);
+}
+
+TEST_F(expression_analyzer_relation_test, join_scan_external_relation_without_validation) {
+    auto&& c1 = bindings.exchange_column();
+    analyzer.variables().bind(c1, t::int4 {});
+    auto v1 = bindings.stream_variable();
+    r::join_scan expr {
+            r::join_scan::operator_kind_type::inner,
+            bindings(binding::external_relation_info { 1, { c1 } }),
+            {
+                    r::join_scan::column {
+                            c1,
+                            v1,
+                    }
+            },
+            {},
+            {},
+    };
+    EXPECT_THROW((void) analyzer.resolve(expr, false, false, repo), std::domain_error);
 }
 
 TEST_F(expression_analyzer_relation_test, apply) {
@@ -1214,6 +1251,27 @@ TEST_F(expression_analyzer_relation_test, offer_index) {
     EXPECT_THROW((void) analyzer.resolve(expr, true, false, repo), std::domain_error);
 }
 
+TEST_F(expression_analyzer_relation_test, offer_index_without_validation) {
+    auto t1 = storages_.add_table(storage::table {
+            "T1",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+    auto i1 = storages_.add_index(storage::index {
+            t1,
+            "I1",
+    });
+    auto&& c1 = bindings.exchange_column();
+    rs::offer expr {
+            bindings(*i1),
+            {
+                    { decl(t::int4 {}), c1, },
+            }
+    };
+    EXPECT_THROW((void) analyzer.resolve(expr, false, false, repo), std::domain_error);
+}
+
 TEST_F(expression_analyzer_relation_test, take_flat_index) {
     auto t1 = storages_.add_table(storage::table {
             "T1",
@@ -1237,6 +1295,29 @@ TEST_F(expression_analyzer_relation_test, take_flat_index) {
     EXPECT_THROW((void) analyzer.resolve(expr, true, false, repo), std::domain_error);
 }
 
+TEST_F(expression_analyzer_relation_test, take_flat_index_without_validation) {
+    auto t1 = storages_.add_table(storage::table {
+            "T1",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+    auto i1 = storages_.add_index(storage::index {
+            t1,
+            "I1",
+    });
+    auto&& c1 = bindings.exchange_column();
+    analyzer.variables().bind(c1, t::int4 {});
+    auto v1 = bindings.stream_variable();
+    rs::take_flat expr {
+            bindings(*i1),
+            {
+                    { c1, v1, },
+            }
+    };
+    EXPECT_THROW((void) analyzer.resolve(expr, false, false, repo), std::domain_error);
+}
+
 TEST_F(expression_analyzer_relation_test, take_group_external_relation) {
     auto&& c1 = bindings.exchange_column();
     analyzer.variables().bind(c1, t::int4 {});
@@ -1248,6 +1329,19 @@ TEST_F(expression_analyzer_relation_test, take_group_external_relation) {
             }
     };
     EXPECT_THROW((void) analyzer.resolve(expr, true, false, repo), std::domain_error);
+}
+
+TEST_F(expression_analyzer_relation_test, take_group_external_relation_without_validation) {
+    auto&& c1 = bindings.exchange_column();
+    analyzer.variables().bind(c1, t::int4 {});
+    auto v1 = bindings.stream_variable();
+    rs::take_group expr {
+            bindings(binding::external_relation_info { 1, { c1 } }),
+            {
+                    { c1, v1, },
+            }
+    };
+    EXPECT_THROW((void) analyzer.resolve(expr, false, false, repo), std::domain_error);
 }
 
 TEST_F(expression_analyzer_relation_test, take_cogroup_external_relation) {
@@ -1263,6 +1357,21 @@ TEST_F(expression_analyzer_relation_test, take_cogroup_external_relation) {
             },
     };
     EXPECT_THROW((void) analyzer.resolve(expr, true, false, repo), std::domain_error);
+}
+
+TEST_F(expression_analyzer_relation_test, take_cogroup_external_relation_without_validation) {
+    auto&& c1 = bindings.exchange_column();
+    analyzer.variables().bind(c1, t::int4 {});
+    auto v1 = bindings.stream_variable();
+    rs::take_cogroup expr {
+            {
+                    bindings(binding::external_relation_info { 1, { c1 } }),
+                    {
+                            { c1, v1, },
+                    }
+            },
+    };
+    EXPECT_THROW((void) analyzer.resolve(expr, false, false, repo), std::domain_error);
 }
 
 TEST_F(expression_analyzer_relation_test, take_cogroup_forward) {
