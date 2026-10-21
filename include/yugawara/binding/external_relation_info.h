@@ -22,10 +22,22 @@ namespace yugawara::binding {
  * @details The compiler never generates this kind of relations.
  *      The runtime environment may rebuild the compiled execution plan, and replace exchanges referred from
  *      `take_flat` or `offer` with this kind of relations.
- * @note The descriptor which wraps this object is compared by its relation ID and columns,
- *      so that the columns must not be modified after it is wrapped.
- * @note Each column must be an exchange column (binding::variable_info_kind::exchange_column),
+ *
+ *      The relation ID is an identifier for the external system to manage the relation.
+ *      The compiler never interprets its value, and only compares it for equivalence (see below).
+ *
+ *      Each column must be an exchange column (binding::variable_info_kind::exchange_column),
  *      because relational operators which refer this relation resolve it as an exchange column.
+ *
+ *      The type hints are used as substitutes for the column types in type computation,
+ *      only if the types of the columns are not given in other ways (e.g. the inherited variable mapping).
+ *      If the type of a column is given, its type hint is never used.
+ *
+ *      Two relations are equivalent if and only if they have the same relation ID, and the same columns
+ *      in the same order. The columns are compared as descriptors, that is, two exchange columns are equivalent
+ *      only if they are the same object. The type hints are not considered.
+ * @note The descriptor which wraps this object is compared by the above equivalence,
+ *      so that the columns must not be modified after it is wrapped.
  */
 class external_relation_info : public relation_info {
 public:
