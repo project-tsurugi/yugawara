@@ -159,7 +159,7 @@ public:
                 empty<descriptor::variable>(),
                 std::move(expr.group_keys()),
                 empty<plan::group::sort_key>(),
-                1,
+                plan::group::row_slice_type { {}, 1 },
                 plan::group_mode::equivalence);
         auto&& offer = add_offer(exchange);
 
@@ -312,7 +312,7 @@ private:
                 empty<descriptor::variable>(),
                 std::move(left_group_keys),
                 empty<plan::group::sort_key>(),
-                std::nullopt,
+                plan::group::row_slice_type {},
                 plan::group_mode::equivalence);
         auto&& left_offer = add_offer(left_exchange);
 
@@ -320,7 +320,7 @@ private:
                 empty<descriptor::variable>(),
                 std::move(right_group_keys),
                 empty<plan::group::sort_key>(),
-                std::nullopt,
+                plan::group::row_slice_type {},
                 plan::group_mode::equivalence);
         auto&& right_offer = add_offer(right_exchange);
 
@@ -516,7 +516,7 @@ private:
                 empty<descriptor::variable>(),
                 std::move(expr.group_keys()),
                 empty<plan::group::sort_key>(),
-                std::nullopt,
+                plan::group::row_slice_type {},
                 plan::group_mode::equivalence_or_whole);
         auto&& offer = add_offer(exchange);
 
@@ -539,7 +539,7 @@ private:
          * =>
          * .. - offer -  [forward{limit=N}] - take_flat - ..
          */
-        auto&& exchange = destination_.emplace<plan::forward>(expr.count());
+        auto&& exchange = destination_.emplace<plan::forward>(std::move(expr.row_slice()));
         auto&& offer = add_offer(exchange);
 
         auto&& take = add<relation::step::take_flat>(
@@ -562,7 +562,7 @@ private:
                 empty<descriptor::variable>(),
                 std::move(expr.group_keys()),
                 std::move(expr.sort_keys()),
-                expr.count(),
+                std::move(expr.row_slice()),
                 plan::group_mode::equivalence);
         auto&& offer = add_offer(exchange);
 
@@ -606,7 +606,7 @@ private:
         }
         auto&& exchange = destination_.emplace<plan::forward>(
                 outputs,
-                std::nullopt);
+                plan::forward::row_slice_type {});
         auto&& left_offer = add<relation::step::offer>(
                 to_descriptor(exchange),
                 std::move(left_columns));
@@ -656,7 +656,7 @@ private:
                 outputs,
                 outputs, // all columns are group key
                 empty<plan::group::sort_key>(),
-                1,
+                plan::group::row_slice_type { {}, 1 },
                 plan::group_mode::equivalence);
         auto&& left_offer = add<relation::step::offer>(
                 to_descriptor(exchange),
@@ -698,15 +698,15 @@ private:
             right_group_key.emplace_back(pair.right());
         }
 
-        std::optional<plan::group::size_type> limit {};
+        plan::group::row_slice_type row_slice {};
         if (expr.quantifier() == relation::set_quantifier::distinct) {
-            limit.emplace(1);
+            row_slice.count() = 1;
         }
         auto&& left_exchange = destination_.emplace<plan::group>(
                 empty<descriptor::variable>(),
                 std::move(left_group_key),
                 empty<plan::group::sort_key>(),
-                limit,
+                row_slice,
                 plan::group_mode::equivalence);
         auto&& left_offer = add_offer(left_exchange);
 
@@ -714,7 +714,7 @@ private:
                 empty<descriptor::variable>(),
                 std::move(right_group_key),
                 empty<plan::group::sort_key>(),
-                limit,
+                std::move(row_slice),
                 plan::group_mode::equivalence);
         auto&& right_offer = add_offer(right_exchange);
 
@@ -760,15 +760,15 @@ private:
             right_group_key.emplace_back(pair.right());
         }
 
-        std::optional<plan::group::size_type> limit {};
+        plan::group::row_slice_type row_slice {};
         if (expr.quantifier() == relation::set_quantifier::distinct) {
-            limit.emplace(1);
+            row_slice.count() = 1;
         }
         auto&& left_exchange = destination_.emplace<plan::group>(
                 empty<descriptor::variable>(),
                 std::move(left_group_key),
                 empty<plan::group::sort_key>(),
-                limit,
+                row_slice,
                 plan::group_mode::equivalence);
         auto&& left_offer = add_offer(left_exchange);
 
@@ -776,7 +776,7 @@ private:
                 empty<descriptor::variable>(),
                 std::move(right_group_key),
                 empty<plan::group::sort_key>(),
-                limit,
+                std::move(row_slice),
                 plan::group_mode::equivalence);
         auto&& right_offer = add_offer(right_exchange);
 

@@ -1497,7 +1497,8 @@ public:
 
         auto&& project = graph.emplace<::takatori::relation::project>(std::move(project_column));
 
-        auto&& fetch_first = graph.emplace<::takatori::relation::intermediate::limit>(1);
+        auto&& fetch_first = graph.emplace<::takatori::relation::intermediate::limit>(
+                ::takatori::relation::intermediate::limit::row_slice_type { {}, 1 });
 
         auto&& join = graph.emplace<::takatori::relation::intermediate::join>(
             // LEFT OUTER JOIN

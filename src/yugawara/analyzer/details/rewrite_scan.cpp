@@ -42,7 +42,7 @@ public:
         for (auto&& expr : graph) {
             if (expr.kind() == relation::scan::tag) {
                 auto&& scan = unsafe_downcast<relation::scan>(expr);
-                if (!scan.limit() && !scan.lower() && !scan.upper()) {
+                if (!scan.row_slice() && !scan.lower() && !scan.upper()) {
                     process(scan);
                 }
             }

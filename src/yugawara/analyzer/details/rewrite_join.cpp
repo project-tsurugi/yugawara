@@ -197,7 +197,7 @@ private:
             switch (expr.kind()) {
                 case kind::scan: {
                     auto&& result = unsafe_downcast<relation::scan>(expr);
-                    if (result.lower() || result.upper() || result.limit()) {
+                    if (result.lower() || result.upper() || result.row_slice()) {
                         return {};
                     }
                     return result;

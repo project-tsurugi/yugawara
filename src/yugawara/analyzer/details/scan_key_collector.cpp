@@ -108,7 +108,7 @@ bool scan_key_collector::operator()(relation::scan& expression, bool include_joi
     clear();
 
     // must not have any endpoint settings
-    if (expression.lower() || expression.upper() || expression.limit()) {
+    if (expression.lower() || expression.upper() || expression.row_slice()) {
         return false;
     }
 
