@@ -1752,6 +1752,82 @@ TEST_F(rewrite_stream_variables_test, forward) {
     EXPECT_EQ(r3.columns()[0].source(), p1c1);
 }
 
+TEST_F(rewrite_stream_variables_test, forward_ordering) {
+    /*
+     * [scan:r0 - offer:r1]:p0 - [forward]:e0 - [take_flat:r2 - emit:r3]:p1
+     */
+    plan::graph_type p;
+    auto&& p0 = p.insert(plan::process {});
+    auto&& p1 = p.insert(plan::process {});
+    auto&& e0 = p.insert(plan::forward {
+            plan::forward::row_slice_type { {}, 3 },
+            {
+                    plan::forward_ordering::respect_input,
+                    plan::forward_ordering::preserve_output,
+            },
+    });
+
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = p0.operators().insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+                    { t0c2, c2 },
+            },
+            {},
+            {},
+            relation::scan_direction::forward,
+            relation::scan::row_slice_type { {}, 3 },
+    });
+    auto&& r1 = p0.operators().insert(offer {
+            bindings(e0),
+    });
+    auto&& r2 = p1.operators().insert(take_flat {
+            bindings(e0),
+    });
+    // c0 is the sort key of the original ORDER BY, but the downstream does not use it
+    auto&& r3 = p1.operators().insert(relation::emit {
+            c1,
+    });
+    r0.output() >> r1.input();
+    r2.output() >> r3.input();
+
+    apply(p);
+
+    // forward: retains row_slice and ordering, and drops the unused sort key column
+    EXPECT_EQ(e0.row_slice(), (plan::forward::row_slice_type { {}, 3 }));
+    EXPECT_EQ(e0.ordering(), (plan::forward::ordering_type {
+            plan::forward_ordering::respect_input,
+            plan::forward_ordering::preserve_output,
+    }));
+    ASSERT_EQ(e0.columns().size(), 1);
+    auto&& e0c1 = e0.columns()[0];
+
+    // scan
+    EXPECT_EQ(r0.direction(), relation::scan_direction::forward);
+    EXPECT_EQ(r0.row_slice(), (relation::scan::row_slice_type { {}, 3 }));
+    ASSERT_EQ(r0.columns().size(), 1);
+    EXPECT_EQ(r0.columns()[0].source(), t0c1);
+    auto&& p0c1 = r0.columns()[0].destination();
+
+    // offer
+    ASSERT_EQ(r1.columns().size(), 1);
+    EXPECT_EQ(r1.columns()[0].source(), p0c1);
+    EXPECT_EQ(r1.columns()[0].destination(), e0c1);
+
+    // take
+    ASSERT_EQ(r2.columns().size(), 1);
+    EXPECT_EQ(r2.columns()[0].source(), e0c1);
+    auto&& p1c1 = r2.columns()[0].destination();
+
+    // emit
+    ASSERT_EQ(r3.columns().size(), 1);
+    EXPECT_EQ(r3.columns()[0].source(), p1c1);
+}
+
 TEST_F(rewrite_stream_variables_test, group) {
     /*
      * [scan:r0 - offer:r1]:p0 - [group]:e0 - [take_group:r2 - flatten:r3 - emit:r4]:p1

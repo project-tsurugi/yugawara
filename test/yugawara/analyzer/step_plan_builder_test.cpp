@@ -10,11 +10,13 @@
 #include <takatori/relation/emit.h>
 
 #include <takatori/relation/intermediate/escape.h>
+#include <takatori/relation/intermediate/limit.h>
 
 #include <takatori/relation/step/join.h>
 #include <takatori/relation/step/take_cogroup.h>
 #include <takatori/relation/step/offer.h>
 
+#include <takatori/plan/forward.h>
 #include <takatori/plan/group.h>
 
 #include <yugawara/binding/factory.h>
@@ -186,6 +188,59 @@ TEST_F(step_plan_builder_test, escape) {
     // emit
     ASSERT_EQ(ro.columns().size(), 1);
     EXPECT_EQ(ro.columns()[0].source(), c1m);
+}
+
+TEST_F(step_plan_builder_test, scan_row_slice_and_direction) {
+    /*
+     * scan:r0 - limit:r1 - emit:ro
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+                    { t0c2, c2 },
+            },
+            {},
+            {},
+            relation::scan_direction::forward,
+            relation::scan::row_slice_type { {}, 3 },
+    });
+    auto&& r1 = r.insert(relation::intermediate::limit {
+            relation::intermediate::limit::row_slice_type { {}, 3 },
+    });
+    auto&& ro = r.insert(relation::emit {
+            c1,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> ro.input();
+
+    step_plan_builder builder;
+    auto p = builder(std::move(r));
+
+    ASSERT_EQ(p.size(), 3);
+    auto&& p0 = find(p, r0);
+    EXPECT_EQ(p0.operators().size(), 2);
+    auto&& r2 = next<offer>(r0.output());
+    auto&& e0 = resolve<plan::forward>(r2.destination());
+
+    auto&& p1 = find(p, ro);
+    EXPECT_EQ(p1.operators().size(), 2);
+
+    // scan
+    EXPECT_EQ(r0.direction(), relation::scan_direction::forward);
+    EXPECT_EQ(r0.row_slice(), (relation::scan::row_slice_type { {}, 3 }));
+    ASSERT_EQ(r0.columns().size(), 1);
+    EXPECT_EQ(r0.columns()[0].source(), t0c1);
+
+    // forward
+    EXPECT_EQ(e0.row_slice(), (plan::forward::row_slice_type { {}, 3 }));
+    EXPECT_TRUE(e0.ordering().empty());
+    EXPECT_EQ(e0.columns().size(), 1);
 }
 
 TEST_F(step_plan_builder_test, join) {

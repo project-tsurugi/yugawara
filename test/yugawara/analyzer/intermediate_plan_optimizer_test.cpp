@@ -632,6 +632,90 @@ TEST_F(intermediate_plan_optimizer_test, rewrite_scan) {
     EXPECT_EQ(find.keys()[0].value(), constant(0));
 }
 
+TEST_F(intermediate_plan_optimizer_test, scan_row_slice_and_direction) {
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+                    { bindings(t0c1), c1 },
+                    { bindings(t0c2), c2 },
+            },
+            {},
+            {},
+            relation::scan_direction::forward,
+            relation::scan::row_slice_type { {}, 3 },
+    });
+    auto a0 = bindings.stream_variable("a0");
+    auto&& project = r.insert(relation::project {
+            relation::project::column {
+                    a0,
+                    scalar::variable_reference { c0 },
+            },
+    });
+    auto&& filter = r.insert(relation::filter {
+            compare(varref(c1), constant(0)),
+    });
+    auto&& out = r.insert(relation::emit { a0 });
+
+    in.output() >> project.input();
+    project.output() >> filter.input();
+    filter.output() >> out.input();
+
+    storages->add_index({
+            t0, "x1",
+            { t0c1 },
+    });
+    intermediate_plan_optimizer optimizer { options() };
+    optimizer(r);
+
+    ASSERT_EQ(r.size(), 3);
+    ASSERT_TRUE(r.contains(in));
+    ASSERT_TRUE(r.contains(out));
+    auto&& rest = next<relation::filter>(out.input());
+    EXPECT_GT(in.output(), rest.input());
+
+    // the scan with row_slice must not be rewritten
+    EXPECT_EQ(in.source(), bindings(*i0));
+    EXPECT_FALSE(in.lower());
+    EXPECT_FALSE(in.upper());
+    EXPECT_EQ(in.direction(), relation::scan_direction::forward);
+    EXPECT_EQ(in.row_slice(), (relation::scan::row_slice_type { {}, 3 }));
+
+    ASSERT_EQ(in.columns().size(), 2);
+    EXPECT_EQ(in.columns()[0].source(), bindings(t0c0));
+    EXPECT_EQ(in.columns()[1].source(), bindings(t0c1));
+}
+
+TEST_F(intermediate_plan_optimizer_test, scan_direction) {
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+            {},
+            {},
+            relation::scan_direction::backward,
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+    in.output() >> out.input();
+
+    intermediate_plan_optimizer optimizer { options() };
+    optimizer(r);
+
+    ASSERT_EQ(r.size(), 2);
+    ASSERT_TRUE(r.contains(in));
+    ASSERT_TRUE(r.contains(out));
+
+    EXPECT_EQ(in.direction(), relation::scan_direction::backward);
+    EXPECT_EQ(in.row_slice(), relation::scan::row_slice_type {});
+}
+
 TEST_F(intermediate_plan_optimizer_test, between) {
     relation::graph_type r;
     auto c0 = bindings.stream_variable("c0");
