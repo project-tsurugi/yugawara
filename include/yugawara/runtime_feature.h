@@ -25,6 +25,14 @@ enum class runtime_feature {
     index_join_scan,
     /// @brief enable scan on broadcast inputs (requires broadcast_exchange).
     broadcast_join_scan,
+    /// @brief enable taking the row count of the downstream limit into scan operations.
+    scan_limit,
+    /// @brief enable specifying the scan direction to provide ordered relations, without row count.
+    ordered_scan,
+    /// @brief enable forward exchanges with ordering (requires ordered_scan).
+    ordered_forward,
+    /// @brief enable backward scan (requires scan_limit or ordered_scan).
+    backward_scan,
     /// @brief enable inlining scalar local variables for all expressions.
     always_inline_scalar_local_variables,
 };
@@ -44,6 +52,10 @@ constexpr runtime_feature_set runtime_feature_all {
     runtime_feature::index_join,
     runtime_feature::index_join_scan,
     runtime_feature::broadcast_join_scan,
+    runtime_feature::scan_limit,
+    runtime_feature::ordered_scan,
+    runtime_feature::ordered_forward,
+    runtime_feature::backward_scan,
 };
 
 /**
@@ -60,6 +72,10 @@ inline constexpr std::string_view to_string_view(runtime_feature value) noexcept
         case kind::index_join: return "index_join"sv;
         case kind::index_join_scan: return "index_join_scan"sv;
         case kind::broadcast_join_scan: return "broadcast_join_scan"sv;
+        case kind::scan_limit: return "scan_limit"sv;
+        case kind::ordered_scan: return "ordered_scan"sv;
+        case kind::ordered_forward: return "ordered_forward"sv;
+        case kind::backward_scan: return "backward_scan"sv;
         case kind::always_inline_scalar_local_variables: return "always_inline_scalar_local_variables"sv;
     }
     std::abort();

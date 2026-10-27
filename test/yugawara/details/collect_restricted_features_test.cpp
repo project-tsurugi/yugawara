@@ -1,9 +1,12 @@
 #include <yugawara/details/collect_restricted_features.h>
 
+#include <optional>
+
 #include <gtest/gtest.h>
 
 #include <takatori/type/table.h>
 
+#include <takatori/relation/scan.h>
 #include <takatori/relation/values.h>
 #include <takatori/relation/write.h>
 #include <takatori/relation/join_find.h>
@@ -12,6 +15,7 @@
 
 #include <takatori/plan/process.h>
 #include <takatori/plan/forward.h>
+#include <takatori/plan/group.h>
 
 #include <takatori/statement/execute.h>
 #include <takatori/statement/write.h>
@@ -66,6 +70,34 @@ protected:
 
         return ::takatori::statement::execute {
                 std::move(steps),
+        };
+    }
+
+    relation::scan make_scan(
+            std::optional<relation::scan_direction> direction,
+            relation::scan::row_slice_type row_slice = {}) {
+        return relation::scan {
+                factory(*i0),
+                {
+                        { factory(t0c0), factory.stream_variable("c0") },
+                },
+                {},
+                {},
+                direction,
+                std::move(row_slice),
+        };
+    }
+
+    plan::forward make_forward(plan::forward::row_slice_type row_slice) {
+        return plan::forward { std::move(row_slice) };
+    }
+
+    plan::group make_group(plan::group::row_slice_type row_slice) {
+        return plan::group {
+                std::vector<descriptor::variable> {},
+                std::vector<descriptor::variable> {},
+                {},
+                std::move(row_slice),
         };
     }
 
@@ -210,6 +242,159 @@ TEST_F(collect_restricted_features_test, exchange_forward_not_restricted) {
     auto result = collect_restricted_features(
             { restricted_feature::exchange_group },
             make_statement(plan::forward {}));
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, relation_scan_direction_forward_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::relation_scan_direction_forward },
+            make_statement(make_scan(relation::scan_direction::forward)));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::relation_scan_direction_forward);
+}
+
+TEST_F(collect_restricted_features_test, relation_scan_direction_forward_not_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::relation_scan_direction_backward },
+            make_statement(make_scan(relation::scan_direction::forward)));
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, relation_scan_direction_backward_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::relation_scan_direction_backward },
+            make_statement(make_scan(relation::scan_direction::backward)));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::relation_scan_direction_backward);
+}
+
+TEST_F(collect_restricted_features_test, relation_scan_direction_not_specified) {
+    auto result = collect_restricted_features(
+            {
+                    restricted_feature::relation_scan_direction_forward,
+                    restricted_feature::relation_scan_direction_backward,
+            },
+            make_statement(make_scan({})));
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, relation_scan_row_slice_start_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::relation_scan_row_slice_start },
+            make_statement(make_scan({}, { 10, {} })));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::relation_scan_row_slice_start);
+}
+
+TEST_F(collect_restricted_features_test, relation_scan_row_slice_start_zero) {
+    auto result = collect_restricted_features(
+            { restricted_feature::relation_scan_row_slice_start },
+            make_statement(make_scan({}, { 0, 5 })));
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, relation_scan_row_slice_count_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::relation_scan_row_slice_count },
+            make_statement(make_scan({}, { {}, 5 })));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::relation_scan_row_slice_count);
+}
+
+TEST_F(collect_restricted_features_test, relation_scan_row_slice_variable_start_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::relation_scan_row_slice_variable },
+            make_statement(make_scan({}, { factory.stream_variable("s"), {} })));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::relation_scan_row_slice_variable);
+}
+
+TEST_F(collect_restricted_features_test, relation_scan_row_slice_variable_count_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::relation_scan_row_slice_variable },
+            make_statement(make_scan({}, { {}, factory.stream_variable("c") })));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::relation_scan_row_slice_variable);
+}
+
+TEST_F(collect_restricted_features_test, relation_scan_row_slice_not_restricted) {
+    auto result = collect_restricted_features(
+            {
+                    restricted_feature::relation_scan_row_slice_start,
+                    restricted_feature::relation_scan_row_slice_count,
+                    restricted_feature::relation_scan_row_slice_variable,
+            },
+            make_statement(make_scan({})));
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, exchange_forward_row_slice_start_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::exchange_forward_row_slice_start },
+            make_statement(make_forward({ 10, {} })));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::exchange_forward_row_slice_start);
+}
+
+TEST_F(collect_restricted_features_test, exchange_forward_row_slice_count_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::exchange_forward_row_slice_count },
+            make_statement(make_forward({ {}, 5 })));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::exchange_forward_row_slice_count);
+}
+
+TEST_F(collect_restricted_features_test, exchange_forward_row_slice_variable_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::exchange_forward_row_slice_variable },
+            make_statement(make_forward({ {}, factory.stream_variable("c") })));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::exchange_forward_row_slice_variable);
+}
+
+TEST_F(collect_restricted_features_test, exchange_forward_row_slice_not_restricted) {
+    auto result = collect_restricted_features(
+            {
+                    restricted_feature::exchange_forward_row_slice_start,
+                    restricted_feature::exchange_forward_row_slice_count,
+                    restricted_feature::exchange_forward_row_slice_variable,
+            },
+            make_statement(make_forward({})));
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, exchange_group_row_slice_start_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::exchange_group_row_slice_start },
+            make_statement(make_group({ 10, {} })));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::exchange_group_row_slice_start);
+}
+
+TEST_F(collect_restricted_features_test, exchange_group_row_slice_count_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::exchange_group_row_slice_count },
+            make_statement(make_group({ {}, 5 })));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::exchange_group_row_slice_count);
+}
+
+TEST_F(collect_restricted_features_test, exchange_group_row_slice_variable_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::exchange_group_row_slice_variable },
+            make_statement(make_group({ factory.stream_variable("s"), {} })));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::exchange_group_row_slice_variable);
+}
+
+TEST_F(collect_restricted_features_test, exchange_group_row_slice_not_restricted) {
+    auto result = collect_restricted_features(
+            {
+                    restricted_feature::exchange_group_row_slice_start,
+                    restricted_feature::exchange_group_row_slice_count,
+                    restricted_feature::exchange_group_row_slice_variable,
+            },
+            make_statement(make_group({})));
     ASSERT_EQ(result.size(), 0);
 }
 
