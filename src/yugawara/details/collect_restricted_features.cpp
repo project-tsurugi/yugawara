@@ -126,7 +126,9 @@ public:
 
     void operator()(tplan::forward const& step) {
         validate(restricted_feature::exchange_forward, {});
-        // NOTE: restricted_feature::exchange_forward_ordering is not detected until forward supports ordering
+        if (!step.ordering().empty()) {
+            validate(restricted_feature::exchange_forward_ordering, {});
+        }
         process_row_slice(
                 step.row_slice(),
                 restricted_feature::exchange_forward_row_slice_start,

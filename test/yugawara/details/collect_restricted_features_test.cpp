@@ -88,8 +88,10 @@ protected:
         };
     }
 
-    plan::forward make_forward(plan::forward::row_slice_type row_slice) {
-        return plan::forward { std::move(row_slice) };
+    plan::forward make_forward(
+            plan::forward::row_slice_type row_slice,
+            plan::forward::ordering_type ordering = {}) {
+        return plan::forward { std::move(row_slice), ordering };
     }
 
     plan::group make_group(plan::group::row_slice_type row_slice) {
@@ -325,6 +327,29 @@ TEST_F(collect_restricted_features_test, relation_scan_row_slice_not_restricted)
                     restricted_feature::relation_scan_row_slice_variable,
             },
             make_statement(make_scan({})));
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, exchange_forward_ordering_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::exchange_forward_ordering },
+            make_statement(make_forward({}, { plan::forward_ordering::respect_input })));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::exchange_forward_ordering);
+}
+
+TEST_F(collect_restricted_features_test, exchange_forward_ordering_preserve_output_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::exchange_forward_ordering },
+            make_statement(make_forward({}, { plan::forward_ordering::preserve_output })));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::exchange_forward_ordering);
+}
+
+TEST_F(collect_restricted_features_test, exchange_forward_ordering_not_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::exchange_forward_ordering },
+            make_statement(make_forward({})));
     ASSERT_EQ(result.size(), 0);
 }
 

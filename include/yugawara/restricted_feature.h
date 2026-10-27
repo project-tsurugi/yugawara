@@ -88,10 +88,7 @@ enum class restricted_feature {
     /// @brief restrict `group` exchange.
     exchange_group,
 
-    /**
-     * @brief restrict `forward` exchange with ordering.
-     * @attention this is not detected yet, until `forward` exchange supports ordering.
-     */
+    /// @brief restrict `forward` exchange with ordering.
     exchange_forward_ordering,
 
     /// @brief restrict `forward` exchange with row slice which has a start position other than immediate `0`.
