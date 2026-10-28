@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <takatori/scalar/binary.h>
 #include <takatori/scalar/let.h>
 
 #include <takatori/relation/graph.h>
@@ -14,6 +15,7 @@
 
 #include <takatori/relation/intermediate/distinct.h>
 #include <takatori/relation/intermediate/join.h>
+#include <takatori/relation/intermediate/limit.h>
 
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/configurable_provider.h>
@@ -630,6 +632,51 @@ TEST_F(intermediate_plan_optimizer_test, rewrite_scan) {
     ASSERT_EQ(find.keys().size(), 1);
     EXPECT_EQ(find.keys()[0].variable(), bindings(t0c0));
     EXPECT_EQ(find.keys()[0].value(), constant(0));
+}
+
+TEST_F(intermediate_plan_optimizer_test, push_down_limits) {
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    auto x0 = bindings.stream_variable("x0");
+    auto&& project = r.insert(relation::project {
+            relation::project::column {
+                    x0,
+                    scalar::binary {
+                            scalar::binary_operator::add,
+                            varref { c0 },
+                            constant(1),
+                    },
+            },
+    });
+    auto&& limit = r.insert(relation::intermediate::limit {
+            relation::intermediate::limit::row_slice_type { {}, 3 },
+    });
+    auto&& out = r.insert(relation::emit { x0 });
+    in.output() >> project.input();
+    project.output() >> limit.input();
+    limit.output() >> out.input();
+
+    // push down limits regardless of scan_limit
+    auto opts = options();
+    opts.runtime_features().erase(runtime_feature::scan_limit);
+    intermediate_plan_optimizer optimizer { opts };
+    optimizer(r);
+
+    ASSERT_EQ(r.size(), 4);
+    ASSERT_TRUE(r.contains(in));
+    ASSERT_TRUE(r.contains(project));
+    ASSERT_TRUE(r.contains(limit));
+    ASSERT_TRUE(r.contains(out));
+
+    EXPECT_GT(in.output(), limit.input());
+    EXPECT_GT(limit.output(), project.input());
+    EXPECT_GT(project.output(), out.input());
 }
 
 TEST_F(intermediate_plan_optimizer_test, scan_row_slice_and_direction) {

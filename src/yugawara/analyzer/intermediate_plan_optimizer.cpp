@@ -6,6 +6,7 @@
 #include "details/remove_unused_stream_variables.h"
 #include "details/remove_redundant_conditions.h"
 #include "details/push_down_filters.h"
+#include "details/push_down_limits.h"
 #include "details/flow_volume_info.h"
 #include "details/rewrite_join.h"
 #include "details/collect_join_keys.h"
@@ -57,6 +58,7 @@ void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& g
     }
 
     details::push_down_selections(graph);
+    details::push_down_limits(graph);
     // FIXME: auto flow_volume = details::reorder_join(...);
     details::flow_volume_info flow_volume {};
     if (options_.runtime_features().contains(runtime_feature::index_join)) {
