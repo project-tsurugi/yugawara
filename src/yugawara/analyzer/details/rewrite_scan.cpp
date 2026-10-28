@@ -11,11 +11,11 @@
 
 #include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
-#include <takatori/util/optional_ptr.h>
 
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/provider.h>
 
+#include "estimate_index.h"
 #include "scan_key_collector.h"
 #include "remove_orphaned_elements.h"
 #include "rewrite_criteria.h"
@@ -24,10 +24,8 @@ namespace yugawara::analyzer::details {
 
 namespace relation = ::takatori::relation;
 
-using search_key = storage::details::search_key_element;
 using attribute = details::index_estimator_result_attribute;
 
-using ::takatori::util::optional_ptr;
 using ::takatori::util::sequence_view;
 using ::takatori::util::unsafe_downcast;
 
@@ -53,18 +51,6 @@ public:
     }
 
 private:
-    /**
-     * @brief an index candidate for the current scan.
-     * @details The terms point to the elements in the scan_key_collector of the current scan,
-     *      so that this must not outlive it.
-     */
-    struct candidate {
-        optional_ptr<storage::index const> index {};
-        std::optional<index_estimator::result> result {};
-        std::vector<scan_key_collector::term*> terms {};
-        bool best { false };
-    };
-
     index_estimator const& index_estimator_;
 
     relation::graph_type work_graph_ {};
@@ -80,20 +66,21 @@ private:
             // there is no index information
             return;
         }
-        candidate saved {};
+        std::optional<index_candidate> saved {};
         storages->each_table_index(
                 collector.table(),
                 [&](std::string_view, std::shared_ptr<storage::index const> const& entry) {
-                    if (saved.best) {
+                    if (saved && is_best(*saved)) {
                         return;
                     }
-                    auto current = estimate(collector, *entry);
-                    if (is_better(saved, *current.result)) {
+                    auto current = estimate_index(collector, *entry, index_estimator_);
+                    VLOG(50) << "index " << entry->simple_name() << ": " << current.result;
+                    if (is_better(saved, current)) {
                         saved = std::move(current);
                     }
                 });
-        if (saved.index) {
-            apply_result(expr, saved);
+        if (saved) {
+            apply_result(expr, *saved);
         }
     }
 
@@ -104,56 +91,18 @@ private:
         remove_orphaned_elements(graph);
     }
 
-    candidate estimate(scan_key_collector& collector, storage::index const& index) const {
-        candidate result {};
-        result.index = index;
-
-        std::vector<search_key> search_keys {};
-        build_search_key(collector, index, result.terms, search_keys);
-        auto&& estimated = result.result.emplace(index_estimator_(
-                index,
-                search_keys,
-                collector.sort_keys(),
-                collector.referring()));
-
-        VLOG(50) << "index " << index.simple_name() << ": " << estimated;
-        result.best = estimated.attributes().contains(attribute::single_row)
-                && estimated.attributes().contains(attribute::index_only);
-        return result;
+    static bool is_best(index_candidate const& candidate) {
+        auto&& attributes = candidate.result.attributes();
+        return attributes.contains(attribute::single_row)
+                && attributes.contains(attribute::index_only);
     }
 
-    static void build_search_key(
-            scan_key_collector& collector,
-            storage::index const& index,
-            std::vector<scan_key_collector::term*>& terms,
-            std::vector<search_key>& search_keys) {
-        auto&& keys = index.keys();
-        terms.reserve(keys.size());
-        search_keys.reserve(keys.size());
-
-        for (auto&& key : keys) {
-            if (auto term = collector.find(key.column())) {
-                BOOST_ASSERT(term); // NOLINT
-
-                terms.emplace_back(term.get());
-                search_keys.emplace_back(term->build_index_search_key(key.column()));
-
-                // FIXME: support more complex conditions, with pre/post filters
-                if (!term->equivalent()) {
-                    break;
-                }
-            } else {
-                // no more keys
-                break;
-            }
-        }
-    }
-
-    static bool is_better(candidate const& saved, index_estimator::result const& result) {
-        if (!saved.result) {
+    static bool is_better(std::optional<index_candidate> const& saved, index_candidate const& current) {
+        if (!saved) {
             return true;
         }
-        auto&& saved_result = *saved.result;
+        auto&& saved_result = saved->result;
+        auto&& result = current.result;
         if (!saved_result.attributes().contains(attribute::single_row)
                 && result.attributes().contains(attribute::single_row)) {
             return true;
@@ -161,9 +110,9 @@ private:
         return saved_result.score() < result.score();
     }
 
-    void apply_result(relation::scan& expr, candidate& saved) {
-        auto&& index = *saved.index;
-        if (saved.result->attributes().contains(attribute::find)) {
+    void apply_result(relation::scan& expr, index_candidate& saved) {
+        auto&& index = saved.index.get();
+        if (saved.result.attributes().contains(attribute::find)) {
             rewrite_as_find(expr, index, saved.terms);
             return;
         }
