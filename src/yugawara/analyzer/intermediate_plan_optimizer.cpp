@@ -15,6 +15,7 @@
 #include "details/decompose_prefix_match.h"
 #include "details/decompose_filter.h"
 #include "details/decompose_disjunction_range.h"
+#include "details/absorb_limits.h"
 
 namespace yugawara::analyzer {
 
@@ -74,6 +75,9 @@ void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& g
             compute_join_keys_features(options_.runtime_features()));
     details::rewrite_scan(graph, options_.index_estimator());
     details::remove_redundant_conditions(graph);
+    if (options_.runtime_features().contains(runtime_feature::scan_limit)) {
+        details::absorb_limits(graph);
+    }
 }
 
 } // namespace yugawara::analyzer

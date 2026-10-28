@@ -17,6 +17,8 @@
 #include <takatori/relation/intermediate/join.h>
 #include <takatori/relation/intermediate/limit.h>
 
+#include <takatori/util/downcast.h>
+
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/variable/declaration.h>
@@ -677,6 +679,102 @@ TEST_F(intermediate_plan_optimizer_test, push_down_limits) {
     EXPECT_GT(in.output(), limit.input());
     EXPECT_GT(limit.output(), project.input());
     EXPECT_GT(project.output(), out.input());
+}
+
+TEST_F(intermediate_plan_optimizer_test, absorb_limits) {
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    auto&& limit = r.insert(relation::intermediate::limit {
+            relation::intermediate::limit::row_slice_type { {}, 3 },
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+    in.output() >> limit.input();
+    limit.output() >> out.input();
+
+    intermediate_plan_optimizer optimizer { options() };
+    optimizer(r);
+
+    ASSERT_EQ(r.size(), 3);
+    ASSERT_TRUE(r.contains(in));
+    EXPECT_GT(in.output(), limit.input());
+    EXPECT_EQ(in.row_slice(), (relation::scan::row_slice_type { {}, 3 }));
+}
+
+TEST_F(intermediate_plan_optimizer_test, absorb_limits_disabled) {
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    auto&& limit = r.insert(relation::intermediate::limit {
+            relation::intermediate::limit::row_slice_type { {}, 3 },
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+    in.output() >> limit.input();
+    limit.output() >> out.input();
+
+    auto opts = options();
+    opts.runtime_features().erase(runtime_feature::scan_limit);
+    intermediate_plan_optimizer optimizer { opts };
+    optimizer(r);
+
+    ASSERT_EQ(r.size(), 3);
+    ASSERT_TRUE(r.contains(in));
+    EXPECT_FALSE(in.row_slice());
+    EXPECT_FALSE(in.direction());
+}
+
+TEST_F(intermediate_plan_optimizer_test, absorb_limits_after_rewrite_scan) {
+    // SELECT C0 FROM T0 WHERE C0 > 2 ORDER BY C0 LIMIT 2
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    auto&& filter = r.insert(relation::filter {
+            compare(varref(c0), constant(2), comparison_operator::greater),
+    });
+    auto&& limit = r.insert(relation::intermediate::limit {
+            {},
+            {
+                    relation::intermediate::limit::sort_key { c0 },
+            },
+            relation::intermediate::limit::row_slice_type { {}, 2 },
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+    in.output() >> filter.input();
+    filter.output() >> limit.input();
+    limit.output() >> out.input();
+
+    storages->add_index({
+            t0, "x0",
+            { t0c0 },
+    });
+    intermediate_plan_optimizer optimizer { options() };
+    optimizer(r);
+
+    // the filter is absorbed into the scan range, and then the limit is absorbed into the scan
+    ASSERT_TRUE(r.contains(limit));
+    auto upstream = limit.input().opposite();
+    ASSERT_TRUE(upstream);
+    ASSERT_EQ(upstream->owner().kind(), relation::scan::tag);
+    auto&& scan = ::takatori::util::unsafe_downcast<relation::scan>(upstream->owner());
+
+    EXPECT_TRUE(scan.lower());
+    EXPECT_EQ(scan.row_slice(), (relation::scan::row_slice_type { {}, 2 }));
+    EXPECT_EQ(scan.direction(), relation::scan_direction::forward);
 }
 
 TEST_F(intermediate_plan_optimizer_test, scan_row_slice_and_direction) {
