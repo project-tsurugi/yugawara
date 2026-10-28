@@ -99,6 +99,7 @@ add_library(yugawara
     yugawara/analyzer/details/scalar_expression_variable_rewriter.cpp
     yugawara/analyzer/details/rewrite_stream_variables.cpp
     yugawara/analyzer/details/remove_variable_aliases.cpp
+    yugawara/analyzer/details/remove_redundant_sort_keys.cpp
 
     # normalizer
     yugawara/analyzer/intermediate_plan_normalizer.cpp
