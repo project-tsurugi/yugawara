@@ -117,6 +117,7 @@ add_library(yugawara
     yugawara/analyzer/details/collect_stream_variables.cpp
     yugawara/analyzer/details/push_down_filters.cpp
     yugawara/analyzer/details/push_down_limits.cpp
+    yugawara/analyzer/details/find_scan_direction.cpp
     yugawara/analyzer/details/simplify_predicate.cpp
     yugawara/analyzer/details/remove_redundant_conditions.cpp
     yugawara/analyzer/details/index_estimator_result.cpp
