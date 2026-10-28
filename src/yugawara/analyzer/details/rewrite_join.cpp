@@ -1,6 +1,8 @@
 #include "rewrite_join.h"
 
 #include <optional>
+#include <utility>
+#include <vector>
 
 #include <takatori/scalar/binary.h>
 
@@ -13,7 +15,6 @@
 
 #include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
-#include <takatori/util/finalizer.h>
 #include <takatori/util/optional_ptr.h>
 
 #include <yugawara/binding/factory.h>
@@ -38,7 +39,6 @@ using ::takatori::util::ownership_reference;
 using ::takatori::util::optional_ptr;
 using ::takatori::util::sequence_view;
 using ::takatori::util::unsafe_downcast;
-using ::takatori::util::finalizer;
 
 using expression_ref = ownership_reference<scalar::expression>;
 
@@ -69,46 +69,37 @@ public:
     }
 
 private:
+    /**
+     * @brief an index candidate for the current join.
+     * @details The terms point to the elements in the scan_key_collector of the current join,
+     *      so that this must not outlive it.
+     */
+    struct candidate {
+        optional_ptr<relation::scan> scan {};
+        optional_ptr<storage::index const> index {};
+        bool left {};
+        std::optional<index_estimator::result> result {};
+        std::vector<search_key_term*> terms {};
+        std::vector<relation::filter*> filters {};
+    };
+
     index_estimator const& index_estimator_;
     flow_volume_info const& flow_volume_;
     bool allow_join_scan_;
 
     relation::graph_type work_graph_ {};
 
-    scan_key_collector left_collector_;
-    scan_key_collector right_collector_;
-
-    std::vector<search_key_term*> term_buf_;
-    std::vector<search_key> search_key_buf_;
-    std::vector<relation::filter*> filter_buf_;
-
-    optional_ptr<relation::scan> saved_scan_ {};
-    optional_ptr<storage::index const> saved_index_ {};
-    bool saved_left_ {};
-    std::optional<index_estimator::result> saved_result_ {};
-    std::vector<search_key_term*> saved_terms_;
-    std::vector<relation::filter*> saved_filters_;
-
     void process(relation::intermediate::join& expr) {
-        process_right(expr);
-        process_left(expr);
-        if (saved_scan_) {
-            auto condition = apply_result(expr, *saved_scan_, *saved_index_, saved_left_, saved_terms_);
-            merge_filters(std::move(condition), saved_filters_);
+        // NOTE: the collectors and the candidate are only valid while processing the current join
+        scan_key_collector right_collector {};
+        scan_key_collector left_collector {};
+        candidate saved {};
+        process_right(expr, right_collector, saved);
+        process_left(expr, left_collector, saved);
+        if (saved.scan) {
+            auto condition = apply_result(expr, saved);
+            merge_filters(std::move(condition), saved.filters);
         }
-
-        // clear the round data
-        left_collector_.clear();
-        right_collector_.clear();
-        term_buf_.clear();
-        search_key_buf_.clear();
-        filter_buf_.clear();
-        saved_scan_ = {};
-        saved_index_ = {};
-        saved_left_ = {};
-        saved_result_ = {};
-        saved_terms_.clear();
-        saved_filters_.clear();
     }
 
     void install(relation::graph_type& graph) {
@@ -118,37 +109,17 @@ private:
         remove_orphaned_elements(graph);
     }
 
-    void process_left(relation::intermediate::join& expr) {
+    void process_left(relation::intermediate::join& expr, scan_key_collector& collector, candidate& saved) const {
         static constexpr join_kind_set allow {
                 join_kind::inner,
         };
         if (!allow.contains(expr.operator_kind())) {
             return;
         }
-        auto&& collector = left_collector_;
-        auto scan = find_scan(expr.left(), false);
-        finalizer filter_buf_finalizer {
-                [&]() -> void {
-                    filter_buf_.clear();
-                }
-        };
-        if (!scan || !collector(*scan, true)) {
-            return;
-        }
-        auto storages = collector.table().owner();
-        if (!storages) {
-            // there are no index information
-            return;
-        }
-        storages->each_table_index(
-                collector.table(),
-                [&](std::string_view, std::shared_ptr<storage::index const> const& entry) {
-                    estimate(expr, *scan, *entry, collector, true);
-                });
-        filter_buf_.clear();
+        process_input(expr, expr.left(), false, true, collector, saved);
     }
 
-    void process_right(relation::intermediate::join& expr) {
+    void process_right(relation::intermediate::join& expr, scan_key_collector& collector, candidate& saved) const {
         static constexpr join_kind_set allow {
                 join_kind::inner,
                 join_kind::semi,
@@ -164,13 +135,18 @@ private:
         if (!allow.contains(expr.operator_kind())) {
             return;
         }
-        auto&& collector = right_collector_;
-        auto scan = find_scan(expr.right(), direct.contains(expr.operator_kind()));
-        finalizer filter_buf_finalizer {
-            [&]() -> void {
-                filter_buf_.clear();
-            }
-        };
+        process_input(expr, expr.right(), direct.contains(expr.operator_kind()), false, collector, saved);
+    }
+
+    void process_input(
+            relation::intermediate::join const& expr,
+            relation::expression::input_port_type& input,
+            bool direct,
+            bool left,
+            scan_key_collector& collector,
+            candidate& saved) const {
+        std::vector<relation::filter*> filters {};
+        auto scan = find_scan(input, direct, filters);
         if (!scan || !collector(*scan, true)) {
             return;
         }
@@ -182,13 +158,18 @@ private:
         storages->each_table_index(
                 collector.table(),
                 [&](std::string_view, std::shared_ptr<storage::index const> const& entry) {
-                    estimate(expr, *scan, *entry, collector, false);
+                    auto current = estimate(*scan, *entry, collector, left, filters);
+                    // FIXME: use more statistics of individual join inputs
+                    if (current && is_better(expr, saved, *current)) {
+                        saved = std::move(*current);
+                    }
                 });
-        filter_buf_.clear();
     }
 
-    optional_ptr<relation::scan> find_scan(relation::expression::input_port_type& input, bool direct) {
-        BOOST_ASSERT(filter_buf_.empty()); // NOLINT
+    static optional_ptr<relation::scan> find_scan(
+            relation::expression::input_port_type& input,
+            bool direct,
+            std::vector<relation::filter*>& filters) {
         auto current = input.opposite();
         while (true) {
             BOOST_ASSERT(current); // NOLINT
@@ -208,7 +189,7 @@ private:
                         return {};
                     }
                     auto&& filter = unsafe_downcast<relation::filter>(expr);
-                    filter_buf_.emplace_back(std::addressof(filter));
+                    filters.emplace_back(std::addressof(filter));
                     current = filter.input().opposite();
                     break; // continue to upstream
                 }
@@ -219,55 +200,52 @@ private:
         }
     }
 
-    void estimate(
-            relation::intermediate::join const& expr,
+    std::optional<candidate> estimate(
             relation::scan& scan,
             storage::index const& index,
             scan_key_collector& collector,
-            bool left) {
-        build_search_key(index, collector);
-        if (search_key_buf_.empty()) {
+            bool left,
+            sequence_view<relation::filter* const> filters) const {
+        candidate result {};
+        std::vector<search_key> search_keys {};
+        build_search_key(index, collector, result.terms, search_keys);
+        if (search_keys.empty()) {
             // index based join must have at least one term
-            return;
+            return {};
         }
-        finalizer f {
-            [&]() -> void {
-                term_buf_.clear();
-                search_key_buf_.clear();
-            }
-        };
-        auto result = index_estimator_(
+        auto&& estimated = result.result.emplace(index_estimator_(
                 index,
-                search_key_buf_,
+                search_keys,
                 collector.sort_keys(),
-                collector.referring());
+                collector.referring()));
 
-        if (!result.attributes().contains(attribute::find) &&
-                !(allow_join_scan_ && result.attributes().contains(attribute::range_scan))) {
+        if (!estimated.attributes().contains(attribute::find) &&
+                !(allow_join_scan_ && estimated.attributes().contains(attribute::range_scan))) {
             // no accepted methods
-            return;
+            return {};
         }
-
-        // FIXME: use more statistics of individual join inputs
-        if (is_better(expr, result, left)) {
-            save_result(scan, index, left, result, term_buf_, filter_buf_);
-        }
+        result.scan = scan;
+        result.index = index;
+        result.left = left;
+        result.filters.assign(filters.begin(), filters.end());
+        return result;
     }
 
-    void build_search_key(storage::index const& index, scan_key_collector& collector) {
-        BOOST_ASSERT(term_buf_.empty()); // NOLINT
-        BOOST_ASSERT(search_key_buf_.empty()); // NOLINT
-
+    static void build_search_key(
+            storage::index const& index,
+            scan_key_collector& collector,
+            std::vector<search_key_term*>& terms,
+            std::vector<search_key>& search_keys) {
         auto&& keys = index.keys();
-        term_buf_.reserve(keys.size());
-        search_key_buf_.reserve(keys.size());
+        terms.reserve(keys.size());
+        search_keys.reserve(keys.size());
 
         for (auto&& key : keys) {
             if (auto term = collector.find(key.column())) {
                 BOOST_ASSERT(term); // NOLINT
 
-                term_buf_.emplace_back(term.get());
-                search_key_buf_.emplace_back(term->build_index_search_key(key.column()));
+                terms.emplace_back(term.get());
+                search_keys.emplace_back(term->build_index_search_key(key.column()));
 
                 // FIXME: support more complex conditions, with pre/post filters
                 if (!term->equivalent()) {
@@ -284,54 +262,36 @@ private:
         return left ? expr.left() : expr.right();
     }
 
-    bool is_better(relation::intermediate::join const& expr, index_estimator::result const& result, bool left) {
-        if (!saved_result_) {
+    bool is_better(relation::intermediate::join const& expr, candidate const& saved, candidate const& current) const {
+        if (!saved.result) {
             return true;
         }
-        auto&& saved = *saved_result_;
-        if (!saved.attributes().contains(attribute::single_row)
+        auto&& saved_result = *saved.result;
+        auto&& result = *current.result;
+        if (!saved_result.attributes().contains(attribute::single_row)
                 && result.attributes().contains(attribute::single_row)) {
             return true;
         }
-        auto saved_vol = flow_volume_.find(input(expr, saved_left_));
-        auto result_vol = flow_volume_.find(input(expr, left));
+        auto saved_vol = flow_volume_.find(input(expr, saved.left));
+        auto result_vol = flow_volume_.find(input(expr, current.left));
         if (saved_vol && result_vol) {
-            auto saved_score = saved.score() * saved_vol->row_count * saved_vol->column_size;
+            auto saved_score = saved_result.score() * saved_vol->row_count * saved_vol->column_size;
             auto result_score = result.score() * result_vol->row_count * result_vol->column_size;
             return saved_score < result_score;
         }
-        return saved.score() < result.score();
+        return saved_result.score() < result.score();
     }
 
-    void save_result(
-            relation::scan& expr,
-            storage::index const& index,
-            bool left,
-            index_estimator::result result,
-            sequence_view<scan_key_collector::term*> terms,
-            sequence_view<relation::filter*> filters) {
-        saved_scan_ = expr;
-        saved_index_ = index;
-        saved_left_ = left;
-        saved_result_.emplace(result);
-        saved_terms_.assign(terms.begin(), terms.end());
-        saved_filters_.assign(filters.begin(), filters.end());
-    }
-
-    expression_ref apply_result(
-            relation::intermediate::join& expr,
-            relation::scan& source,
-            storage::index const& index,
-            bool left,
-            sequence_view<scan_key_collector::term*> terms) {
-        if (left) {
+    expression_ref apply_result(relation::intermediate::join& expr, candidate& saved) {
+        if (saved.left) {
             swap_upstream(expr.left(), expr.right());
         }
-        auto&& result = *saved_result_;
-        if (result.attributes().contains(attribute::find)) {
-            return rewrite_as_join_find(expr, source, index, terms);
+        auto&& source = *saved.scan;
+        auto&& index = *saved.index;
+        if (saved.result->attributes().contains(attribute::find)) {
+            return rewrite_as_join_find(expr, source, index, saved.terms);
         }
-        return rewrite_as_join_scan(expr, source, index, terms);
+        return rewrite_as_join_scan(expr, source, index, saved.terms);
     }
 
     expression_ref rewrite_as_join_find(
