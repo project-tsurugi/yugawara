@@ -104,8 +104,9 @@ private:
 
 } // namespace
 
-bool scan_key_collector::operator()(relation::scan& expression, bool include_join) {
+bool scan_key_collector::operator()(relation::scan& expression, scope target) {
     clear();
+    bool include_join = target == scope::join;
 
     // must not have any endpoint settings
     if (expression.lower() || expression.upper() || expression.row_slice()) {

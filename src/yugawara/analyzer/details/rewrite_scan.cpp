@@ -72,7 +72,7 @@ private:
     void process(relation::scan& expr) {
         // NOTE: the collector and the candidate are only valid while processing the current scan
         scan_key_collector collector {};
-        if (!collector(expr, false)) {
+        if (!collector(expr, scan_key_collector::scope::scan)) {
             return;
         }
         auto&& storages = collector.table().owner();

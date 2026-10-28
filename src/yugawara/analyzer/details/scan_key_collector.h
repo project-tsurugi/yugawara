@@ -34,10 +34,20 @@ public:
     using column_ref = std::reference_wrapper<storage::column const>;
 
     /**
+     * @brief the scope of conditions to collect scan key terms.
+     */
+    enum class scope {
+        /// @brief only the filters which directly succeed the scan.
+        scan,
+        /// @brief the filters which directly succeed the scan, and the condition of the succeeding join.
+        join,
+    };
+
+    /**
      * @brief collect scan key terms for the target scan expression.
      * @details The target scan operation must not have any endpoint settings.
      *
-     *      This also collect from the succeeding `join_relation` operation it it is required.
+     *      This also collect from the succeeding `join_relation` operation if `scope::join` is specified.
      *      If there are one or more filters between `scan` and `join_relation`,
      *
      *      - If it includes anti join, must not use this function
@@ -45,13 +55,13 @@ public:
      *
      *      Note that, this don't care the `scan` reaches which input port of the succeeding `join_relation`.
      *
-     *      If `include_join` is enabled but there is no succeeding `join_relation`, this will return `false`.
+     *      If `scope::join` is specified but there is no succeeding `join_relation`, this will return `false`.
      * @param expression the target expression
-     * @param include_join whether or not consider the succeeding join conditions
+     * @param target the scope of conditions to collect
      * @return true if any scan key is available
      * @return false otherwise
      */
-    [[nodiscard]] bool operator()(::takatori::relation::scan& expression, bool include_join = false);
+    [[nodiscard]] bool operator()(::takatori::relation::scan& expression, scope target = scope::scan);
 
     void clear();
 

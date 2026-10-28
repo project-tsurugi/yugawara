@@ -167,7 +167,7 @@ private:
             candidate& saved) const {
         std::vector<relation::filter*> filters {};
         auto scan = find_scan(input(expr, side), direct, filters);
-        if (!scan || !collector(*scan, true)) {
+        if (!scan || !collector(*scan, scan_key_collector::scope::join)) {
             return;
         }
         auto storages = collector.table().owner();
