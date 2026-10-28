@@ -4,21 +4,17 @@
 
 #include <optional>
 #include <utility>
-#include <vector>
 
 #include <takatori/relation/scan.h>
-#include <takatori/relation/find.h>
 
-#include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
 
-#include <yugawara/binding/factory.h>
 #include <yugawara/storage/provider.h>
 
+#include "apply_index_to_scan.h"
 #include "estimate_index.h"
 #include "scan_key_collector.h"
 #include "remove_orphaned_elements.h"
-#include "rewrite_criteria.h"
 
 namespace yugawara::analyzer::details {
 
@@ -26,7 +22,6 @@ namespace relation = ::takatori::relation;
 
 using attribute = details::index_estimator_result_attribute;
 
-using ::takatori::util::sequence_view;
 using ::takatori::util::unsafe_downcast;
 
 namespace {
@@ -80,7 +75,7 @@ private:
                     }
                 });
         if (saved) {
-            apply_result(expr, *saved);
+            apply_index_to_scan(expr, *saved, work_graph_);
         }
     }
 
@@ -108,49 +103,6 @@ private:
             return true;
         }
         return saved_result.score() < result.score();
-    }
-
-    void apply_result(relation::scan& expr, index_candidate& saved) {
-        auto&& index = saved.index.get();
-        if (saved.result.attributes().contains(attribute::find)) {
-            rewrite_as_find(expr, index, saved.terms);
-            return;
-        }
-        rewrite_bounds(expr, index, saved.terms);
-    }
-
-    void rewrite_as_find(
-            relation::scan& expr,
-            storage::index const& index,
-            sequence_view<scan_key_collector::term*> terms) {
-        BOOST_ASSERT(terms.size() <= index.keys().size()); // NOLINT
-
-        std::vector<relation::find::key> keys {};
-        fill_search_key(index, keys, terms);
-
-        binding::factory bindings {};
-        auto&& find = work_graph_.emplace<relation::find>(
-                bindings(index),
-                std::move(expr.columns()),
-                std::move(keys));
-
-        // reconnect
-        BOOST_ASSERT(expr.output().opposite()); // NOLINT
-        auto&& downstream = *expr.output().opposite();
-        expr.output().disconnect_all();
-        find.output().connect_to(downstream);
-    }
-
-    void rewrite_bounds(
-            relation::scan& expr,
-            storage::index const& index,
-            sequence_view<scan_key_collector::term*> terms) const {
-        BOOST_ASSERT(terms.size() <= index.keys().size()); // NOLINT
-
-        binding::factory bindings {};
-        expr.source() = bindings(index);
-
-        fill_endpoints(index, expr.lower(), expr.upper(), terms);
     }
 };
 
