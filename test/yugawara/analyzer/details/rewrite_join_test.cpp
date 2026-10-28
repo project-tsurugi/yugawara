@@ -1039,6 +1039,266 @@ TEST_F(rewrite_join_test, left_indirect_outer_at_most_one) {
     EXPECT_EQ(filter.condition(), compare(varref(cl1), constant(1)));
 }
 
+TEST_F(rewrite_join_test, right_direct_semi) {
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto&& inl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), cl0 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto&& inr = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), cr0 },
+            },
+    });
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::semi,
+            compare(cl0, cr0),
+    });
+
+    auto&& out = r.insert(relation::emit { cl0 });
+    inl.output() >> join.left();
+    inr.output() >> join.right();
+    join.output() >> out.input();
+
+    auto x0 = storages.add_index(storage::index {
+            t1,
+            "x0",
+            {
+                    t1->columns()[0],
+            },
+    });
+    apply(r);
+
+    ASSERT_EQ(r.size(), 3);
+
+    auto&& result = next<relation::join_find>(out.input());
+    EXPECT_GT(inl.output(), result.left());
+
+    EXPECT_EQ(result.source(), bindings(*x0));
+
+    EXPECT_EQ(result.operator_kind(), relation::join_kind::semi);
+
+    ASSERT_EQ(result.keys().size(), 1);
+    EXPECT_EQ(result.keys()[0].variable(), bindings(t1c0));
+    EXPECT_EQ(result.keys()[0].value(), varref(cl0));
+
+    EXPECT_EQ(result.condition(), nullptr);
+}
+
+TEST_F(rewrite_join_test, right_indirect_semi) {
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto&& inl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), cl0 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto&& inr = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), cr0 },
+                    { bindings(t1c1), cr1 },
+            },
+    });
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::semi,
+            compare(cl0, cr0),
+    });
+
+    auto&& out = r.insert(relation::emit { cl0 });
+
+    auto&& filter = r.insert(relation::filter {
+            compare(varref(cr1), constant(1)),
+    });
+
+    inl.output() >> join.left();
+    inr.output() >> filter.input();
+    filter.output() >> join.right();
+    join.output() >> out.input();
+
+    auto x0 = storages.add_index(storage::index {
+            t1,
+            "x0",
+            {
+                    t1->columns()[1],
+                    t1->columns()[0],
+            },
+    });
+    apply(r);
+
+    ASSERT_EQ(r.size(), 3);
+
+    auto&& result = next<relation::join_find>(out.input());
+    EXPECT_GT(inl.output(), result.left());
+
+    EXPECT_EQ(result.source(), bindings(*x0));
+
+    EXPECT_EQ(result.operator_kind(), relation::join_kind::semi);
+
+    ASSERT_EQ(result.keys().size(), 2);
+    EXPECT_EQ(result.keys()[0].variable(), bindings(t1c1));
+    EXPECT_EQ(result.keys()[1].variable(), bindings(t1c0));
+    EXPECT_EQ(result.keys()[0].value(), constant(1));
+    EXPECT_EQ(result.keys()[1].value(), varref(cl0));
+
+    EXPECT_EQ(result.condition(), nullptr);
+}
+
+TEST_F(rewrite_join_test, right_direct_anti) {
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto&& inl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), cl0 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto&& inr = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), cr0 },
+            },
+    });
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::anti,
+            compare(cl0, cr0),
+    });
+
+    auto&& out = r.insert(relation::emit { cl0 });
+    inl.output() >> join.left();
+    inr.output() >> join.right();
+    join.output() >> out.input();
+
+    auto x0 = storages.add_index(storage::index {
+            t1,
+            "x0",
+            {
+                    t1->columns()[0],
+            },
+    });
+    apply(r);
+
+    ASSERT_EQ(r.size(), 3);
+
+    auto&& result = next<relation::join_find>(out.input());
+    EXPECT_GT(inl.output(), result.left());
+
+    EXPECT_EQ(result.source(), bindings(*x0));
+
+    EXPECT_EQ(result.operator_kind(), relation::join_kind::anti);
+
+    ASSERT_EQ(result.keys().size(), 1);
+    EXPECT_EQ(result.keys()[0].variable(), bindings(t1c0));
+    EXPECT_EQ(result.keys()[0].value(), varref(cl0));
+
+    EXPECT_EQ(result.condition(), nullptr);
+}
+
+TEST_F(rewrite_join_test, right_indirect_anti) {
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto&& inl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), cl0 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto&& inr = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), cr0 },
+                    { bindings(t1c1), cr1 },
+            },
+    });
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::anti,
+            compare(cl0, cr0),
+    });
+
+    auto&& out = r.insert(relation::emit { cl0 });
+
+    auto&& filter = r.insert(relation::filter {
+            compare(varref(cr1), constant(1)),
+    });
+
+    inl.output() >> join.left();
+    inr.output() >> filter.input();
+    filter.output() >> join.right();
+    join.output() >> out.input();
+
+    storages.add_index(storage::index {
+            t1,
+            "x0",
+            {
+                    t1->columns()[1],
+                    t1->columns()[0],
+            },
+    });
+    apply(r);
+
+    // the anti join only accepts the right scan directly connected
+    ASSERT_EQ(r.size(), 5);
+
+    auto&& result = next<relation::intermediate::join>(out.input());
+    EXPECT_EQ(result.operator_kind(), relation::join_kind::anti);
+    EXPECT_EQ(result.condition(), compare(cl0, cr0));
+    EXPECT_EQ(filter.condition(), compare(varref(cr1), constant(1)));
+}
+
+TEST_F(rewrite_join_test, left_direct_semi) {
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto&& inl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), cl0 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto&& inr = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), cr0 },
+            },
+    });
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::semi,
+            compare(cl0, cr0),
+    });
+
+    auto&& out = r.insert(relation::emit { cl0 });
+    inl.output() >> join.left();
+    inr.output() >> join.right();
+    join.output() >> out.input();
+
+    storages.add_index(storage::index {
+            t0,
+            "x0",
+            {
+                    t0->columns()[0],
+            },
+    });
+    apply(r);
+
+    // the semi join never rewrites its left input
+    ASSERT_EQ(r.size(), 4);
+
+    auto&& result = next<relation::intermediate::join>(out.input());
+    EXPECT_EQ(result.operator_kind(), relation::join_kind::semi);
+    EXPECT_EQ(result.condition(), compare(cl0, cr0));
+}
+
 TEST_F(rewrite_join_test, join_scan) {
     relation::graph_type r;
     auto cl0 = bindings.stream_variable("cl0");
