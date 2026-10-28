@@ -3,6 +3,8 @@
 #include <glog/logging.h>
 
 #include <optional>
+#include <utility>
+#include <vector>
 
 #include <takatori/relation/scan.h>
 #include <takatori/relation/find.h>
@@ -51,45 +53,48 @@ public:
     }
 
 private:
+    /**
+     * @brief an index candidate for the current scan.
+     * @details The terms point to the elements in the scan_key_collector of the current scan,
+     *      so that this must not outlive it.
+     */
+    struct candidate {
+        optional_ptr<storage::index const> index {};
+        std::optional<index_estimator::result> result {};
+        std::vector<scan_key_collector::term*> terms {};
+        bool best { false };
+    };
+
     index_estimator const& index_estimator_;
-    scan_key_collector collector_;
 
     relation::graph_type work_graph_ {};
 
-    std::vector<scan_key_collector::term*> term_buf_;
-    std::vector<search_key> search_key_buf_;
-
-    bool saw_best_ { false };
-    std::optional<index_estimator::result> saved_result_ {};
-    optional_ptr<storage::index const> saved_index_ {};
-    std::vector<scan_key_collector::term*> saved_terms_;
-
     void process(relation::scan& expr) {
-        if (!collector_(expr, false)) {
+        // NOTE: the collector and the candidate are only valid while processing the current scan
+        scan_key_collector collector {};
+        if (!collector(expr, false)) {
             return;
         }
-        auto&& storages = collector_.table().owner();
+        auto&& storages = collector.table().owner();
         if (!storages) {
             // there is no index information
             return;
         }
+        candidate saved {};
         storages->each_table_index(
-                collector_.table(),
+                collector.table(),
                 [&](std::string_view, std::shared_ptr<storage::index const> const& entry) {
-                    estimate(*entry);
+                    if (saved.best) {
+                        return;
+                    }
+                    auto current = estimate(collector, *entry);
+                    if (is_better(saved, *current.result)) {
+                        saved = std::move(current);
+                    }
                 });
-        if (saved_index_) {
-            apply_result(expr, *saved_index_, saved_terms_);
+        if (saved.index) {
+            apply_result(expr, saved);
         }
-
-        // clear the round data
-        collector_.clear();
-        term_buf_.clear();
-        search_key_buf_.clear();
-        saw_best_ = {};
-        saved_index_ = {};
-        saved_result_ = {};
-        saved_terms_.clear();
     }
 
     void install(relation::graph_type& graph) {
@@ -99,39 +104,39 @@ private:
         remove_orphaned_elements(graph);
     }
 
-    void estimate(storage::index const& index) {
-        if (saw_best_) {
-            return;
-        }
-        build_search_key(index);
-        auto result = index_estimator_(
-                index,
-                search_key_buf_,
-                collector_.sort_keys(),
-                collector_.referring());
+    candidate estimate(scan_key_collector& collector, storage::index const& index) const {
+        candidate result {};
+        result.index = index;
 
-        VLOG(50) << "index " << index.simple_name() << ": " << result;
-        if (is_better(result)) {
-            save_result(index, result, term_buf_);
-        }
-        term_buf_.clear();
-        search_key_buf_.clear();
+        std::vector<search_key> search_keys {};
+        build_search_key(collector, index, result.terms, search_keys);
+        auto&& estimated = result.result.emplace(index_estimator_(
+                index,
+                search_keys,
+                collector.sort_keys(),
+                collector.referring()));
+
+        VLOG(50) << "index " << index.simple_name() << ": " << estimated;
+        result.best = estimated.attributes().contains(attribute::single_row)
+                && estimated.attributes().contains(attribute::index_only);
+        return result;
     }
 
-    void build_search_key(storage::index const& index) {
-        BOOST_ASSERT(term_buf_.empty()); // NOLINT
-        BOOST_ASSERT(search_key_buf_.empty()); // NOLINT
-
+    static void build_search_key(
+            scan_key_collector& collector,
+            storage::index const& index,
+            std::vector<scan_key_collector::term*>& terms,
+            std::vector<search_key>& search_keys) {
         auto&& keys = index.keys();
-        term_buf_.reserve(keys.size());
-        search_key_buf_.reserve(keys.size());
+        terms.reserve(keys.size());
+        search_keys.reserve(keys.size());
 
         for (auto&& key : keys) {
-            if (auto term = collector_.find(key.column())) {
+            if (auto term = collector.find(key.column())) {
                 BOOST_ASSERT(term); // NOLINT
 
-                term_buf_.emplace_back(term.get());
-                search_key_buf_.emplace_back(term->build_index_search_key(key.column()));
+                terms.emplace_back(term.get());
+                search_keys.emplace_back(term->build_index_search_key(key.column()));
 
                 // FIXME: support more complex conditions, with pre/post filters
                 if (!term->equivalent()) {
@@ -144,41 +149,25 @@ private:
         }
     }
 
-    bool is_better(index_estimator::result const& result) {
-        if (!saved_result_) {
+    static bool is_better(candidate const& saved, index_estimator::result const& result) {
+        if (!saved.result) {
             return true;
         }
-        auto&& saved = *saved_result_;
-        if (!saved.attributes().contains(attribute::single_row)
+        auto&& saved_result = *saved.result;
+        if (!saved_result.attributes().contains(attribute::single_row)
                 && result.attributes().contains(attribute::single_row)) {
             return true;
         }
-        return saved.score() < result.score();
+        return saved_result.score() < result.score();
     }
 
-    void save_result(
-            storage::index const& index,
-            index_estimator::result result,
-            sequence_view<scan_key_collector::term*> terms) {
-        if (result.attributes().contains(attribute::single_row)
-                && result.attributes().contains(attribute::index_only)) {
-            saw_best_ = true;
-        }
-        saved_index_ = index;
-        saved_result_.emplace(result);
-        saved_terms_.assign(terms.begin(), terms.end());
-    }
-
-    void apply_result(
-            relation::scan& expr,
-            storage::index const& index,
-            sequence_view<scan_key_collector::term*> terms) {
-        auto&& result = *saved_result_;
-        if (result.attributes().contains(attribute::find)) {
-            rewrite_as_find(expr, index, terms);
+    void apply_result(relation::scan& expr, candidate& saved) {
+        auto&& index = *saved.index;
+        if (saved.result->attributes().contains(attribute::find)) {
+            rewrite_as_find(expr, index, saved.terms);
             return;
         }
-        rewrite_bounds(expr, index, terms);
+        rewrite_bounds(expr, index, saved.terms);
     }
 
     void rewrite_as_find(
