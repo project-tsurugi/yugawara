@@ -104,21 +104,31 @@ optional_ptr<relation::expression> find_ordered_destination(relation::intermedia
     return current;
 }
 
-std::optional<relation::scan_direction> find_scan_direction(
+std::optional<std::vector<storage::details::index_key_element>> resolve_sort_keys(
         relation::scan const& scan,
         relation::intermediate::limit const& expr) {
-    std::vector<storage::details::index_key_element> sort_keys {};
-    sort_keys.reserve(expr.sort_keys().size());
+    std::vector<storage::details::index_key_element> results {};
+    results.reserve(expr.sort_keys().size());
     for (auto&& key : expr.sort_keys()) {
         auto column = find_source_column(scan, key.variable());
         if (!column) {
             return {};
         }
-        sort_keys.emplace_back(*column, key.direction());
+        results.emplace_back(*column, key.direction());
+    }
+    return results;
+}
+
+std::optional<relation::scan_direction> find_scan_direction(
+        relation::scan const& scan,
+        relation::intermediate::limit const& expr) {
+    auto sort_keys = resolve_sort_keys(scan, expr);
+    if (!sort_keys) {
+        return {};
     }
     auto&& index = binding::extract<storage::index>(scan.source());
     auto fixed_columns = collect_fixed_columns(scan);
-    return find_scan_direction(index, sort_keys, fixed_columns);
+    return find_scan_direction(index, *sort_keys, fixed_columns);
 }
 
 } // namespace yugawara::analyzer::details

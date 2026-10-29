@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <vector>
 
 #include <takatori/relation/expression.h>
 #include <takatori/relation/scan.h>
@@ -8,6 +9,8 @@
 #include <takatori/relation/intermediate/limit.h>
 
 #include <takatori/util/optional_ptr.h>
+
+#include <yugawara/storage/details/index_key_element.h>
 
 namespace yugawara::analyzer::details {
 
@@ -37,6 +40,18 @@ namespace yugawara::analyzer::details {
  */
 [[nodiscard]] ::takatori::util::optional_ptr<::takatori::relation::expression> find_ordered_destination(
         ::takatori::relation::intermediate::limit& expr);
+
+/**
+ * @brief returns the sort keys of the given `limit`, as the columns of the given `scan`.
+ * @param scan the source `scan` operator
+ * @param expr the `limit` operator which requests the row order
+ * @return the sort keys as the columns of the `scan`
+ * @return empty if any sort keys do not refer the columns of the `scan`
+ * @see find_ordered_source()
+ */
+[[nodiscard]] std::optional<std::vector<storage::details::index_key_element>> resolve_sort_keys(
+        ::takatori::relation::scan const& scan,
+        ::takatori::relation::intermediate::limit const& expr);
 
 /**
  * @brief returns the direction to read the index of the given `scan`, which provides the rows in the order of the
