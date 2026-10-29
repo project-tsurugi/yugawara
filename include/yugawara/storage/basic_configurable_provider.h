@@ -200,7 +200,7 @@ public:
             }
         }
         if (parent_) {
-            return find_primary_index(table);
+            return parent_->find_primary_index(table);
         }
         return {};
     }

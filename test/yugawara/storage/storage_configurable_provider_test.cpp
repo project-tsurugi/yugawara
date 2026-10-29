@@ -1,6 +1,7 @@
 #include <yugawara/storage/configurable_provider.h>
 
 #include <memory>
+#include <mutex>
 
 #include <gtest/gtest.h>
 
@@ -488,6 +489,70 @@ TEST_F(storage_configurable_provider_test, find_primary_index_shortcircuit_table
     });
     ASSERT_TRUE(element);
     EXPECT_FALSE(p1->find_primary_index(*parent));
+}
+
+TEST_F(storage_configurable_provider_test, find_primary_index_in_parent) {
+    auto parent = std::make_shared<configurable_provider>();
+    auto primary = parent->add_index({ origin, "PRIMARY_PARENT", { c1 }, {}, { index_feature::primary } });
+    configurable_provider child { parent };
+
+    EXPECT_EQ(child.find_primary_index(*origin), primary);
+}
+
+TEST_F(storage_configurable_provider_test, find_primary_index_absent_in_parent) {
+    auto parent = std::make_shared<configurable_provider>();
+    parent->add_index({ origin, "SECONDARY_PARENT", { c1 } });
+    configurable_provider child { parent };
+
+    EXPECT_FALSE(child.find_primary_index(*origin));
+}
+
+TEST_F(storage_configurable_provider_test, find_primary_index_in_ancestor) {
+    auto ancestor = std::make_shared<configurable_provider>();
+    auto primary = ancestor->add_index({ origin, "PRIMARY_ANCESTOR", { c1 }, {}, { index_feature::primary } });
+    auto parent = std::make_shared<configurable_provider>(ancestor);
+    configurable_provider child { parent };
+
+    EXPECT_EQ(child.find_primary_index(*origin), primary);
+    table missing { "MISSING", { { "C1", t::int4() } } };
+    EXPECT_FALSE(child.find_primary_index(missing));
+}
+
+TEST_F(storage_configurable_provider_test, find_primary_index_prefers_local) {
+    auto parent = std::make_shared<configurable_provider>();
+    parent->add_index({ origin, "PRIMARY_PARENT", { c1 }, {}, { index_feature::primary } });
+    configurable_provider child { parent };
+    auto primary = child.add_index({ origin, "PRIMARY_CHILD", { c1 }, {}, { index_feature::primary } });
+
+    EXPECT_EQ(child.find_primary_index(*origin), primary);
+}
+
+TEST_F(storage_configurable_provider_test, find_primary_index_local_secondary_falls_back_to_parent) {
+    auto parent = std::make_shared<configurable_provider>();
+    auto primary = parent->add_index({ origin, "PRIMARY_PARENT", { c1 }, {}, { index_feature::primary } });
+    configurable_provider child { parent };
+    child.add_index({ origin, origin->simple_name(), { c1 } });
+
+    EXPECT_EQ(child.find_primary_index(*origin), primary);
+}
+
+TEST_F(storage_configurable_provider_test, find_primary_index_local_other_table_falls_back_to_parent) {
+    auto parent = std::make_shared<configurable_provider>();
+    auto primary = parent->add_index({ origin, "PRIMARY_PARENT", { c1 }, {}, { index_feature::primary } });
+    configurable_provider child { parent };
+    auto other = takatori::util::clone_shared(table { "T1", { { "C1", t::int4() } } });
+    child.add_index({ other, origin->simple_name(), { other->columns()[0] }, {}, { index_feature::primary } });
+
+    EXPECT_EQ(child.find_primary_index(*origin), primary);
+}
+
+TEST_F(storage_configurable_provider_test, find_primary_index_in_parent_with_exclusive_mutex) {
+    using exclusive_provider = basic_configurable_provider<std::mutex>;
+    auto parent = std::make_shared<exclusive_provider>();
+    auto primary = parent->add_index({ origin, "PRIMARY_PARENT", { c1 }, {}, { index_feature::primary } });
+    exclusive_provider child { parent };
+
+    EXPECT_EQ(child.find_primary_index(*origin), primary);
 }
 
 TEST_F(storage_configurable_provider_test, add_index_conflict) {

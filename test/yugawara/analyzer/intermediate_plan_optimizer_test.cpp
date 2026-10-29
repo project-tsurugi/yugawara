@@ -233,6 +233,61 @@ TEST_F(intermediate_plan_optimizer_test, remove_variable_aliases_disable_externa
     EXPECT_EQ(out.columns()[1].source(), a1);
 }
 
+TEST_F(intermediate_plan_optimizer_test, remove_redundant_sort_keys) {
+    // ORDER BY C0, C1, C0 DESC
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+                    { bindings(t0c1), c1 },
+            },
+    });
+    auto a0 = bindings.stream_variable("a0");
+    auto a1 = bindings.stream_variable("a1");
+    auto a2 = bindings.stream_variable("a2");
+    auto&& project = r.insert(relation::project {
+            relation::project::column {
+                    a0,
+                    scalar::variable_reference { c0 },
+            },
+            relation::project::column {
+                    a1,
+                    scalar::variable_reference { c1 },
+            },
+            relation::project::column {
+                    a2,
+                    scalar::variable_reference { c0 },
+            },
+    });
+    auto&& limit = r.insert(relation::intermediate::limit {
+            {},
+            {
+                    { a0 },
+                    { a1 },
+                    { a2, relation::sort_direction::descendant },
+            },
+    });
+    auto&& out = r.insert(relation::emit { c0, c1 });
+    in.output() >> project.input();
+    project.output() >> limit.input();
+    limit.output() >> out.input();
+
+    intermediate_plan_optimizer optimizer { options() };
+    optimizer(r);
+
+    ASSERT_EQ(r.size(), 3);
+    ASSERT_TRUE(r.contains(in));
+    ASSERT_TRUE(r.contains(limit));
+    ASSERT_TRUE(r.contains(out));
+
+    ASSERT_EQ(limit.sort_keys().size(), 2);
+    EXPECT_EQ(limit.sort_keys()[0], (relation::intermediate::limit::sort_key { c0 }));
+    EXPECT_EQ(limit.sort_keys()[1], (relation::intermediate::limit::sort_key { c1 }));
+}
+
 TEST_F(intermediate_plan_optimizer_test, remove_redundant_stream_variables) {
     relation::graph_type r;
     auto c0 = bindings.stream_variable("c0");

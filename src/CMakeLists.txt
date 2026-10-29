@@ -99,6 +99,7 @@ add_library(yugawara
     yugawara/analyzer/details/scalar_expression_variable_rewriter.cpp
     yugawara/analyzer/details/rewrite_stream_variables.cpp
     yugawara/analyzer/details/remove_variable_aliases.cpp
+    yugawara/analyzer/details/remove_redundant_sort_keys.cpp
 
     # normalizer
     yugawara/analyzer/intermediate_plan_normalizer.cpp
@@ -126,6 +127,8 @@ add_library(yugawara
     yugawara/analyzer/details/search_key_term.cpp
     yugawara/analyzer/details/search_key_term_builder.cpp
     yugawara/analyzer/details/scan_key_collector.cpp
+    yugawara/analyzer/details/estimate_index.cpp
+    yugawara/analyzer/details/apply_index_to_scan.cpp
     yugawara/analyzer/details/rewrite_join.cpp
     yugawara/analyzer/details/collect_join_keys.cpp
     yugawara/analyzer/details/rewrite_scan.cpp

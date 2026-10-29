@@ -3,6 +3,7 @@
 #include <utility>
 
 #include "details/remove_variable_aliases.h"
+#include "details/remove_redundant_sort_keys.h"
 #include "details/remove_unused_stream_variables.h"
 #include "details/remove_redundant_conditions.h"
 #include "details/push_down_filters.h"
@@ -47,6 +48,7 @@ void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& g
     details::remove_variable_aliases(
             graph,
             options_.enable_external_variable_inlining());
+    details::remove_redundant_sort_keys(graph);
     // details::decompose_projections(graph);
     details::remove_unused_stream_variables(graph);
     details::collect_local_variables(
