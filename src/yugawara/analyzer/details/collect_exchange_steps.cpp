@@ -1,5 +1,6 @@
 #include "collect_exchange_steps.h"
 
+#include <memory>
 #include <optional>
 
 #include <tsl/hopscotch_map.h>
@@ -186,7 +187,7 @@ public:
     void operator()(relation::intermediate::limit& expr) {
         shrink_duplicated_variables(expr.group_keys());
 
-        if (auto iter = ordered_limits_.find(&expr); iter != ordered_limits_.end()) {
+        if (auto iter = ordered_limits_.find(std::addressof(expr)); iter != ordered_limits_.end()) {
             process_limit_flat(expr, iter->second);
         } else if (expr.group_keys().empty() && expr.sort_keys().empty()) {
             process_limit_flat(expr, {});
@@ -554,7 +555,7 @@ private:
             }
             auto&& limit = unsafe_downcast<relation::intermediate::limit>(expr);
             if (auto ordering = find_forward_ordering(limit)) {
-                ordered_limits_.emplace(&limit, *ordering);
+                ordered_limits_.emplace(std::addressof(limit), *ordering);
             }
         }
     }

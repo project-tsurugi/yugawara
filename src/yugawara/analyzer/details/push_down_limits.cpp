@@ -1,6 +1,7 @@
 #include "push_down_limits.h"
 
 #include <algorithm>
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -180,7 +181,7 @@ void push_down_limits(::takatori::relation::graph_type& graph) {
         if (expr.kind() == relation::intermediate::limit::tag) {
             auto&& limit = unsafe_downcast<relation::intermediate::limit>(expr);
             if (is_target(limit)) {
-                targets.emplace_back(&limit);
+                targets.emplace_back(std::addressof(limit));
             }
         }
     }
