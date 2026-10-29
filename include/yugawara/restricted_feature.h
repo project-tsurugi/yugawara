@@ -62,7 +62,7 @@ enum class restricted_feature {
     /// @brief restrict `scan` operator with backward direction.
     relation_scan_direction_backward,
 
-    /// @brief restrict `scan` operator with row slice which has a start position other than immediate `0`.
+    /// @brief restrict `scan` operator with row slice which has an immediate start position other than `0`.
     relation_scan_row_slice_start,
 
     /// @brief restrict `scan` operator with row slice which has an immediate row count.
@@ -91,7 +91,7 @@ enum class restricted_feature {
     /// @brief restrict `forward` exchange with ordering.
     exchange_forward_ordering,
 
-    /// @brief restrict `forward` exchange with row slice which has a start position other than immediate `0`.
+    /// @brief restrict `forward` exchange with row slice which has an immediate start position other than `0`.
     exchange_forward_row_slice_start,
 
     /// @brief restrict `forward` exchange with row slice which has an immediate row count.
@@ -100,7 +100,7 @@ enum class restricted_feature {
     /// @brief restrict `forward` exchange with row slice which has a variable start position or row count.
     exchange_forward_row_slice_variable,
 
-    /// @brief restrict `group` exchange with row slice which has a start position other than immediate `0`.
+    /// @brief restrict `group` exchange with row slice which has an immediate start position other than `0`.
     exchange_group_row_slice_start,
 
     /// @brief restrict `group` exchange with row slice which has an immediate row count.
