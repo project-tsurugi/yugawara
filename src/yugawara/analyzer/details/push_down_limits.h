@@ -10,6 +10,11 @@ namespace yugawara::analyzer::details {
  *      only if the `limit` does not refer to any columns defined in the `project`.
  *      This never moves `limit` over the other operators, like `filter`, `join`, or aggregations.
  *      Currently, this only moves `limit` operators which have the row count and do not have any group keys.
+ *
+ *      If the `limit` reaches another upstream `limit`, this merges them into the upstream one,
+ *      only if both do not have any group keys nor the start position,
+ *      and the sort keys of the downstream `limit` are a prefix of the upstream ones (including empty).
+ *      The merged `limit` has the sort keys of the upstream one, and the smaller row count of them.
  * @note This may reduce the number of rows that `project` evaluates,
  *      so that the errors in evaluating the dropped rows will not be raised.
  * @param graph the target graph

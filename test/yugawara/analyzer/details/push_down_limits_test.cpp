@@ -77,6 +77,20 @@ protected:
         };
     }
 
+    static relation::intermediate::limit limit(
+            std::size_t count,
+            std::vector<relation::intermediate::limit::sort_key> sort_keys = {}) {
+        return relation::intermediate::limit {
+                {},
+                std::move(sort_keys),
+                relation::intermediate::limit::row_slice_type { {}, count },
+        };
+    }
+
+    static relation::intermediate::limit::row_slice_type row_slice(std::size_t count) {
+        return relation::intermediate::limit::row_slice_type { {}, count };
+    }
+
     static void apply(relation::graph_type& r) {
         push_down_limits(r);
     }
@@ -298,6 +312,259 @@ TEST_F(push_down_limits_test, distinct) {
 
     ASSERT_EQ(r.size(), 4);
     EXPECT_GT(r0.output(), r1.input());
+    EXPECT_GT(r1.output(), r2.input());
+    EXPECT_GT(r2.output(), r3.input());
+}
+
+TEST_F(push_down_limits_test, merge) {
+    /*
+     * scan:r0 - limit:r1[c0](10) - limit:r2[c0](3) - emit:r3
+     * =>
+     * scan:r0 - limit:r1[c0](3) - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(limit(10, { c0 }));
+    auto&& r2 = r.insert(limit(3, { c0 }));
+    auto&& r3 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 3);
+    EXPECT_GT(r0.output(), r1.input());
+    EXPECT_GT(r1.output(), r3.input());
+    EXPECT_EQ(r1.row_slice(), row_slice(3));
+    ASSERT_EQ(r1.sort_keys().size(), 1);
+    EXPECT_EQ(r1.sort_keys()[0].variable(), c0);
+}
+
+TEST_F(push_down_limits_test, merge_prefix) {
+    /*
+     * scan:r0 - limit:r1[c0, c1](3) - limit:r2[c0](10) - emit:r3
+     * =>
+     * scan:r0 - limit:r1[c0, c1](3) - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(limit(3, { c0, c1 }));
+    auto&& r2 = r.insert(limit(10, { c0 }));
+    auto&& r3 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 3);
+    EXPECT_GT(r1.output(), r3.input());
+    EXPECT_EQ(r1.row_slice(), row_slice(3));
+    ASSERT_EQ(r1.sort_keys().size(), 2);
+}
+
+TEST_F(push_down_limits_test, merge_without_sort_keys) {
+    /*
+     * scan:r0 - limit:r1[c0](10) - limit:r2(3) - emit:r3
+     * =>
+     * scan:r0 - limit:r1[c0](3) - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(limit(10, { c0 }));
+    auto&& r2 = r.insert(limit(3));
+    auto&& r3 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 3);
+    EXPECT_GT(r1.output(), r3.input());
+    EXPECT_EQ(r1.row_slice(), row_slice(3));
+    ASSERT_EQ(r1.sort_keys().size(), 1);
+}
+
+TEST_F(push_down_limits_test, merge_inner_without_count) {
+    /*
+     * scan:r0 - limit:r1[c0] - limit:r2[c0](3) - emit:r3
+     * =>
+     * scan:r0 - limit:r1[c0](3) - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(relation::intermediate::limit {
+            std::vector<descriptor::variable> {},
+            std::vector<relation::intermediate::limit::sort_key> { c0 },
+    });
+    auto&& r2 = r.insert(limit(3, { c0 }));
+    auto&& r3 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 3);
+    EXPECT_GT(r1.output(), r3.input());
+    EXPECT_EQ(r1.row_slice(), row_slice(3));
+}
+
+TEST_F(push_down_limits_test, merge_over_project) {
+    /*
+     * scan:r0 - limit:r1[c0](10) - project:r2 - limit:r3[c0](3) - emit:r4
+     * =>
+     * scan:r0 - limit:r1[c0](3) - project:r2 - emit:r4
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r1 = r.insert(limit(10, { c0 }));
+    auto&& r2 = r.insert(relation::project {
+            relation::project::column { x0, plus(c0, 1) },
+    });
+    auto&& r3 = r.insert(limit(3, { c0 }));
+    auto&& r4 = r.insert(relation::emit { x0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 4);
+    EXPECT_GT(r0.output(), r1.input());
+    EXPECT_GT(r1.output(), r2.input());
+    EXPECT_GT(r2.output(), r4.input());
+    EXPECT_EQ(r1.row_slice(), row_slice(3));
+}
+
+TEST_F(push_down_limits_test, merge_chain) {
+    /*
+     * scan:r0 - limit:r1[c0](10) - limit:r2[c0](5) - limit:r3(3) - emit:r4
+     * =>
+     * scan:r0 - limit:r1[c0](3) - emit:r4
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(limit(10, { c0 }));
+    auto&& r2 = r.insert(limit(5, { c0 }));
+    auto&& r3 = r.insert(limit(3));
+    auto&& r4 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 3);
+    EXPECT_GT(r1.output(), r4.input());
+    EXPECT_EQ(r1.row_slice(), row_slice(3));
+}
+
+TEST_F(push_down_limits_test, merge_inconsistent_sort_keys) {
+    /*
+     * scan:r0 - limit:r1[c0](10) - limit:r2[c1](3) - emit:r3
+     * => (not changed)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(limit(10, { c0 }));
+    auto&& r2 = r.insert(limit(3, { c1 }));
+    auto&& r3 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 4);
+    EXPECT_GT(r0.output(), r1.input());
+    EXPECT_GT(r1.output(), r2.input());
+    EXPECT_GT(r2.output(), r3.input());
+}
+
+TEST_F(push_down_limits_test, merge_start) {
+    /*
+     * scan:r0 - limit:r1[c0](2, 10) - limit:r2[c0](3) - emit:r3
+     * => (not changed)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(relation::intermediate::limit {
+            {},
+            { c0 },
+            relation::intermediate::limit::row_slice_type { 2, 10 },
+    });
+    auto&& r2 = r.insert(limit(3, { c0 }));
+    auto&& r3 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 4);
+    EXPECT_GT(r1.output(), r2.input());
+    EXPECT_GT(r2.output(), r3.input());
+}
+
+TEST_F(push_down_limits_test, merge_same_variable_count) {
+    /*
+     * scan:r0 - limit:r1[c0](n) - limit:r2[c0](n) - emit:r3
+     * =>
+     * scan:r0 - limit:r1[c0](n) - emit:r3
+     */
+    relation::graph_type r;
+    auto n = bindings.stream_variable("n");
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(relation::intermediate::limit {
+            std::vector<descriptor::variable> {},
+            std::vector<relation::intermediate::limit::sort_key> { c0 },
+            relation::intermediate::limit::row_slice_type { {}, n },
+    });
+    auto&& r2 = r.insert(relation::intermediate::limit {
+            std::vector<descriptor::variable> {},
+            std::vector<relation::intermediate::limit::sort_key> { c0 },
+            relation::intermediate::limit::row_slice_type { {}, n },
+    });
+    auto&& r3 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 3);
+    EXPECT_GT(r1.output(), r3.input());
+    EXPECT_EQ(r1.row_slice(), (relation::intermediate::limit::row_slice_type { {}, n }));
+}
+
+TEST_F(push_down_limits_test, merge_different_variable_count) {
+    /*
+     * scan:r0 - limit:r1[c0](10) - limit:r2[c0](n) - emit:r3
+     * => (not changed)
+     */
+    relation::graph_type r;
+    auto n = bindings.stream_variable("n");
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(limit(10, { c0 }));
+    auto&& r2 = r.insert(relation::intermediate::limit {
+            std::vector<descriptor::variable> {},
+            std::vector<relation::intermediate::limit::sort_key> { c0 },
+            relation::intermediate::limit::row_slice_type { {}, n },
+    });
+    auto&& r3 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 4);
     EXPECT_GT(r1.output(), r2.input());
     EXPECT_GT(r2.output(), r3.input());
 }
