@@ -5,6 +5,8 @@
 #include <takatori/type/primitive.h>
 
 #include <takatori/relation/scan.h>
+#include <takatori/relation/filter.h>
+#include <takatori/relation/project.h>
 #include <takatori/relation/emit.h>
 #include <takatori/relation/join_find.h>
 #include <takatori/relation/join_scan.h>
@@ -44,6 +46,10 @@ using namespace ::yugawara::testing;
 class collect_exchange_steps_test : public ::testing::Test {
 protected:
     using semantics = ::takatori::relation::comparison_semantics_kind;
+    using scan_direction = ::takatori::relation::scan_direction;
+    using sort_direction = ::takatori::relation::sort_direction;
+    using emit_ordering = ::takatori::relation::emit_ordering;
+    using forward_ordering = ::takatori::plan::forward_ordering;
 
     type::repository types;
     binding::factory bindings;
@@ -75,6 +81,62 @@ protected:
 
     std::shared_ptr<storage::index> i0 = storages.add_index({ t0, "I0", });
     std::shared_ptr<storage::index> i1 = storages.add_index({ t1, "I1" });
+
+    // CREATE INDEX I2 ON T0 (C0)
+    std::shared_ptr<storage::index> i2 = storages.add_index({
+            t0,
+            "I2",
+            {
+                    t0->columns()[0],
+            },
+            {},
+            {
+                    storage::index_feature::find,
+                    storage::index_feature::scan,
+            },
+    });
+
+    struct ordered_limit_graph {
+        relation::scan& scan;
+        relation::intermediate::limit& limit;
+        relation::emit& emit;
+    };
+
+    /*
+     * scan:r0{I2, direction=D} - limit_relation:r1{sort=K, count=10} - emit:r2{ordering=O}
+     */
+    ordered_limit_graph build_ordered_limit(
+            relation::graph_type& r,
+            descriptor::variable const& c0,
+            descriptor::variable const& c1,
+            std::optional<scan_direction> direction,
+            descriptor::variable const& sort_key,
+            relation::emit::ordering_type ordering = {}) {
+        auto& r0 = r.insert(relation::scan {
+                bindings(*i2),
+                {
+                        { t0c0, c0 },
+                        { t0c1, c1 },
+                },
+                {},
+                {},
+                direction,
+        });
+        auto& r1 = r.insert(relation::intermediate::limit {
+                {},
+                {
+                        { sort_key, sort_direction::ascendant },
+                },
+                relation::intermediate::limit::row_slice_type { {}, 10 },
+        });
+        auto& r2 = r.insert(relation::emit {
+                { c0 },
+                ordering,
+        });
+        r0.output() >> r1.input();
+        r1.output() >> r2.input();
+        return { r0, r1, r2 };
+    }
 };
 
 TEST_F(collect_exchange_steps_test, simple) {
@@ -1334,6 +1396,266 @@ TEST_F(collect_exchange_steps_test, limit_group) {
     EXPECT_EQ(e0.group_keys()[0], c0);
     EXPECT_EQ(e0.group_keys()[1], c1);
     ASSERT_EQ(e0.limit(), 10);
+}
+
+TEST_F(collect_exchange_steps_test, limit_ordered_forward) {
+    /*
+     * scan:r0{direction=forward} - limit_relation:r1{sort=c0, count=10} - emit:r2
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto g = build_ordered_limit(r, c0, c1, scan_direction::forward, c0);
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+
+    /*
+     * scan:r0 - offer:r3 - [forward{limit=10, ordering=respect_input}] - take_flat:r4 - emit:r2
+     */
+    details::collect_exchange_steps(r, p, options);
+    ASSERT_EQ(r.size(), 4);
+    EXPECT_TRUE(r.contains(g.scan));
+    EXPECT_TRUE(r.contains(g.emit));
+
+    auto&& r3 = next<offer>(g.scan.output());
+    auto&& r4 = next<relation::step::take_flat>(g.emit.input());
+
+    auto&& e0 = resolve<plan::forward>(r3.destination());
+
+    ASSERT_EQ(p.size(), 1);
+    EXPECT_TRUE(p.contains(e0));
+
+    EXPECT_EQ(r4.source(), r3.destination());
+
+    ASSERT_EQ(e0.limit(), 10);
+    EXPECT_EQ(e0.ordering(), plan::forward::ordering_type { forward_ordering::respect_input });
+}
+
+TEST_F(collect_exchange_steps_test, limit_ordered_forward_preserve_output) {
+    /*
+     * scan:r0{direction=forward} - limit_relation:r1{sort=c0, count=10} - emit:r2{ordering=preserve_input}
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto g = build_ordered_limit(
+            r, c0, c1, scan_direction::forward, c0,
+            { emit_ordering::preserve_input });
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+
+    /*
+     * scan:r0 - offer:r3 - [forward{limit=10, ordering=respect_input,preserve_output}] - take_flat:r4 - emit:r2
+     */
+    details::collect_exchange_steps(r, p, options);
+    ASSERT_EQ(r.size(), 4);
+
+    auto&& r3 = next<offer>(g.scan.output());
+    auto&& r4 = next<relation::step::take_flat>(g.emit.input());
+    EXPECT_EQ(r4.source(), r3.destination());
+
+    auto&& e0 = resolve<plan::forward>(r3.destination());
+    ASSERT_EQ(e0.limit(), 10);
+    EXPECT_EQ(e0.ordering(), (plan::forward::ordering_type {
+            forward_ordering::respect_input,
+            forward_ordering::preserve_output,
+    }));
+}
+
+TEST_F(collect_exchange_steps_test, limit_ordered_forward_through_order_preserving) {
+    /*
+     * scan:r0{direction=forward} - filter:r1 - limit_relation:r2{sort=c0, count=10} - project:r3
+     *   - emit:r4{ordering=preserve_input}
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto& r0 = r.insert(relation::scan {
+            bindings(*i2),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+            },
+            {},
+            {},
+            scan_direction::forward,
+    });
+    auto& r1 = r.insert(relation::filter {
+            compare(varref { c1 }, constant(1)),
+    });
+    auto& r2 = r.insert(relation::intermediate::limit {
+            {},
+            {
+                    c0,
+            },
+            relation::intermediate::limit::row_slice_type { {}, 10 },
+    });
+    auto& r3 = r.insert(relation::project {
+            relation::project::column { constant(), c2 },
+    });
+    auto& r4 = r.insert(relation::emit {
+            { c0, c2 },
+            { emit_ordering::preserve_input },
+    });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+
+    /*
+     * scan:r0 - filter:r1 - offer:r5 - [forward{limit=10, ordering=respect_input,preserve_output}] - take_flat:r6
+     *   - project:r3 - emit:r4
+     */
+    details::collect_exchange_steps(r, p, options);
+    ASSERT_EQ(r.size(), 6);
+
+    auto&& r5 = next<offer>(r1.output());
+    auto&& r6 = next<relation::step::take_flat>(r3.input());
+    EXPECT_EQ(r6.source(), r5.destination());
+
+    auto&& e0 = resolve<plan::forward>(r5.destination());
+    ASSERT_EQ(e0.limit(), 10);
+    EXPECT_EQ(e0.ordering(), (plan::forward::ordering_type {
+            forward_ordering::respect_input,
+            forward_ordering::preserve_output,
+    }));
+}
+
+TEST_F(collect_exchange_steps_test, limit_ordered_forward_without_direction) {
+    /*
+     * scan:r0{direction=()} - limit_relation:r1{sort=c0, count=10} - emit:r2
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto g = build_ordered_limit(r, c0, c1, {}, c0);
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+
+    /*
+     * scan:r0 - offer:r3 - [group{sort=c0, limit=10}] - take_group:r4 - flatten:r5 - emit:r2
+     */
+    details::collect_exchange_steps(r, p, options);
+    auto&& r3 = next<offer>(g.scan.output());
+    auto&& r5 = next<flatten>(g.emit.input());
+    auto&& r4 = next<take_group>(r5.input());
+    EXPECT_EQ(r4.source(), r3.destination());
+
+    auto&& e0 = resolve<plan::group>(r3.destination());
+    ASSERT_EQ(e0.limit(), 10);
+}
+
+TEST_F(collect_exchange_steps_test, limit_ordered_forward_unsatisfied) {
+    /*
+     * scan:r0{direction=forward} - limit_relation:r1{sort=c1, count=10} - emit:r2
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto g = build_ordered_limit(r, c0, c1, scan_direction::forward, c1);
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+
+    /*
+     * scan:r0 - offer:r3 - [group{sort=c1, limit=10}] - take_group:r4 - flatten:r5 - emit:r2
+     */
+    details::collect_exchange_steps(r, p, options);
+    auto&& r3 = next<offer>(g.scan.output());
+    auto&& r5 = next<flatten>(g.emit.input());
+    auto&& r4 = next<take_group>(r5.input());
+    EXPECT_EQ(r4.source(), r3.destination());
+
+    auto&& e0 = resolve<plan::group>(r3.destination());
+    ASSERT_EQ(e0.limit(), 10);
+}
+
+TEST_F(collect_exchange_steps_test, limit_ordered_forward_disabled) {
+    /*
+     * scan:r0{direction=forward} - limit_relation:r1{sort=c0, count=10} - emit:r2{ordering=preserve_input}
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto g = build_ordered_limit(
+            r, c0, c1, scan_direction::forward, c0,
+            { emit_ordering::preserve_input });
+
+    details::step_plan_builder_options options;
+    options.runtime_features().erase(runtime_feature::ordered_forward);
+    plan::graph_type p;
+
+    /*
+     * scan:r0 - offer:r3 - [group{sort=c0, limit=10}] - take_group:r4 - flatten:r5 - emit:r2
+     */
+    details::collect_exchange_steps(r, p, options);
+    auto&& r3 = next<offer>(g.scan.output());
+    auto&& r5 = next<flatten>(g.emit.input());
+    auto&& r4 = next<take_group>(r5.input());
+    EXPECT_EQ(r4.source(), r3.destination());
+
+    auto&& e0 = resolve<plan::group>(r3.destination());
+    ASSERT_EQ(e0.limit(), 10);
+}
+
+TEST_F(collect_exchange_steps_test, limit_ordered_forward_not_through_exchange) {
+    /*
+     * scan:r0{direction=forward} - distinct_relation:r1{c0, c1} - limit_relation:r2{sort=c0, count=10}
+     *   - emit:r3{ordering=preserve_input}
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto& r0 = r.insert(relation::scan {
+            bindings(*i2),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+            },
+            {},
+            {},
+            scan_direction::forward,
+    });
+    auto& r1 = r.insert(relation::intermediate::distinct {
+            c0,
+            c1,
+    });
+    auto& r2 = r.insert(relation::intermediate::limit {
+            {},
+            {
+                    c0,
+            },
+            relation::intermediate::limit::row_slice_type { {}, 10 },
+    });
+    auto& r3 = r.insert(relation::emit {
+            { c0 },
+            { emit_ordering::preserve_input },
+    });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+
+    /*
+     * scan:r0 - offer - [group{c0, c1}] - take_group - flatten
+     *   - offer - [group{sort=c0, limit=10}] - take_group:r5 - flatten:r4 - emit:r3
+     */
+    details::collect_exchange_steps(r, p, options);
+    ASSERT_EQ(p.size(), 2);
+
+    auto&& r4 = next<flatten>(r3.input());
+    auto&& r5 = next<take_group>(r4.input());
+    auto&& e1 = resolve<plan::group>(r5.source());
+    EXPECT_EQ(e1.limit(), 10);
 }
 
 TEST_F(collect_exchange_steps_test, union_all) {

@@ -1,10 +1,15 @@
 #include "collect_exchange_steps.h"
 
+#include <optional>
+
+#include <tsl/hopscotch_map.h>
 #include <tsl/hopscotch_set.h>
 
 #include <takatori/scalar/variable_reference.h>
 #include <takatori/scalar/binary.h>
 #include <takatori/scalar/compare.h>
+
+#include <takatori/relation/emit.h>
 
 #include <takatori/relation/intermediate/dispatch.h>
 
@@ -33,6 +38,7 @@
 #include <yugawara/binding/factory.h>
 
 #include "detect_join_endpoint_style.h"
+#include "ordered_relation.h"
 
 namespace yugawara::analyzer::details {
 
@@ -74,6 +80,8 @@ public:
     {}
 
     void operator()() {
+        // NOTE: collect them before rewriting, because rewriting may break the upstream/downstream of the limits
+        collect_ordered_limits();
         while (cursor_ != source_.end()) {
             relation::intermediate::dispatch(*this, *cursor_);
         }
@@ -178,8 +186,10 @@ public:
     void operator()(relation::intermediate::limit& expr) {
         shrink_duplicated_variables(expr.group_keys());
 
-        if (expr.group_keys().empty() && expr.sort_keys().empty()) {
-            process_limit_flat(expr);
+        if (auto iter = ordered_limits_.find(&expr); iter != ordered_limits_.end()) {
+            process_limit_flat(expr, iter->second);
+        } else if (expr.group_keys().empty() && expr.sort_keys().empty()) {
+            process_limit_flat(expr, {});
         } else {
             process_limit_group(expr);
         }
@@ -221,6 +231,7 @@ private:
 
     relation::graph_type::iterator cursor_;
     std::vector<std::unique_ptr<relation::expression>> added_;
+    ::tsl::hopscotch_map<relation::intermediate::limit const*, plan::forward::ordering_type> ordered_limits_ {};
 
     template<class T>
     [[nodiscard]] std::vector<T> empty() const noexcept {
@@ -533,13 +544,71 @@ private:
         cursor_ = source_.erase(cursor_);
     }
 
-    void process_limit_flat(relation::intermediate::limit& expr) {
+    void collect_ordered_limits() {
+        if (!options_.runtime_features().contains(runtime_feature::ordered_forward)) {
+            return;
+        }
+        for (auto&& expr : source_) {
+            if (expr.kind() != relation::intermediate::limit::tag) {
+                continue;
+            }
+            auto&& limit = unsafe_downcast<relation::intermediate::limit>(expr);
+            if (auto ordering = find_forward_ordering(limit)) {
+                ordered_limits_.emplace(&limit, *ordering);
+            }
+        }
+    }
+
+    /**
+     * @brief finds the ordering properties of the forward exchange, which can replace the given limit.
+     * @details The limit can be replaced with a forward exchange only if its input rows are already in the order
+     *      of its sort keys, that is, the source scan has the direction which provides the rows in the order.
+     * @param expr the target limit
+     * @return the ordering properties of the forward exchange
+     * @return empty if the limit cannot be replaced with a forward exchange with ordering
+     */
+    [[nodiscard]] static std::optional<plan::forward::ordering_type> find_forward_ordering(
+            relation::intermediate::limit& expr) {
+        if (!expr.group_keys().empty() || expr.sort_keys().empty()) {
+            return {};
+        }
+        // NOTE: the scan direction is available only if it provides the rows in the order of the limit
+        auto scan = find_ordered_source(expr);
+        if (!scan || !scan->direction() || find_scan_direction(*scan, expr) != scan->direction()) {
+            return {};
+        }
+        // NOTE: the input order decides which rows are in the slice
+        plan::forward::ordering_type result { plan::forward_ordering::respect_input };
+        if (depends_on_order(find_ordered_destination(expr))) {
+            result.insert(plan::forward_ordering::preserve_output);
+        }
+        return result;
+    }
+
+    [[nodiscard]] static bool depends_on_order(optional_ptr<relation::expression> destination) {
+        if (!destination) {
+            return false;
+        }
+        if (destination->kind() == relation::emit::tag) {
+            return unsafe_downcast<relation::emit>(*destination).ordering().contains(
+                    relation::emit_ordering::preserve_input);
+        }
+        // FIXME: limit operators with sort keys may also depend on the order
+        return false;
+    }
+
+    void process_limit_flat(relation::intermediate::limit& expr, plan::forward::ordering_type ordering) {
         /*
          * .. - limit_relation{count=N, group=(), sort=()} - ..
          * =>
          * .. - offer -  [forward{limit=N}] - take_flat - ..
+         *
+         * or, if the input rows are already in the order of the sort keys:
+         * .. - limit_relation{count=N, group=(), sort=S} - ..
+         * =>
+         * .. - offer -  [forward{limit=N, ordering=O}] - take_flat - ..
          */
-        auto&& exchange = destination_.emplace<plan::forward>(std::move(expr.row_slice()));
+        auto&& exchange = destination_.emplace<plan::forward>(std::move(expr.row_slice()), ordering);
         auto&& offer = add_offer(exchange);
 
         auto&& take = add<relation::step::take_flat>(
