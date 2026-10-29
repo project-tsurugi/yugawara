@@ -124,16 +124,48 @@ public:
         validate(restricted_feature::exchange_discard, {});
     }
 
-    void operator()(tplan::forward const&) {
+    void operator()(tplan::forward const& step) {
         validate(restricted_feature::exchange_forward, {});
+        // NOTE: restricted_feature::exchange_forward_ordering is not detected until forward supports ordering
+        process_row_slice(
+                step.row_slice(),
+                restricted_feature::exchange_forward_row_slice_start,
+                restricted_feature::exchange_forward_row_slice_count,
+                restricted_feature::exchange_forward_row_slice_variable,
+                {});
     }
 
-    void operator()(tplan::group const&) {
+    void operator()(tplan::group const& step) {
         validate(restricted_feature::exchange_group, {});
+        process_row_slice(
+                step.row_slice(),
+                restricted_feature::exchange_group_row_slice_start,
+                restricted_feature::exchange_group_row_slice_count,
+                restricted_feature::exchange_group_row_slice_variable,
+                {});
     }
 
     void operator()(trelation::expression const&) {
         // do nothing
+    }
+
+    void operator()(trelation::scan const& expression) {
+        if (auto const& direction = expression.direction()) {
+            switch (*direction) {
+                case trelation::scan_direction::forward:
+                    validate(restricted_feature::relation_scan_direction_forward, expression.region());
+                    break;
+                case trelation::scan_direction::backward:
+                    validate(restricted_feature::relation_scan_direction_backward, expression.region());
+                    break;
+            }
+        }
+        process_row_slice(
+                expression.row_slice(),
+                restricted_feature::relation_scan_row_slice_start,
+                restricted_feature::relation_scan_row_slice_count,
+                restricted_feature::relation_scan_row_slice_variable,
+                expression.region());
     }
 
     void operator()(trelation::buffer const& expression) {
@@ -203,6 +235,24 @@ public:
 private:
     restricted_feature_set const features_; // NOLINT(*-avoid-const-or-ref-data-members) const for safety
     std::vector<diagnostic_type> diagnostics_ {};
+
+    void process_row_slice(
+            trelation::details::row_slice const& slice,
+            restricted_feature start,
+            restricted_feature count,
+            restricted_feature variable,
+            takatori::document::region region) {
+        if (slice.start().has_variable() || slice.count().has_variable()) {
+            validate(variable, region);
+        }
+        // NOTE: the immediate start position `0` is equivalent to empty
+        if (auto position = slice.start().immediate_if(); position && *position != 0) {
+            validate(start, region);
+        }
+        if (slice.count().has_immediate()) {
+            validate(count, region);
+        }
+    }
 
     void validate(restricted_feature feature, takatori::document::region region) {
         if (features_.contains(feature)) {

@@ -56,6 +56,21 @@ enum class restricted_feature {
     /// @brief restrict `apply` operator.
     relation_apply,
 
+    /// @brief restrict `scan` operator with forward direction.
+    relation_scan_direction_forward,
+
+    /// @brief restrict `scan` operator with backward direction.
+    relation_scan_direction_backward,
+
+    /// @brief restrict `scan` operator with row slice which has an immediate start position other than `0`.
+    relation_scan_row_slice_start,
+
+    /// @brief restrict `scan` operator with row slice which has an immediate row count.
+    relation_scan_row_slice_count,
+
+    /// @brief restrict `scan` operator with row slice which has a variable start position or row count.
+    relation_scan_row_slice_variable,
+
     // exchanges
 
     /// @brief restrict `aggregate` exchange.
@@ -72,6 +87,30 @@ enum class restricted_feature {
 
     /// @brief restrict `group` exchange.
     exchange_group,
+
+    /**
+     * @brief restrict `forward` exchange with ordering.
+     * @attention this is not detected yet, until `forward` exchange supports ordering.
+     */
+    exchange_forward_ordering,
+
+    /// @brief restrict `forward` exchange with row slice which has an immediate start position other than `0`.
+    exchange_forward_row_slice_start,
+
+    /// @brief restrict `forward` exchange with row slice which has an immediate row count.
+    exchange_forward_row_slice_count,
+
+    /// @brief restrict `forward` exchange with row slice which has a variable start position or row count.
+    exchange_forward_row_slice_variable,
+
+    /// @brief restrict `group` exchange with row slice which has an immediate start position other than `0`.
+    exchange_group_row_slice_start,
+
+    /// @brief restrict `group` exchange with row slice which has an immediate row count.
+    exchange_group_row_slice_count,
+
+    /// @brief restrict `group` exchange with row slice which has a variable start position or row count.
+    exchange_group_row_slice_variable,
 
     // statements
 
@@ -122,6 +161,11 @@ constexpr restricted_feature_set restricted_feature_relation_expressions {
         restricted_feature::relation_flatten,
         restricted_feature::relation_intersection,
         restricted_feature::relation_apply,
+        restricted_feature::relation_scan_direction_forward,
+        restricted_feature::relation_scan_direction_backward,
+        restricted_feature::relation_scan_row_slice_start,
+        restricted_feature::relation_scan_row_slice_count,
+        restricted_feature::relation_scan_row_slice_variable,
 };
 
 /// @brief all exchange steps of restricted_feature_set.
@@ -131,6 +175,13 @@ constexpr restricted_feature_set restricted_feature_exchange_steps {
         restricted_feature::exchange_discard,
         restricted_feature::exchange_forward,
         restricted_feature::exchange_group,
+        restricted_feature::exchange_forward_ordering,
+        restricted_feature::exchange_forward_row_slice_start,
+        restricted_feature::exchange_forward_row_slice_count,
+        restricted_feature::exchange_forward_row_slice_variable,
+        restricted_feature::exchange_group_row_slice_start,
+        restricted_feature::exchange_group_row_slice_count,
+        restricted_feature::exchange_group_row_slice_variable,
 };
 
 /// @brief all statements of restricted_feature_set.
@@ -165,11 +216,23 @@ constexpr std::string_view to_string_view(restricted_feature value) noexcept {
         case kind::relation_flatten: return "flatten operator"sv;
         case kind::relation_intersection: return "intersection operator"sv;
         case kind::relation_apply: return "apply operator"sv;
+        case kind::relation_scan_direction_forward: return "scan operator with forward direction"sv;
+        case kind::relation_scan_direction_backward: return "scan operator with backward direction"sv;
+        case kind::relation_scan_row_slice_start: return "scan operator with row slice start position"sv;
+        case kind::relation_scan_row_slice_count: return "scan operator with row slice count"sv;
+        case kind::relation_scan_row_slice_variable: return "scan operator with row slice variables"sv;
         case kind::exchange_aggregate: return "aggregate exchange"sv;
         case kind::exchange_broadcast: return "broadcast exchange"sv;
         case kind::exchange_discard: return "discard exchange"sv;
         case kind::exchange_forward: return "forward exchange"sv;
         case kind::exchange_group: return "group exchange"sv;
+        case kind::exchange_forward_ordering: return "forward exchange with ordering"sv;
+        case kind::exchange_forward_row_slice_start: return "forward exchange with row slice start position"sv;
+        case kind::exchange_forward_row_slice_count: return "forward exchange with row slice count"sv;
+        case kind::exchange_forward_row_slice_variable: return "forward exchange with row slice variables"sv;
+        case kind::exchange_group_row_slice_start: return "group exchange with row slice start position"sv;
+        case kind::exchange_group_row_slice_count: return "group exchange with row slice count"sv;
+        case kind::exchange_group_row_slice_variable: return "group exchange with row slice variables"sv;
         case kind::statement_write_delete: return "write statement with delete operation"sv;
         case kind::statement_write_update: return "write statement with update operation"sv;
         case kind::statement_rename_table: return "rename table statement"sv;
