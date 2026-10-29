@@ -121,6 +121,7 @@ add_library(yugawara
     yugawara/analyzer/details/find_scan_direction.cpp
     yugawara/analyzer/details/ordered_relation.cpp
     yugawara/analyzer/details/absorb_limits.cpp
+    yugawara/analyzer/details/remove_redundant_limits.cpp
     yugawara/analyzer/details/simplify_predicate.cpp
     yugawara/analyzer/details/remove_redundant_conditions.cpp
     yugawara/analyzer/details/index_estimator_result.cpp

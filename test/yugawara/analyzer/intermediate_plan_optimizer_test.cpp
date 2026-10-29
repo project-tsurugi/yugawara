@@ -755,9 +755,11 @@ TEST_F(intermediate_plan_optimizer_test, absorb_limits) {
     intermediate_plan_optimizer optimizer { options() };
     optimizer(r);
 
-    ASSERT_EQ(r.size(), 3);
+    // the limit is absorbed into the scan, and then removed
+    ASSERT_EQ(r.size(), 2);
     ASSERT_TRUE(r.contains(in));
-    EXPECT_GT(in.output(), limit.input());
+    ASSERT_TRUE(r.contains(out));
+    EXPECT_GT(in.output(), out.input());
     EXPECT_EQ(in.row_slice(), (relation::scan::row_slice_type { {}, 3 }));
 }
 
@@ -820,9 +822,10 @@ TEST_F(intermediate_plan_optimizer_test, absorb_limits_after_rewrite_scan) {
     intermediate_plan_optimizer optimizer { options() };
     optimizer(r);
 
-    // the filter is absorbed into the scan range, and then the limit is absorbed into the scan
-    ASSERT_TRUE(r.contains(limit));
-    auto upstream = limit.input().opposite();
+    // the filter is absorbed into the scan range, and then the limit is absorbed into the scan and removed
+    ASSERT_EQ(r.size(), 2);
+    ASSERT_TRUE(r.contains(out));
+    auto upstream = out.input().opposite();
     ASSERT_TRUE(upstream);
     ASSERT_EQ(upstream->owner().kind(), relation::scan::tag);
     auto&& scan = ::takatori::util::unsafe_downcast<relation::scan>(upstream->owner());

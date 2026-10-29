@@ -29,7 +29,8 @@ using column_ref = std::reference_wrapper<storage::column const>;
 
 namespace {
 
-// NOTE: each order preserving operator must have exactly one input and one output
+// NOTE: each order preserving operator must have exactly one input and one output,
+// and must not increase the number of rows
 bool is_order_preserving(relation::expression const& expr) noexcept {
     switch (expr.kind()) {
         case relation::filter::tag:
@@ -96,12 +97,24 @@ optional_ptr<relation::scan> find_ordered_source(relation::intermediate::limit& 
     return {};
 }
 
-optional_ptr<relation::expression> find_ordered_destination(relation::intermediate::limit& expr) {
-    auto current = find_downstream(expr.output());
+namespace {
+
+optional_ptr<relation::expression> find_ordered_destination(relation::expression::output_port_type& output) {
+    auto current = find_downstream(output);
     while (current && is_order_preserving(*current)) {
         current = find_downstream(current->output_ports()[0]);
     }
     return current;
+}
+
+} // namespace
+
+optional_ptr<relation::expression> find_ordered_destination(relation::intermediate::limit& expr) {
+    return find_ordered_destination(expr.output());
+}
+
+optional_ptr<relation::expression> find_ordered_destination(relation::scan& expr) {
+    return find_ordered_destination(expr.output());
 }
 
 std::optional<std::vector<storage::details::index_key_element>> resolve_sort_keys(

@@ -42,6 +42,19 @@ namespace yugawara::analyzer::details {
         ::takatori::relation::intermediate::limit& expr);
 
 /**
+ * @brief returns the downstream operator of the given `scan`, which may be affected by the row count and order of it.
+ * @details This walks from the `scan` to downstream only through the operators which preserve the row order and
+ *      never increase the number of rows (`filter` and `project`),
+ *      and returns the first operator which does not satisfy them.
+ * @param expr the target `scan` operator
+ * @return the destination operator
+ * @return empty if there is no such the operator
+ * @see find_ordered_destination(::takatori::relation::intermediate::limit&)
+ */
+[[nodiscard]] ::takatori::util::optional_ptr<::takatori::relation::expression> find_ordered_destination(
+        ::takatori::relation::scan& expr);
+
+/**
  * @brief returns the sort keys of the given `limit`, as the columns of the given `scan`.
  * @param scan the source `scan` operator
  * @param expr the `limit` operator which requests the row order
