@@ -6,9 +6,12 @@ namespace yugawara::analyzer {
 
 /**
  * @brief an implementation of index_estimator, which estimates the selectivity from the shape of index key criteria.
- * @details This does not use any statistics: the selectivity is the product of factors for individual key criteria,
- *      that is, this regards the individual key criteria as independent.
+ * @details This does not use any statistics: the selectivity is the product of factors for individual key criteria.
  *      The factors are given as parameters.
+ *
+ *      Because the key columns are often correlated, the factors of the subsequent key criteria are weakened:
+ *      the factor of the `i`-th key criteria (0-origin) is raised to the power of `pow(decay, i)`,
+ *      where `decay` is parameters_type::selectivity_decay().
  *
  *      If the index is unique and the search keys point a single entry
  *      (all index keys are equivalent conditions), this estimates the number of entries as `1`.
@@ -29,6 +32,9 @@ public:
 
         /// @brief the default selectivity factor for range condition with only one bound.
         static constexpr double default_half_bound_selectivity = 0.6;
+
+        /// @brief the default decay of the selectivity factors for the subsequent key criteria.
+        static constexpr double default_selectivity_decay = 0.5;
 
         /**
          * @brief creates a new instance with default parameters.
@@ -62,10 +68,23 @@ public:
         /// @copydoc half_bound_selectivity()
         [[nodiscard]] double half_bound_selectivity() const noexcept;
 
+        /**
+         * @brief returns the decay of the selectivity factors for the subsequent key criteria.
+         * @details The factor of the `i`-th key criteria (0-origin) is raised to the power of `pow(decay, i)`.
+         *      If this is `1.0`, the key criteria are regarded as independent.
+         *      If this is `0.0`, only the first key criteria is considered.
+         * @return the decay, in the range of `[0, 1]`
+         */
+        [[nodiscard]] double& selectivity_decay() noexcept;
+
+        /// @copydoc selectivity_decay()
+        [[nodiscard]] double selectivity_decay() const noexcept;
+
     private:
         double equivalent_selectivity_ { default_equivalent_selectivity };
         double full_bound_selectivity_ { default_full_bound_selectivity };
         double half_bound_selectivity_ { default_half_bound_selectivity };
+        double selectivity_decay_ { default_selectivity_decay };
     };
 
     /**
