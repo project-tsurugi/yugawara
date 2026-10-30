@@ -7,8 +7,8 @@ namespace yugawara::analyzer {
  */
 class index_selection_parameters {
 public:
-    /// @brief the default threshold of selectivity, which is regarded as a selective index access.
-    static constexpr double default_strong_selectivity_threshold = 0.3;
+    /// @brief the default coefficient of the cost to sort the rows (see sort_cost()).
+    static constexpr double default_sort_cost = 0.1;
 
     /// @brief the default weight of index accesses which also refer the primary index for individual entries.
     static constexpr double default_indirect_access_weight = 2.0;
@@ -19,15 +19,21 @@ public:
     constexpr index_selection_parameters() = default;
 
     /**
-     * @brief returns the threshold of selectivity, which is regarded as a selective index access.
-     * @details If the estimated selectivity of an index access is less than or equal to this value,
-     *      the compiler prefers it to the other access that provides the row order but not selective.
-     * @return the selectivity threshold
+     * @brief returns the coefficient of the cost to sort the rows.
+     * @details This is not the cost itself, but the coefficient for the selectivity of the rows to sort.
+     *      If the downstream operation requires the row order, the compiler adds the cost to sort the rows
+     *      to the index accesses which do not provide the row order:
+     *      the cost is the estimated selectivity of the rows to sort (the ratio to the whole table)
+     *      multiplied by this value.
+     *      The cost to read the index entries is also the estimated selectivity (multiplied by
+     *      indirect_access_weight() if the access is indirect), so that this value is the cost to sort a row
+     *      relative to the cost to read a row.
+     * @return the coefficient of the cost to sort the rows
      */
-    [[nodiscard]] double& strong_selectivity_threshold() noexcept;
+    [[nodiscard]] double& sort_cost() noexcept;
 
-    /// @copydoc strong_selectivity_threshold()
-    [[nodiscard]] double strong_selectivity_threshold() const noexcept;
+    /// @copydoc sort_cost()
+    [[nodiscard]] double sort_cost() const noexcept;
 
     /**
      * @brief returns the weight of index accesses which also refer the primary index for individual entries.
@@ -41,7 +47,7 @@ public:
     [[nodiscard]] double indirect_access_weight() const noexcept;
 
 private:
-    double strong_selectivity_threshold_ { default_strong_selectivity_threshold };
+    double sort_cost_ { default_sort_cost };
     double indirect_access_weight_ { default_indirect_access_weight };
 };
 

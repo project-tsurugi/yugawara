@@ -2,12 +2,12 @@
 
 namespace yugawara::analyzer {
 
-double& index_selection_parameters::strong_selectivity_threshold() noexcept {
-    return strong_selectivity_threshold_;
+double& index_selection_parameters::sort_cost() noexcept {
+    return sort_cost_;
 }
 
-double index_selection_parameters::strong_selectivity_threshold() const noexcept {
-    return strong_selectivity_threshold_;
+double index_selection_parameters::sort_cost() const noexcept {
+    return sort_cost_;
 }
 
 double& index_selection_parameters::indirect_access_weight() noexcept {

@@ -66,6 +66,29 @@ candidate_comparison compare_index_candidates(
     return compare_costs(first_cost, second_cost);
 }
 
+namespace {
+
+[[nodiscard]] bool break_tie(index_candidate const& candidate, index_candidate const& best) {
+    if (candidate.direct != best.direct) {
+        return candidate.direct;
+    }
+    return candidate.index.get().simple_name() < best.index.get().simple_name();
+}
+
+[[nodiscard]] double upper_bound_cost(
+        index_candidate const& candidate,
+        candidate_order order,
+        double sort_selectivity,
+        index_selection_parameters const& parameters) {
+    auto result = candidate.result.selectivity() * weight(candidate, parameters);
+    if (order == candidate_order::none) {
+        result += sort_selectivity * parameters.sort_cost();
+    }
+    return result;
+}
+
+} // namespace
+
 bool is_better_scan_candidate(
         index_candidate const& candidate,
         index_candidate const& best,
@@ -75,10 +98,37 @@ bool is_better_scan_candidate(
         case candidate_comparison::worse: return false;
         case candidate_comparison::equivalent: break;
     }
-    if (candidate.direct != best.direct) {
-        return candidate.direct;
+    return break_tie(candidate, best);
+}
+
+bool is_better_ordered_scan_candidate(
+        index_candidate const& candidate,
+        candidate_order order,
+        index_candidate const& best,
+        candidate_order best_order,
+        double sort_selectivity,
+        index_selection_parameters const& parameters) {
+    bool single = is_single_row(candidate);
+    bool best_single = is_single_row(best);
+    if (single != best_single) {
+        return single;
     }
-    return candidate.index.get().simple_name() < best.index.get().simple_name();
+    if (single) {
+        return is_better_scan_candidate(candidate, best, parameters);
+    }
+    bool early_stop = order == candidate_order::early_stop;
+    bool best_early_stop = best_order == candidate_order::early_stop;
+    if (early_stop != best_early_stop) {
+        return early_stop;
+    }
+    switch (compare_costs(
+            upper_bound_cost(candidate, order, sort_selectivity, parameters),
+            upper_bound_cost(best, best_order, sort_selectivity, parameters))) {
+        case candidate_comparison::better: return true;
+        case candidate_comparison::worse: return false;
+        case candidate_comparison::equivalent: break;
+    }
+    return break_tie(candidate, best);
 }
 
 } // namespace yugawara::analyzer::details

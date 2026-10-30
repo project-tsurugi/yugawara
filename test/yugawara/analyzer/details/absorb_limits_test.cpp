@@ -15,7 +15,6 @@
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/configurable_provider.h>
 
-#include <yugawara/analyzer/parametric_index_estimator.h>
 
 #include <yugawara/testing/utils.h>
 
@@ -184,11 +183,8 @@ protected:
         return relation::scan::row_slice_type { {}, count };
     }
 
-    parametric_index_estimator estimator {};
-    index_selection_parameters parameters {};
-
     void apply(relation::graph_type& r, runtime_feature_set const& features = runtime_feature_all) {
-        absorb_limits(r, estimator, parameters, features);
+        absorb_limits(r, features);
     }
 };
 
@@ -531,142 +527,44 @@ TEST_F(absorb_limits_test, scan_limit_only) {
     EXPECT_EQ(r0.direction(), scan_direction::forward);
 }
 
-TEST_F(absorb_limits_test, select_index) {
+TEST_F(absorb_limits_test, order_only) {
     /*
-     * scan:r0{I2} - limit:r1[v] - emit:r2
-     * => scan:r0{I2V}[forward, 3] - limit:r1[v] - emit:r2
+     * scan:r0{I0} - limit:r1[a] - emit:r2
+     * => scan:r0{I0}[forward] - limit:r1[a] - emit:r2
      */
     relation::graph_type r;
-    auto&& r0 = add_t2(r);
-    auto&& r1 = r.insert(limit(3, { v }));
-    auto&& r2 = r.insert(relation::emit { k });
-    r0.output() >> r1.input();
-    r1.output() >> r2.input();
-
-    apply(r, { runtime_feature::scan_limit });
-
-    EXPECT_EQ(r0.source(), bindings(*i2v));
-    EXPECT_FALSE(r0.lower());
-    EXPECT_FALSE(r0.upper());
-    EXPECT_EQ(r0.row_slice(), row_slice(3));
-    EXPECT_EQ(r0.direction(), scan_direction::forward);
-}
-
-TEST_F(absorb_limits_test, select_index_with_range) {
-    /*
-     * scan:r0{I2} - filter:r1(v > 15) - limit:r2[v] - emit:r3
-     * => scan:r0{I2V}(v > 15)[forward, 3] - limit:r2[v] - emit:r3
-     */
-    relation::graph_type r;
-    auto&& r0 = add_t2(r);
-    auto&& r1 = r.insert(relation::filter {
-            compare(varref { v }, constant(15), scalar::comparison_operator::greater),
+    auto&& r0 = add_t0(r);
+    auto&& r1 = r.insert(relation::intermediate::limit {
+            std::vector<descriptor::variable> {},
+            std::vector<relation::intermediate::limit::sort_key> { a },
     });
-    auto&& r2 = r.insert(limit(3, { v }));
-    auto&& r3 = r.insert(relation::emit { k });
+    auto&& r2 = r.insert(relation::emit { a });
     r0.output() >> r1.input();
     r1.output() >> r2.input();
-    r2.output() >> r3.input();
 
-    apply(r);
+    apply(r, { runtime_feature::ordered_scan });
 
-    EXPECT_EQ(r0.source(), bindings(*i2v));
-    EXPECT_TRUE(r0.lower());
-    EXPECT_FALSE(r0.upper());
-    // the filter was removed, because its condition was consumed by the scan range
-    EXPECT_EQ(r.size(), 3);
-    ASSERT_TRUE(r2.input().opposite());
-    EXPECT_EQ(&r2.input().opposite()->owner(), &r0);
-    EXPECT_EQ(r0.row_slice(), row_slice(3));
-    EXPECT_EQ(r0.direction(), scan_direction::forward);
-}
-
-TEST_F(absorb_limits_test, select_index_direction_only) {
-    /*
-     * scan:r0{I2} - filter:r1(w = 1) - limit:r2[v] - emit:r3
-     * => scan:r0{I2V}[forward] - filter:r1(w = 1) - limit:r2[v] - emit:r3
-     */
-    relation::graph_type r;
-    auto&& r0 = add_t2(r);
-    auto&& r1 = r.insert(relation::filter {
-            compare(varref { w }, constant(1)),
-    });
-    auto&& r2 = r.insert(limit(3, { v }));
-    auto&& r3 = r.insert(relation::emit { k });
-    r0.output() >> r1.input();
-    r1.output() >> r2.input();
-    r2.output() >> r3.input();
-
-    apply(r);
-
-    EXPECT_EQ(r0.source(), bindings(*i2v));
-    EXPECT_FALSE(r0.lower());
-    EXPECT_FALSE(r0.upper());
-    EXPECT_TRUE(r.contains(r1));
     EXPECT_FALSE(r0.row_slice());
     EXPECT_EQ(r0.direction(), scan_direction::forward);
 }
 
-TEST_F(absorb_limits_test, select_index_direction_only_disabled) {
+TEST_F(absorb_limits_test, order_only_disabled) {
     /*
-     * scan:r0{I2} - filter:r1(w = 1) - limit:r2[v] - emit:r3
-     * => (not changed, if ordered_forward is disabled)
+     * scan:r0{I0} - limit:r1[a] - emit:r2
+     * => (not changed, if ordered_scan is disabled)
      */
     relation::graph_type r;
-    auto&& r0 = add_t2(r);
-    auto&& r1 = r.insert(relation::filter {
-            compare(varref { w }, constant(1)),
+    auto&& r0 = add_t0(r);
+    auto&& r1 = r.insert(relation::intermediate::limit {
+            std::vector<descriptor::variable> {},
+            std::vector<relation::intermediate::limit::sort_key> { a },
     });
-    auto&& r2 = r.insert(limit(3, { v }));
-    auto&& r3 = r.insert(relation::emit { k });
-    r0.output() >> r1.input();
-    r1.output() >> r2.input();
-    r2.output() >> r3.input();
-
-    apply(r, { runtime_feature::scan_limit });
-
-    EXPECT_EQ(r0.source(), bindings(*i2));
-    EXPECT_FALSE(r0.row_slice());
-    EXPECT_FALSE(r0.direction());
-}
-
-TEST_F(absorb_limits_test, select_index_scan_range) {
-    /*
-     * scan:r0{I2}(k > 10) - limit:r1[v] - emit:r2
-     * => (not changed, because the scan conditions have decided the index)
-     */
-    relation::graph_type r;
-    auto&& r0 = add_t2(r, {
-            relation::scan::key { t2k, constant(10) },
-            endpoint_kind::prefixed_exclusive,
-    });
-    auto&& r1 = r.insert(limit(3, { v }));
-    auto&& r2 = r.insert(relation::emit { k });
+    auto&& r2 = r.insert(relation::emit { a });
     r0.output() >> r1.input();
     r1.output() >> r2.input();
 
-    apply(r);
+    apply(r, { runtime_feature::scan_limit, runtime_feature::ordered_forward });
 
-    EXPECT_EQ(r0.source(), bindings(*i2));
-    EXPECT_FALSE(r0.row_slice());
-    EXPECT_FALSE(r0.direction());
-}
-
-TEST_F(absorb_limits_test, select_index_unavailable) {
-    /*
-     * scan:r0{I2} - limit:r1[w] - emit:r2
-     * => (not changed, because no indices provide the order)
-     */
-    relation::graph_type r;
-    auto&& r0 = add_t2(r);
-    auto&& r1 = r.insert(limit(3, { w }));
-    auto&& r2 = r.insert(relation::emit { k });
-    r0.output() >> r1.input();
-    r1.output() >> r2.input();
-
-    apply(r);
-
-    EXPECT_EQ(r0.source(), bindings(*i2));
     EXPECT_FALSE(r0.row_slice());
     EXPECT_FALSE(r0.direction());
 }

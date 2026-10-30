@@ -73,4 +73,12 @@ struct index_candidate {
         storage::index const& index,
         index_estimator const& estimator);
 
+/**
+ * @brief returns the index columns which have a single value in the range of the candidate.
+ * @details They are the columns of the leading equivalent terms of the candidate.
+ * @param candidate the target candidate
+ * @return the fixed columns
+ */
+[[nodiscard]] std::vector<std::reference_wrapper<storage::column const>> fixed_columns(index_candidate const& candidate);
+
 } // namespace yugawara::analyzer::details

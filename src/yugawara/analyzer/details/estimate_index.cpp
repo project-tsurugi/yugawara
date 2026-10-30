@@ -87,4 +87,17 @@ index_candidate estimate_index(
     };
 }
 
+std::vector<column_ref> fixed_columns(index_candidate const& candidate) {
+    std::vector<column_ref> results {};
+    auto&& keys = candidate.index.get().keys();
+    for (std::size_t i = 0, n = candidate.terms.size(); i < n; ++i) {
+        // NOTE: the leading equivalent terms have the single value in the range
+        if (!candidate.terms[i]->equivalent()) {
+            break;
+        }
+        results.emplace_back(keys[i].column());
+    }
+    return results;
+}
+
 } // namespace yugawara::analyzer::details

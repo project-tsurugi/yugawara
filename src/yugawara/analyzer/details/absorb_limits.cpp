@@ -1,39 +1,19 @@
 #include "absorb_limits.h"
 
-#include <functional>
 #include <optional>
-#include <string_view>
-#include <utility>
-#include <vector>
 
 #include <takatori/relation/scan.h>
 #include <takatori/relation/intermediate/limit.h>
 
 #include <takatori/util/downcast.h>
-#include <takatori/util/optional_ptr.h>
 
-#include <yugawara/binding/extract.h>
-
-#include <yugawara/storage/column.h>
-#include <yugawara/storage/index.h>
-#include <yugawara/storage/index_feature.h>
-#include <yugawara/storage/provider.h>
-
-#include "apply_index_to_scan.h"
-#include "compare_index_candidates.h"
-#include "estimate_index.h"
-#include "find_scan_direction.h"
 #include "ordered_relation.h"
-#include "remove_redundant_conditions.h"
-#include "scan_key_collector.h"
 
 namespace yugawara::analyzer::details {
 
 namespace relation = ::takatori::relation;
 
 using ::takatori::util::unsafe_downcast;
-
-using column_ref = std::reference_wrapper<storage::column const>;
 
 namespace {
 
@@ -60,32 +40,25 @@ bool is_adjacent(relation::scan const& scan, relation::intermediate::limit const
     return upstream && std::addressof(upstream->owner()) == std::addressof(scan);
 }
 
+/**
+ * @brief returns whether or not the limit only requests the row order, without any row count nor group keys.
+ * @param expr the target limit
+ * @return true if it only requests the row order
+ * @return false otherwise
+ */
+bool is_order_only(relation::intermediate::limit const& expr) {
+    return expr.group_keys().empty()
+            && !expr.sort_keys().empty()
+            && !expr.row_slice();
+}
+
 class engine {
 public:
-    explicit engine(
-            index_estimator const& index_estimator,
-            index_selection_parameters const& parameters,
-            runtime_feature_set const& features) noexcept :
-        index_estimator_ { index_estimator },
-        parameters_ { parameters },
+    explicit engine(runtime_feature_set const& features) noexcept :
         features_ { features }
     {}
 
     void process(relation::graph_type& graph) {
-        bool changed = false;
-        for (auto&& expr : graph) {
-            if (expr.kind() == relation::intermediate::limit::tag) {
-                if (select_index(unsafe_downcast<relation::intermediate::limit>(expr))) {
-                    changed = true;
-                }
-            }
-        }
-        if (changed) {
-            relation::merge_into(std::move(work_graph_), graph);
-            work_graph_.clear();
-            // NOTE: the selected index may consume the filter conditions, and then the scan may become adjacent to the limit
-            remove_redundant_conditions(graph);
-        }
         for (auto&& expr : graph) {
             if (expr.kind() == relation::intermediate::limit::tag) {
                 absorb(unsafe_downcast<relation::intermediate::limit>(expr));
@@ -94,10 +67,7 @@ public:
     }
 
 private:
-    index_estimator const& index_estimator_;
-    index_selection_parameters const& parameters_;
     runtime_feature_set const& features_;
-    relation::graph_type work_graph_ {};
 
     [[nodiscard]] bool can_absorb_count(relation::scan const& scan, relation::intermediate::limit const& expr) const {
         return features_.contains(runtime_feature::scan_limit)
@@ -105,22 +75,26 @@ private:
                 && !scan.row_slice();
     }
 
-    [[nodiscard]] bool can_absorb_direction_only() const {
-        return features_.contains(runtime_feature::ordered_scan)
-                && features_.contains(runtime_feature::ordered_forward);
+    [[nodiscard]] bool can_absorb_direction_only(relation::intermediate::limit const& expr) const {
+        if (!features_.contains(runtime_feature::ordered_scan)) {
+            return false;
+        }
+        // NOTE: the limit with row count becomes a forward exchange with ordering,
+        // and the limit without row count will be removed (see remove_redundant_limits())
+        return !expr.row_slice() || features_.contains(runtime_feature::ordered_forward);
     }
 
     void absorb(relation::intermediate::limit& expr) {
         auto count = find_target_count(expr);
-        if (!count) {
+        if (!count && !is_order_only(expr)) {
             return;
         }
         auto scan = find_ordered_source(expr);
         if (!scan) {
             return;
         }
-        bool absorb_count = can_absorb_count(*scan, expr);
-        if (!absorb_count && !can_absorb_direction_only()) {
+        bool absorb_count = count && can_absorb_count(*scan, expr);
+        if (!absorb_count && !can_absorb_direction_only(expr)) {
             return;
         }
         if (!expr.sort_keys().empty()) {
@@ -138,91 +112,14 @@ private:
             scan->row_slice() = relation::scan::row_slice_type { {}, *count };
         }
     }
-
-    bool select_index(relation::intermediate::limit& expr) {
-        if (expr.sort_keys().empty() || !find_target_count(expr)) {
-            return false;
-        }
-        auto scan = find_ordered_source(expr);
-        if (!scan) {
-            return false;
-        }
-        if (!can_absorb_count(*scan, expr) && !can_absorb_direction_only()) {
-            return false;
-        }
-        // NOTE: the scan conditions or the other limits have already decided the index
-        if (scan->lower() || scan->upper() || scan->row_slice() || scan->direction()) {
-            return false;
-        }
-        if (find_scan_direction(*scan, expr)) {
-            // the current index already provides the row order
-            return false;
-        }
-        auto sort_keys = resolve_sort_keys(*scan, expr);
-        if (!sort_keys) {
-            return false;
-        }
-        auto&& table = binding::extract<storage::index>(scan->source()).table();
-        auto storages = table.owner();
-        if (!storages) {
-            // there is no index information
-            return false;
-        }
-
-        // NOTE: the collector and the candidate are only valid while processing the current scan
-        scan_key_collector collector {};
-        // NOTE: this may return false if the scan has no conditions, but the collector is still available
-        static_cast<void>(collector(*scan, scan_key_collector::scope::scan));
-        std::optional<index_candidate> saved {};
-        storages->each_table_index(
-                table,
-                [&](std::string_view, std::shared_ptr<storage::index const> const& entry) {
-                    if (!entry->features().contains(storage::index_feature::scan)) {
-                        return;
-                    }
-                    // NOTE: if the collector has no terms, the candidate represents the full scan of the index
-                    auto current = estimate_index(collector, *entry, index_estimator_);
-                    // NOTE: find operations do not provide any row order
-                    if (current.kind == index_candidate::access_kind::find) {
-                        return;
-                    }
-                    auto fixed_columns = collect_fixed_columns(current);
-                    if (!find_scan_direction(*entry, *sort_keys, fixed_columns)) {
-                        return;
-                    }
-                    if (!saved || is_better_scan_candidate(current, *saved, parameters_)) {
-                        saved = std::move(current);
-                    }
-                });
-        if (!saved) {
-            return false;
-        }
-        apply_index_to_scan(*scan, *saved, work_graph_);
-        return true;
-    }
-
-    [[nodiscard]] static std::vector<column_ref> collect_fixed_columns(index_candidate const& candidate) {
-        std::vector<column_ref> results {};
-        auto&& keys = candidate.index.get().keys();
-        for (std::size_t i = 0, n = candidate.terms.size(); i < n; ++i) {
-            // NOTE: the leading equivalent terms have the single value in the range
-            if (!candidate.terms[i]->equivalent()) {
-                break;
-            }
-            results.emplace_back(keys[i].column());
-        }
-        return results;
-    }
 };
 
 } // namespace
 
 void absorb_limits(
         ::takatori::relation::graph_type& graph,
-        class index_estimator const& index_estimator,
-        index_selection_parameters const& parameters,
         runtime_feature_set const& features) {
-    engine e { index_estimator, parameters, features };
+    engine e { features };
     e.process(graph);
 }
 

@@ -19,6 +19,18 @@ enum class candidate_comparison {
 };
 
 /**
+ * @brief how the index access provides the row order requested by the downstream operation.
+ */
+enum class candidate_order {
+    /// @brief does not provide the row order, so that the rows must be sorted later.
+    none,
+    /// @brief provides the row order, and the scan stops at the requested number of rows.
+    early_stop,
+    /// @brief provides the row order, but the scan may read the whole range.
+    ordered,
+};
+
+/**
  * @brief returns whether or not the index access fetches at most one entry.
  * @details This relies on the estimated number of entries, so that the result must not be used for correctness.
  * @param candidate the target candidate
@@ -83,6 +95,38 @@ enum class candidate_comparison {
 [[nodiscard]] bool is_better_scan_candidate(
         index_candidate const& candidate,
         index_candidate const& best,
+        index_selection_parameters const& parameters);
+
+/**
+ * @brief returns whether or not the candidate is better than the current best one for the same scan operation,
+ *      whose downstream operation requests the row order.
+ * @details This compares the candidates by the following rules:
+ *
+ *      1. the candidate which fetches at most one entry is better (see is_single_row())
+ *      2. the candidate which stops early in the row order (candidate_order::early_stop) is better,
+ *         because it reads fewer rows than any other candidates
+ *      3. the candidate with the lower upper-bound cost is better:
+ *         the upper-bound cost is the estimated cost when the scan does not stop early,
+ *         that is, the estimated selectivity multiplied by index_selection_parameters::indirect_access_weight()
+ *         if the access is not direct, and then the candidates without the row order (candidate_order::none)
+ *         also requires the cost to sort the rows (the sort selectivity multiplied by
+ *         index_selection_parameters::sort_cost())
+ *      4. the ties are broken as same as is_better_scan_candidate()
+ * @param candidate the target candidate
+ * @param order how the target candidate provides the row order
+ * @param best the current best candidate
+ * @param best_order how the current best candidate provides the row order
+ * @param sort_selectivity the estimated ratio of rows to sort
+ * @param parameters the index selection parameters
+ * @return true if the candidate is better than the current best one
+ * @return false otherwise
+ */
+[[nodiscard]] bool is_better_ordered_scan_candidate(
+        index_candidate const& candidate,
+        candidate_order order,
+        index_candidate const& best,
+        candidate_order best_order,
+        double sort_selectivity,
         index_selection_parameters const& parameters);
 
 } // namespace yugawara::analyzer::details
