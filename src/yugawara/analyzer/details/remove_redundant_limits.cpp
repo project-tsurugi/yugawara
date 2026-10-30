@@ -98,6 +98,7 @@ private:
         if (has_start(slice)) {
             return false;
         }
+        // FIXME: currently we do not remove the limit with the variable count, even if the scan has the same one
         auto scan_count = slice.count().immediate_if();
         auto limit_count = count.immediate_if();
         return scan_count && limit_count && *scan_count <= *limit_count;

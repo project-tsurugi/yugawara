@@ -48,6 +48,7 @@ std::optional<std::size_t> find_target_count(relation::intermediate::limit const
             return {};
         }
     }
+    // FIXME: currently we do not absorb the limit with the variable count (e.g. placeholders)
     if (auto count = slice.count().immediate_if()) {
         return *count;
     }

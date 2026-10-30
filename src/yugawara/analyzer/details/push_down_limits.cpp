@@ -97,6 +97,7 @@ std::optional<relation::intermediate::limit::row_slice_type> merge_row_slice(
     if (outer_count.is_absent() || outer_count == inner_count) {
         return relation::intermediate::limit::row_slice_type { {}, inner_count };
     }
+    // FIXME: currently we do not merge the different variable counts, or the variable and the immediate ones
     auto outer_value = outer_count.immediate_if();
     auto inner_value = inner_count.immediate_if();
     if (outer_value && inner_value) {
