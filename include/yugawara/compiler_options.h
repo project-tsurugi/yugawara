@@ -5,6 +5,7 @@
 #include <takatori/util/maybe_shared_ptr.h>
 
 #include <yugawara/analyzer/index_estimator.h>
+#include <yugawara/analyzer/index_selection_parameters.h>
 #include <yugawara/storage/prototype_processor.h>
 
 #include "runtime_feature.h"
@@ -112,6 +113,15 @@ public:
     compiler_options& index_estimator(::takatori::util::maybe_shared_ptr<::yugawara::analyzer::index_estimator const> estimator) noexcept;
 
     /**
+     * @brief returns the parameters to choose an index from the estimations of index_estimator().
+     * @return the index selection parameters
+     */
+    [[nodiscard]] analyzer::index_selection_parameters& index_selection_parameters() noexcept;
+
+    /// @copydoc index_selection_parameters()
+    [[nodiscard]] analyzer::index_selection_parameters const& index_selection_parameters() const noexcept;
+
+    /**
      * @brief returns whether to enable disjunction range hinting.
      * @return true if disjunction range hinting is enabled
      * @return false otherwise
@@ -137,6 +147,7 @@ private:
     restricted_feature_set restricted_features_ { default_restricted_features };
     ::takatori::util::maybe_shared_ptr<::yugawara::storage::prototype_processor> storage_processor_ {};
     ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> index_estimator_ {};
+    analyzer::index_selection_parameters index_selection_parameters_ {};
 
     bool enable_disjunction_range_hinting_ { default_enable_disjunction_range_hinting };
     bool enable_external_variable_inlining_ { default_enable_external_variable_inlining };

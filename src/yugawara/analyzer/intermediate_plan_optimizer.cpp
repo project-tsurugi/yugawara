@@ -69,6 +69,7 @@ void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& g
         details::rewrite_join(
                 graph,
                 options_.index_estimator(),
+                options_.index_selection_parameters(),
                 flow_volume,
                 options_.runtime_features().contains(runtime_feature::index_join_scan));
     }
@@ -76,11 +77,12 @@ void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& g
             graph,
             flow_volume,
             compute_join_keys_features(options_.runtime_features()));
-    details::rewrite_scan(graph, options_.index_estimator());
+    details::rewrite_scan(graph, options_.index_estimator(), options_.index_selection_parameters());
     details::remove_redundant_conditions(graph);
     details::absorb_limits(
             graph,
             options_.index_estimator(),
+            options_.index_selection_parameters(),
             options_.runtime_features());
     details::remove_redundant_limits(graph, options_.runtime_features());
 }

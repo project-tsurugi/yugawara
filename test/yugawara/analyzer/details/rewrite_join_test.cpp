@@ -14,7 +14,7 @@
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/configurable_provider.h>
 
-#include <yugawara/analyzer/details/default_index_estimator.h>
+#include <yugawara/analyzer/parametric_index_estimator.h>
 
 #include <yugawara/testing/utils.h>
 
@@ -66,9 +66,10 @@ protected:
     }
 
     void apply_custom(relation::graph_type& graph, bool enable_join_scan) {
-        default_index_estimator estimator;
+        parametric_index_estimator estimator {};
+        index_selection_parameters parameters {};
         flow_volume_info vinfo {};
-        rewrite_join(graph, estimator, vinfo, enable_join_scan);
+        rewrite_join(graph, estimator, parameters, vinfo, enable_join_scan);
     }
 };
 

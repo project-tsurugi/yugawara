@@ -20,6 +20,7 @@
 #include <yugawara/storage/provider.h>
 
 #include "apply_index_to_scan.h"
+#include "compare_index_candidates.h"
 #include "estimate_index.h"
 #include "find_scan_direction.h"
 #include "ordered_relation.h"
@@ -32,7 +33,6 @@ namespace relation = ::takatori::relation;
 
 using ::takatori::util::unsafe_downcast;
 
-using attribute = details::index_estimator_result_attribute;
 using column_ref = std::reference_wrapper<storage::column const>;
 
 namespace {
@@ -62,8 +62,12 @@ bool is_adjacent(relation::scan const& scan, relation::intermediate::limit const
 
 class engine {
 public:
-    explicit engine(index_estimator const& index_estimator, runtime_feature_set const& features) noexcept :
+    explicit engine(
+            index_estimator const& index_estimator,
+            index_selection_parameters const& parameters,
+            runtime_feature_set const& features) noexcept :
         index_estimator_ { index_estimator },
+        parameters_ { parameters },
         features_ { features }
     {}
 
@@ -91,6 +95,7 @@ public:
 
 private:
     index_estimator const& index_estimator_;
+    index_selection_parameters const& parameters_;
     runtime_feature_set const& features_;
     relation::graph_type work_graph_ {};
 
@@ -166,7 +171,8 @@ private:
 
         // NOTE: the collector and the candidate are only valid while processing the current scan
         scan_key_collector collector {};
-        bool has_terms = collector(*scan, scan_key_collector::scope::scan);
+        // NOTE: this may return false if the scan has no conditions, but the collector is still available
+        static_cast<void>(collector(*scan, scan_key_collector::scope::scan));
         std::optional<index_candidate> saved {};
         storages->each_table_index(
                 table,
@@ -174,18 +180,17 @@ private:
                     if (!entry->features().contains(storage::index_feature::scan)) {
                         return;
                     }
-                    auto current = has_terms
-                            ? estimate_index(collector, *entry, index_estimator_)
-                            : index_candidate { *entry, {}, {} };
+                    // NOTE: if the collector has no terms, the candidate represents the full scan of the index
+                    auto current = estimate_index(collector, *entry, index_estimator_);
                     // NOTE: find operations do not provide any row order
-                    if (current.result.attributes().contains(attribute::find)) {
+                    if (current.kind == index_candidate::access_kind::find) {
                         return;
                     }
                     auto fixed_columns = collect_fixed_columns(current);
                     if (!find_scan_direction(*entry, *sort_keys, fixed_columns)) {
                         return;
                     }
-                    if (is_better(saved, current)) {
+                    if (!saved || is_better_scan_candidate(current, *saved, parameters_)) {
                         saved = std::move(current);
                     }
                 });
@@ -208,19 +213,6 @@ private:
         }
         return results;
     }
-
-    [[nodiscard]] static bool is_better(std::optional<index_candidate> const& saved, index_candidate const& current) {
-        if (!saved) {
-            return true;
-        }
-        auto&& saved_result = saved->result;
-        auto&& result = current.result;
-        if (!saved_result.attributes().contains(attribute::single_row)
-                && result.attributes().contains(attribute::single_row)) {
-            return true;
-        }
-        return saved_result.score() < result.score();
-    }
 };
 
 } // namespace
@@ -228,8 +220,9 @@ private:
 void absorb_limits(
         ::takatori::relation::graph_type& graph,
         class index_estimator const& index_estimator,
+        index_selection_parameters const& parameters,
         runtime_feature_set const& features) {
-    engine e { index_estimator, features };
+    engine e { index_estimator, parameters, features };
     e.process(graph);
 }
 

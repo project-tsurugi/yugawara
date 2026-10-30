@@ -1,12 +1,52 @@
 #include "estimate_index.h"
 
+#include <algorithm>
 #include <utility>
 
 #include <takatori/util/assertion.h>
+#include <takatori/util/sequence_view.h>
+
+#include <yugawara/storage/column.h>
+#include <yugawara/storage/index_feature.h>
 
 namespace yugawara::analyzer::details {
 
+using ::takatori::util::sequence_view;
+
 using search_key = storage::details::search_key_element;
+using access_kind = index_candidate::access_kind;
+using column_ref = scan_key_collector::column_ref;
+
+namespace {
+
+[[nodiscard]] access_kind decide_access_kind(storage::index const& index, sequence_view<search_key const> search_keys) {
+    if (search_keys.empty()) {
+        return access_kind::full_scan;
+    }
+    if (index.features().contains(storage::index_feature::find)
+            && search_keys.size() == index.keys().size()
+            && std::all_of(search_keys.begin(), search_keys.end(), [](auto&& key) { return key.equivalent(); })) {
+        return access_kind::find;
+    }
+    return access_kind::range_scan;
+}
+
+[[nodiscard]] bool is_direct(storage::index const& index, sequence_view<column_ref const> columns) {
+    auto&& keys = index.keys();
+    auto&& values = index.values();
+    for (storage::column const& column : columns) {
+        if (std::find(values.begin(), values.end(), column) != values.end()) {
+            continue;
+        }
+        if (std::find_if(keys.begin(), keys.end(), [&](auto&& key) { return key.column() == column; }) != keys.end()) {
+            continue;
+        }
+        return false;
+    }
+    return true;
+}
+
+} // namespace
 
 index_candidate estimate_index(
         scan_key_collector& collector,
@@ -35,14 +75,15 @@ index_candidate estimate_index(
         }
     }
 
+    auto result = estimator(index, search_keys);
+    auto kind = decide_access_kind(index, search_keys);
     return index_candidate {
             index,
-            estimator(
-                    index,
-                    search_keys,
-                    collector.sort_keys(),
-                    collector.referring()),
+            result,
             std::move(terms),
+            kind,
+            index.features().contains(storage::index_feature::scan),
+            is_direct(index, collector.referring()),
     };
 }
 

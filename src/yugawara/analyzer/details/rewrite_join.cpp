@@ -22,6 +22,7 @@
 #include <yugawara/storage/provider.h>
 
 #include "boolean_constants.h"
+#include "compare_index_candidates.h"
 #include "estimate_index.h"
 #include "scan_key_collector.h"
 #include "remove_orphaned_elements.h"
@@ -31,8 +32,6 @@ namespace yugawara::analyzer::details {
 
 namespace scalar = ::takatori::scalar;
 namespace relation = ::takatori::relation;
-
-using attribute = details::index_estimator_result_attribute;
 
 using ::takatori::relation::join_kind;
 using ::takatori::relation::join_kind_set;
@@ -49,9 +48,11 @@ class engine {
 public:
     explicit engine(
             index_estimator const& index_estimator,
+            index_selection_parameters const& parameters,
             flow_volume_info const& flow_volume,
             bool allow_join_scan) :
         index_estimator_ { index_estimator },
+        parameters_ { parameters },
         flow_volume_ { flow_volume },
         allow_join_scan_ { allow_join_scan }
     {}
@@ -92,6 +93,7 @@ private:
     };
 
     index_estimator const& index_estimator_;
+    index_selection_parameters const& parameters_;
     flow_volume_info const& flow_volume_;
     bool allow_join_scan_;
 
@@ -241,9 +243,8 @@ private:
             // then the index access is just same for every left row, but it is still valid
             return {};
         }
-        auto&& attributes = access.result.attributes();
-        if (!attributes.contains(attribute::find) &&
-                !(allow_join_scan_ && attributes.contains(attribute::range_scan))) {
+        if (access.kind != index_candidate::access_kind::find
+                && !(allow_join_scan_ && access.scannable)) {
             // no accepted methods
             return {};
         }
@@ -270,26 +271,19 @@ private:
         if (!saved) {
             return true;
         }
-        auto&& saved_result = saved->access.result;
-        auto&& result = current.access.result;
-        if (!saved_result.attributes().contains(attribute::single_row)
-                && result.attributes().contains(attribute::single_row)) {
-            return true;
-        }
-        auto saved_score = saved_result.score();
-        auto result_score = result.score();
-        // NOTE: currently flow_volume_info is always empty, so that this never weights the scores
+        double saved_scale = 1.0;
+        double current_scale = 1.0;
+        // NOTE: currently flow_volume_info is always empty, so that this never weights the costs
         auto saved_vol = flow_volume_.find(input(expr, saved->side));
-        auto result_vol = flow_volume_.find(input(expr, current.side));
-        if (saved_vol && result_vol) {
-            saved_score *= saved_vol->row_count * saved_vol->column_size;
-            result_score *= result_vol->row_count * result_vol->column_size;
+        auto current_vol = flow_volume_.find(input(expr, current.side));
+        if (saved_vol && current_vol) {
+            saved_scale = saved_vol->row_count * saved_vol->column_size;
+            current_scale = current_vol->row_count * current_vol->column_size;
         }
-        if (saved_score < result_score) {
-            return true;
-        }
-        if (result_score < saved_score) {
-            return false;
+        switch (compare_index_candidates(current.access, current_scale, saved->access, saved_scale, parameters_)) {
+            case candidate_comparison::better: return true;
+            case candidate_comparison::worse: return false;
+            case candidate_comparison::equivalent: break;
         }
         // if the scores are same, we prefer the right input, which does not swap the join inputs
         return saved->side == join_side::left && current.side == join_side::right;
@@ -302,7 +296,7 @@ private:
         auto&& source = saved.scan.get();
         auto&& access = saved.access;
         auto&& index = access.index.get();
-        if (access.result.attributes().contains(attribute::find)) {
+        if (access.kind == index_candidate::access_kind::find) {
             return rewrite_as_join_find(expr, source, index, access.terms);
         }
         return rewrite_as_join_scan(expr, source, index, access.terms);
@@ -420,9 +414,10 @@ private:
 void rewrite_join(
         relation::graph_type& graph,
         analyzer::index_estimator const& index_estimator,
+        index_selection_parameters const& parameters,
         flow_volume_info const& flow_volume,
         bool allow_join_scan) {
-    engine e { index_estimator, flow_volume, allow_join_scan };
+    engine e { index_estimator, parameters, flow_volume, allow_join_scan };
     e.process(graph);
 }
 

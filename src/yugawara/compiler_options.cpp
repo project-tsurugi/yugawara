@@ -56,6 +56,14 @@ compiler_options& compiler_options::index_estimator(maybe_shared_ptr<analyzer::i
     return *this;
 }
 
+analyzer::index_selection_parameters& compiler_options::index_selection_parameters() noexcept {
+    return index_selection_parameters_;
+}
+
+analyzer::index_selection_parameters const& compiler_options::index_selection_parameters() const noexcept {
+    return index_selection_parameters_;
+}
+
 bool& compiler_options::enable_disjunction_range_hinting() noexcept {
     return enable_disjunction_range_hinting_;
 }

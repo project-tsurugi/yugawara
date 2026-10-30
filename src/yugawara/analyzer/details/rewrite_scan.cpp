@@ -12,6 +12,7 @@
 #include <yugawara/storage/provider.h>
 
 #include "apply_index_to_scan.h"
+#include "compare_index_candidates.h"
 #include "estimate_index.h"
 #include "scan_key_collector.h"
 #include "remove_orphaned_elements.h"
@@ -20,16 +21,15 @@ namespace yugawara::analyzer::details {
 
 namespace relation = ::takatori::relation;
 
-using attribute = details::index_estimator_result_attribute;
-
 using ::takatori::util::unsafe_downcast;
 
 namespace {
 
 class engine {
 public:
-    explicit engine(index_estimator const& index_estimator) :
-        index_estimator_ { index_estimator }
+    explicit engine(index_estimator const& index_estimator, index_selection_parameters const& parameters) :
+        index_estimator_ { index_estimator },
+        parameters_ { parameters }
     {}
 
     void process(relation::graph_type& graph) {
@@ -47,6 +47,7 @@ public:
 
 private:
     index_estimator const& index_estimator_;
+    index_selection_parameters const& parameters_;
 
     relation::graph_type work_graph_ {};
 
@@ -65,12 +66,9 @@ private:
         storages->each_table_index(
                 collector.table(),
                 [&](std::string_view, std::shared_ptr<storage::index const> const& entry) {
-                    if (saved && is_best(*saved)) {
-                        return;
-                    }
                     auto current = estimate_index(collector, *entry, index_estimator_);
                     VLOG(50) << "index " << entry->simple_name() << ": " << current.result;
-                    if (is_better(saved, current)) {
+                    if (!saved || is_better_scan_candidate(current, *saved, parameters_)) {
                         saved = std::move(current);
                     }
                 });
@@ -85,33 +83,15 @@ private:
 
         remove_orphaned_elements(graph);
     }
-
-    static bool is_best(index_candidate const& candidate) {
-        auto&& attributes = candidate.result.attributes();
-        return attributes.contains(attribute::single_row)
-                && attributes.contains(attribute::index_only);
-    }
-
-    static bool is_better(std::optional<index_candidate> const& saved, index_candidate const& current) {
-        if (!saved) {
-            return true;
-        }
-        auto&& saved_result = saved->result;
-        auto&& result = current.result;
-        if (!saved_result.attributes().contains(attribute::single_row)
-                && result.attributes().contains(attribute::single_row)) {
-            return true;
-        }
-        return saved_result.score() < result.score();
-    }
 };
 
 } // namespace
 
 void rewrite_scan(
         ::takatori::relation::graph_type& graph,
-        class index_estimator const& index_estimator) {
-    engine e { index_estimator };
+        class index_estimator const& index_estimator,
+        index_selection_parameters const& parameters) {
+    engine e { index_estimator, parameters };
     e.process(graph);
 }
 

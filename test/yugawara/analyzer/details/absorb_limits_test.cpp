@@ -15,7 +15,7 @@
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/configurable_provider.h>
 
-#include <yugawara/analyzer/details/default_index_estimator.h>
+#include <yugawara/analyzer/parametric_index_estimator.h>
 
 #include <yugawara/testing/utils.h>
 
@@ -184,10 +184,11 @@ protected:
         return relation::scan::row_slice_type { {}, count };
     }
 
-    default_index_estimator estimator {};
+    parametric_index_estimator estimator {};
+    index_selection_parameters parameters {};
 
     void apply(relation::graph_type& r, runtime_feature_set const& features = runtime_feature_all) {
-        absorb_limits(r, estimator, features);
+        absorb_limits(r, estimator, parameters, features);
     }
 };
 

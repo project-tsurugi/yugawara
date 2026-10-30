@@ -3,6 +3,7 @@
 #include <takatori/util/maybe_shared_ptr.h>
 
 #include <yugawara/analyzer/index_estimator.h>
+#include <yugawara/analyzer/index_selection_parameters.h>
 #include <yugawara/runtime_feature.h>
 
 namespace yugawara::analyzer::details {
@@ -41,6 +42,15 @@ public:
             ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> estimator) noexcept;
 
     /**
+     * @brief returns the parameters to choose an index from the estimations of index_estimator().
+     * @return the index selection parameters
+     */
+    [[nodiscard]] analyzer::index_selection_parameters& index_selection_parameters() noexcept;
+
+    /// @copydoc index_selection_parameters()
+    [[nodiscard]] analyzer::index_selection_parameters const& index_selection_parameters() const noexcept;
+
+    /**
      * @brief returns whether to enable disjunction range hinting.
      * @return true if disjunction range hinting is enabled
      * @return false otherwise
@@ -63,6 +73,7 @@ public:
 
 private:
     ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> index_estimator_ {};
+    analyzer::index_selection_parameters index_selection_parameters_ {};
     runtime_feature_set runtime_features_ { runtime_feature_all };
 
     bool enable_disjunction_range_hinting_ {};

@@ -108,6 +108,8 @@ add_library(yugawara
 
     # optimizer
     yugawara/analyzer/intermediate_plan_optimizer.cpp
+    yugawara/analyzer/index_selection_parameters.cpp
+    yugawara/analyzer/parametric_index_estimator.cpp
     yugawara/analyzer/details/boolean_constants.cpp
     yugawara/analyzer/details/intermediate_plan_optimizer_options.cpp
     yugawara/analyzer/details/decompose_projections.cpp
@@ -125,11 +127,11 @@ add_library(yugawara
     yugawara/analyzer/details/simplify_predicate.cpp
     yugawara/analyzer/details/remove_redundant_conditions.cpp
     yugawara/analyzer/details/index_estimator_result.cpp
-    yugawara/analyzer/details/default_index_estimator.cpp
     yugawara/analyzer/details/search_key_term.cpp
     yugawara/analyzer/details/search_key_term_builder.cpp
     yugawara/analyzer/details/scan_key_collector.cpp
     yugawara/analyzer/details/estimate_index.cpp
+    yugawara/analyzer/details/compare_index_candidates.cpp
     yugawara/analyzer/details/apply_index_to_scan.cpp
     yugawara/analyzer/details/rewrite_join.cpp
     yugawara/analyzer/details/collect_join_keys.cpp

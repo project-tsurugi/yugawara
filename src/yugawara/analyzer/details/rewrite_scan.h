@@ -3,6 +3,7 @@
 #include <takatori/relation/graph.h>
 
 #include <yugawara/analyzer/index_estimator.h>
+#include <yugawara/analyzer/index_selection_parameters.h>
 
 namespace yugawara::analyzer::details {
 
@@ -12,10 +13,12 @@ namespace yugawara::analyzer::details {
  *      and will retain `scan` with bounds or `find`.
  *      This never rewrite `join_relation` into `join_{scan,find}`.
  * @param graph the target graph
- * @param index_estimator the index cost estimator
+ * @param index_estimator the index estimator
+ * @param parameters the parameters to choose an index from the estimations
  */
 void rewrite_scan(
         ::takatori::relation::graph_type& graph,
-        class index_estimator const& index_estimator);
+        class index_estimator const& index_estimator,
+        index_selection_parameters const& parameters);
 
 } // namespace yugawara::analyzer::details

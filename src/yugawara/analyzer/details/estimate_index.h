@@ -20,6 +20,20 @@ namespace yugawara::analyzer::details {
  *      The rest conditions and the orphaned operators must be handled by the caller.
  */
 struct index_candidate {
+    /**
+     * @brief the kind of index access.
+     */
+    enum class access_kind {
+        /// @brief scans the whole entries of the index.
+        full_scan,
+
+        /// @brief scans the index entries in the range of the leading keys.
+        range_scan,
+
+        /// @brief finds the index entries whose keys are all equivalent to the search keys.
+        find,
+    };
+
     /// @brief the target index.
     std::reference_wrapper<storage::index const> index;
 
@@ -28,6 +42,19 @@ struct index_candidate {
 
     /// @brief the terms of the search key, in order of the index keys.
     std::vector<scan_key_collector::term*> terms;
+
+    /// @brief the kind of index access.
+    access_kind kind;
+
+    /// @brief whether or not the index can be scanned (it has storage::index_feature::scan).
+    bool scannable;
+
+    /**
+     * @brief whether or not the index access is direct.
+     * @details The access is direct if the index contains all the columns to obtain,
+     *      that is, it does not refer the primary index for individual entries.
+     */
+    bool direct;
 };
 
 /**
@@ -38,7 +65,7 @@ struct index_candidate {
  *      The resulting candidate may have no terms if the index cannot use any of them.
  * @param collector the collector of the target scan
  * @param index the target index
- * @param estimator the index cost estimator
+ * @param estimator the index estimator
  * @return the estimated candidate
  */
 [[nodiscard]] index_candidate estimate_index(

@@ -1,6 +1,6 @@
 #include <yugawara/analyzer/details/intermediate_plan_optimizer_options.h>
 
-#include "default_index_estimator.h"
+#include <yugawara/analyzer/parametric_index_estimator.h>
 
 namespace yugawara::analyzer::details {
 
@@ -18,7 +18,7 @@ analyzer::index_estimator const& intermediate_plan_optimizer_options::index_esti
     if (index_estimator_) {
         return *index_estimator_;
     }
-    static default_index_estimator default_estimator;
+    static parametric_index_estimator const default_estimator {};
     return default_estimator;
 }
 
@@ -26,6 +26,14 @@ intermediate_plan_optimizer_options& intermediate_plan_optimizer_options::index_
         maybe_shared_ptr<analyzer::index_estimator const> estimator) noexcept {
     index_estimator_ = std::move(estimator);
     return *this;
+}
+
+analyzer::index_selection_parameters& intermediate_plan_optimizer_options::index_selection_parameters() noexcept {
+    return index_selection_parameters_;
+}
+
+analyzer::index_selection_parameters const& intermediate_plan_optimizer_options::index_selection_parameters() const noexcept {
+    return index_selection_parameters_;
 }
 
 bool& intermediate_plan_optimizer_options::enable_disjunction_range_hinting() noexcept {

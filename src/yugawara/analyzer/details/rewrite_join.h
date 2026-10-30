@@ -3,6 +3,7 @@
 #include <takatori/relation/graph.h>
 
 #include <yugawara/analyzer/index_estimator.h>
+#include <yugawara/analyzer/index_selection_parameters.h>
 
 #include "flow_volume_info.h"
 
@@ -14,13 +15,15 @@ namespace yugawara::analyzer::details {
  *      and will retain `scan` with bounds or `find`.
  *      This never rewrite `join_relation` into `join_{scan,find}`.
  * @param graph the target graph
- * @param index_estimator the index cost estimator
+ * @param index_estimator the index estimator
+ * @param parameters the parameters to choose an index from the estimations
  * @param flow_volume the flow volume information
  * @param allow_join_scan whether to allow `join_scan` operations
  */
 void rewrite_join(
         ::takatori::relation::graph_type& graph,
         analyzer::index_estimator const& index_estimator,
+        index_selection_parameters const& parameters,
         flow_volume_info const& flow_volume,
         bool allow_join_scan = true);
 

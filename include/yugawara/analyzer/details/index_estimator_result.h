@@ -2,70 +2,52 @@
 
 #include <ostream>
 #include <optional>
-#include <utility>
 
 #include <cstddef>
-
-#include "index_estimator_result_attribute.h"
 
 namespace yugawara::analyzer::details {
 
 /**
- * @brief estimates cost of scan/find operation for indices.
+ * @brief the estimation result of index access.
  */
 class index_estimator_result {
 public:
-    /// @brief the score type.
-    using score_type = double;
+    /// @brief the selectivity type.
+    using selectivity_type = double;
 
     /// @brief the size type.
     using size_type = std::size_t;
 
-    /// @brief the result attribute type.
-    using attribute = index_estimator_result_attribute;
-
-    /// @brief the result attribute set type.
-    using attribute_set = index_estimator_result_attribute_set ;
-
     /**
-     * @brief creates a new empty instance.
+     * @brief creates a new instance, which represents the whole index entries.
      */
     index_estimator_result() = default;
 
     /**
      * @brief creates a new instance.
-     * @param score the estimation score
-     * @param count the estimated entry count
-     * @param attributes the access attributes
+     * @param selectivity the estimated selectivity, the ratio of entries to fetch in the whole index
+     * @param count the estimated number of entries to fetch, or empty if it is unknown
      */
-    index_estimator_result(
-            score_type score,
-            std::optional<size_type> count,
-            attribute_set attributes) noexcept;
+    explicit index_estimator_result(
+            selectivity_type selectivity,
+            std::optional<size_type> count = {}) noexcept;
 
     /**
-     * @brief returns the estimation score.
-     * @return the estimation score (higher is better)
+     * @brief returns the estimated selectivity.
+     * @return the ratio of entries to fetch in the whole index, in the range of `[0, 1]` (lower is better)
      */
-    [[nodiscard]] score_type score() const noexcept;
+    [[nodiscard]] selectivity_type selectivity() const noexcept;
 
     /**
      * @brief returns the estimated number of entries to fetch.
      * @return the estimated number of entries
+     * @return empty if it is unknown
      */
     [[nodiscard]] std::optional<size_type> count() const noexcept;
 
-    /**
-     * @brief returns whether or not the operation can only access the index.
-     * @return true if fetches only from the index
-     * @return false if fetches table via the index
-     */
-    [[nodiscard]] attribute_set attributes() const noexcept;
-
 private:
-    score_type score_ { 0 };
+    selectivity_type selectivity_ { 1.0 };
     std::optional<size_type> count_ {};
-    attribute_set attributes_ {};
 };
 
 /**

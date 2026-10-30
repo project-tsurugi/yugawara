@@ -4,6 +4,7 @@
 
 #include <yugawara/runtime_feature.h>
 #include <yugawara/analyzer/index_estimator.h>
+#include <yugawara/analyzer/index_selection_parameters.h>
 
 namespace yugawara::analyzer::details {
 
@@ -30,7 +31,8 @@ namespace yugawara::analyzer::details {
  *
  *      The `limit` operators are retained, so that the downstream operators are not changed.
  * @param graph the target graph
- * @param index_estimator the index cost estimator, to select indices for the row order
+ * @param index_estimator the index estimator, to select indices for the row order
+ * @param parameters the parameters to choose an index from the estimations
  * @param features the available runtime features
  * @see find_ordered_source()
  * @see find_scan_direction()
@@ -38,6 +40,7 @@ namespace yugawara::analyzer::details {
 void absorb_limits(
         ::takatori::relation::graph_type& graph,
         class index_estimator const& index_estimator,
+        index_selection_parameters const& parameters,
         runtime_feature_set const& features);
 
 } // namespace yugawara::analyzer::details

@@ -185,6 +185,7 @@ private:
         analyzer::intermediate_plan_optimizer sub {};
         sub.options().runtime_features() = options_.runtime_features();
         sub.options().index_estimator(options_.index_estimator());
+        sub.options().index_selection_parameters() = options_.index_selection_parameters();
         sub.options().enable_disjunction_range_hinting() = options_.enable_disjunction_range_hinting();
         sub.options().enable_external_variable_inlining() = options_.enable_external_variable_inlining();
         sub(graph);

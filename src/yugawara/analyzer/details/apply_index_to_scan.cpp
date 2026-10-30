@@ -16,7 +16,6 @@ namespace yugawara::analyzer::details {
 
 namespace relation = ::takatori::relation;
 
-using attribute = details::index_estimator_result_attribute;
 
 using ::takatori::util::sequence_view;
 
@@ -65,7 +64,7 @@ void apply_index_to_scan(
         relation::graph_type& graph) {
     BOOST_ASSERT(!expr.lower() && !expr.upper()); // NOLINT
     auto&& index = candidate.index.get();
-    if (candidate.result.attributes().contains(attribute::find)) {
+    if (candidate.kind == index_candidate::access_kind::find) {
         rewrite_as_find(expr, index, candidate.terms, graph);
         return;
     }
