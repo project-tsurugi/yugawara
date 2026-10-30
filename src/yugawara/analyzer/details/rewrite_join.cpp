@@ -182,15 +182,20 @@ private:
             // there are no index information
             return;
         }
+        // NOTE: each_table_index() may hold a lock of the provider, so that we only collect the indices in it
+        std::vector<std::shared_ptr<storage::index const>> indices {};
         storages->each_table_index(
                 collector.table(),
                 [&](std::string_view, std::shared_ptr<storage::index const> const& entry) {
-                    auto current = estimate(*scan, *entry, collector, side, filters);
-                    // FIXME: use more statistics of individual join inputs
-                    if (current && is_better(expr, saved, *current)) {
-                        saved = std::move(current);
-                    }
+                    indices.emplace_back(entry);
                 });
+        for (auto&& entry : indices) {
+            auto current = estimate(*scan, *entry, collector, side, filters);
+            // FIXME: use more statistics of individual join inputs
+            if (current && is_better(expr, saved, *current)) {
+                saved = std::move(current);
+            }
+        }
     }
 
     static optional_ptr<relation::scan> find_scan(

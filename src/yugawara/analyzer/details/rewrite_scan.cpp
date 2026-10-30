@@ -184,16 +184,22 @@ private:
             // there is no index information
             return;
         }
-        std::vector<index_candidate> candidates {};
+        // NOTE: each_table_index() may hold a lock of the provider, so that we only collect the indices in it
+        std::vector<std::shared_ptr<storage::index const>> indices {};
         storages->each_table_index(
                 table,
                 [&](std::string_view, std::shared_ptr<storage::index const> const& entry) {
-                    auto current = estimate_index(collector, *entry, index_estimator_);
-                    VLOG(50) << "index " << entry->simple_name() << ": " << current.result;
-                    candidates.emplace_back(std::move(current));
+                    indices.emplace_back(entry);
                 });
-        if (candidates.empty()) {
+        if (indices.empty()) {
             return;
+        }
+        std::vector<index_candidate> candidates {};
+        candidates.reserve(indices.size());
+        for (auto&& entry : indices) {
+            auto current = estimate_index(collector, *entry, index_estimator_);
+            VLOG(50) << "index " << entry->simple_name() << ": " << current.result;
+            candidates.emplace_back(std::move(current));
         }
         std::size_t selected = request
                 ? select_ordered(candidates, *request)
