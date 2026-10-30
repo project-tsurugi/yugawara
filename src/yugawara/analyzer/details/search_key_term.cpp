@@ -90,6 +90,10 @@ bool search_key_term::full_bounded() const {
     return {};
 }
 
+optional_ptr<scalar::expression const> search_key_term::equivalent_term() const {
+    return get_if(equivalent_term_);
+}
+
 optional_ptr<scalar::expression const> search_key_term::equivalent_factor() const {
     return get_if(equivalent_factor_);
 }
@@ -98,12 +102,20 @@ search_key_term::equivalent_semantics_type search_key_term::equivalent_semantics
     return equivalent_semantics_;
 }
 
+optional_ptr<scalar::expression const> search_key_term::lower_term() const {
+    return get_if(lower_term_);
+}
+
 optional_ptr<scalar::expression const> search_key_term::lower_factor() const {
     return get_if(lower_factor_);
 }
 
 bool search_key_term::lower_inclusive() const {
     return lower_inclusive_;
+}
+
+optional_ptr<scalar::expression const> search_key_term::upper_term() const {
+    return get_if(upper_term_);
 }
 
 optional_ptr<scalar::expression const> search_key_term::upper_factor() const {

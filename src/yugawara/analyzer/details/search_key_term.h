@@ -41,10 +41,13 @@ public:
     [[nodiscard]] bool equivalent() const noexcept;
     [[nodiscard]] bool full_bounded() const;
     [[nodiscard]] ::takatori::util::optional_ptr<::takatori::descriptor::variable const> equivalent_key() const;
+    [[nodiscard]] ::takatori::util::optional_ptr<::takatori::scalar::expression const> equivalent_term() const;
     [[nodiscard]] ::takatori::util::optional_ptr<::takatori::scalar::expression const> equivalent_factor() const;
     [[nodiscard]] equivalent_semantics_type equivalent_semantics() const noexcept;
+    [[nodiscard]] ::takatori::util::optional_ptr<::takatori::scalar::expression const> lower_term() const;
     [[nodiscard]] ::takatori::util::optional_ptr<::takatori::scalar::expression const> lower_factor() const;
     [[nodiscard]] bool lower_inclusive() const;
+    [[nodiscard]] ::takatori::util::optional_ptr<::takatori::scalar::expression const> upper_term() const;
     [[nodiscard]] ::takatori::util::optional_ptr<::takatori::scalar::expression const> upper_factor() const;
     [[nodiscard]] bool upper_inclusive() const;
 

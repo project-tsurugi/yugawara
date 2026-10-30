@@ -3,6 +3,8 @@
 #include <glog/logging.h>
 
 #include <algorithm>
+#include <initializer_list>
+#include <memory>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -55,33 +57,7 @@ struct order_request {
 
     /// @brief the immediate row count of the `limit`, or empty if it is absent or not immediate.
     std::optional<std::size_t> count;
-
-    /// @brief the number of conjunctive terms in the `filter` operators between the `scan` and the `limit`.
-    std::size_t conditions;
 };
-
-[[nodiscard]] std::size_t count_conditions(relation::scan& expr) {
-    std::size_t result = 0;
-    optional_ptr<output_port> current { expr.output() };
-    while (current && current->opposite()) {
-        auto&& next = current->opposite()->owner();
-        if (next.kind() == relation::filter::tag) {
-            auto&& filter = unsafe_downcast<relation::filter>(next);
-            decompose_predicate(filter.ownership_condition(), [&](auto&& term) {
-                // NOTE: the constant TRUE will be removed later (see remove_redundant_conditions())
-                if (*term != boolean_expression(true)) {
-                    ++result;
-                }
-            });
-            current = optional_ptr<output_port> { filter.output() };
-        } else if (next.kind() == relation::project::tag) {
-            current = optional_ptr<output_port> { unsafe_downcast<relation::project>(next).output() };
-        } else {
-            break;
-        }
-    }
-    return result;
-}
 
 [[nodiscard]] std::optional<order_request> find_order_request(relation::scan& expr) {
     auto destination = find_ordered_destination(expr);
@@ -112,27 +88,52 @@ struct order_request {
             std::move(*sort_keys),
             !slice.count().is_absent(),
             count,
-            count_conditions(expr),
     };
 }
 
 /**
- * @brief returns the number of conjunctive terms which the candidate consumes as its search keys.
- * @param candidate the target candidate
- * @return the number of consumed terms
+ * @brief returns whether or not any conditions remain after applying the candidate to the scan.
+ * @details This checks the conjunctive terms in the `filter` operators which directly follow the scan
+ *      (except `project` operators between them), and returns `true` if any of them is not
+ *      consumed by the candidate as its search keys.
+ *      The terms are compared by their identity, so that this returns `true` for the terms which the
+ *      candidate does not know, including the terms out of the scope of the scan_key_collector.
+ * @param expr the target scan
+ * @param candidate the candidate to apply
+ * @return true if any conditions remain
+ * @return false if the candidate consumes all conditions
  */
-[[nodiscard]] std::size_t count_consumed_conditions(index_candidate const& candidate) {
-    std::size_t result = 0;
+[[nodiscard]] bool has_residual_conditions(relation::scan& expr, index_candidate const& candidate) {
+    std::vector<::takatori::scalar::expression const*> consumed {};
     for (auto const* term : candidate.terms) {
-        if (term->equivalent()) {
-            ++result;
-            continue;
+        for (auto&& element : { term->equivalent_term(), term->lower_term(), term->upper_term() }) {
+            if (element) {
+                consumed.emplace_back(element.get());
+            }
         }
-        if (term->lower_factor()) {
-            ++result;
-        }
-        if (term->upper_factor()) {
-            ++result;
+    }
+    bool result = false;
+    optional_ptr<output_port> current { expr.output() };
+    while (!result && current && current->opposite()) {
+        auto&& next = current->opposite()->owner();
+        if (next.kind() == relation::filter::tag) {
+            auto&& filter = unsafe_downcast<relation::filter>(next);
+            // NOTE: this never modifies the condition, but the overload with ownership also passes
+            // the condition itself if it is not a conjunction
+            decompose_predicate(filter.ownership_condition(), [&](auto&& term) {
+                // NOTE: the constant TRUE will be removed later (see remove_redundant_conditions())
+                if (*term == boolean_expression(true)) {
+                    return;
+                }
+                if (std::find(consumed.begin(), consumed.end(), std::addressof(*term)) == consumed.end()) {
+                    result = true;
+                }
+            });
+            current = optional_ptr<output_port> { filter.output() };
+        } else if (next.kind() == relation::project::tag) {
+            current = optional_ptr<output_port> { unsafe_downcast<relation::project>(next).output() };
+        } else {
+            break;
         }
     }
     return result;
@@ -202,7 +203,7 @@ private:
             candidates.emplace_back(std::move(current));
         }
         std::size_t selected = request
-                ? select_ordered(candidates, *request)
+                ? select_ordered(expr, candidates, *request)
                 : select(candidates);
         apply_index_to_scan(expr, candidates[selected], work_graph_);
     }
@@ -218,13 +219,14 @@ private:
     }
 
     [[nodiscard]] std::size_t select_ordered(
+            relation::scan& expr,
             std::vector<index_candidate> const& candidates,
             order_request const& request) const {
         std::vector<candidate_order> orders {};
         orders.reserve(candidates.size());
         double sort_selectivity = 1.0;
         for (auto&& candidate : candidates) {
-            orders.emplace_back(decide_order(candidate, request));
+            orders.emplace_back(decide_order(expr, candidate, request));
             // NOTE: the rows to sort are at most the rows of the most selective candidate
             sort_selectivity = std::min(sort_selectivity, candidate.result.selectivity());
         }
@@ -243,7 +245,10 @@ private:
         return saved;
     }
 
-    [[nodiscard]] candidate_order decide_order(index_candidate const& candidate, order_request const& request) const {
+    [[nodiscard]] candidate_order decide_order(
+            relation::scan& expr,
+            index_candidate const& candidate,
+            order_request const& request) const {
         // NOTE: find operations do not provide any row order
         if (candidate.kind == index_candidate::access_kind::find || !candidate.scannable) {
             return candidate_order::none;
@@ -253,8 +258,9 @@ private:
             return candidate_order::none;
         }
         // NOTE: the scan can stop at the row count, only if the index consumes all conditions
-        bool residual = count_consumed_conditions(candidate) < request.conditions;
-        if (request.count && !residual && features_.contains(runtime_feature::scan_limit)) {
+        if (request.count
+                && features_.contains(runtime_feature::scan_limit)
+                && !has_residual_conditions(expr, candidate)) {
             return candidate_order::early_stop;
         }
         // NOTE: the limit with the row count becomes a forward exchange with ordering,

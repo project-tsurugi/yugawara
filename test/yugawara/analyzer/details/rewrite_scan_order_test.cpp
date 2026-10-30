@@ -4,6 +4,7 @@
 
 #include <takatori/relation/scan.h>
 #include <takatori/relation/filter.h>
+#include <takatori/relation/project.h>
 #include <takatori/relation/emit.h>
 #include <takatori/relation/intermediate/limit.h>
 
@@ -186,6 +187,88 @@ TEST_F(rewrite_scan_order_test, early_stop_constant_true) {
     EXPECT_EQ(r0.source(), bindings(*i2v));
     EXPECT_EQ(r0.row_slice(), row_slice(3));
     EXPECT_EQ(r0.direction(), scan_direction::forward);
+}
+
+TEST_F(rewrite_scan_order_test, early_stop_full_bound) {
+    /*
+     * scan:r0{I2} - filter:r1(v > 15 AND v < 45) - limit:r2[v, 3] - emit:r3
+     * => scan:r0{I2V}(15 < v < 45)[forward, 3] - limit:r2[v, 3] - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t2(r);
+    auto&& r1 = r.insert(relation::filter {
+            land(
+                    compare(varref { v }, constant(15), scalar::comparison_operator::greater),
+                    compare(varref { v }, constant(45), scalar::comparison_operator::less)),
+    });
+    auto&& r2 = r.insert(limit(3, v));
+    auto&& r3 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    EXPECT_EQ(r0.source(), bindings(*i2v));
+    EXPECT_TRUE(r0.lower());
+    EXPECT_TRUE(r0.upper());
+    // the filter was removed, because both terms were consumed by the scan range
+    EXPECT_EQ(r.size(), 3);
+    EXPECT_EQ(r0.row_slice(), row_slice(3));
+    EXPECT_EQ(r0.direction(), scan_direction::forward);
+}
+
+TEST_F(rewrite_scan_order_test, residual_redundant_bound) {
+    /*
+     * scan:r0{I2} - filter:r1(v > 5 AND v > 15) - limit:r2[v, 3] - emit:r3
+     * => (the scan cannot stop at the row count: only one of the lower bounds becomes the scan range)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t2(r);
+    auto&& r1 = r.insert(relation::filter {
+            land(
+                    compare(varref { v }, constant(5), scalar::comparison_operator::greater),
+                    compare(varref { v }, constant(15), scalar::comparison_operator::greater)),
+    });
+    auto&& r2 = r.insert(limit(3, v));
+    auto&& r3 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    EXPECT_TRUE(r.contains(r1));
+    EXPECT_FALSE(r0.row_slice());
+}
+
+TEST_F(rewrite_scan_order_test, residual_after_project) {
+    /*
+     * scan:r0{I2} - project:r1(x := 1) - filter:r2(v > 15) - limit:r3[v, 3] - emit:r4
+     * => (the scan cannot stop at the row count: the filter is out of the scope of search keys)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t2(r);
+    auto x = bindings.stream_variable("x");
+    auto&& r1 = r.insert(relation::project {
+            relation::project::column {
+                    constant(1), x,
+            },
+    });
+    auto&& r2 = r.insert(relation::filter {
+            compare(varref { v }, constant(15), scalar::comparison_operator::greater),
+    });
+    auto&& r3 = r.insert(limit(3, v));
+    auto&& r4 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    apply(r);
+
+    EXPECT_TRUE(r.contains(r2));
+    EXPECT_FALSE(r0.row_slice());
 }
 
 TEST_F(rewrite_scan_order_test, residual_prefers_sort) {
