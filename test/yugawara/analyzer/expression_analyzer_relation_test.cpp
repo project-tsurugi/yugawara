@@ -779,12 +779,13 @@ TEST_F(expression_analyzer_relation_test, distinct) {
 
 TEST_F(expression_analyzer_relation_test, limit) {
     ri::limit expr {
-            1,
             {
                     decl(t::int4 {}),
                     decl(t::int4 {}),
                     decl(t::int4 {}),
             },
+            {},
+            ri::limit::row_slice_type { {}, 1 },
     };
     auto b = analyzer.resolve(expr, true, false, repo);
     ASSERT_TRUE(b) << *this;

@@ -661,7 +661,6 @@ TEST_F(expression_analyzer_comparison_test, distinct_blob) {
 TEST_F(expression_analyzer_comparison_test, limit_group_key_interval) {
     using testee = t::datetime_interval;
     r::intermediate::limit expr {
-            {},
             {
                     decl(testee {}),
             },
@@ -675,7 +674,6 @@ TEST_F(expression_analyzer_comparison_test, limit_group_key_interval) {
 TEST_F(expression_analyzer_comparison_test, limit_group_key_blob) {
     using testee = t::blob;
     r::intermediate::limit expr {
-            {},
             {
                     decl(testee {}),
             },
@@ -690,7 +688,6 @@ TEST_F(expression_analyzer_comparison_test, limit_sort_key_int) {
     using testee = t::int4;
     r::intermediate::limit expr {
             {},
-            {},
             {
                     decl(testee {}),
             },
@@ -703,7 +700,6 @@ TEST_F(expression_analyzer_comparison_test, limit_sort_key_int) {
 TEST_F(expression_analyzer_comparison_test, limit_sort_key_interval) {
     using testee = t::datetime_interval;
     r::intermediate::limit expr {
-            {},
             {},
             {
                     decl(testee {}),

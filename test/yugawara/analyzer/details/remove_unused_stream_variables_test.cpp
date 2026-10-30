@@ -935,7 +935,6 @@ TEST_F(remove_unused_stream_variables_test, limit_relation) {
             },
     });
     auto& r1 = r.insert(relation::intermediate::limit {
-            {},
             { c0, },
             { c1, },
     });

@@ -196,7 +196,7 @@ TEST_F(expand_subquery_exists_test, value) {
     EXPECT_EQ(project.columns()[0].value(), boolean(true));
     auto&& x = project.columns()[0].variable();
 
-    EXPECT_EQ(limit.count(), 1);
+    EXPECT_EQ(limit.row_slice(), (relation::intermediate::limit::row_slice_type { {}, 1 }));
     ASSERT_EQ(limit.group_keys().size(), 0);
     ASSERT_EQ(limit.sort_keys().size(), 0);
 
@@ -353,7 +353,7 @@ TEST_F(expand_subquery_exists_test, filter_or) {
     EXPECT_EQ(project.columns()[0].value(), boolean(true));
     auto&& x = project.columns()[0].variable();
 
-    EXPECT_EQ(limit.count(), 1);
+    EXPECT_EQ(limit.row_slice(), (relation::intermediate::limit::row_slice_type { {}, 1 }));
     ASSERT_EQ(limit.group_keys().size(), 0);
     ASSERT_EQ(limit.sort_keys().size(), 0);
 
@@ -514,7 +514,7 @@ TEST_F(expand_subquery_exists_test, value_not) {
     EXPECT_EQ(project.columns()[0].value(), boolean(true));
     auto&& x = project.columns()[0].variable();
 
-    EXPECT_EQ(limit.count(), 1);
+    EXPECT_EQ(limit.row_slice(), (relation::intermediate::limit::row_slice_type { {}, 1 }));
     ASSERT_EQ(limit.group_keys().size(), 0);
     ASSERT_EQ(limit.sort_keys().size(), 0);
 

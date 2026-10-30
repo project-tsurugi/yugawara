@@ -246,7 +246,6 @@ TEST_F(rewrite_stream_variables_subquery_test, limit) {
             {},
     });
     auto&& r0 = g0.insert(relation::intermediate::limit {
-            {},
             { c0 },
             { { c1 } },
     });

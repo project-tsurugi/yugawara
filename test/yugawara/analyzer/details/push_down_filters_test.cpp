@@ -1451,7 +1451,6 @@ TEST_F(push_down_filters_test, limit_relation_flush) {
             },
     });
     auto& r1 = r.insert(relation::intermediate::limit {
-            {},
             { c0, },
             { c1, },
     });
@@ -1492,7 +1491,6 @@ TEST_F(push_down_filters_test, limit_relation_pass) {
             },
     });
     auto& r1 = r.insert(relation::intermediate::limit {
-            {},
             { c0, },
             { c1, },
     });

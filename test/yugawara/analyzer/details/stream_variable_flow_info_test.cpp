@@ -641,7 +641,6 @@ TEST_F(stream_variable_flow_info_test, limit_relation) {
             },
     });
     auto& r1 = r.insert(relation::intermediate::limit {
-            {},
             { c0, },
             { c1, },
     });

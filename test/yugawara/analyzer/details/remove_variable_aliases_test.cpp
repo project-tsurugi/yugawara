@@ -1066,7 +1066,6 @@ TEST_F(remove_variable_aliases_test, limit_group) {
             relation::project::column { a2, scalar::variable_reference { c2 } },
     });
     auto&& r2 = p.insert(relation::intermediate::limit {
-            10,
             {
                     a0,
             },
@@ -1075,6 +1074,7 @@ TEST_F(remove_variable_aliases_test, limit_group) {
                             a1,
                     },
             },
+            relation::intermediate::limit::row_slice_type { {}, 10 },
     });
     auto&& ro = p.insert(relation::emit {
             a2,

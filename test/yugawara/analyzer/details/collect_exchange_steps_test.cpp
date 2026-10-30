@@ -234,10 +234,10 @@ TEST_F(collect_exchange_steps_test, join_default) {
     EXPECT_EQ(r6.groups()[1].source(), r5.destination());
 
     ASSERT_EQ(e0.group_keys().size(), 0);
-    EXPECT_EQ(e0.limit(), std::nullopt);
+    EXPECT_FALSE(e0.row_slice());
 
     ASSERT_EQ(e1.group_keys().size(), 0);
-    EXPECT_EQ(e1.limit(), std::nullopt);
+    EXPECT_FALSE(e1.row_slice());
 
     EXPECT_EQ(r7.condition(), nullptr);
 }
@@ -331,11 +331,11 @@ TEST_F(collect_exchange_steps_test, join_cogroup) {
 
     ASSERT_EQ(e0.group_keys().size(), 1);
     ASSERT_EQ(e0.group_keys()[0], c0);
-    EXPECT_EQ(e0.limit(), std::nullopt);
+    EXPECT_FALSE(e0.row_slice());
 
     ASSERT_EQ(e1.group_keys().size(), 1);
     ASSERT_EQ(e1.group_keys()[0], c2);
-    EXPECT_EQ(e1.limit(), std::nullopt);
+    EXPECT_FALSE(e1.row_slice());
 
     EXPECT_EQ(r7.condition(), compare(c0, c2));
 }
@@ -429,11 +429,11 @@ TEST_F(collect_exchange_steps_test, join_cogroup_is_not_distinct_from) {
 
     ASSERT_EQ(e0.group_keys().size(), 1);
     ASSERT_EQ(e0.group_keys()[0], c0);
-    EXPECT_EQ(e0.limit(), std::nullopt);
+    EXPECT_FALSE(e0.row_slice());
 
     ASSERT_EQ(e1.group_keys().size(), 1);
     ASSERT_EQ(e1.group_keys()[0], c2);
-    EXPECT_EQ(e1.limit(), std::nullopt);
+    EXPECT_FALSE(e1.row_slice());
 
     EXPECT_EQ(r7.condition(), nullptr);
 }
@@ -524,11 +524,11 @@ TEST_F(collect_exchange_steps_test, join_cogroup_default) {
 
     ASSERT_EQ(e0.group_keys().size(), 1);
     ASSERT_EQ(e0.group_keys()[0], c0);
-    EXPECT_EQ(e0.limit(), std::nullopt);
+    EXPECT_FALSE(e0.row_slice());
 
     ASSERT_EQ(e1.group_keys().size(), 1);
     ASSERT_EQ(e1.group_keys()[0], c2);
-    EXPECT_EQ(e1.limit(), std::nullopt);
+    EXPECT_FALSE(e1.row_slice());
 
     EXPECT_EQ(r7.condition(), compare(c0, c2));
 }
@@ -938,7 +938,7 @@ TEST_F(collect_exchange_steps_test, aggregate_default_group) {
 
     ASSERT_EQ(e0.group_keys().size(), 1);
     EXPECT_EQ(e0.group_keys()[0], c0);
-    EXPECT_EQ(e0.limit(), std::nullopt);
+    EXPECT_FALSE(e0.row_slice());
 
     ASSERT_EQ(r5.columns().size(), 1);
     EXPECT_EQ(r5.columns()[0].function(), bindings(func));
@@ -1086,7 +1086,7 @@ TEST_F(collect_exchange_steps_test, aggregate_exchange_disabled) {
 
     ASSERT_EQ(e0.group_keys().size(), 1);
     EXPECT_EQ(e0.group_keys()[0], c0);
-    EXPECT_EQ(e0.limit(), std::nullopt);
+    EXPECT_FALSE(e0.row_slice());
 
     ASSERT_EQ(r5.columns().size(), 1);
     EXPECT_EQ(r5.columns()[0].function(), bindings(func));
@@ -1161,7 +1161,7 @@ TEST_F(collect_exchange_steps_test, aggregate_group_duplicate_keys) {
 
     ASSERT_EQ(e0.group_keys().size(), 1);
     EXPECT_EQ(e0.group_keys()[0], c0);
-    EXPECT_EQ(e0.limit(), std::nullopt);
+    EXPECT_FALSE(e0.row_slice());
 
     ASSERT_EQ(r5.columns().size(), 1);
     EXPECT_EQ(r5.columns()[0].function(), bindings(func));
@@ -1294,7 +1294,7 @@ TEST_F(collect_exchange_steps_test, distinct) {
     ASSERT_EQ(e0.group_keys().size(), 2);
     EXPECT_EQ(e0.group_keys()[0], c0);
     EXPECT_EQ(e0.group_keys()[1], c1);
-    ASSERT_EQ(e0.limit(), 1);
+    ASSERT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 1 }));
 }
 
 TEST_F(collect_exchange_steps_test, limit_flat) {
@@ -1310,7 +1310,7 @@ TEST_F(collect_exchange_steps_test, limit_flat) {
             },
     });
     auto& r1 = r.insert(relation::intermediate::limit {
-            10,
+            relation::intermediate::limit::row_slice_type { {}, 10 },
     });
     auto& r2 = r.insert(relation::emit {
             c0,
@@ -1339,7 +1339,7 @@ TEST_F(collect_exchange_steps_test, limit_flat) {
 
     EXPECT_EQ(r4.source(), r3.destination());
 
-    ASSERT_EQ(e0.limit(), 10);
+    ASSERT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 10 }));
 }
 
 TEST_F(collect_exchange_steps_test, limit_group) {
@@ -1358,11 +1358,12 @@ TEST_F(collect_exchange_steps_test, limit_group) {
             },
     });
     auto& r1 = r.insert(relation::intermediate::limit {
-            10,
             {
                     c0,
                     c1,
             },
+            {},
+            relation::intermediate::limit::row_slice_type { {}, 10 },
     });
     auto& r2 = r.insert(relation::emit {
             c0,
@@ -1395,7 +1396,7 @@ TEST_F(collect_exchange_steps_test, limit_group) {
     ASSERT_EQ(e0.group_keys().size(), 2);
     EXPECT_EQ(e0.group_keys()[0], c0);
     EXPECT_EQ(e0.group_keys()[1], c1);
-    ASSERT_EQ(e0.limit(), 10);
+    ASSERT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 10 }));
 }
 
 TEST_F(collect_exchange_steps_test, limit_ordered_forward) {
@@ -1428,7 +1429,7 @@ TEST_F(collect_exchange_steps_test, limit_ordered_forward) {
 
     EXPECT_EQ(r4.source(), r3.destination());
 
-    ASSERT_EQ(e0.limit(), 10);
+    ASSERT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 10 }));
     EXPECT_EQ(e0.ordering(), plan::forward::ordering_type { forward_ordering::respect_input });
 }
 
@@ -1457,7 +1458,7 @@ TEST_F(collect_exchange_steps_test, limit_ordered_forward_preserve_output) {
     EXPECT_EQ(r4.source(), r3.destination());
 
     auto&& e0 = resolve<plan::forward>(r3.destination());
-    ASSERT_EQ(e0.limit(), 10);
+    ASSERT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 10 }));
     EXPECT_EQ(e0.ordering(), (plan::forward::ordering_type {
             forward_ordering::respect_input,
             forward_ordering::preserve_output,
@@ -1520,7 +1521,7 @@ TEST_F(collect_exchange_steps_test, limit_ordered_forward_through_order_preservi
     EXPECT_EQ(r6.source(), r5.destination());
 
     auto&& e0 = resolve<plan::forward>(r5.destination());
-    ASSERT_EQ(e0.limit(), 10);
+    ASSERT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 10 }));
     EXPECT_EQ(e0.ordering(), (plan::forward::ordering_type {
             forward_ordering::respect_input,
             forward_ordering::preserve_output,
@@ -1549,7 +1550,7 @@ TEST_F(collect_exchange_steps_test, limit_ordered_forward_without_direction) {
     EXPECT_EQ(r4.source(), r3.destination());
 
     auto&& e0 = resolve<plan::group>(r3.destination());
-    ASSERT_EQ(e0.limit(), 10);
+    ASSERT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 10 }));
 }
 
 TEST_F(collect_exchange_steps_test, limit_ordered_forward_unsatisfied) {
@@ -1574,7 +1575,7 @@ TEST_F(collect_exchange_steps_test, limit_ordered_forward_unsatisfied) {
     EXPECT_EQ(r4.source(), r3.destination());
 
     auto&& e0 = resolve<plan::group>(r3.destination());
-    ASSERT_EQ(e0.limit(), 10);
+    ASSERT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 10 }));
 }
 
 TEST_F(collect_exchange_steps_test, limit_ordered_forward_disabled) {
@@ -1602,7 +1603,7 @@ TEST_F(collect_exchange_steps_test, limit_ordered_forward_disabled) {
     EXPECT_EQ(r4.source(), r3.destination());
 
     auto&& e0 = resolve<plan::group>(r3.destination());
-    ASSERT_EQ(e0.limit(), 10);
+    ASSERT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 10 }));
 }
 
 TEST_F(collect_exchange_steps_test, limit_ordered_forward_not_through_exchange) {
@@ -1655,7 +1656,7 @@ TEST_F(collect_exchange_steps_test, limit_ordered_forward_not_through_exchange) 
     auto&& r4 = next<flatten>(r3.input());
     auto&& r5 = next<take_group>(r4.input());
     auto&& e1 = resolve<plan::group>(r5.source());
-    EXPECT_EQ(e1.limit(), 10);
+    EXPECT_EQ(e1.row_slice(), (relation::details::row_slice { {}, 10 }));
 }
 
 TEST_F(collect_exchange_steps_test, union_all) {
@@ -1744,7 +1745,7 @@ TEST_F(collect_exchange_steps_test, union_all) {
     EXPECT_EQ(e0.columns()[0], co0);
     EXPECT_EQ(e0.columns()[1], co1);
     EXPECT_EQ(e0.columns()[2], co2);
-    EXPECT_EQ(e0.limit(), std::nullopt);
+    EXPECT_FALSE(e0.row_slice());
 
     ASSERT_EQ(r6.columns().size(), 0);
 }
@@ -1834,7 +1835,7 @@ TEST_F(collect_exchange_steps_test, union_distinct) {
     EXPECT_EQ(e0.group_keys()[1], co1);
     EXPECT_EQ(e0.columns()[0], co0);
     EXPECT_EQ(e0.columns()[1], co1);
-    EXPECT_EQ(e0.limit(), 1);
+    EXPECT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 1 }));
 
     ASSERT_EQ(r6.columns().size(), 0);
 }
@@ -1912,12 +1913,12 @@ TEST_F(collect_exchange_steps_test, binary_all) {
     ASSERT_EQ(e0.group_keys().size(), 2);
     EXPECT_EQ(e0.group_keys()[0], cl0);
     EXPECT_EQ(e0.group_keys()[1], cl1);
-    EXPECT_EQ(e0.limit(), std::nullopt);
+    EXPECT_FALSE(e0.row_slice());
 
     ASSERT_EQ(e1.group_keys().size(), 2);
     EXPECT_EQ(e1.group_keys()[0], cr0);
     EXPECT_EQ(e1.group_keys()[1], cr1);
-    EXPECT_EQ(e1.limit(), std::nullopt);
+    EXPECT_FALSE(e1.row_slice());
 }
 
 TEST_F(collect_exchange_steps_test, difference_distinct) {
@@ -1996,12 +1997,12 @@ TEST_F(collect_exchange_steps_test, difference_distinct) {
     ASSERT_EQ(e0.group_keys().size(), 2);
     EXPECT_EQ(e0.group_keys()[0], cl0);
     EXPECT_EQ(e0.group_keys()[1], cl1);
-    EXPECT_EQ(e0.limit(), 1);
+    EXPECT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 1 }));
 
     ASSERT_EQ(e1.group_keys().size(), 2);
     EXPECT_EQ(e1.group_keys()[0], cr0);
     EXPECT_EQ(e1.group_keys()[1], cr1);
-    EXPECT_EQ(e1.limit(), 1);
+    EXPECT_EQ(e1.row_slice(), (relation::details::row_slice { {}, 1 }));
 }
 
 TEST_F(collect_exchange_steps_test, intersection_distinct) {
@@ -2080,12 +2081,12 @@ TEST_F(collect_exchange_steps_test, intersection_distinct) {
     ASSERT_EQ(e0.group_keys().size(), 2);
     EXPECT_EQ(e0.group_keys()[0], cl0);
     EXPECT_EQ(e0.group_keys()[1], cl1);
-    EXPECT_EQ(e0.limit(), 1);
+    EXPECT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 1 }));
 
     ASSERT_EQ(e1.group_keys().size(), 2);
     EXPECT_EQ(e1.group_keys()[0], cr0);
     EXPECT_EQ(e1.group_keys()[1], cr1);
-    EXPECT_EQ(e1.limit(), 1);
+    EXPECT_EQ(e1.row_slice(), (relation::details::row_slice { {}, 1 }));
 }
 
 } // namespace yugawara::analyzer::details

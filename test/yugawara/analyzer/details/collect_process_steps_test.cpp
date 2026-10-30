@@ -124,7 +124,7 @@ TEST_F(collect_process_steps_test, straight) {
             },
     });
     auto& r1 = r.insert(relation::intermediate::limit {
-            10,
+            relation::intermediate::limit::row_slice_type { {}, 10 },
     });
     auto& r2 = r.insert(relation::emit {
             c0,

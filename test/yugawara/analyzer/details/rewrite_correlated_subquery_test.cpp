@@ -1712,7 +1712,6 @@ TEST_F(rewrite_correlated_subquery_test, limit) {
 
     auto c2 = bindings.stream_variable("c2");
     auto&& r1 = g.insert(relation::intermediate::limit {
-            {},
             {
                     c0,
             },
