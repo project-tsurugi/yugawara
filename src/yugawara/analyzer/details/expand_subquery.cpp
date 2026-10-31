@@ -1375,9 +1375,7 @@ public:
                 std::move(mapping.destination())
             );
         }
-        auto&& escape = graph.insert(::takatori::relation::project {
-                std::move(mappings)
-        });
+        auto&& escape = graph.emplace<::takatori::relation::project>(std::move(mappings));
 
         auto subquery_output = expr.find_output_port();
         if (!subquery_output) {
