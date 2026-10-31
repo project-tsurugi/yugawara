@@ -11,6 +11,8 @@
 #include <takatori/util/downcast.h>
 #include <takatori/util/optional_ptr.h>
 
+#include "path_capability.h"
+
 namespace yugawara::analyzer::details {
 
 namespace descriptor = ::takatori::descriptor;
@@ -48,16 +50,22 @@ bool depends_on(relation::intermediate::limit const& expr, relation::project con
     });
 }
 
-optional_ptr<relation::project> find_upstream_project(relation::intermediate::limit& expr) {
-    auto upstream = expr.input().opposite();
-    if (!upstream) {
-        return {};
+bool depends_on(relation::intermediate::limit const& expr, relation::expression const& owner) {
+    if (owner.kind() == relation::project::tag) {
+        return depends_on(expr, unsafe_downcast<relation::project>(owner));
     }
-    auto&& owner = upstream->owner();
-    if (owner.kind() != relation::project::tag) {
-        return {};
+    // NOTE: the other operators may define columns referred from the limit
+    return true;
+}
+
+bool is_movable_over(relation::expression::output_port_type const& upstream) {
+    auto&& inputs = upstream.owner().input_ports();
+    if (inputs.size() != 1) {
+        return false;
     }
-    return unsafe_downcast<relation::project>(owner);
+    auto capabilities = find_path_capabilities(inputs[0], upstream);
+    return capabilities.contains(path_capability::preserves_order)
+        && capabilities.contains(path_capability::exactly_one);
 }
 
 bool has_start(relation::intermediate::limit::row_slice_type const& slice) {
@@ -67,18 +75,6 @@ bool has_start(relation::intermediate::limit::row_slice_type const& slice) {
     }
     auto position = start.immediate_if();
     return !position || *position != 0;
-}
-
-optional_ptr<relation::intermediate::limit> find_upstream_limit(relation::intermediate::limit& expr) {
-    auto upstream = expr.input().opposite();
-    if (!upstream) {
-        return {};
-    }
-    auto&& owner = upstream->owner();
-    if (owner.kind() != relation::intermediate::limit::tag) {
-        return {};
-    }
-    return unsafe_downcast<relation::intermediate::limit>(owner);
 }
 
 std::optional<relation::intermediate::limit::row_slice_type> merge_row_slice(
@@ -135,39 +131,46 @@ bool merge_into(relation::intermediate::limit& outer, relation::intermediate::li
     return true;
 }
 
-bool move_over(relation::intermediate::limit& limit, relation::project& project) {
-    auto upstream = project.input().opposite();
+bool move_over(relation::intermediate::limit& limit, relation::expression::output_port_type& owner_output) {
+    auto&& owner_input = owner_output.owner().input_ports()[0];
+    auto upstream = owner_input.opposite();
     auto downstream = limit.output().opposite();
     if (!upstream || !downstream) {
         return false;
     }
-    // before: upstream -> project -> limit -> downstream
-    // after:  upstream -> limit -> project -> downstream
-    project.input().disconnect_from(*upstream);
-    project.output().disconnect_from(limit.input());
+    // before: upstream -> operator -> limit -> downstream
+    // after:  upstream -> limit -> operator -> downstream
+    owner_input.disconnect_from(*upstream);
+    owner_output.disconnect_from(limit.input());
     limit.output().disconnect_from(*downstream);
 
     limit.input().connect_to(*upstream);
-    limit.output().connect_to(project.input());
-    project.output().connect_to(*downstream);
+    limit.output().connect_to(owner_input);
+    owner_output.connect_to(*downstream);
     return true;
 }
 
 void process(relation::intermediate::limit& expr, std::vector<relation::intermediate::limit*>& merged) {
     optional_ptr current { expr };
     while (true) {
-        if (auto project = find_upstream_project(*current)) {
-            if (depends_on(*current, *project) || !move_over(*current, *project)) {
-                return;
-            }
-            continue;
+        auto upstream = current->input().opposite();
+        if (!upstream) {
+            return;
         }
-        if (auto inner = find_upstream_limit(*current)) {
-            if (!merge_into(*current, *inner)) {
+        auto&& owner = upstream->owner();
+        if (owner.kind() == relation::intermediate::limit::tag) {
+            auto&& inner = unsafe_downcast<relation::intermediate::limit>(owner);
+            if (!merge_into(*current, inner)) {
                 return;
             }
             merged.emplace_back(current.get());
             current = inner;
+            continue;
+        }
+        if (is_movable_over(*upstream) && !depends_on(*current, owner)) {
+            if (!move_over(*current, *upstream)) {
+                return;
+            }
             continue;
         }
         return;

@@ -6,8 +6,10 @@ namespace yugawara::analyzer::details {
 
 /**
  * @brief places `limit` operators to upstream.
- * @details This moves each `limit` over the upstream `project` operators,
- *      only if the `limit` does not refer to any columns defined in the `project`.
+ * @details This moves each `limit` over the upstream operators which have a single input,
+ *      and whose path preserves the row order and makes exactly one row from each input row
+ *      (see find_path_capabilities()), only if the `limit` does not refer to any columns defined in the operator.
+ *      Currently, such operators are only `project`.
  *      This never moves `limit` over the other operators, like `filter`, `join`, or aggregations.
  *      Currently, this only moves `limit` operators which have the row count and do not have any group keys.
  *
