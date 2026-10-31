@@ -67,7 +67,8 @@ inline std::ostream& operator<<(std::ostream& out, path_capability value) {
  * @brief returns the capabilities of the path from the input port to the output port.
  * @details This only knows the operators which are required to place `limit` operators to upstream,
  *      and returns an empty set for the other operators.
- *      Currently, this only returns the capabilities of `project`.
+ *      Currently, this only returns the capabilities of `project`,
+ *      and the left input of left outer joins (`intermediate::join`).
  * @param input the input port of the operator
  * @param output the output port of the same operator
  * @return the capabilities of the path

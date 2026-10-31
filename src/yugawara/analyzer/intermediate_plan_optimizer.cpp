@@ -62,7 +62,7 @@ void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& g
     }
 
     details::push_down_selections(graph);
-    details::push_down_limits(graph);
+    details::push_down_limits(graph, options_.max_partial_limit_count());
     // FIXME: auto flow_volume = details::reorder_join(...);
     details::flow_volume_info flow_volume {};
     if (options_.runtime_features().contains(runtime_feature::index_join)) {

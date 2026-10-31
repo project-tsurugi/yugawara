@@ -80,4 +80,12 @@ bool compiler_options::enable_external_variable_inlining() const noexcept {
     return enable_external_variable_inlining_;
 }
 
+std::size_t& compiler_options::max_partial_limit_count() noexcept {
+    return max_partial_limit_count_;
+}
+
+std::size_t compiler_options::max_partial_limit_count() const noexcept {
+    return max_partial_limit_count_;
+}
+
 } // namespace yugawara

@@ -51,4 +51,12 @@ bool& intermediate_plan_optimizer_options::enable_external_variable_inlining() n
 bool intermediate_plan_optimizer_options::enable_external_variable_inlining() const noexcept {
     return enable_external_variable_inlining_;
 }
+std::size_t& intermediate_plan_optimizer_options::max_partial_limit_count() noexcept {
+    return max_partial_limit_count_;
+}
+
+std::size_t intermediate_plan_optimizer_options::max_partial_limit_count() const noexcept {
+    return max_partial_limit_count_;
+}
+
 } // namespace yugawara::analyzer::details

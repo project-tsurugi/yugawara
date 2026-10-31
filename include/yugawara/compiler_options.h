@@ -2,6 +2,8 @@
 
 #include <memory>
 
+#include <cstddef>
+
 #include <takatori/util/maybe_shared_ptr.h>
 
 #include <yugawara/analyzer/index_estimator.h>
@@ -41,6 +43,12 @@ public:
      * @see enable_external_variable_inlining()
      */
     static constexpr bool default_enable_external_variable_inlining = false;
+
+    /**
+     * @brief the default value of the maximum row count of the partial limits.
+     * @see max_partial_limit_count()
+     */
+    static constexpr std::size_t default_max_partial_limit_count = 1000;
 
     /**
      * @brief creates a new instance with default options.
@@ -142,6 +150,19 @@ public:
     /// @copydoc enable_external_variable_inlining()
     [[nodiscard]] bool enable_external_variable_inlining() const noexcept;
 
+    /**
+     * @brief returns the maximum row count of the partial `limit` operators.
+     * @details The optimizer places a copy of `limit` operator (partial limit) into the left input of left outer joins,
+     *      only if its row count is an immediate value, and it is less than or equal to this value.
+     *      The original `limit` operator is kept in the downstream of the join.
+     *      If this is `0`, the optimizer never places partial limits.
+     * @return the maximum row count of the partial limits
+     */
+    [[nodiscard]] std::size_t& max_partial_limit_count() noexcept;
+
+    /// @copydoc max_partial_limit_count()
+    [[nodiscard]] std::size_t max_partial_limit_count() const noexcept;
+
 private:
     runtime_feature_set runtime_features_ { default_runtime_features };
     restricted_feature_set restricted_features_ { default_restricted_features };
@@ -151,6 +172,7 @@ private:
 
     bool enable_disjunction_range_hinting_ { default_enable_disjunction_range_hinting };
     bool enable_external_variable_inlining_ { default_enable_external_variable_inlining };
+    std::size_t max_partial_limit_count_ { default_max_partial_limit_count };
 };
 
 } // namespace yugawara

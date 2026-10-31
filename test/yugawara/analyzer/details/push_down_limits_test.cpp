@@ -13,6 +13,7 @@
 #include <takatori/relation/emit.h>
 
 #include <takatori/relation/intermediate/distinct.h>
+#include <takatori/relation/intermediate/join.h>
 #include <takatori/relation/intermediate/limit.h>
 
 #include <yugawara/binding/factory.h>
@@ -49,6 +50,23 @@ protected:
     descriptor::variable c1 = bindings.stream_variable("c1");
     descriptor::variable c2 = bindings.stream_variable("c2");
 
+    std::shared_ptr<storage::table> t1 = storages.add_table({
+            "T1",
+            {
+                    { "C0", t::int4() },
+                    { "C1", t::int4() },
+            },
+    });
+    descriptor::variable t1c0 = bindings(t1->columns()[0]);
+    descriptor::variable t1c1 = bindings(t1->columns()[1]);
+
+    std::shared_ptr<storage::index> i1 = storages.add_index({ t1, "I1", });
+
+    descriptor::variable d0 = bindings.stream_variable("d0");
+    descriptor::variable d1 = bindings.stream_variable("d1");
+
+    std::size_t max_partial_limit_count = 100;
+
     relation::scan& add_scan(relation::graph_type& r) {
         return r.insert(relation::scan {
                 bindings(*i0),
@@ -56,6 +74,16 @@ protected:
                         { t0c0, c0 },
                         { t0c1, c1 },
                         { t0c2, c2 },
+                },
+        });
+    }
+
+    relation::scan& add_scan1(relation::graph_type& r) {
+        return r.insert(relation::scan {
+                bindings(*i1),
+                {
+                        { t1c0, d0 },
+                        { t1c1, d1 },
                 },
         });
     }
@@ -91,8 +119,17 @@ protected:
         return relation::intermediate::limit::row_slice_type { {}, count };
     }
 
-    static void apply(relation::graph_type& r) {
-        push_down_limits(r);
+    void apply(relation::graph_type& r) const {
+        push_down_limits(r, max_partial_limit_count);
+    }
+
+    static ::takatori::util::optional_ptr<relation::intermediate::limit> upstream_limit(
+            relation::expression::input_port_type& port) {
+        auto upstream = port.opposite();
+        if (!upstream || upstream->owner().kind() != relation::intermediate::limit::tag) {
+            return {};
+        }
+        return ::takatori::util::unsafe_downcast<relation::intermediate::limit>(upstream->owner());
     }
 };
 
@@ -567,6 +604,371 @@ TEST_F(push_down_limits_test, merge_different_variable_count) {
     ASSERT_EQ(r.size(), 4);
     EXPECT_GT(r1.output(), r2.input());
     EXPECT_GT(r2.output(), r3.input());
+}
+
+TEST_F(push_down_limits_test, left_outer_join) {
+    /*
+     * scan:r0 -\
+     * scan:r1 - join[left_outer]:r2 - limit:r3[c0](3) - emit:r4
+     * =>
+     * scan:r0 - limit:p[c0](3) -\
+     * scan:r1 ------------------ join[left_outer]:r2 - limit:r3[c0](3) - emit:r4
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_scan1(r);
+    auto&& r2 = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+    });
+    auto&& r3 = r.insert(limit({ c0 }));
+    auto&& r4 = r.insert(relation::emit { c0, d0 });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 6);
+    auto p = upstream_limit(r2.left());
+    ASSERT_TRUE(p);
+    EXPECT_GT(r0.output(), p->input());
+    EXPECT_EQ(p->group_keys().size(), 0);
+    EXPECT_EQ(p->sort_keys(), (std::vector<relation::intermediate::limit::sort_key> { c0 }));
+    EXPECT_EQ(p->row_slice(), row_slice(3));
+    EXPECT_GT(r1.output(), r2.right());
+    EXPECT_GT(r2.output(), r3.input());
+    EXPECT_GT(r3.output(), r4.input());
+}
+
+TEST_F(push_down_limits_test, left_outer_at_most_one_join) {
+    /*
+     * scan:r0 -\
+     * scan:r1 - join[left_outer_at_most_one]:r2 - limit:r3[c0](3) - emit:r4
+     * =>
+     * scan:r0 - limit:p[c0](3) -\
+     * scan:r1 ------------------ join[left_outer_at_most_one]:r2 - limit:r3[c0](3) - emit:r4
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_scan1(r);
+    auto&& r2 = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer_at_most_one,
+    });
+    auto&& r3 = r.insert(limit({ c0 }));
+    auto&& r4 = r.insert(relation::emit { c0, d0 });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 6);
+    auto p = upstream_limit(r2.left());
+    ASSERT_TRUE(p);
+    EXPECT_GT(r0.output(), p->input());
+    EXPECT_EQ(p->sort_keys(), (std::vector<relation::intermediate::limit::sort_key> { c0 }));
+    EXPECT_EQ(p->row_slice(), row_slice(3));
+    EXPECT_GT(r2.output(), r3.input());
+}
+
+TEST_F(push_down_limits_test, join_without_partial_limits) {
+    /*
+     * scan:r0 -\
+     * scan:r1 - join[*]:r2 - limit:r3[c0](3) - emit:r4
+     * => (not changed)
+     */
+    for (auto kind : {
+            relation::join_kind::inner,
+            relation::join_kind::full_outer,
+            relation::join_kind::semi,
+            relation::join_kind::anti,
+    }) {
+        relation::graph_type r;
+        auto&& r0 = add_scan(r);
+        auto&& r1 = add_scan1(r);
+        auto&& r2 = r.insert(relation::intermediate::join { kind });
+        auto&& r3 = r.insert(limit({ c0 }));
+        auto&& r4 = r.insert(relation::emit { c0 });
+        r0.output() >> r2.left();
+        r1.output() >> r2.right();
+        r2.output() >> r3.input();
+        r3.output() >> r4.input();
+
+        apply(r);
+
+        ASSERT_EQ(r.size(), 5) << kind;
+        EXPECT_GT(r0.output(), r2.left()) << kind;
+        EXPECT_GT(r1.output(), r2.right()) << kind;
+        EXPECT_GT(r2.output(), r3.input()) << kind;
+    }
+}
+
+TEST_F(push_down_limits_test, left_outer_join_right_sort_key) {
+    /*
+     * scan:r0 -\
+     * scan:r1 - join[left_outer]:r2 - limit:r3[c0, d0](3) - emit:r4
+     * => (not changed)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_scan1(r);
+    auto&& r2 = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+    });
+    auto&& r3 = r.insert(limit({ c0, d0 }));
+    auto&& r4 = r.insert(relation::emit { c0, d0 });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(r0.output(), r2.left());
+    EXPECT_GT(r1.output(), r2.right());
+}
+
+TEST_F(push_down_limits_test, left_outer_join_variable_count) {
+    /*
+     * scan:r0 -\
+     * scan:r1 - join[left_outer]:r2 - limit:r3[c0](n) - emit:r4
+     * => (not changed)
+     */
+    relation::graph_type r;
+    auto n = bindings.stream_variable("n");
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_scan1(r);
+    auto&& r2 = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+    });
+    auto&& r3 = r.insert(relation::intermediate::limit {
+            std::vector<descriptor::variable> {},
+            std::vector<relation::intermediate::limit::sort_key> { c0 },
+            relation::intermediate::limit::row_slice_type { {}, n },
+    });
+    auto&& r4 = r.insert(relation::emit { c0 });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(r0.output(), r2.left());
+}
+
+TEST_F(push_down_limits_test, left_outer_join_start) {
+    /*
+     * scan:r0 -\
+     * scan:r1 - join[left_outer]:r2 - limit:r3[c0](1, 3) - emit:r4
+     * => (not changed)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_scan1(r);
+    auto&& r2 = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+    });
+    auto&& r3 = r.insert(relation::intermediate::limit {
+            std::vector<descriptor::variable> {},
+            std::vector<relation::intermediate::limit::sort_key> { c0 },
+            relation::intermediate::limit::row_slice_type { 1, 3 },
+    });
+    auto&& r4 = r.insert(relation::emit { c0 });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(r0.output(), r2.left());
+}
+
+TEST_F(push_down_limits_test, left_outer_join_group_keys) {
+    /*
+     * scan:r0 -\
+     * scan:r1 - join[left_outer]:r2 - limit:r3{c1}[c0](3) - emit:r4
+     * => (not changed)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_scan1(r);
+    auto&& r2 = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+    });
+    auto&& r3 = r.insert(relation::intermediate::limit {
+            std::vector<descriptor::variable> { c1 },
+            std::vector<relation::intermediate::limit::sort_key> { c0 },
+            row_slice(3),
+    });
+    auto&& r4 = r.insert(relation::emit { c0 });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(r0.output(), r2.left());
+}
+
+TEST_F(push_down_limits_test, left_outer_join_max_partial_limit_count) {
+    /*
+     * scan:r0 -\
+     * scan:r1 - join[left_outer]:r2 - limit:r3[c0](3) - emit:r4
+     * => partial limit is placed only if 3 <= max_partial_limit_count, and max_partial_limit_count != 0
+     */
+    struct param {
+        std::size_t max;
+        bool placed;
+    };
+    for (auto&& [max, placed] : {
+            param { 2, false },
+            param { 3, true },
+            param { 0, false },
+    }) {
+        max_partial_limit_count = max;
+        relation::graph_type r;
+        auto&& r0 = add_scan(r);
+        auto&& r1 = add_scan1(r);
+        auto&& r2 = r.insert(relation::intermediate::join {
+                relation::join_kind::left_outer,
+        });
+        auto&& r3 = r.insert(limit({ c0 }));
+        auto&& r4 = r.insert(relation::emit { c0 });
+        r0.output() >> r2.left();
+        r1.output() >> r2.right();
+        r2.output() >> r3.input();
+        r3.output() >> r4.input();
+
+        apply(r);
+
+        EXPECT_EQ(static_cast<bool>(upstream_limit(r2.left())), placed) << max;
+        EXPECT_GT(r2.output(), r3.input()) << max;
+    }
+}
+
+TEST_F(push_down_limits_test, left_outer_join_partial_over_project) {
+    /*
+     * scan:r0 - project:r1 -\
+     * scan:r2 -------------- join[left_outer]:r3 - limit:r4[c0](3) - emit:r5
+     * =>
+     * scan:r0 - limit:p[c0](3) - project:r1 -\
+     * scan:r2 ------------------------------- join[left_outer]:r3 - limit:r4[c0](3) - emit:r5
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r1 = r.insert(relation::project {
+            relation::project::column { x0, plus(c0, 1) },
+    });
+    auto&& r2 = add_scan1(r);
+    auto&& r3 = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+    });
+    auto&& r4 = r.insert(limit({ c0 }));
+    auto&& r5 = r.insert(relation::emit { x0 });
+    r0.output() >> r1.input();
+    r1.output() >> r3.left();
+    r2.output() >> r3.right();
+    r3.output() >> r4.input();
+    r4.output() >> r5.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 7);
+    EXPECT_GT(r1.output(), r3.left());
+    auto p = upstream_limit(r1.input());
+    ASSERT_TRUE(p);
+    EXPECT_GT(r0.output(), p->input());
+    EXPECT_EQ(p->sort_keys(), (std::vector<relation::intermediate::limit::sort_key> { c0 }));
+    EXPECT_GT(r3.output(), r4.input());
+}
+
+TEST_F(push_down_limits_test, left_outer_join_partial_merge) {
+    /*
+     * scan:r0 - limit:r1[c0](5) -\
+     * scan:r2 ------------------- join[left_outer]:r3 - limit:r4[c0](3) - emit:r5
+     * =>
+     * scan:r0 - limit:r1[c0](3) -\
+     * scan:r2 ------------------- join[left_outer]:r3 - limit:r4[c0](3) - emit:r5
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(limit(5, { c0 }));
+    auto&& r2 = add_scan1(r);
+    auto&& r3 = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+    });
+    auto&& r4 = r.insert(limit({ c0 }));
+    auto&& r5 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r3.left();
+    r2.output() >> r3.right();
+    r3.output() >> r4.input();
+    r4.output() >> r5.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 6);
+    EXPECT_GT(r0.output(), r1.input());
+    EXPECT_GT(r1.output(), r3.left());
+    EXPECT_EQ(r1.row_slice(), row_slice(3));
+    EXPECT_GT(r3.output(), r4.input());
+}
+
+TEST_F(push_down_limits_test, left_outer_join_chain) {
+    /*
+     * scan:r0 -\
+     * scan:r1 - join[left_outer]:r2 -\
+     * scan:r3 ----------------------- join[left_outer]:r4 - limit:r5[c0](3) - emit:r6
+     * =>
+     * scan:r0 - limit:p[c0](3) -\
+     * scan:r1 ------------------ join[left_outer]:r2 -\
+     * scan:r3 ---------------------------------------- join[left_outer]:r4 - limit:r5[c0](3) - emit:r6
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_scan1(r);
+    auto&& r2 = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+    });
+    auto e0 = bindings.stream_variable("e0");
+    auto e1 = bindings.stream_variable("e1");
+    auto&& r3 = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { t1c0, e0 },
+                    { t1c1, e1 },
+            },
+    });
+    auto&& r4 = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+    });
+    auto&& r5 = r.insert(limit({ c0 }));
+    auto&& r6 = r.insert(relation::emit { c0, d0, e0 });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r4.left();
+    r3.output() >> r4.right();
+    r4.output() >> r5.input();
+    r5.output() >> r6.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 8);
+    EXPECT_GT(r2.output(), r4.left());
+    auto p = upstream_limit(r2.left());
+    ASSERT_TRUE(p);
+    EXPECT_GT(r0.output(), p->input());
+    EXPECT_GT(r4.output(), r5.input());
 }
 
 } // namespace yugawara::analyzer::details

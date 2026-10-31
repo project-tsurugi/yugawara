@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 #include <takatori/util/maybe_shared_ptr.h>
 
 #include <yugawara/analyzer/index_estimator.h>
@@ -71,6 +73,19 @@ public:
     /// @copydoc enable_external_variable_inlining()
     [[nodiscard]] bool enable_external_variable_inlining() const noexcept;
 
+    /**
+     * @brief returns the maximum row count of the partial `limit` operators.
+     * @details The optimizer places a copy of `limit` operator (partial limit) into the left input of left outer joins,
+     *      only if its row count is an immediate value, and it is less than or equal to this value.
+     *      The original `limit` operator is kept in the downstream of the join.
+     *      If this is `0`, the optimizer never places partial limits.
+     * @return the maximum row count of the partial limits
+     */
+    [[nodiscard]] std::size_t& max_partial_limit_count() noexcept;
+
+    /// @copydoc max_partial_limit_count()
+    [[nodiscard]] std::size_t max_partial_limit_count() const noexcept;
+
 private:
     ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> index_estimator_ {};
     analyzer::index_selection_parameters index_selection_parameters_ {};
@@ -78,6 +93,7 @@ private:
 
     bool enable_disjunction_range_hinting_ {};
     bool enable_external_variable_inlining_ {};
+    std::size_t max_partial_limit_count_ {};
 };
 
 } // namespace yugawara::analyzer::details

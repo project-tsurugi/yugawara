@@ -11,6 +11,8 @@
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
 
+#include <takatori/relation/intermediate/join.h>
+
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/configurable_provider.h>
 
@@ -50,6 +52,21 @@ protected:
                         { t0c1, c1 },
                 },
         });
+    }
+
+    relation::intermediate::join& add_join(relation::graph_type& r, relation::join_kind kind) {
+        auto&& r0 = add_scan(r);
+        auto&& r1 = r.insert(relation::scan {
+                bindings(*i0),
+                {
+                        { t0c0, bindings.stream_variable("d0") },
+                        { t0c1, bindings.stream_variable("d1") },
+                },
+        });
+        auto&& r2 = r.insert(relation::intermediate::join { kind });
+        r0.output() >> r2.left();
+        r1.output() >> r2.right();
+        return r2;
     }
 };
 
@@ -104,6 +121,42 @@ TEST_F(path_capability_test, different_operators) {
 
     auto result = find_path_capabilities(r1.input(), r2.output());
     EXPECT_EQ(result, path_capability_set {});
+}
+
+TEST_F(path_capability_test, join_left_outer) {
+    relation::graph_type r;
+    auto&& j = add_join(r, relation::join_kind::left_outer);
+
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+            path_capability::at_least_one,
+    }));
+    EXPECT_EQ(find_path_capabilities(j.right(), j.output()), path_capability_set {});
+}
+
+TEST_F(path_capability_test, join_left_outer_at_most_one) {
+    relation::graph_type r;
+    auto&& j = add_join(r, relation::join_kind::left_outer_at_most_one);
+
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+            path_capability::at_least_one,
+            path_capability::exactly_one,
+    }));
+    EXPECT_EQ(find_path_capabilities(j.right(), j.output()), path_capability_set {});
+}
+
+TEST_F(path_capability_test, join_others) {
+    for (auto kind : {
+            relation::join_kind::inner,
+            relation::join_kind::full_outer,
+            relation::join_kind::semi,
+            relation::join_kind::anti,
+    }) {
+        relation::graph_type r;
+        auto&& j = add_join(r, kind);
+
+        EXPECT_EQ(find_path_capabilities(j.left(), j.output()), path_capability_set {}) << kind;
+        EXPECT_EQ(find_path_capabilities(j.right(), j.output()), path_capability_set {}) << kind;
+    }
 }
 
 } // namespace yugawara::analyzer::details
