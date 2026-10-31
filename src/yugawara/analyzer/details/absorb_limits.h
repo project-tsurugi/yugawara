@@ -22,6 +22,7 @@ namespace yugawara::analyzer::details {
  *      If the `limit` has sort keys, this also sets the direction to the `scan`,
  *      only if reading the index of the `scan` in the direction provides the rows in the order of the sort keys.
  *      If the `scan` already has a direction, this absorbs nothing unless the direction is same as the above.
+ *      The backward direction requires runtime_feature::backward_scan.
  *      If this does not set the row count, this sets only the direction, and requires runtime_feature::ordered_scan:
  *      the `limit` with the row count becomes a forward exchange with ordering
  *      (also requires runtime_feature::ordered_forward),

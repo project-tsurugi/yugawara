@@ -103,6 +103,31 @@ protected:
         };
     }
 
+    static relation::intermediate::limit limit_desc(std::size_t count, descriptor::variable const& key) {
+        return relation::intermediate::limit {
+                std::vector<descriptor::variable> {},
+                std::vector<relation::intermediate::limit::sort_key> {
+                        { key, relation::sort_direction::descendant },
+                },
+                relation::intermediate::limit::row_slice_type { {}, count },
+        };
+    }
+
+    static relation::intermediate::limit order_only_desc(descriptor::variable const& key) {
+        return relation::intermediate::limit {
+                std::vector<descriptor::variable> {},
+                std::vector<relation::intermediate::limit::sort_key> {
+                        { key, relation::sort_direction::descendant },
+                },
+        };
+    }
+
+    static constexpr runtime_feature_set without_backward_scan {
+            runtime_feature::scan_limit,
+            runtime_feature::ordered_scan,
+            runtime_feature::ordered_forward,
+    };
+
     static relation::scan::row_slice_type row_slice(std::size_t count) {
         return relation::scan::row_slice_type { {}, count };
     }
@@ -391,6 +416,126 @@ TEST_F(rewrite_scan_order_test, disabled) {
     r1.output() >> r2.input();
 
     apply(r, {});
+
+    EXPECT_EQ(r0.source(), bindings(*i2));
+    EXPECT_FALSE(r0.row_slice());
+    EXPECT_FALSE(r0.direction());
+}
+
+TEST_F(rewrite_scan_order_test, backward_early_stop) {
+    /*
+     * scan:r0{I2} - limit:r1[k DESC, 3] - emit:r2
+     * => scan:r0{I2}[backward, 3] - limit:r1[k DESC, 3] - emit:r2
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t2(r);
+    auto&& r1 = r.insert(limit_desc(3, k));
+    auto&& r2 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    apply(r);
+
+    EXPECT_EQ(r0.source(), bindings(*i2));
+    EXPECT_EQ(r0.row_slice(), row_slice(3));
+    EXPECT_EQ(r0.direction(), scan_direction::backward);
+}
+
+TEST_F(rewrite_scan_order_test, backward_early_stop_secondary) {
+    /*
+     * scan:r0{I2} - limit:r1[v DESC, 3] - emit:r2
+     * => scan:r0{I2V}[backward, 3] - limit:r1[v DESC, 3] - emit:r2
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t2(r);
+    auto&& r1 = r.insert(limit_desc(3, v));
+    auto&& r2 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    apply(r);
+
+    // NOTE: the column may contain nulls, but they are the smallest values in both the index keys and the sort keys
+    EXPECT_EQ(r0.source(), bindings(*i2v));
+    EXPECT_EQ(r0.row_slice(), row_slice(3));
+    EXPECT_EQ(r0.direction(), scan_direction::backward);
+}
+
+TEST_F(rewrite_scan_order_test, backward_residual) {
+    /*
+     * scan:r0{I2} - filter:r1(w = 1) - limit:r2[k DESC, 3] - emit:r3
+     * => scan:r0{I2}[backward] - filter:r1(w = 1) - limit:r2[k DESC, 3] - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t2(r);
+    auto&& r1 = r.insert(relation::filter {
+            compare(varref { w }, constant(1)),
+    });
+    auto&& r2 = r.insert(limit_desc(3, k));
+    auto&& r3 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    EXPECT_EQ(r0.source(), bindings(*i2));
+    EXPECT_TRUE(r.contains(r1));
+    EXPECT_FALSE(r0.row_slice());
+    EXPECT_EQ(r0.direction(), scan_direction::backward);
+}
+
+TEST_F(rewrite_scan_order_test, backward_order_only) {
+    /*
+     * scan:r0{I2} - limit:r1[k DESC] - emit:r2
+     * => scan:r0{I2}[backward] - limit:r1[k DESC] - emit:r2
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t2(r);
+    auto&& r1 = r.insert(order_only_desc(k));
+    auto&& r2 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    apply(r);
+
+    EXPECT_EQ(r0.source(), bindings(*i2));
+    EXPECT_FALSE(r0.row_slice());
+    EXPECT_EQ(r0.direction(), scan_direction::backward);
+}
+
+TEST_F(rewrite_scan_order_test, backward_disabled) {
+    /*
+     * scan:r0{I2} - limit:r1[k DESC, 3] - emit:r2
+     * => (not changed, if backward scan is disabled)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t2(r);
+    auto&& r1 = r.insert(limit_desc(3, k));
+    auto&& r2 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    apply(r, without_backward_scan);
+
+    EXPECT_EQ(r0.source(), bindings(*i2));
+    EXPECT_FALSE(r0.row_slice());
+    EXPECT_FALSE(r0.direction());
+}
+
+TEST_F(rewrite_scan_order_test, backward_disabled_secondary) {
+    /*
+     * scan:r0{I2} - limit:r1[v DESC, 3] - emit:r2
+     * => (not changed, if backward scan is disabled)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t2(r);
+    auto&& r1 = r.insert(limit_desc(3, v));
+    auto&& r2 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    apply(r, without_backward_scan);
 
     EXPECT_EQ(r0.source(), bindings(*i2));
     EXPECT_FALSE(r0.row_slice());

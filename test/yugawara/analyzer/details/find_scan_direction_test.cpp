@@ -101,17 +101,53 @@ TEST_F(find_scan_direction_test, descendant_key) {
 
 TEST_F(find_scan_direction_test, direction_reversed) {
     auto&& index = primary({ a, b });
-    EXPECT_NE(apply(index, { { a, desc } }), scan_direction::forward);
+    EXPECT_EQ(apply(index, { { a, desc } }), scan_direction::backward);
 }
 
 TEST_F(find_scan_direction_test, direction_reversed_descendant_key) {
     auto&& index = primary({ { a, desc } });
-    EXPECT_NE(apply(index, { { a, asc } }), scan_direction::forward);
+    EXPECT_EQ(apply(index, { { a, asc } }), scan_direction::backward);
+}
+
+TEST_F(find_scan_direction_test, direction_reversed_all) {
+    auto&& index = primary({ a, b });
+    EXPECT_EQ(apply(index, { { a, desc }, { b, desc } }), scan_direction::backward);
+}
+
+TEST_F(find_scan_direction_test, direction_reversed_mixed_keys) {
+    auto&& index = primary({ a, { b, desc } });
+    EXPECT_EQ(apply(index, { { a, asc }, { b, desc } }), scan_direction::forward);
+    EXPECT_EQ(apply(index, { { a, desc }, { b, asc } }), scan_direction::backward);
+}
+
+TEST_F(find_scan_direction_test, direction_reversed_after_unique_keys) {
+    auto&& index = primary({ a, b });
+    EXPECT_EQ(apply(index, { { a, desc }, { b, desc }, { c, asc } }), scan_direction::backward);
 }
 
 TEST_F(find_scan_direction_test, direction_mixed) {
     auto&& index = primary({ a, b });
     EXPECT_FALSE(apply(index, { { a, asc }, { b, desc } }));
+}
+
+TEST_F(find_scan_direction_test, direction_mixed_reversed_first) {
+    auto&& index = primary({ a, b });
+    EXPECT_FALSE(apply(index, { { a, desc }, { b, asc } }));
+}
+
+TEST_F(find_scan_direction_test, direction_reversed_fixed_index_key) {
+    auto&& index = primary({ a, b });
+    EXPECT_EQ(apply(index, { { b, desc } }, { a }), scan_direction::backward);
+}
+
+TEST_F(find_scan_direction_test, direction_reversed_fixed_sort_key) {
+    auto&& index = primary({ a, b });
+    EXPECT_EQ(apply(index, { { a, asc }, { b, desc } }, { a }), scan_direction::backward);
+}
+
+TEST_F(find_scan_direction_test, all_fixed_prefers_forward) {
+    auto&& index = primary({ a, b });
+    EXPECT_EQ(apply(index, { { a, desc } }, { a }), scan_direction::forward);
 }
 
 TEST_F(find_scan_direction_test, not_prefix) {
@@ -137,6 +173,17 @@ TEST_F(find_scan_direction_test, fixed_not_prefix) {
 TEST_F(find_scan_direction_test, secondary_prefix) {
     auto&& index = secondary({ v });
     EXPECT_EQ(apply(index, { { v, asc } }), scan_direction::forward);
+}
+
+TEST_F(find_scan_direction_test, secondary_reversed) {
+    // NOTE: the column may contain nulls, but they are the smallest values in both the index keys and the sort keys
+    auto&& index = secondary({ v });
+    EXPECT_EQ(apply(index, { { v, desc } }), scan_direction::backward);
+}
+
+TEST_F(find_scan_direction_test, secondary_descendant_key_reversed) {
+    auto&& index = secondary({ { v, desc } });
+    EXPECT_EQ(apply(index, { { v, asc } }), scan_direction::backward);
 }
 
 TEST_F(find_scan_direction_test, secondary_never_assume_primary_keys) {

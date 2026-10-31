@@ -20,6 +20,24 @@ bool contains(sequence_view<column_ref const> columns, storage::column const& co
     });
 }
 
+/*
+ * returns the scan direction that orders the index key in the same direction as the sort key.
+ * Reading the index backward reverses the order of all its keys, so that the directions of
+ * all matched sort keys must be the same as the index keys, or must be reversed from them.
+ * For example, with the primary key (a, b), "ORDER BY a DESC, b DESC" is satisfied by reading backward,
+ * but "ORDER BY a DESC, b" is never satisfied in either direction.
+ * Note that, this also reverses the position of nulls, and it is still consistent with the requested order,
+ * because nulls are treated as the smallest values in both the index keys and the sort keys.
+ */
+scan_direction scan_direction_of(
+        storage::details::index_key_element const& index_key,
+        storage::details::index_key_element const& sort_key) {
+    if (index_key.direction() == sort_key.direction()) {
+        return scan_direction::forward;
+    }
+    return scan_direction::backward;
+}
+
 } // namespace
 
 std::optional<scan_direction> find_scan_direction(
@@ -32,6 +50,9 @@ std::optional<scan_direction> find_scan_direction(
     // the index columns that are already matched with the sort keys
     std::vector<column_ref> matched {};
     matched.reserve(keys.size());
+
+    // the direction decided by the first matched sort key, or empty if no sort keys are matched yet
+    std::optional<scan_direction> decided {};
 
     std::size_t key_index = 0;
     for (auto&& sort_key : sort_keys) {
@@ -68,19 +89,24 @@ std::optional<scan_direction> find_scan_direction(
              * the primary keys follow its keys, even if the current implementation does so.
              */
             if (unique_keys) {
-                return scan_direction::forward;
+                break;
             }
             return {};
         }
         auto&& key = keys[key_index];
-        if (key.column() != column || key.direction() != sort_key.direction()) {
-            // FIXME: find backward direction if all directions are reversed
+        if (key.column() != column) {
             return {};
         }
+        auto current = scan_direction_of(key, sort_key);
+        if (decided && *decided != current) {
+            return {};
+        }
+        decided = current;
         matched.emplace_back(column);
         ++key_index;
     }
-    return scan_direction::forward;
+    // NOTE: if no sort keys are matched (e.g. all of them are fixed), we prefer the forward direction
+    return decided.value_or(scan_direction::forward);
 }
 
 } // namespace yugawara::analyzer::details

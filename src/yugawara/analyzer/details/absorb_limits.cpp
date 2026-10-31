@@ -102,6 +102,10 @@ private:
             if (!direction) {
                 return;
             }
+            if (*direction == relation::scan_direction::backward
+                    && !features_.contains(runtime_feature::backward_scan)) {
+                return;
+            }
             // adopt the direction only if the scan does not specify any directions, or it is same as the required one
             if (auto&& current = scan->direction(); current && *current != *direction) {
                 return;

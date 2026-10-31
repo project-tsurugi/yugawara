@@ -254,7 +254,11 @@ private:
             return candidate_order::none;
         }
         auto fixed = fixed_columns(candidate);
-        if (!find_scan_direction(candidate.index, request.sort_keys, fixed)) {
+        auto direction = find_scan_direction(candidate.index, request.sort_keys, fixed);
+        if (!direction) {
+            return candidate_order::none;
+        }
+        if (*direction == relation::scan_direction::backward && !features_.contains(runtime_feature::backward_scan)) {
             return candidate_order::none;
         }
         // NOTE: the scan can stop at the row count, only if the index consumes all conditions
