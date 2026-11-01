@@ -102,8 +102,13 @@ TEST_F(ordered_relation_test, scan) {
     r1.output() >> r2.input();
 
     auto result = find_ordered_source(r1);
-    ASSERT_TRUE(result);
-    EXPECT_EQ(result.get(), &r0);
+    ASSERT_TRUE(result.end);
+    EXPECT_EQ(result.end.get(), &r0);
+    EXPECT_EQ(result.capabilities, (path_capability_set {
+            path_capability::preserves_order,
+            path_capability::at_least_one,
+            path_capability::at_most_one,
+    }));
 }
 
 TEST_F(ordered_relation_test, through_filter_project) {
@@ -127,8 +132,12 @@ TEST_F(ordered_relation_test, through_filter_project) {
     r3.output() >> r4.input();
 
     auto result = find_ordered_source(r3);
-    ASSERT_TRUE(result);
-    EXPECT_EQ(result.get(), &r0);
+    ASSERT_TRUE(result.end);
+    EXPECT_EQ(result.end.get(), &r0);
+    EXPECT_EQ(result.capabilities, (path_capability_set {
+            path_capability::preserves_order,
+            path_capability::at_most_one,
+    }));
 }
 
 TEST_F(ordered_relation_test, through_join_find) {
@@ -156,8 +165,11 @@ TEST_F(ordered_relation_test, through_join_find) {
     r2.output() >> r3.input();
 
     auto result = find_ordered_source(r2);
-    ASSERT_TRUE(result);
-    EXPECT_EQ(result.get(), &r0);
+    ASSERT_TRUE(result.end);
+    EXPECT_EQ(result.end.get(), &r0);
+    EXPECT_EQ(result.capabilities, (path_capability_set {
+            path_capability::preserves_order,
+    }));
 }
 
 TEST_F(ordered_relation_test, not_order_preserving) {
@@ -174,7 +186,8 @@ TEST_F(ordered_relation_test, not_order_preserving) {
     r2.output() >> r3.input();
 
     auto result = find_ordered_source(r2);
-    EXPECT_FALSE(result);
+    ASSERT_TRUE(result.end);
+    EXPECT_EQ(result.end.get(), &r1);
 }
 
 TEST_F(ordered_relation_test, destination) {

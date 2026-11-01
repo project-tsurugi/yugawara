@@ -4,8 +4,6 @@
 #include <functional>
 #include <vector>
 
-#include <takatori/util/downcast.h>
-
 #include <yugawara/binding/extract.h>
 
 #include <yugawara/storage/column.h>
@@ -20,7 +18,6 @@ namespace descriptor = ::takatori::descriptor;
 namespace relation = ::takatori::relation;
 
 using ::takatori::util::optional_ptr;
-using ::takatori::util::unsafe_downcast;
 
 using column_ref = std::reference_wrapper<storage::column const>;
 
@@ -81,15 +78,25 @@ std::vector<column_ref> collect_fixed_columns(relation::scan const& scan) {
 
 } // namespace
 
-optional_ptr<relation::scan> find_ordered_source(relation::intermediate::limit& expr) {
+ordered_path find_ordered_source(relation::intermediate::limit& expr) {
+    path_capability_set capabilities {
+            path_capability::preserves_order,
+            path_capability::at_least_one,
+            path_capability::at_most_one,
+    };
     auto current = find_upstream(expr.input());
-    while (current && find_single_path_capabilities(*current).contains(path_capability::preserves_order)) {
+    while (current) {
+        auto found = find_single_path_capabilities(*current);
+        if (!found.contains(path_capability::preserves_order)) {
+            break;
+        }
+        capabilities &= found;
         current = find_upstream(current->input_ports()[0]);
     }
-    if (current && current->kind() == relation::scan::tag) {
-        return unsafe_downcast<relation::scan>(*current);
-    }
-    return {};
+    return {
+            current,
+            capabilities,
+    };
 }
 
 ordered_path find_ordered_destination(relation::expression::output_port_type& output) {

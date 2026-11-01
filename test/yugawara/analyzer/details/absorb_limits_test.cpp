@@ -7,6 +7,7 @@
 #include <takatori/relation/graph.h>
 #include <takatori/relation/scan.h>
 #include <takatori/relation/filter.h>
+#include <takatori/relation/project.h>
 #include <takatori/relation/emit.h>
 
 #include <takatori/relation/intermediate/join.h>
@@ -406,6 +407,30 @@ TEST_F(absorb_limits_test, filter) {
     apply(r);
 
     EXPECT_FALSE(r0.row_slice());
+    EXPECT_FALSE(r0.direction());
+}
+
+TEST_F(absorb_limits_test, project) {
+    /*
+     * scan:r0 - project:r1 - limit:r2 - emit:r3
+     * => scan:r0[2] - project:r1 - limit:r2 - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t0(r);
+    auto x = bindings.stream_variable("x");
+    auto&& r1 = r.insert(relation::project {
+            relation::project::column { constant(1), x },
+    });
+    auto&& r2 = r.insert(limit(2));
+    auto&& r3 = r.insert(relation::emit { a, x });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    // each row of the scan becomes exactly one row of the project
+    EXPECT_EQ(r0.row_slice(), row_slice(2));
     EXPECT_FALSE(r0.direction());
 }
 

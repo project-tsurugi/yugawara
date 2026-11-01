@@ -35,11 +35,6 @@ std::optional<std::size_t> find_target_count(relation::intermediate::limit const
     return {};
 }
 
-bool is_adjacent(relation::scan const& scan, relation::intermediate::limit const& expr) {
-    auto upstream = expr.input().opposite();
-    return upstream && std::addressof(upstream->owner()) == std::addressof(scan);
-}
-
 /**
  * @brief returns whether or not the limit only requests the row order, without any row count nor group keys.
  * @param expr the target limit
@@ -69,9 +64,11 @@ public:
 private:
     runtime_feature_set const& features_;
 
-    [[nodiscard]] bool can_absorb_count(relation::scan const& scan, relation::intermediate::limit const& expr) const {
+    [[nodiscard]] bool can_absorb_count(relation::scan const& scan, path_capability_set const& capabilities) const {
+        // NOTE: each row of the scan must become exactly one input row of the limit
         return features_.contains(runtime_feature::scan_limit)
-                && is_adjacent(scan, expr)
+                && capabilities.contains(path_capability::at_least_one)
+                && capabilities.contains(path_capability::at_most_one)
                 && !scan.row_slice();
     }
 
@@ -89,16 +86,17 @@ private:
         if (!count && !is_order_only(expr)) {
             return;
         }
-        auto scan = find_ordered_source(expr);
-        if (!scan) {
+        auto path = find_ordered_source(expr);
+        if (!path.end || path.end->kind() != relation::scan::tag) {
             return;
         }
-        bool absorb_count = count && can_absorb_count(*scan, expr);
+        auto&& scan = unsafe_downcast<relation::scan>(*path.end);
+        bool absorb_count = count && can_absorb_count(scan, path.capabilities);
         if (!absorb_count && !can_absorb_direction_only(expr)) {
             return;
         }
         if (!expr.sort_keys().empty()) {
-            auto direction = find_scan_direction(*scan, expr);
+            auto direction = find_scan_direction(scan, expr);
             if (!direction) {
                 return;
             }
@@ -107,13 +105,13 @@ private:
                 return;
             }
             // adopt the direction only if the scan does not specify any directions, or it is same as the required one
-            if (auto&& current = scan->direction(); current && *current != *direction) {
+            if (auto&& current = scan.direction(); current && *current != *direction) {
                 return;
             }
-            scan->direction() = direction;
+            scan.direction() = direction;
         }
         if (absorb_count) {
-            scan->row_slice() = relation::scan::row_slice_type { {}, *count };
+            scan.row_slice() = relation::scan::row_slice_type { {}, *count };
         }
     }
 };

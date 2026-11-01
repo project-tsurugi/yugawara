@@ -574,8 +574,12 @@ private:
             return {};
         }
         // NOTE: the scan direction is available only if it provides the rows in the order of the limit
-        auto scan = find_ordered_source(expr);
-        if (!scan || !scan->direction() || find_scan_direction(*scan, expr) != scan->direction()) {
+        auto path = find_ordered_source(expr);
+        if (!path.end || path.end->kind() != relation::scan::tag) {
+            return {};
+        }
+        auto&& scan = unsafe_downcast<relation::scan>(*path.end);
+        if (!scan.direction() || find_scan_direction(scan, expr) != scan.direction()) {
             return {};
         }
         // NOTE: the input order decides which rows are in the slice

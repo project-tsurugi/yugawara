@@ -29,18 +29,18 @@ struct ordered_path {
 };
 
 /**
- * @brief returns the upstream `scan` operator, which can be the source of the row order of the given `limit`.
+ * @brief returns the path from the given `limit` to upstream, which preserves the row order.
  * @details This walks from the `limit` to upstream only through the operators which have exactly one input and
  *      one output, and whose path preserves the row order (see find_path_capabilities()),
- *      and returns the `scan` operator if it reaches.
+ *      and returns the first operator which does not satisfy them, with the capabilities of the path.
+ *      If the end of the path is a `scan` operator, it can be the source of the row order of the `limit`.
  *      This never considers whether or not the `scan` actually provides the rows in the order of the `limit`.
+ *      If the path is empty, the capabilities contain all `path_capability` values.
  * @param expr the target `limit` operator
- * @return the source `scan` operator
- * @return empty if there is no such the `scan` operator
+ * @return the path to the input of the `limit`, whose end is empty if the path is not connected to any operators
  * @see find_scan_direction(::takatori::relation::scan const&, ::takatori::relation::intermediate::limit const&)
  */
-[[nodiscard]] ::takatori::util::optional_ptr<::takatori::relation::scan> find_ordered_source(
-        ::takatori::relation::intermediate::limit& expr);
+[[nodiscard]] ordered_path find_ordered_source(::takatori::relation::intermediate::limit& expr);
 
 /**
  * @brief returns the path from the given output port to downstream, which preserves the row order.

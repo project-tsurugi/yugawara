@@ -403,7 +403,7 @@ TEST_F(rewrite_scan_order_test, residual_over_join_find_inner) {
 TEST_F(rewrite_scan_order_test, early_stop_over_join_find_left_outer_at_most_one) {
     /*
      * scan:r0{I2} - join_find[left_outer_at_most_one]:r1 - limit:r2[v, 3] - emit:r3
-     * => scan:r0{I2V}[forward] - join_find[left_outer_at_most_one]:r1 - limit:r2[v, 3] - emit:r3
+     * => scan:r0{I2V}[forward, 3] - join_find[left_outer_at_most_one]:r1 - limit:r2[v, 3] - emit:r3
      */
     relation::graph_type r;
     auto&& r0 = add_t2(r);
@@ -416,9 +416,8 @@ TEST_F(rewrite_scan_order_test, early_stop_over_join_find_left_outer_at_most_one
 
     apply(r);
 
-    // the scan can stop at the row count, but the count is absorbed only if the limit is adjacent
     EXPECT_EQ(r0.source(), bindings(*i2v));
-    EXPECT_FALSE(r0.row_slice());
+    EXPECT_EQ(r0.row_slice(), row_slice(3));
     EXPECT_EQ(r0.direction(), scan_direction::forward);
 }
 

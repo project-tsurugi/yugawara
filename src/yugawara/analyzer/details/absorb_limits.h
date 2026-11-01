@@ -14,10 +14,11 @@ namespace yugawara::analyzer::details {
  *      This does not select indices: the index of the `scan` has already been selected by rewrite_scan(),
  *      with considering the row order of the `limit`.
  *
- *      If the `limit` has the row count and directly connects to the `scan`,
+ *      If the `limit` has the row count and each row of the `scan` becomes exactly one input row of the `limit`
+ *      (that is, the path between them has both `at_least_one` and `at_most_one`, see find_path_capabilities()),
  *      this sets the row count of the `limit` to the `scan` (requires runtime_feature::scan_limit).
- *      Otherwise, there are some `filter` or `project` operators between them, and this does not set the row count,
- *      because they may reduce the number of rows.
+ *      Otherwise, the operators between them may reduce or increase the number of rows,
+ *      and this does not set the row count.
  *
  *      If the `limit` has sort keys, this also sets the direction to the `scan`,
  *      only if reading the index of the `scan` in the direction provides the rows in the order of the sort keys.
