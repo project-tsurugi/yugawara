@@ -71,7 +71,8 @@ private:
 
     [[nodiscard]] ::takatori::util::optional_ptr<relation::intermediate::limit> find_redundant_limit(
             relation::scan& scan) const {
-        auto destination = find_ordered_destination(scan).destination;
+        auto path = find_ordered_destination(scan);
+        auto&& destination = path.destination;
         if (!destination || destination->kind() != relation::intermediate::limit::tag) {
             return {};
         }
@@ -79,16 +80,23 @@ private:
         if (!limit.group_keys().empty() || has_start(limit.row_slice())) {
             return {};
         }
-        if (!satisfies_count(scan, limit) || !satisfies_order(scan, limit)) {
+        if (!satisfies_count(scan, limit, path.capabilities) || !satisfies_order(scan, limit)) {
             return {};
         }
         return limit;
     }
 
-    [[nodiscard]] bool satisfies_count(relation::scan const& scan, relation::intermediate::limit const& limit) const {
+    [[nodiscard]] bool satisfies_count(
+            relation::scan const& scan,
+            relation::intermediate::limit const& limit,
+            path_capability_set const& capabilities) const {
         auto&& count = limit.row_slice().count();
         if (count.is_absent()) {
             return true;
+        }
+        // NOTE: the rows from the scan must not be increased before the limit
+        if (!capabilities.contains(path_capability::at_most_one)) {
+            return false;
         }
         // NOTE: the scan must honor its row count
         if (!features_.contains(runtime_feature::scan_limit)) {

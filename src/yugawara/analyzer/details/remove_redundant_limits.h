@@ -13,10 +13,11 @@ namespace yugawara::analyzer::details {
  *      - `limit` operators which have neither the row count, the start position, sort keys nor group keys.
  *      - `limit` operators whose results are already provided by the upstream `scan` operator.
  *        That is, the `limit` is reachable from the `scan` only through the operators which preserve the row order
- *        and never increase the number of rows (see find_ordered_destination()), and the `limit` does not have any
- *        group keys nor the start position, and satisfies the following:
+ *        (see find_ordered_destination()), and the `limit` does not have any group keys nor the start position,
+ *        and satisfies the following:
  *
- *        - if the `limit` has the row count, the `scan` also has the row count which is less than or equal to it
+ *        - if the `limit` has the row count, the operators between them never increase the number of rows,
+ *          and the `scan` also has the row count which is less than or equal to it
  *          (requires runtime_feature::scan_limit)
  *        - if the `limit` has sort keys, reading the `scan` in its direction provides the rows in the order
  *          (requires runtime_feature::ordered_scan)
