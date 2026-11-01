@@ -2,6 +2,8 @@
 
 #include <memory>
 
+#include <cstdlib>
+
 #include <takatori/relation/buffer.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/join_find.h>
@@ -38,9 +40,19 @@ path_capability_set find_join_capabilities(
                     path_capability::at_least_one,
                     path_capability::at_most_one,
             };
-        default:
+        case relation::join_kind::full_outer:
+            // NOTE: full outer joins make each left input row one or more output rows,
+            // but they also emit the rows only from the right input, whose left columns are null.
+            // That is, the path does not keep the contents of the columns (i.e. not "preserve_columns"),
+            // so that it also loses `at_least_one`.
             return {};
+        case relation::join_kind::semi:
+        case relation::join_kind::anti:
+            return {
+                    path_capability::at_most_one,
+            };
     }
+    std::abort();
 }
 
 path_capability_set find_buffer_capabilities(
@@ -75,9 +87,17 @@ path_capability_set find_index_join_capabilities(relation::join_kind kind) {
                     path_capability::at_least_one,
                     path_capability::at_most_one,
             };
-        default:
+        case relation::join_kind::full_outer:
+            // NOTE: index joins never be full outer joins, but we treat them as same as `intermediate::join`
             return {};
+        case relation::join_kind::semi:
+        case relation::join_kind::anti:
+            return {
+                    path_capability::preserves_order,
+                    path_capability::at_most_one,
+            };
     }
+    std::abort();
 }
 
 } // namespace

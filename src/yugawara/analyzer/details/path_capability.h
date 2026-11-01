@@ -71,7 +71,7 @@ inline std::ostream& operator<<(std::ostream& out, path_capability value) {
  *
  *      - `filter`
  *      - `project`
- *      - the left input of left outer joins (`intermediate::join`)
+ *      - the left input of joins (`intermediate::join`)
  *      - the left input of index joins (`join_find` and `join_scan`)
  *      - the primary output of `buffer` which can stop with the primary output
  *        (see `buffer::stop_with_primary()`)
