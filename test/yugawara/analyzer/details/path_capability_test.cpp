@@ -10,6 +10,7 @@
 #include <takatori/relation/scan.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
+#include <takatori/relation/buffer.h>
 
 #include <takatori/relation/intermediate/join.h>
 
@@ -121,6 +122,30 @@ TEST_F(path_capability_test, different_operators) {
 
     auto result = find_path_capabilities(r1.input(), r2.output());
     EXPECT_EQ(result, path_capability_set {});
+}
+
+TEST_F(path_capability_test, buffer_stop_with_primary) {
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(relation::buffer { 2, true });
+    r0.output() >> r1.input();
+
+    EXPECT_EQ(find_path_capabilities(r1.input(), r1.primary_output()), (path_capability_set {
+            path_capability::preserves_order,
+            path_capability::at_least_one,
+            path_capability::exactly_one,
+    }));
+    EXPECT_EQ(find_path_capabilities(r1.input(), r1.secondary_outputs()[0]), path_capability_set {});
+}
+
+TEST_F(path_capability_test, buffer_without_stop_with_primary) {
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(relation::buffer { 2 });
+    r0.output() >> r1.input();
+
+    EXPECT_EQ(find_path_capabilities(r1.input(), r1.primary_output()), path_capability_set {});
+    EXPECT_EQ(find_path_capabilities(r1.input(), r1.secondary_outputs()[0]), path_capability_set {});
 }
 
 TEST_F(path_capability_test, join_left_outer) {

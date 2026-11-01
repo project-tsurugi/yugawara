@@ -11,7 +11,8 @@ namespace yugawara::analyzer::details {
  * @details This moves each `limit` over the upstream operators which have a single input,
  *      and whose path preserves the row order and makes exactly one row from each input row
  *      (see find_path_capabilities()), only if the `limit` does not refer to any columns defined in the operator.
- *      Currently, such operators are only `project`.
+ *      Currently, such operators are only `project`, and `buffer` which can stop with the primary output
+ *      (only if the `limit` is in the downstream of the primary output, see `buffer::stop_with_primary()`).
  *      This never moves `limit` over the other operators, like `filter`, `join`, or aggregations.
  *      Currently, this only moves `limit` operators which have the row count and do not have any group keys.
  *

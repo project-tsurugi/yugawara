@@ -7,6 +7,7 @@
 
 #include <cstddef>
 
+#include <takatori/relation/buffer.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/intermediate/limit.h>
 
@@ -57,6 +58,10 @@ bool depends_on(relation::intermediate::limit const& expr, relation::project con
 bool depends_on(relation::intermediate::limit const& expr, relation::expression const& owner) {
     if (owner.kind() == relation::project::tag) {
         return depends_on(expr, unsafe_downcast<relation::project>(owner));
+    }
+    if (owner.kind() == relation::buffer::tag) {
+        // NOTE: buffer does not define any columns
+        return false;
     }
     // NOTE: the other operators may define columns referred from the limit
     return true;

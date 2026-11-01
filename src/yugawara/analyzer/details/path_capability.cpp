@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include <takatori/relation/buffer.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/intermediate/join.h>
 
@@ -36,6 +37,20 @@ path_capability_set find_join_capabilities(
     }
 }
 
+path_capability_set find_buffer_capabilities(
+        relation::buffer const& expr,
+        relation::expression::output_port_type const& output) {
+    // NOTE: the secondary outputs only need the rows which the downstream of the primary output requires
+    if (!expr.stop_with_primary() || std::addressof(output) != std::addressof(expr.primary_output())) {
+        return {};
+    }
+    return {
+            path_capability::preserves_order,
+            path_capability::at_least_one,
+            path_capability::exactly_one,
+    };
+}
+
 } // namespace
 
 path_capability_set find_path_capabilities(
@@ -52,6 +67,8 @@ path_capability_set find_path_capabilities(
                     path_capability::at_least_one,
                     path_capability::exactly_one,
             };
+        case relation::buffer::tag:
+            return find_buffer_capabilities(unsafe_downcast<relation::buffer>(owner), output);
         case relation::intermediate::join::tag:
             return find_join_capabilities(unsafe_downcast<relation::intermediate::join>(owner), input);
         default:
