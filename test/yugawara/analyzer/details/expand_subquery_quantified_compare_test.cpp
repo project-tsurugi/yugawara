@@ -581,10 +581,11 @@ TEST_F(expand_subquery_quantified_compare_test, filter_correlation) {
     ASSERT_TRUE(graph.contains(re));
     auto&& buffer = next<relation::buffer>(rv.output());
     ASSERT_EQ(buffer.size(), 2);
-    auto&& join = next<relation::intermediate::join>(buffer.output_ports()[0]);
+    EXPECT_TRUE(buffer.stop_with_primary());
+    auto&& join = next<relation::intermediate::join>(buffer.primary_output());
 
     // (*1)
-    auto&& e0 = next<relation::intermediate::escape>(buffer.output_ports()[1]);
+    auto&& e0 = next<relation::intermediate::escape>(buffer.secondary_outputs()[0]);
     auto&& distinct = next<relation::intermediate::distinct>(e0.output());
     auto&& e1 = next<relation::intermediate::escape>(distinct.output());
     auto&& j0 = next<relation::project>(e1.output());

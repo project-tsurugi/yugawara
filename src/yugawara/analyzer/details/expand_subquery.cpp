@@ -1615,11 +1615,12 @@ private:
 
         // inject parameters
         auto&& graph = merge_result.owner();
-        auto&& parameter_branch = graph.emplace<::takatori::relation::buffer>(2);
-        parameter_branch.output_ports().at(0).connect_to(merge_result.left());
+        // NOTE: the secondary output only computes the subquery for the rows on the primary output
+        auto&& parameter_branch = graph.emplace<::takatori::relation::buffer>(2, true);
+        parameter_branch.primary_output().connect_to(merge_result.left());
 
         auto&& parameter_escape = graph.emplace<::takatori::relation::intermediate::escape>(parameter_mappings);
-        parameter_branch.output_ports().at(1).connect_to(parameter_escape.input());
+        parameter_branch.secondary_outputs().front().connect_to(parameter_escape.input());
 
         std::vector<::takatori::descriptor::variable> parameters {};
         parameters.reserve(parameter_mappings.size());
@@ -1635,7 +1636,8 @@ private:
             parameter_dedup.output().connect_to(input_escape.input());
             input_escape.output().connect_to(subquery_input.input_port());
         } else {
-            auto&& input_branch = graph.emplace<::takatori::relation::buffer>(subquery_inputs.size());
+            // NOTE: every subquery input requires all parameters
+            auto&& input_branch = graph.emplace<::takatori::relation::buffer>(subquery_inputs.size(), false);
             parameter_dedup.output().connect_to(input_branch.input());
 
             std::size_t input_index = 0;

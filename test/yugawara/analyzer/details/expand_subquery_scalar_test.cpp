@@ -2432,10 +2432,11 @@ TEST_F(expand_subquery_scalar_test, correlation) {
     ASSERT_TRUE(graph.contains(re));
     auto&& buffer = next<relation::buffer>(rv.output());
     ASSERT_EQ(buffer.size(), 2);
-    auto&& join = next<relation::intermediate::join>(buffer.output_ports()[0]);
+    EXPECT_TRUE(buffer.stop_with_primary());
+    auto&& join = next<relation::intermediate::join>(buffer.primary_output());
 
     // (*1)
-    auto&& e0 = next<relation::intermediate::escape>(buffer.output_ports()[1]);
+    auto&& e0 = next<relation::intermediate::escape>(buffer.secondary_outputs()[0]);
     auto&& distinct = next<relation::intermediate::distinct>(e0.output());
     auto&& e1 = next<relation::intermediate::escape>(distinct.output());
     auto&& j0 = next<relation::project>(e1.output());
@@ -2469,6 +2470,106 @@ TEST_F(expand_subquery_scalar_test, correlation) {
     ASSERT_EQ(re.columns().size(), 2);
     EXPECT_EQ(re.columns()[0].source(), c1);
     EXPECT_EQ(re.columns()[1].source(), c2);
+}
+
+TEST_F(expand_subquery_scalar_test, correlation_multiple_inputs) {
+    /*
+     * SELECT
+     *   c1,
+     *   (
+     *      VALUES(rv.c1) UNION ALL VALUES(1)
+     *   ) AS c2
+     * FROM (VALUES) AS rv(c1)
+     */
+
+    /* inner query: g0
+     *   values:sv0 -\
+     *                +- union -*
+     *   values:sv1 -/
+     */
+    relation::graph_type g0 {};
+    auto c0a = bindings.stream_variable("c0a");
+    auto c0b = bindings.stream_variable("c0b");
+    auto c0 = bindings.stream_variable("c0");
+    auto p0 = bindings.stream_variable("p0");
+    auto&& sv0 = g0.insert(relation::values {
+            {
+                    c0a,
+            },
+            {
+                    { varref(p0) },
+            },
+    });
+    auto&& sv1 = g0.insert(relation::values {
+            {
+                    c0b,
+            },
+            {
+                    { constant(1) },
+            },
+    });
+    auto&& su = g0.insert(relation::intermediate::union_ {
+            {
+                    { c0a, c0b, c0 },
+            },
+    });
+    sv0.output() >> su.left();
+    sv1.output() >> su.right();
+
+    /* outer query: graph
+     *   values:rv -- project[g0->c2]:r0 -- emit:re
+     */
+    relation::graph_type graph {};
+    auto c1 = bindings.stream_variable("c1");
+    auto&& rv = graph.insert(relation::values {
+            {
+                    c1,
+            },
+            {},
+    });
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = graph.insert(relation::project {
+            relation::project::column {
+                    extension::scalar::subquery {
+                            std::move(g0),
+                            {
+                                    { c1, p0 },
+                            },
+                            c0,
+                    },
+                    c2,
+            },
+    });
+    auto&& re = graph.insert(relation::emit {
+            c1,
+            c2,
+    });
+    rv.output() >> r0.input();
+    r0.output() >> re.input();
+
+    auto diagnostics = expand_subquery(graph);
+    ASSERT_TRUE(diagnostics.empty()) << print_support(diagnostics);
+
+    /*
+     *                              +-- *1 --+
+     *                             /          \
+     * values:rv[->c1] -- buffer -+------------+-join -- project[c0->c2]:r0 -- emit[c1, c2]:re
+     *
+     * *1:
+     * ~~ escape[c1->p0]:e0 -- distinct[p0] -- buffer -+- ...
+     *                                                  +- ...
+     */
+    auto&& parameter_branch = next<relation::buffer>(rv.output());
+    ASSERT_EQ(parameter_branch.size(), 2);
+    EXPECT_TRUE(parameter_branch.stop_with_primary());
+
+    auto&& e0 = next<relation::intermediate::escape>(parameter_branch.secondary_outputs()[0]);
+    auto&& distinct = next<relation::intermediate::distinct>(e0.output());
+
+    // NOTE: every input of the subquery requires all parameters
+    auto&& input_branch = next<relation::buffer>(distinct.output());
+    ASSERT_EQ(input_branch.size(), 2);
+    EXPECT_FALSE(input_branch.stop_with_primary());
 }
 
 TEST_F(expand_subquery_scalar_test, scalar_subquery_nesting_in_correlation) {
