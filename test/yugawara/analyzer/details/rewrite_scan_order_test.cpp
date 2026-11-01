@@ -6,6 +6,7 @@
 #include <takatori/relation/filter.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/emit.h>
+#include <takatori/relation/join_find.h>
 #include <takatori/relation/intermediate/limit.h>
 
 #include <yugawara/binding/factory.h>
@@ -127,6 +128,20 @@ protected:
             runtime_feature::ordered_scan,
             runtime_feature::ordered_forward,
     };
+
+    relation::join_find& add_join_find(relation::graph_type& r, relation::join_kind kind) {
+        // NOTE: joins T2 itself by its primary key
+        return r.insert(relation::join_find {
+                kind,
+                bindings(*i2),
+                {
+                        { t2w, bindings.stream_variable("x") },
+                },
+                {
+                        relation::join_find::key { t2k, varref { w } },
+                },
+        });
+    }
 
     static relation::scan::row_slice_type row_slice(std::size_t count) {
         return relation::scan::row_slice_type { {}, count };
@@ -339,6 +354,70 @@ TEST_F(rewrite_scan_order_test, residual_prefers_order) {
 
     EXPECT_EQ(r0.source(), bindings(*i2));
     EXPECT_TRUE(r.contains(r1));
+    EXPECT_FALSE(r0.row_slice());
+    EXPECT_EQ(r0.direction(), scan_direction::forward);
+}
+
+TEST_F(rewrite_scan_order_test, order_over_join_find_inner) {
+    /*
+     * scan:r0{I2} - join_find[inner]:r1 - limit:r2[k, 3] - emit:r3
+     * => scan:r0{I2}[forward] - join_find[inner]:r1 - limit:r2[k, 3] - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t2(r);
+    auto&& r1 = add_join_find(r, relation::join_kind::inner);
+    auto&& r2 = r.insert(limit(3, k));
+    auto&& r3 = r.insert(relation::emit { k });
+    r0.output() >> r1.left();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    EXPECT_EQ(r0.source(), bindings(*i2));
+    EXPECT_FALSE(r0.row_slice());
+    EXPECT_EQ(r0.direction(), scan_direction::forward);
+}
+
+TEST_F(rewrite_scan_order_test, residual_over_join_find_inner) {
+    /*
+     * scan:r0{I2} - join_find[inner]:r1 - limit:r2[v, 3] - emit:r3
+     * => (not changed: the inner join may drop rows, so that the scan of I2V cannot stop at the row count)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t2(r);
+    auto&& r1 = add_join_find(r, relation::join_kind::inner);
+    auto&& r2 = r.insert(limit(3, v));
+    auto&& r3 = r.insert(relation::emit { k });
+    r0.output() >> r1.left();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    EXPECT_EQ(r0.source(), bindings(*i2));
+    EXPECT_FALSE(r0.row_slice());
+    EXPECT_FALSE(r0.direction());
+}
+
+TEST_F(rewrite_scan_order_test, early_stop_over_join_find_left_outer_at_most_one) {
+    /*
+     * scan:r0{I2} - join_find[left_outer_at_most_one]:r1 - limit:r2[v, 3] - emit:r3
+     * => scan:r0{I2V}[forward] - join_find[left_outer_at_most_one]:r1 - limit:r2[v, 3] - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t2(r);
+    auto&& r1 = add_join_find(r, relation::join_kind::left_outer_at_most_one);
+    auto&& r2 = r.insert(limit(3, v));
+    auto&& r3 = r.insert(relation::emit { k });
+    r0.output() >> r1.left();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    // the scan can stop at the row count, but the count is absorbed only if the limit is adjacent
+    EXPECT_EQ(r0.source(), bindings(*i2v));
     EXPECT_FALSE(r0.row_slice());
     EXPECT_EQ(r0.direction(), scan_direction::forward);
 }

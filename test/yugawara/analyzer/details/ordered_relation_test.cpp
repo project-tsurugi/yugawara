@@ -9,6 +9,7 @@
 #include <takatori/relation/filter.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/emit.h>
+#include <takatori/relation/join_find.h>
 
 #include <takatori/relation/intermediate/distinct.h>
 #include <takatori/relation/intermediate/limit.h>
@@ -130,6 +131,35 @@ TEST_F(ordered_relation_test, through_filter_project) {
     EXPECT_EQ(result.get(), &r0);
 }
 
+TEST_F(ordered_relation_test, through_join_find) {
+    /*
+     * scan:r0 - join_find[inner]:r1 - limit:r2 - emit:r3
+     */
+    relation::graph_type r;
+    auto d = bindings.stream_variable("d");
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(relation::join_find {
+            relation::join_kind::inner,
+            bindings(*i0),
+            {
+                    { t0c, d },
+            },
+            {
+                    relation::join_find::key { t0a, varref { c } },
+                    relation::join_find::key { t0b, varref { c } },
+            },
+    });
+    auto&& r2 = r.insert(limit({ a }));
+    auto&& r3 = r.insert(relation::emit { a, d });
+    r0.output() >> r1.left();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    auto result = find_ordered_source(r2);
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result.get(), &r0);
+}
+
 TEST_F(ordered_relation_test, not_order_preserving) {
     /*
      * scan:r0 - distinct:r1 - limit:r2 - emit:r3
@@ -247,6 +277,38 @@ TEST_F(ordered_relation_test, destination_from_port) {
             path_capability::preserves_order,
             path_capability::at_least_one,
             path_capability::at_most_one,
+    }));
+}
+
+TEST_F(ordered_relation_test, destination_through_join_find) {
+    /*
+     * scan:r0 - join_find[inner]:r1 - limit:r2 - emit:r3
+     */
+    relation::graph_type r;
+    auto d = bindings.stream_variable("d");
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(relation::join_find {
+            relation::join_kind::inner,
+            bindings(*i0),
+            {
+                    { t0c, d },
+            },
+            {
+                    relation::join_find::key { t0a, varref { c } },
+                    relation::join_find::key { t0b, varref { c } },
+            },
+    });
+    auto&& r2 = r.insert(limit({ a }));
+    auto&& r3 = r.insert(relation::emit { a, d });
+    r0.output() >> r1.left();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    auto result = find_ordered_destination(r0);
+    ASSERT_TRUE(result.destination);
+    EXPECT_EQ(result.destination.get(), &r2);
+    EXPECT_EQ(result.capabilities, (path_capability_set {
+            path_capability::preserves_order,
     }));
 }
 

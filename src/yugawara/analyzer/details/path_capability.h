@@ -67,12 +67,16 @@ inline std::ostream& operator<<(std::ostream& out, path_capability value) {
 
 /**
  * @brief returns the capabilities of the path from the input port to the output port.
- * @details This only knows the operators which are required to place `limit` operators to upstream,
- *      and returns an empty set for the other operators.
- *      Currently, this only returns the capabilities of `filter`, `project`,
- *      the left input of left outer joins (`intermediate::join`),
- *      and the primary output of `buffer` which can stop with the primary output
- *      (see `buffer::stop_with_primary()`).
+ * @details This only knows the following paths, and returns an empty set for the others:
+ *
+ *      - `filter`
+ *      - `project`
+ *      - the left input of left outer joins (`intermediate::join`)
+ *      - the left input of index joins (`join_find` and `join_scan`)
+ *      - the primary output of `buffer` which can stop with the primary output
+ *        (see `buffer::stop_with_primary()`)
+ *
+ *      The callers must treat the empty set as the path has no capabilities.
  * @param input the input port of the operator
  * @param output the output port of the same operator
  * @return the capabilities of the path

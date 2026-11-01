@@ -11,6 +11,8 @@
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/buffer.h>
+#include <takatori/relation/join_find.h>
+#include <takatori/relation/join_scan.h>
 
 #include <takatori/relation/intermediate/join.h>
 
@@ -68,6 +70,35 @@ protected:
         r0.output() >> r2.left();
         r1.output() >> r2.right();
         return r2;
+    }
+
+    relation::join_find& add_join_find(relation::graph_type& r, relation::join_kind kind) {
+        auto&& r0 = add_scan(r);
+        auto&& r1 = r.insert(relation::join_find {
+                kind,
+                bindings(*i0),
+                {
+                        { t0c0, bindings.stream_variable("d0") },
+                },
+                {},
+        });
+        r0.output() >> r1.left();
+        return r1;
+    }
+
+    relation::join_scan& add_join_scan(relation::graph_type& r, relation::join_kind kind) {
+        auto&& r0 = add_scan(r);
+        auto&& r1 = r.insert(relation::join_scan {
+                kind,
+                bindings(*i0),
+                {
+                        { t0c0, bindings.stream_variable("d0") },
+                },
+                {},
+                {},
+        });
+        r0.output() >> r1.left();
+        return r1;
     }
 };
 
@@ -151,6 +182,14 @@ TEST_F(path_capability_test, buffer_without_stop_with_primary) {
     EXPECT_EQ(find_path_capabilities(r1.input(), r1.secondary_outputs()[0]), path_capability_set {});
 }
 
+TEST_F(path_capability_test, join_inner) {
+    relation::graph_type r;
+    auto&& j = add_join(r, relation::join_kind::inner);
+
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), path_capability_set {});
+    EXPECT_EQ(find_path_capabilities(j.right(), j.output()), path_capability_set {});
+}
+
 TEST_F(path_capability_test, join_left_outer) {
     relation::graph_type r;
     auto&& j = add_join(r, relation::join_kind::left_outer);
@@ -172,9 +211,68 @@ TEST_F(path_capability_test, join_left_outer_at_most_one) {
     EXPECT_EQ(find_path_capabilities(j.right(), j.output()), path_capability_set {});
 }
 
+TEST_F(path_capability_test, join_find_inner) {
+    relation::graph_type r;
+    auto&& j = add_join_find(r, relation::join_kind::inner);
+
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+            path_capability::preserves_order,
+    }));
+}
+
+TEST_F(path_capability_test, join_find_left_outer) {
+    relation::graph_type r;
+    auto&& j = add_join_find(r, relation::join_kind::left_outer);
+
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+            path_capability::preserves_order,
+            path_capability::at_least_one,
+    }));
+}
+
+TEST_F(path_capability_test, join_find_left_outer_at_most_one) {
+    relation::graph_type r;
+    auto&& j = add_join_find(r, relation::join_kind::left_outer_at_most_one);
+
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+            path_capability::preserves_order,
+            path_capability::at_least_one,
+            path_capability::at_most_one,
+    }));
+}
+
+TEST_F(path_capability_test, join_scan_inner) {
+    relation::graph_type r;
+    auto&& j = add_join_scan(r, relation::join_kind::inner);
+
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+            path_capability::preserves_order,
+    }));
+}
+
+TEST_F(path_capability_test, join_scan_left_outer) {
+    relation::graph_type r;
+    auto&& j = add_join_scan(r, relation::join_kind::left_outer);
+
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+            path_capability::preserves_order,
+            path_capability::at_least_one,
+    }));
+}
+
+TEST_F(path_capability_test, join_scan_left_outer_at_most_one) {
+    relation::graph_type r;
+    auto&& j = add_join_scan(r, relation::join_kind::left_outer_at_most_one);
+
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+            path_capability::preserves_order,
+            path_capability::at_least_one,
+            path_capability::at_most_one,
+    }));
+}
+
 TEST_F(path_capability_test, join_others) {
     for (auto kind : {
-            relation::join_kind::inner,
             relation::join_kind::full_outer,
             relation::join_kind::semi,
             relation::join_kind::anti,

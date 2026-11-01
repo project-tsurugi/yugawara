@@ -4,6 +4,8 @@
 
 #include <takatori/relation/buffer.h>
 #include <takatori/relation/filter.h>
+#include <takatori/relation/join_find.h>
+#include <takatori/relation/join_scan.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/intermediate/join.h>
 
@@ -24,6 +26,9 @@ path_capability_set find_join_capabilities(
         return {};
     }
     switch (expr.operator_kind()) {
+        case relation::join_kind::inner:
+            // NOTE: inner joins may drop or duplicate the left input rows
+            return {};
         case relation::join_kind::left_outer:
             return {
                     path_capability::at_least_one,
@@ -52,6 +57,29 @@ path_capability_set find_buffer_capabilities(
     };
 }
 
+path_capability_set find_index_join_capabilities(relation::join_kind kind) {
+    // NOTE: index joins emit the result rows of each left input row in order
+    switch (kind) {
+        case relation::join_kind::inner:
+            return {
+                    path_capability::preserves_order,
+            };
+        case relation::join_kind::left_outer:
+            return {
+                    path_capability::preserves_order,
+                    path_capability::at_least_one,
+            };
+        case relation::join_kind::left_outer_at_most_one:
+            return {
+                    path_capability::preserves_order,
+                    path_capability::at_least_one,
+                    path_capability::at_most_one,
+            };
+        default:
+            return {};
+    }
+}
+
 } // namespace
 
 path_capability_set find_path_capabilities(
@@ -75,6 +103,10 @@ path_capability_set find_path_capabilities(
             };
         case relation::buffer::tag:
             return find_buffer_capabilities(unsafe_downcast<relation::buffer>(owner), output);
+        case relation::join_find::tag:
+            return find_index_join_capabilities(unsafe_downcast<relation::join_find>(owner).operator_kind());
+        case relation::join_scan::tag:
+            return find_index_join_capabilities(unsafe_downcast<relation::join_scan>(owner).operator_kind());
         case relation::intermediate::join::tag:
             return find_join_capabilities(unsafe_downcast<relation::intermediate::join>(owner), input);
         default:
