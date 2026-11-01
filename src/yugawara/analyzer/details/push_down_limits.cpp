@@ -78,7 +78,8 @@ optional_ptr<relation::expression::input_port_type> find_move_destination(
     auto&& input = inputs[0];
     auto capabilities = find_path_capabilities(input, upstream);
     if (!capabilities.contains(path_capability::preserves_order)
-            || !capabilities.contains(path_capability::exactly_one)
+            || !capabilities.contains(path_capability::at_least_one)
+            || !capabilities.contains(path_capability::at_most_one)
             || depends_on(expr, owner)) {
         return {};
     }

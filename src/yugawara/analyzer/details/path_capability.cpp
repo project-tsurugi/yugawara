@@ -3,6 +3,7 @@
 #include <memory>
 
 #include <takatori/relation/buffer.h>
+#include <takatori/relation/filter.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/intermediate/join.h>
 
@@ -30,7 +31,7 @@ path_capability_set find_join_capabilities(
         case relation::join_kind::left_outer_at_most_one:
             return {
                     path_capability::at_least_one,
-                    path_capability::exactly_one,
+                    path_capability::at_most_one,
             };
         default:
             return {};
@@ -47,7 +48,7 @@ path_capability_set find_buffer_capabilities(
     return {
             path_capability::preserves_order,
             path_capability::at_least_one,
-            path_capability::exactly_one,
+            path_capability::at_most_one,
     };
 }
 
@@ -61,11 +62,16 @@ path_capability_set find_path_capabilities(
         return {};
     }
     switch (owner.kind()) {
+        case relation::filter::tag:
+            return {
+                    path_capability::preserves_order,
+                    path_capability::at_most_one,
+            };
         case relation::project::tag:
             return {
                     path_capability::preserves_order,
                     path_capability::at_least_one,
-                    path_capability::exactly_one,
+                    path_capability::at_most_one,
             };
         case relation::buffer::tag:
             return find_buffer_capabilities(unsafe_downcast<relation::buffer>(owner), output);

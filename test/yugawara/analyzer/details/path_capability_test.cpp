@@ -86,7 +86,7 @@ TEST_F(path_capability_test, project) {
     EXPECT_EQ(result, (path_capability_set {
             path_capability::preserves_order,
             path_capability::at_least_one,
-            path_capability::exactly_one,
+            path_capability::at_most_one,
     }));
 }
 
@@ -99,7 +99,10 @@ TEST_F(path_capability_test, filter) {
     r0.output() >> r1.input();
 
     auto result = find_path_capabilities(r1.input(), r1.output());
-    EXPECT_EQ(result, path_capability_set {});
+    EXPECT_EQ(result, (path_capability_set {
+            path_capability::preserves_order,
+            path_capability::at_most_one,
+    }));
 }
 
 TEST_F(path_capability_test, different_operators) {
@@ -133,7 +136,7 @@ TEST_F(path_capability_test, buffer_stop_with_primary) {
     EXPECT_EQ(find_path_capabilities(r1.input(), r1.primary_output()), (path_capability_set {
             path_capability::preserves_order,
             path_capability::at_least_one,
-            path_capability::exactly_one,
+            path_capability::at_most_one,
     }));
     EXPECT_EQ(find_path_capabilities(r1.input(), r1.secondary_outputs()[0]), path_capability_set {});
 }
@@ -164,7 +167,7 @@ TEST_F(path_capability_test, join_left_outer_at_most_one) {
 
     EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
             path_capability::at_least_one,
-            path_capability::exactly_one,
+            path_capability::at_most_one,
     }));
     EXPECT_EQ(find_path_capabilities(j.right(), j.output()), path_capability_set {});
 }

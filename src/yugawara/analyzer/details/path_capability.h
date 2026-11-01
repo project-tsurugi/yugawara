@@ -13,7 +13,9 @@ namespace yugawara::analyzer::details {
 
 /**
  * @brief represents a capability of the path from an input port to an output port of the same operator.
- * @details The capabilities are used to decide whether `limit` operators can be placed to upstream of the operator.
+ * @details The capabilities are used to decide whether `limit` operators can be placed to upstream of the operator,
+ *      and whether the row order can be traced over the operator.
+ *      If a path has both `at_least_one` and `at_most_one`, each input row becomes exactly one output row.
  */
 enum class path_capability {
     /**
@@ -25,8 +27,8 @@ enum class path_capability {
     /// @brief each input row becomes one or more output rows, with keeping the values of its columns.
     at_least_one,
 
-    /// @brief each input row becomes exactly one output row, with keeping the values of its columns.
-    exactly_one,
+    /// @brief each input row becomes zero or one output row, with keeping the values of its columns.
+    at_most_one,
 };
 
 /**
@@ -35,7 +37,7 @@ enum class path_capability {
 using path_capability_set = ::takatori::util::enum_set<
         path_capability,
         path_capability::preserves_order,
-        path_capability::exactly_one>;
+        path_capability::at_most_one>;
 
 /**
  * @brief returns string representation of the value.
@@ -48,7 +50,7 @@ inline constexpr std::string_view to_string_view(path_capability value) noexcept
     switch (value) {
         case kind::preserves_order: return "preserves_order"sv;
         case kind::at_least_one: return "at_least_one"sv;
-        case kind::exactly_one: return "exactly_one"sv;
+        case kind::at_most_one: return "at_most_one"sv;
     }
     std::abort();
 }
@@ -67,7 +69,7 @@ inline std::ostream& operator<<(std::ostream& out, path_capability value) {
  * @brief returns the capabilities of the path from the input port to the output port.
  * @details This only knows the operators which are required to place `limit` operators to upstream,
  *      and returns an empty set for the other operators.
- *      Currently, this only returns the capabilities of `project`,
+ *      Currently, this only returns the capabilities of `filter`, `project`,
  *      the left input of left outer joins (`intermediate::join`),
  *      and the primary output of `buffer` which can stop with the primary output
  *      (see `buffer::stop_with_primary()`).
