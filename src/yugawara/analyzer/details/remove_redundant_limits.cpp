@@ -72,7 +72,7 @@ private:
     [[nodiscard]] ::takatori::util::optional_ptr<relation::intermediate::limit> find_redundant_limit(
             relation::scan& scan) const {
         auto path = find_ordered_destination(scan);
-        auto&& destination = path.destination;
+        auto&& destination = path.end;
         if (!destination || destination->kind() != relation::intermediate::limit::tag) {
             return {};
         }

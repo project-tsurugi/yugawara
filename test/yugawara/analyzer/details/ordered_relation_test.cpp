@@ -189,8 +189,8 @@ TEST_F(ordered_relation_test, destination) {
     r1.output() >> r2.input();
 
     auto result = find_ordered_destination(r1);
-    ASSERT_TRUE(result.destination);
-    EXPECT_EQ(result.destination.get(), &r2);
+    ASSERT_TRUE(result.end);
+    EXPECT_EQ(result.end.get(), &r2);
     EXPECT_EQ(result.capabilities, (path_capability_set {
             path_capability::preserves_order,
             path_capability::at_least_one,
@@ -219,8 +219,8 @@ TEST_F(ordered_relation_test, destination_through_filter_project) {
     r3.output() >> r4.input();
 
     auto result = find_ordered_destination(r1);
-    ASSERT_TRUE(result.destination);
-    EXPECT_EQ(result.destination.get(), &r4);
+    ASSERT_TRUE(result.end);
+    EXPECT_EQ(result.end.get(), &r4);
     EXPECT_EQ(result.capabilities, (path_capability_set {
             path_capability::preserves_order,
             path_capability::at_most_one,
@@ -242,8 +242,8 @@ TEST_F(ordered_relation_test, destination_through_project) {
     r1.output() >> r2.input();
 
     auto result = find_ordered_destination(r0);
-    ASSERT_TRUE(result.destination);
-    EXPECT_EQ(result.destination.get(), &r2);
+    ASSERT_TRUE(result.end);
+    EXPECT_EQ(result.end.get(), &r2);
     EXPECT_EQ(result.capabilities, (path_capability_set {
             path_capability::preserves_order,
             path_capability::at_least_one,
@@ -271,8 +271,8 @@ TEST_F(ordered_relation_test, destination_from_port) {
     r2.output() >> r3.input();
 
     auto result = find_ordered_destination(r1.output());
-    ASSERT_TRUE(result.destination);
-    EXPECT_EQ(result.destination.get(), &r3);
+    ASSERT_TRUE(result.end);
+    EXPECT_EQ(result.end.get(), &r3);
     EXPECT_EQ(result.capabilities, (path_capability_set {
             path_capability::preserves_order,
             path_capability::at_least_one,
@@ -305,8 +305,8 @@ TEST_F(ordered_relation_test, destination_through_join_find) {
     r2.output() >> r3.input();
 
     auto result = find_ordered_destination(r0);
-    ASSERT_TRUE(result.destination);
-    EXPECT_EQ(result.destination.get(), &r2);
+    ASSERT_TRUE(result.end);
+    EXPECT_EQ(result.end.get(), &r2);
     EXPECT_EQ(result.capabilities, (path_capability_set {
             path_capability::preserves_order,
     }));
@@ -326,8 +326,8 @@ TEST_F(ordered_relation_test, destination_not_order_preserving) {
     r2.output() >> r3.input();
 
     auto result = find_ordered_destination(r1);
-    ASSERT_TRUE(result.destination);
-    EXPECT_EQ(result.destination.get(), &r2);
+    ASSERT_TRUE(result.end);
+    EXPECT_EQ(result.end.get(), &r2);
 }
 
 TEST_F(ordered_relation_test, direction) {

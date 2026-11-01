@@ -90,7 +90,7 @@ struct order_request {
     auto path = filters.empty()
             ? find_ordered_destination(expr)
             : find_ordered_destination(filters.back()->output());
-    auto&& destination = path.destination;
+    auto&& destination = path.end;
     if (!destination || destination->kind() != relation::intermediate::limit::tag) {
         return {};
     }

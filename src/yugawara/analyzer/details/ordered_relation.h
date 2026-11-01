@@ -21,8 +21,8 @@ namespace yugawara::analyzer::details {
  * @see find_ordered_destination(::takatori::relation::expression::output_port_type&)
  */
 struct ordered_path {
-    /// @brief the first operator which does not preserve the row order, or empty if the path is not connected.
-    ::takatori::util::optional_ptr<::takatori::relation::expression> destination {};
+    /// @brief the first operator out of the path in the walking direction, or empty if the path is not connected.
+    ::takatori::util::optional_ptr<::takatori::relation::expression> end {};
 
     /// @brief the intersection of the capabilities of the operators in the path (see find_path_capabilities()).
     path_capability_set capabilities {};
@@ -51,7 +51,7 @@ struct ordered_path {
  *      for example, the `emit` operator depends on it only if it requires to preserve the input order.
  *      If the path is empty, the capabilities contain all `path_capability` values.
  * @param output the output port where the path starts
- * @return the path, whose destination is empty if the path is not connected to any operators
+ * @return the path, whose end is empty if the path is not connected to any operators
  */
 [[nodiscard]] ordered_path find_ordered_destination(::takatori::relation::expression::output_port_type& output);
 
