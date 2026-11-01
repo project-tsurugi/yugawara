@@ -60,7 +60,7 @@ struct order_request {
 };
 
 [[nodiscard]] std::optional<order_request> find_order_request(relation::scan& expr) {
-    auto destination = find_ordered_destination(expr);
+    auto destination = find_ordered_destination(expr).destination;
     if (!destination || destination->kind() != relation::intermediate::limit::tag) {
         return {};
     }

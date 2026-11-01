@@ -159,8 +159,13 @@ TEST_F(ordered_relation_test, destination) {
     r1.output() >> r2.input();
 
     auto result = find_ordered_destination(r1);
-    ASSERT_TRUE(result);
-    EXPECT_EQ(result.get(), &r2);
+    ASSERT_TRUE(result.destination);
+    EXPECT_EQ(result.destination.get(), &r2);
+    EXPECT_EQ(result.capabilities, (path_capability_set {
+            path_capability::preserves_order,
+            path_capability::at_least_one,
+            path_capability::at_most_one,
+    }));
 }
 
 TEST_F(ordered_relation_test, destination_through_filter_project) {
@@ -184,8 +189,65 @@ TEST_F(ordered_relation_test, destination_through_filter_project) {
     r3.output() >> r4.input();
 
     auto result = find_ordered_destination(r1);
-    ASSERT_TRUE(result);
-    EXPECT_EQ(result.get(), &r4);
+    ASSERT_TRUE(result.destination);
+    EXPECT_EQ(result.destination.get(), &r4);
+    EXPECT_EQ(result.capabilities, (path_capability_set {
+            path_capability::preserves_order,
+            path_capability::at_most_one,
+    }));
+}
+
+TEST_F(ordered_relation_test, destination_through_project) {
+    /*
+     * scan:r0 - project:r1 - emit:r2
+     */
+    relation::graph_type r;
+    auto d = bindings.stream_variable("d");
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(relation::project {
+            relation::project::column { constant(), d },
+    });
+    auto&& r2 = r.insert(relation::emit { a, d });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    auto result = find_ordered_destination(r0);
+    ASSERT_TRUE(result.destination);
+    EXPECT_EQ(result.destination.get(), &r2);
+    EXPECT_EQ(result.capabilities, (path_capability_set {
+            path_capability::preserves_order,
+            path_capability::at_least_one,
+            path_capability::at_most_one,
+    }));
+}
+
+TEST_F(ordered_relation_test, destination_from_port) {
+    /*
+     * scan:r0 - filter:r1 - project:r2 - emit:r3
+     * (starts from the output of r1)
+     */
+    relation::graph_type r;
+    auto d = bindings.stream_variable("d");
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(relation::filter {
+            compare(varref { c }, constant(1)),
+    });
+    auto&& r2 = r.insert(relation::project {
+            relation::project::column { constant(), d },
+    });
+    auto&& r3 = r.insert(relation::emit { a, d });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    auto result = find_ordered_destination(r1.output());
+    ASSERT_TRUE(result.destination);
+    EXPECT_EQ(result.destination.get(), &r3);
+    EXPECT_EQ(result.capabilities, (path_capability_set {
+            path_capability::preserves_order,
+            path_capability::at_least_one,
+            path_capability::at_most_one,
+    }));
 }
 
 TEST_F(ordered_relation_test, destination_not_order_preserving) {
@@ -202,8 +264,8 @@ TEST_F(ordered_relation_test, destination_not_order_preserving) {
     r2.output() >> r3.input();
 
     auto result = find_ordered_destination(r1);
-    ASSERT_TRUE(result);
-    EXPECT_EQ(result.get(), &r2);
+    ASSERT_TRUE(result.destination);
+    EXPECT_EQ(result.destination.get(), &r2);
 }
 
 TEST_F(ordered_relation_test, direction) {

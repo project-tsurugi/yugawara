@@ -580,7 +580,7 @@ private:
         }
         // NOTE: the input order decides which rows are in the slice
         plan::forward::ordering_type result { plan::forward_ordering::respect_input };
-        if (depends_on_order(find_ordered_destination(expr))) {
+        if (depends_on_order(find_ordered_destination(expr).destination)) {
             result.insert(plan::forward_ordering::preserve_output);
         }
         return result;

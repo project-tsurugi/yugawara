@@ -12,12 +12,27 @@
 
 #include <yugawara/storage/details/index_key_element.h>
 
+#include "path_capability.h"
+
 namespace yugawara::analyzer::details {
 
 /**
+ * @brief represents a path which preserves the row order, and the operator just after the path.
+ * @see find_ordered_destination(::takatori::relation::expression::output_port_type&)
+ */
+struct ordered_path {
+    /// @brief the first operator which does not preserve the row order, or empty if the path is not connected.
+    ::takatori::util::optional_ptr<::takatori::relation::expression> destination {};
+
+    /// @brief the intersection of the capabilities of the operators in the path (see find_path_capabilities()).
+    path_capability_set capabilities {};
+};
+
+/**
  * @brief returns the upstream `scan` operator, which can be the source of the row order of the given `limit`.
- * @details This walks from the `limit` to upstream only through the operators which preserve the row order
- *      (`filter` and `project`), and returns the `scan` operator if it reaches.
+ * @details This walks from the `limit` to upstream only through the operators which have exactly one input and
+ *      one output, and whose path preserves the row order (see find_path_capabilities()),
+ *      and returns the `scan` operator if it reaches.
  *      This never considers whether or not the `scan` actually provides the rows in the order of the `limit`.
  * @param expr the target `limit` operator
  * @return the source `scan` operator
@@ -28,31 +43,33 @@ namespace yugawara::analyzer::details {
         ::takatori::relation::intermediate::limit& expr);
 
 /**
- * @brief returns the downstream operator, whose behavior may depend on the row order of the given `limit`.
- * @details This walks from the `limit` to downstream only through the operators which preserve the row order
- *      (`filter` and `project`), and returns the first operator which does not preserve the row order.
- *      This never considers whether or not the operator actually depends on the row order,
+ * @brief returns the path from the given output port to downstream, which preserves the row order.
+ * @details This walks from the output port to downstream only through the operators which have exactly one input
+ *      and one output, and whose path preserves the row order (see find_path_capabilities()),
+ *      and returns the first operator which does not satisfy them, with the capabilities of the path.
+ *      This never considers whether or not the destination operator actually depends on the row order,
  *      for example, the `emit` operator depends on it only if it requires to preserve the input order.
- * @param expr the target `limit` operator
- * @return the destination operator
- * @return empty if there is no such the operator
- * @see find_ordered_source()
+ *      If the path is empty, the capabilities contain all `path_capability` values.
+ * @param output the output port where the path starts
+ * @return the path, whose destination is empty if the path is not connected to any operators
  */
-[[nodiscard]] ::takatori::util::optional_ptr<::takatori::relation::expression> find_ordered_destination(
-        ::takatori::relation::intermediate::limit& expr);
+[[nodiscard]] ordered_path find_ordered_destination(::takatori::relation::expression::output_port_type& output);
 
 /**
- * @brief returns the downstream operator of the given `scan`, which may be affected by the row count and order of it.
- * @details This walks from the `scan` to downstream only through the operators which preserve the row order and
- *      never increase the number of rows (`filter` and `project`),
- *      and returns the first operator which does not satisfy them.
- * @param expr the target `scan` operator
- * @return the destination operator
- * @return empty if there is no such the operator
- * @see find_ordered_destination(::takatori::relation::intermediate::limit&)
+ * @brief returns the path from the given `limit` to downstream, which preserves the row order.
+ * @param expr the target `limit` operator
+ * @return the path from the output of the `limit`
+ * @see find_ordered_destination(::takatori::relation::expression::output_port_type&)
  */
-[[nodiscard]] ::takatori::util::optional_ptr<::takatori::relation::expression> find_ordered_destination(
-        ::takatori::relation::scan& expr);
+[[nodiscard]] ordered_path find_ordered_destination(::takatori::relation::intermediate::limit& expr);
+
+/**
+ * @brief returns the path from the given `scan` to downstream, which preserves the row order.
+ * @param expr the target `scan` operator
+ * @return the path from the output of the `scan`
+ * @see find_ordered_destination(::takatori::relation::expression::output_port_type&)
+ */
+[[nodiscard]] ordered_path find_ordered_destination(::takatori::relation::scan& expr);
 
 /**
  * @brief returns the sort keys of the given `limit`, as the columns of the given `scan`.

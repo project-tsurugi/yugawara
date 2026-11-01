@@ -4,9 +4,6 @@
 #include <functional>
 #include <vector>
 
-#include <takatori/relation/filter.h>
-#include <takatori/relation/project.h>
-
 #include <takatori/util/downcast.h>
 
 #include <yugawara/binding/extract.h>
@@ -29,16 +26,14 @@ using column_ref = std::reference_wrapper<storage::column const>;
 
 namespace {
 
-// NOTE: each order preserving operator must have exactly one input and one output,
-// and must not increase the number of rows
-bool is_order_preserving(relation::expression const& expr) noexcept {
-    switch (expr.kind()) {
-        case relation::filter::tag:
-        case relation::project::tag:
-            return true;
-        default:
-            return false;
+path_capability_set find_single_path_capabilities(relation::expression const& expr) {
+    // NOTE: each order preserving operator must have exactly one input and one output
+    auto&& inputs = expr.input_ports();
+    auto&& outputs = expr.output_ports();
+    if (inputs.size() != 1 || outputs.size() != 1) {
+        return {};
     }
+    return find_path_capabilities(inputs[0], outputs[0]);
 }
 
 optional_ptr<relation::expression> find_upstream(relation::expression::input_port_type& port) {
@@ -88,7 +83,7 @@ std::vector<column_ref> collect_fixed_columns(relation::scan const& scan) {
 
 optional_ptr<relation::scan> find_ordered_source(relation::intermediate::limit& expr) {
     auto current = find_upstream(expr.input());
-    while (current && is_order_preserving(*current)) {
+    while (current && find_single_path_capabilities(*current).contains(path_capability::preserves_order)) {
         current = find_upstream(current->input_ports()[0]);
     }
     if (current && current->kind() == relation::scan::tag) {
@@ -97,23 +92,32 @@ optional_ptr<relation::scan> find_ordered_source(relation::intermediate::limit& 
     return {};
 }
 
-namespace {
-
-optional_ptr<relation::expression> find_ordered_destination(relation::expression::output_port_type& output) {
+ordered_path find_ordered_destination(relation::expression::output_port_type& output) {
+    path_capability_set capabilities {
+            path_capability::preserves_order,
+            path_capability::at_least_one,
+            path_capability::at_most_one,
+    };
     auto current = find_downstream(output);
-    while (current && is_order_preserving(*current)) {
+    while (current) {
+        auto found = find_single_path_capabilities(*current);
+        if (!found.contains(path_capability::preserves_order)) {
+            break;
+        }
+        capabilities &= found;
         current = find_downstream(current->output_ports()[0]);
     }
-    return current;
+    return {
+            current,
+            capabilities,
+    };
 }
 
-} // namespace
-
-optional_ptr<relation::expression> find_ordered_destination(relation::intermediate::limit& expr) {
+ordered_path find_ordered_destination(relation::intermediate::limit& expr) {
     return find_ordered_destination(expr.output());
 }
 
-optional_ptr<relation::expression> find_ordered_destination(relation::scan& expr) {
+ordered_path find_ordered_destination(relation::scan& expr) {
     return find_ordered_destination(expr.output());
 }
 
