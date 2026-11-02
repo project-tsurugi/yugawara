@@ -3,11 +3,13 @@
 #include <gtest/gtest.h>
 
 #include <takatori/type/primitive.h>
+#include <takatori/type/table.h>
 
 #include <takatori/scalar/binary.h>
 
 #include <takatori/relation/graph.h>
 #include <takatori/relation/scan.h>
+#include <takatori/relation/apply.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/buffer.h>
@@ -1015,6 +1017,63 @@ TEST_F(push_down_limits_test, left_outer_join_partial_over_project) {
     ASSERT_TRUE(p);
     EXPECT_GT(r0.output(), p->input());
     EXPECT_EQ(p->sort_keys(), (std::vector<relation::intermediate::limit::sort_key> { c0 }));
+    EXPECT_GT(r3.output(), r4.input());
+}
+
+TEST_F(push_down_limits_test, left_outer_join_partial_over_apply) {
+    /*
+     * scan:r0 - apply:r1 -\
+     * scan:r2 ------------ join[left_outer]:r3 - limit:r4[c0](3) - emit:r5
+     * =>
+     * scan:r0 - apply:r1 - limit:p[c0](3) -\
+     * scan:r2 ----------------------------- join[left_outer]:r3 - limit:r4[c0](3) - emit:r5
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& tvf = bindings.function({
+            function::declaration::minimum_user_function_id + 1,
+            "tvf",
+            ::takatori::type::table {
+                    { "o1", ::takatori::type::int8 {} },
+            },
+            {
+                    ::takatori::type::int8 {},
+            },
+            {
+                    function::function_feature::table_valued_function,
+            },
+    });
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r1 = r.insert(relation::apply {
+            tvf,
+            {
+                    varref { c1 },
+            },
+            {
+                    { 0, x0 },
+            },
+    });
+    auto&& r2 = add_scan1(r);
+    auto&& r3 = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+    });
+    auto&& r4 = r.insert(limit({ c0 }));
+    auto&& r5 = r.insert(relation::emit { c0, x0, d0 });
+    r0.output() >> r1.input();
+    r1.output() >> r3.left();
+    r2.output() >> r3.right();
+    r3.output() >> r4.input();
+    r4.output() >> r5.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 7);
+    auto p = upstream_limit(r3.left());
+    ASSERT_TRUE(p);
+    EXPECT_GT(r1.output(), p->input());
+    EXPECT_EQ(p->sort_keys(), (std::vector<relation::intermediate::limit::sort_key> { c0 }));
+    EXPECT_EQ(p->row_slice(), row_slice(3));
+    EXPECT_GT(r0.output(), r1.input());
     EXPECT_GT(r3.output(), r4.input());
 }
 

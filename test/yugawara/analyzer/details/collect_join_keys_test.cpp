@@ -2,8 +2,12 @@
 
 #include <gtest/gtest.h>
 
+#include <takatori/type/primitive.h>
+#include <takatori/type/table.h>
+
 #include <takatori/relation/graph.h>
 #include <takatori/relation/scan.h>
+#include <takatori/relation/apply.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/emit.h>
 #include <takatori/relation/intermediate/join.h>
@@ -154,6 +158,73 @@ TEST_F(collect_join_keys_test, cogroup) {
     ASSERT_EQ(join.upper().keys().size(), 1);
     EXPECT_EQ(join.upper().keys()[0].variable(), cr0);
     EXPECT_EQ(join.upper().keys()[0].value(), varref(cl0));
+
+    EXPECT_EQ(join.condition(), nullptr);
+}
+
+TEST_F(collect_join_keys_test, cogroup_over_apply) {
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto&& inl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), cl0 },
+            },
+    });
+    auto&& tvf = bindings.function({
+            function::declaration::minimum_user_function_id + 1,
+            "tvf",
+            ::takatori::type::table {
+                    { "o1", ::takatori::type::int8 {} },
+            },
+            {
+                    ::takatori::type::int8 {},
+            },
+            {
+                    function::function_feature::table_valued_function,
+            },
+    });
+    auto ca0 = bindings.stream_variable("ca0");
+    auto&& app = r.insert(relation::apply {
+            tvf,
+            {
+                    varref(cl0),
+            },
+            {
+                    { 0, ca0 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto&& inr = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), cr0 },
+            },
+    });
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::full_outer,
+            compare(ca0, cr0),
+    });
+
+    auto&& out = r.insert(relation::emit { ca0, cr0 });
+    inl.output() >> app.input();
+    app.output() >> join.left();
+    inr.output() >> join.right();
+    join.output() >> out.input();
+
+    apply(r);
+    EXPECT_GT(app.output(), join.left());
+    EXPECT_GT(inr.output(), join.right());
+
+    EXPECT_EQ(join.lower().kind(), endpoint_kind::prefixed_inclusive);
+    ASSERT_EQ(join.lower().keys().size(), 1);
+    EXPECT_EQ(join.lower().keys()[0].variable(), cr0);
+    EXPECT_EQ(join.lower().keys()[0].value(), varref(ca0));
+
+    EXPECT_EQ(join.upper().kind(), endpoint_kind::prefixed_inclusive);
+    ASSERT_EQ(join.upper().keys().size(), 1);
+    EXPECT_EQ(join.upper().keys()[0].variable(), cr0);
+    EXPECT_EQ(join.upper().keys()[0].value(), varref(ca0));
 
     EXPECT_EQ(join.condition(), nullptr);
 }

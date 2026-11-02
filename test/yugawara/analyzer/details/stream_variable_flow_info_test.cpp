@@ -2,6 +2,9 @@
 
 #include <gtest/gtest.h>
 
+#include <takatori/type/primitive.h>
+#include <takatori/type/table.h>
+
 #include <takatori/scalar/binary.h>
 #include <takatori/scalar/compare.h>
 
@@ -11,6 +14,7 @@
 #include <takatori/relation/values.h>
 #include <takatori/relation/join_scan.h>
 #include <takatori/relation/join_find.h>
+#include <takatori/relation/apply.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/buffer.h>
@@ -504,6 +508,63 @@ TEST_F(stream_variable_flow_info_test, buffer) {
     EXPECT_EQ(e1->originator(), r0);
     EXPECT_EQ(e1->find(c1), r0);
     EXPECT_EQ(e1->find(c2), r0);
+}
+
+TEST_F(stream_variable_flow_info_test, apply) {
+    /*
+     * scan:r0 - apply:r1 - ...
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+                    { t0c2, c2 },
+            },
+    });
+    auto&& tvf = bindings.function({
+            function::declaration::minimum_user_function_id + 1,
+            "tvf",
+            ::takatori::type::table {
+                    { "o1", ::takatori::type::int8 {} },
+                    { "o2", ::takatori::type::int8 {} },
+            },
+            {
+                    ::takatori::type::int8 {},
+            },
+            {
+                    function::function_feature::table_valued_function,
+            },
+    });
+    auto x0 = bindings.stream_variable("x0");
+    auto x1 = bindings.stream_variable("x1");
+    auto&& r1 = r.insert(relation::apply {
+            tvf,
+            {
+                    scalar::variable_reference { c0 },
+            },
+            {
+                    { 0, x0 },
+                    { 1, x1 },
+            },
+    });
+    r0.output() >> r1.input();
+
+    auto&& input = connect(r1.output());
+
+    stream_variable_flow_info info;
+    auto&& entry = info.find(x0, input);
+    ASSERT_TRUE(entry);
+
+    EXPECT_EQ(entry->originator(), r0);
+    EXPECT_EQ(entry->find(c1), r0);
+    EXPECT_EQ(entry->find(c2), r0);
+    EXPECT_EQ(entry->find(x0), r1);
+    EXPECT_EQ(entry->find(x1), r1);
 }
 
 TEST_F(stream_variable_flow_info_test, identify) {

@@ -103,6 +103,13 @@ public:
         // continue
     }
 
+    void operator()(relation::apply const& expr) {
+        for (auto&& column : expr.columns()) {
+            entry_.declare(column.variable(), expr);
+        }
+        // continue
+    }
+
     void operator()(relation::identify const& expr) {
         entry_.declare(expr.variable(), expr);
         // continue

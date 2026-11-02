@@ -1034,6 +1034,77 @@ TEST_F(push_down_filters_test, apply_flush_use_left_right) {
     EXPECT_EQ(rf.condition(), boolean(true));
 }
 
+TEST_F(push_down_filters_test, apply_join_relation_inner) {
+    /*
+     * scan:r0 - apply:r1 -\
+     *                      join_relation:rj - ...
+     * scan:rr ------------/
+     * join condition refers the apply columns
+     */
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto cl1 = bindings.stream_variable("cl1");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, cl0 },
+                    { t0c1, cl1 },
+            },
+    });
+    auto ca0 = bindings.stream_variable("ca0");
+    auto ca1 = bindings.stream_variable("ca1");
+    auto&& tvf = bindings.function({
+            function::declaration::minimum_user_function_id + 1,
+            "tvf",
+            ::takatori::type::table {
+                    { "o1", ::takatori::type::int8 {} },
+                    { "o2", ::takatori::type::int8 {} },
+            },
+            {
+                    ::takatori::type::int8 {},
+            },
+            {
+                    function::function_feature::table_valued_function,
+            },
+    });
+    auto&& r1 = r.insert(relation::apply {
+            tvf,
+            {
+                    scalar::variable_reference { cl1 }
+            },
+            {
+                    { 0, ca0 },
+                    { 1, ca1 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto&& rr = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { t1c0, cr0 },
+                    { t1c1, cr1 },
+            },
+    });
+    auto&& rj = r.insert(relation::intermediate::join {
+            relation::join_kind::inner,
+            compare(varref(ca0), constant(1)),
+    });
+    r0.output() >> r1.input();
+    r1.output() >> rj.left();
+    rr.output() >> rj.right();
+
+    connect(rj.output());
+    apply(r);
+
+    ASSERT_EQ(r.size(), 6);
+    auto&& f0 = next<relation::filter>(r1.output());
+    EXPECT_GT(f0.output(), rj.left());
+
+    EXPECT_EQ(f0.condition(), compare(varref(ca0), constant(1)));
+    EXPECT_EQ(rj.condition(), boolean(true));
+}
+
 TEST_F(push_down_filters_test, project_flush) {
     /*
      * scan:r0 - project:r1 - filter:rf - ...
