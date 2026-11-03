@@ -31,6 +31,9 @@ namespace yugawara::analyzer::details {
  *      The partial limit is moved over the upstream operators in the same way,
  *      but it is moved instead of copied if it reaches the paths above,
  *      because the original `limit` is kept in the downstream.
+ * @attention The graph must not contain the `filter` operators whose condition is just `TRUE`
+ *      (see remove_redundant_conditions()), because this treats them as the regular `filter` operators,
+ *      and then they stop moving `limit` operators.
  * @note This may reduce the number of rows that `project` evaluates,
  *      so that the errors in evaluating the dropped rows will not be raised.
  * @param graph the target graph

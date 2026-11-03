@@ -14,6 +14,10 @@ namespace yugawara::analyzer::details {
  * @details This only rewrites `join_relation` without any key pairs nor endpoint conditions,
  *      and will retain `scan` with bounds or `find`.
  *      This never rewrite `join_relation` into `join_{scan,find}`.
+ * @attention The graph must not contain the `filter` operators whose condition is just `TRUE`
+ *      (see remove_redundant_conditions()), because this treats them as the regular `filter` operators,
+ *      and then they prevent rewriting the joins which require their right input to be `scan` directly
+ *      (e.g. left outer joins).
  * @param graph the target graph
  * @param index_estimator the index estimator
  * @param parameters the parameters to choose an index from the estimations

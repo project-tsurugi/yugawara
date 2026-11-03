@@ -19,6 +19,10 @@ namespace yugawara::analyzer::details {
  *      even if the `scan` does not have any conditions.
  *      Note that this only selects the index, and absorb_limits() sets the direction and the row count to the `scan`
  *      later.
+ * @attention The graph must not contain the `filter` operators whose condition is just `TRUE`
+ *      except ones directly following the `scan` operators (see remove_redundant_conditions()),
+ *      because this treats them as the regular `filter` operators in the path to the downstream `limit`,
+ *      and then it may not consider the indices which can stop reading rows early.
  * @param graph the target graph
  * @param index_estimator the index estimator
  * @param parameters the parameters to choose an index from the estimations

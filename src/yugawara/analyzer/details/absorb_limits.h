@@ -30,6 +30,9 @@ namespace yugawara::analyzer::details {
  *      and the `limit` without the row count will be removed (see remove_redundant_limits()).
  *
  *      The `limit` operators are retained, so that the downstream operators are not changed.
+ * @attention The graph must not contain the `filter` operators whose condition is just `TRUE`
+ *      (see remove_redundant_conditions()), because this treats them as the regular `filter` operators
+ *      in the path from the `scan` to the `limit`.
  * @param graph the target graph
  * @param features the available runtime features
  * @see find_ordered_source()

@@ -22,6 +22,9 @@ namespace yugawara::analyzer::details {
  *        - if the `limit` has sort keys, reading the `scan` in its direction provides the rows in the order
  *          (requires runtime_feature::ordered_scan)
  *
+ * @attention The graph must not contain the `filter` operators whose condition is just `TRUE`
+ *      (see remove_redundant_conditions()), because this treats them as the regular `filter` operators
+ *      in the path from the `scan` to the `limit`.
  * @param graph the target graph
  * @param features the available runtime features
  * @see absorb_limits()

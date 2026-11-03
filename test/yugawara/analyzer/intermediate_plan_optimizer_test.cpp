@@ -736,6 +736,128 @@ TEST_F(intermediate_plan_optimizer_test, push_down_limits) {
     EXPECT_GT(project.output(), out.input());
 }
 
+TEST_F(intermediate_plan_optimizer_test, push_down_limits_over_pushed_down_filter) {
+    /*
+     * scan:in - project - filter - limit - emit:out
+     * =>
+     * scan:in - filter:f - limit - project - emit:out
+     * the filter is pushed down over the project, and then the limit follows it
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+                    { bindings(t0c1), c1 },
+            },
+    });
+    auto x0 = bindings.stream_variable("x0");
+    auto&& project = r.insert(relation::project {
+            relation::project::column {
+                    x0,
+                    scalar::binary {
+                            scalar::binary_operator::add,
+                            varref { c0 },
+                            constant(1),
+                    },
+            },
+    });
+    auto&& filter = r.insert(relation::filter {
+            compare(varref(c0), varref(c1), comparison_operator::less),
+    });
+    auto&& limit = r.insert(relation::intermediate::limit {
+            relation::intermediate::limit::row_slice_type { {}, 3 },
+    });
+    auto&& out = r.insert(relation::emit { x0 });
+    in.output() >> project.input();
+    project.output() >> filter.input();
+    filter.output() >> limit.input();
+    limit.output() >> out.input();
+
+    auto opts = options();
+    opts.runtime_features().erase(runtime_feature::scan_limit);
+    intermediate_plan_optimizer optimizer { opts };
+    optimizer(r);
+
+    ASSERT_EQ(r.size(), 5);
+    ASSERT_TRUE(r.contains(in));
+    ASSERT_TRUE(r.contains(project));
+    ASSERT_TRUE(r.contains(limit));
+    ASSERT_TRUE(r.contains(out));
+
+    auto&& f = next<relation::filter>(in.output());
+    EXPECT_EQ(f.condition(), compare(varref(c0), varref(c1), comparison_operator::less));
+    EXPECT_GT(f.output(), limit.input());
+    EXPECT_GT(limit.output(), project.input());
+    EXPECT_GT(project.output(), out.input());
+}
+
+TEST_F(intermediate_plan_optimizer_test, push_down_limits_partial_over_pushed_down_filter) {
+    /*
+     * scan:in_left -\
+     *                join[left_outer] - filter - limit[cl0](3) - emit:out
+     * scan:in_right -/
+     * =>
+     * scan:in_left - filter:f - limit:p[cl0](3) -\
+     *                                             join[left_outer] - limit[cl0](3) - emit:out
+     * the filter is pushed down to the left input, and then the partial limit is placed on it
+     */
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto cl1 = bindings.stream_variable("cl1");
+    auto&& in_left = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), cl0 },
+                    { bindings(t0c1), cl1 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto&& in_right = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), cr0 },
+            },
+    });
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+    });
+    auto&& filter = r.insert(relation::filter {
+            compare(varref(cl0), varref(cl1), comparison_operator::less),
+    });
+    auto&& limit = r.insert(relation::intermediate::limit {
+            {},
+            { cl0 },
+            relation::intermediate::limit::row_slice_type { {}, 3 },
+    });
+    auto&& out = r.insert(relation::emit { cl0, cr0 });
+    in_left.output() >> join.left();
+    in_right.output() >> join.right();
+    join.output() >> filter.input();
+    filter.output() >> limit.input();
+    limit.output() >> out.input();
+
+    auto opts = options();
+    opts.runtime_features().erase(runtime_feature::scan_limit);
+    opts.runtime_features().erase(runtime_feature::index_join);
+    opts.max_partial_limit_count() = 100;
+    intermediate_plan_optimizer optimizer { opts };
+    optimizer(r);
+
+    ASSERT_TRUE(r.contains(join));
+    ASSERT_TRUE(r.contains(limit));
+    auto&& f = next<relation::filter>(in_left.output());
+    EXPECT_EQ(f.condition(), compare(varref(cl0), varref(cl1), comparison_operator::less));
+    auto&& p = next<relation::intermediate::limit>(f.output());
+    EXPECT_GT(p.output(), join.left());
+    EXPECT_EQ(p.sort_keys(), (std::vector<relation::intermediate::limit::sort_key> { cl0 }));
+    EXPECT_EQ(p.row_slice(), (relation::intermediate::limit::row_slice_type { {}, 3 }));
+    EXPECT_GT(join.output(), limit.input());
+    EXPECT_GT(limit.output(), out.input());
+}
+
 TEST_F(intermediate_plan_optimizer_test, absorb_limits) {
     relation::graph_type r;
     auto c0 = bindings.stream_variable("c0");

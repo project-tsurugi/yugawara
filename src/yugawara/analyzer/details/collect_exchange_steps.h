@@ -17,6 +17,9 @@ namespace yugawara::analyzer::details {
  *      But this will fill column mapping information of operations which obtains rows from indices.
  *      To complete exchange columns, please call collect_exchange_columns()
  *
+ * @attention The source plan must not contain the `filter` operators whose condition is just `TRUE`
+ *      (see remove_redundant_conditions()), because this treats them as the regular `filter` operators
+ *      in the path between the `scan` and the `limit`, or between the `limit` and the `emit`.
  * @param source the source intermediate plan
  * @param destination the destination incomplete step plan
  * @param options the planning options
