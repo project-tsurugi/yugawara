@@ -77,6 +77,9 @@ inline std::ostream& operator<<(std::ostream& out, path_capability value) {
  *        (see `buffer::stop_with_primary()`)
  *
  *      The callers must treat the empty set as the path has no capabilities.
+ *
+ *      The paths of `intermediate::limit` always have no capabilities,
+ *      because the other passes treat them as the boundaries of the paths.
  * @attention This never inspects the condition of `filter`, so that the `filter` whose condition is just `TRUE`
  *      has the same capabilities as the regular one (see remove_redundant_conditions()).
  * @param input the input port of the operator

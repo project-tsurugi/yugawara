@@ -78,13 +78,13 @@ std::vector<column_ref> collect_fixed_columns(relation::scan const& scan) {
 
 } // namespace
 
-ordered_path find_ordered_source(relation::intermediate::limit& expr) {
+ordered_path find_ordered_source(relation::expression::input_port_type& input) {
     path_capability_set capabilities {
             path_capability::preserves_order,
             path_capability::at_least_one,
             path_capability::at_most_one,
     };
-    auto current = find_upstream(expr.input());
+    auto current = find_upstream(input);
     while (current) {
         auto found = find_single_path_capabilities(*current);
         if (!found.contains(path_capability::preserves_order)) {
@@ -97,6 +97,10 @@ ordered_path find_ordered_source(relation::intermediate::limit& expr) {
             current,
             capabilities,
     };
+}
+
+ordered_path find_ordered_source(relation::intermediate::limit& expr) {
+    return find_ordered_source(expr.input());
 }
 
 ordered_path find_ordered_destination(relation::expression::output_port_type& output) {

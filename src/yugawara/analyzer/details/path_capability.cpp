@@ -10,6 +10,7 @@
 #include <takatori/relation/join_scan.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/intermediate/join.h>
+#include <takatori/relation/intermediate/limit.h>
 
 #include <takatori/util/downcast.h>
 
@@ -129,6 +130,11 @@ path_capability_set find_path_capabilities(
             return find_index_join_capabilities(unsafe_downcast<relation::join_scan>(owner).operator_kind());
         case relation::intermediate::join::tag:
             return find_join_capabilities(unsafe_downcast<relation::intermediate::join>(owner), input);
+        case relation::intermediate::limit::tag:
+            // NOTE: limits are the boundaries of the paths, even if they only drop rows without changing the order;
+            // the passes which handle limits decide whether or not other operators can go over them
+            // (e.g. push_down_limits() merges them, and collect_exchange_steps() passes through some of them)
+            return {};
         default:
             return {};
     }

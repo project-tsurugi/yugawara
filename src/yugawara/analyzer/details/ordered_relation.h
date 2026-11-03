@@ -29,16 +29,24 @@ struct ordered_path {
 };
 
 /**
- * @brief returns the path from the given `limit` to upstream, which preserves the row order.
- * @details This walks from the `limit` to upstream only through the operators which have exactly one input and
+ * @brief returns the path from the given input port to upstream, which preserves the row order.
+ * @details This walks from the input port to upstream only through the operators which have exactly one input and
  *      one output, and whose path preserves the row order (see find_path_capabilities()),
  *      and returns the first operator which does not satisfy them, with the capabilities of the path.
- *      If the end of the path is a `scan` operator, it can be the source of the row order of the `limit`.
- *      This never considers whether or not the `scan` actually provides the rows in the order of the `limit`.
+ *      If the end of the path is a `scan` operator, it can be the source of the row order.
+ *      This never considers whether or not the `scan` actually provides the rows in the requested order.
  *      If the path is empty, the capabilities contain all `path_capability` values.
- * @param expr the target `limit` operator
- * @return the path to the input of the `limit`, whose end is empty if the path is not connected to any operators
+ * @param input the input port where the path starts
+ * @return the path, whose end is empty if the path is not connected to any operators
  * @see find_scan_direction(::takatori::relation::scan const&, ::takatori::relation::intermediate::limit const&)
+ */
+[[nodiscard]] ordered_path find_ordered_source(::takatori::relation::expression::input_port_type& input);
+
+/**
+ * @brief returns the path from the given `limit` to upstream, which preserves the row order.
+ * @param expr the target `limit` operator
+ * @return the path to the input of the `limit`
+ * @see find_ordered_source(::takatori::relation::expression::input_port_type&)
  */
 [[nodiscard]] ordered_path find_ordered_source(::takatori::relation::intermediate::limit& expr);
 

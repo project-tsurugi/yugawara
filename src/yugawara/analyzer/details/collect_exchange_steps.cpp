@@ -560,6 +560,10 @@ private:
             case relation::intermediate::escape::tag:
                 // NOTE: keep escape until stream_variable_rewriter was finished, to distinguish the same rooted variables
                 return;
+            case relation::emit::tag:
+                decide_emit(unsafe_downcast<relation::emit>(expr));
+                // NOTE: emit only controls `preserve_output` of the upstream limits, and is never rewritten itself
+                return;
             default:
                 if (!relation::is_available_in_step_plan(expr.kind())) {
                     targets_.emplace_back(std::addressof(expr));
@@ -568,55 +572,106 @@ private:
         }
     }
 
+    /**
+     * @brief decides whether or not the given limit becomes a forward exchange with ordering.
+     * @details The limit can be replaced with a forward exchange only if its input rows are already in the order
+     *      of its sort keys, that is, the source scan has the direction which provides the rows in the order.
+     *      The source scan may be in the upstream of other limits which become forward exchanges with ordering,
+     *      and then the nearest one must preserve the order of its output rows (see trace_ordered_upstream()).
+     *      If this limit becomes a forward exchange with ordering, it is registered into ordered_limits_.
+     *      The ordering of the exchange may be extended later by its downstream (see require_preserve_output()).
+     * @param expr the target limit
+     */
     void decide_limit(relation::intermediate::limit& expr) {
         if (!options_.runtime_features().contains(runtime_feature::ordered_forward)) {
             return;
         }
-        if (auto ordering = find_forward_ordering(expr)) {
-            ordered_limits_.emplace(std::addressof(expr), *ordering);
+        if (!expr.group_keys().empty() || expr.sort_keys().empty()) {
+            return;
+        }
+        auto upstream = trace_ordered_upstream(expr.input());
+        // NOTE: the scan direction is available only if it provides the rows in the order of the limit
+        if (!upstream.scan) {
+            return;
+        }
+        auto&& scan = *upstream.scan;
+        if (!scan.direction() || find_scan_direction(scan, expr) != scan.direction()) {
+            return;
+        }
+        // NOTE: the input order decides which rows are in the slice
+        ordered_limits_.emplace(
+                std::addressof(expr),
+                plan::forward::ordering_type { plan::forward_ordering::respect_input });
+        if (upstream.limit) {
+            // NOTE: this limit depends on the order of the rows from the upstream limit
+            require_preserve_output(*upstream.limit);
         }
     }
 
     /**
-     * @brief finds the ordering properties of the forward exchange, which can replace the given limit.
-     * @details The limit can be replaced with a forward exchange only if its input rows are already in the order
-     *      of its sort keys, that is, the source scan has the direction which provides the rows in the order.
-     * @param expr the target limit
-     * @return the ordering properties of the forward exchange
-     * @return empty if the limit cannot be replaced with a forward exchange with ordering
+     * @brief decides whether or not the given emit depends on the row order of the upstream limit.
+     * @details If the emit requires to preserve the order of its input rows, the nearest upstream limit which
+     *      becomes a forward exchange with ordering must preserve the order of its output rows.
+     * @param expr the target emit
      */
-    [[nodiscard]] static std::optional<plan::forward::ordering_type> find_forward_ordering(
-            relation::intermediate::limit& expr) {
-        if (!expr.group_keys().empty() || expr.sort_keys().empty()) {
-            return {};
+    void decide_emit(relation::emit& expr) {
+        if (!expr.ordering().contains(relation::emit_ordering::preserve_output)) {
+            return;
         }
-        // NOTE: the scan direction is available only if it provides the rows in the order of the limit
-        auto path = find_ordered_source(expr);
-        if (!path.end || path.end->kind() != relation::scan::tag) {
-            return {};
+        auto upstream = trace_ordered_upstream(expr.input());
+        if (upstream.limit) {
+            require_preserve_output(*upstream.limit);
         }
-        auto&& scan = unsafe_downcast<relation::scan>(*path.end);
-        if (!scan.direction() || find_scan_direction(scan, expr) != scan.direction()) {
-            return {};
+    }
+
+    /**
+     * @brief the result of trace_ordered_upstream().
+     */
+    struct ordered_upstream {
+        /// @brief the source scan of the row order, or empty if it is not found.
+        optional_ptr<relation::scan> scan {};
+
+        /// @brief the nearest upstream limit which becomes a forward exchange with ordering, or empty if it is absent.
+        optional_ptr<relation::intermediate::limit> limit {};
+    };
+
+    /**
+     * @brief traces the upstream from the given input port, through the operators which preserve the row order.
+     * @details This passes through the upstream limits which become forward exchanges with ordering
+     *      (that is, they are registered in ordered_limits_), because they can preserve the order of their input rows.
+     *      This stops at the other limits, because the path capabilities of limits are always empty
+     *      (see find_path_capabilities()).
+     *      This must be called after all upstream operators are decided (see decide()).
+     * @param input the input port where the trace starts
+     * @return the source scan and the nearest upstream limit with ordering
+     */
+    [[nodiscard]] ordered_upstream trace_ordered_upstream(relation::expression::input_port_type& input) {
+        ordered_upstream result {};
+        auto path = find_ordered_source(input);
+        while (path.end && path.end->kind() == relation::intermediate::limit::tag) {
+            auto&& limit = unsafe_downcast<relation::intermediate::limit>(*path.end);
+            if (!ordered_limits_.contains(std::addressof(limit))) {
+                return result;
+            }
+            if (!result.limit) {
+                result.limit = limit;
+            }
+            path = find_ordered_source(limit);
         }
-        // NOTE: the input order decides which rows are in the slice
-        plan::forward::ordering_type result { plan::forward_ordering::respect_input };
-        if (depends_on_order(find_ordered_destination(expr).end)) {
-            result.insert(plan::forward_ordering::preserve_output);
+        if (path.end && path.end->kind() == relation::scan::tag) {
+            result.scan = unsafe_downcast<relation::scan>(*path.end);
         }
         return result;
     }
 
-    [[nodiscard]] static bool depends_on_order(optional_ptr<relation::expression> destination) {
-        if (!destination) {
-            return false;
-        }
-        if (destination->kind() == relation::emit::tag) {
-            return unsafe_downcast<relation::emit>(*destination).ordering().contains(
-                    relation::emit_ordering::preserve_output);
-        }
-        // FIXME: limit operators with sort keys may also depend on the order
-        return false;
+    /**
+     * @brief makes the forward exchange of the given limit preserve the order of its output rows.
+     * @param expr the limit which becomes a forward exchange with ordering
+     */
+    void require_preserve_output(relation::intermediate::limit const& expr) {
+        auto iter = ordered_limits_.find(std::addressof(expr));
+        BOOST_ASSERT(iter != ordered_limits_.end()); // NOLINT
+        iter.value().insert(plan::forward_ordering::preserve_output);
     }
 
     void process_limit_flat(relation::intermediate::limit& expr, plan::forward::ordering_type ordering) {

@@ -15,6 +15,7 @@
 #include <takatori/relation/join_scan.h>
 
 #include <takatori/relation/intermediate/join.h>
+#include <takatori/relation/intermediate/limit.h>
 
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/configurable_provider.h>
@@ -134,6 +135,33 @@ TEST_F(path_capability_test, filter) {
             path_capability::preserves_order,
             path_capability::at_most_one,
     }));
+}
+
+TEST_F(path_capability_test, limit) {
+    // NOTE: limits are the boundaries of the paths, even if they only drop rows
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(relation::intermediate::limit {
+            relation::intermediate::limit::row_slice_type { {}, 3 },
+    });
+    r0.output() >> r1.input();
+
+    auto result = find_path_capabilities(r1.input(), r1.output());
+    EXPECT_EQ(result, path_capability_set {});
+}
+
+TEST_F(path_capability_test, limit_sort_keys) {
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(relation::intermediate::limit {
+            {},
+            { c0 },
+            relation::intermediate::limit::row_slice_type { {}, 3 },
+    });
+    r0.output() >> r1.input();
+
+    auto result = find_path_capabilities(r1.input(), r1.output());
+    EXPECT_EQ(result, path_capability_set {});
 }
 
 TEST_F(path_capability_test, different_operators) {
