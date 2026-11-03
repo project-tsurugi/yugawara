@@ -76,16 +76,23 @@ public:
             step_plan_builder_options const& options) noexcept:
         source_ { source },
         destination_ { destination },
-        options_ { options },
-        cursor_ { source_.begin() }
+        options_ { options }
     {}
 
     void operator()() {
-        // NOTE: collect them before rewriting, because rewriting may break the upstream/downstream of the limits
-        collect_ordered_limits();
-        while (cursor_ != source_.end()) {
-            relation::intermediate::dispatch(*this, *cursor_);
+        // NOTE: decide how to rewrite each operator before rewriting,
+        // because rewriting may break the upstream/downstream of the operators
+        std::vector<relation::expression*> sorted {};
+        relation::sort_from_upstream(source_, [&](relation::expression& expr) {
+            sorted.emplace_back(std::addressof(expr));
+        });
+        for (auto* expr : sorted) {
+            decide(*expr);
         }
+        for (auto* expr : targets_) {
+            relation::intermediate::dispatch(*this, *expr);
+        }
+        targets_.clear();
         for (auto&& p : added_) {
             source_.insert(std::move(p));
         }
@@ -93,13 +100,10 @@ public:
     }
 
     void operator()(relation::expression& expr) {
-        if (!relation::is_available_in_step_plan(expr.kind())) {
-            throw_exception(std::domain_error(string_builder {}
-                    << "other than step plan operator will remain: "
-                    << expr
-                    << string_builder::to_string));
-        }
-        ++cursor_;
+        throw_exception(std::domain_error(string_builder {}
+                << "other than step plan operator will remain: "
+                << expr
+                << string_builder::to_string));
     }
 
     void operator()(relation::intermediate::join& expr) {
@@ -181,7 +185,7 @@ public:
         migrate(expr.input(), offer.input());
         migrate(expr.output(), replacement.output());
 
-        cursor_ = source_.erase(cursor_);
+        source_.erase(expr);
     }
 
     void operator()(relation::intermediate::limit& expr) {
@@ -220,17 +224,12 @@ public:
         }
     }
 
-    void operator()(relation::intermediate::escape&) {
-        // NOTE: keep escape until stream_variable_rewriter was finished, to distinguish the same rooted variables
-        ++cursor_;
-    }
-
 private:
     relation::graph_type& source_;
     plan::graph_type& destination_;
     step_plan_builder_options const& options_;
 
-    relation::graph_type::iterator cursor_;
+    std::vector<relation::expression*> targets_;
     std::vector<std::unique_ptr<relation::expression>> added_;
     ::tsl::hopscotch_map<relation::intermediate::limit const*, plan::forward::ordering_type> ordered_limits_ {};
 
@@ -357,7 +356,7 @@ private:
         migrate(expr.right(), right_offer.input());
         migrate(expr.output(), replacement.output());
 
-        cursor_ = source_.erase(cursor_);
+        source_.erase(expr);
     }
 
     void process_broadcast_join(relation::intermediate::join& expr) {
@@ -402,7 +401,7 @@ private:
         migrate(expr.right(), offer.input());
         migrate(expr.output(), replacement.output());
 
-        cursor_ = source_.erase(cursor_);
+        source_.erase(expr);
     }
 
     void process_broadcast_join_scan(relation::intermediate::join& expr) {
@@ -439,7 +438,7 @@ private:
         migrate(expr.right(), offer.input());
         migrate(expr.output(), replacement.output());
 
-        cursor_ = source_.erase(cursor_);
+        source_.erase(expr);
     }
 
     template<class T, class Endpoint>
@@ -515,7 +514,7 @@ private:
         migrate(expr.input(), offer.input());
         migrate(expr.output(), replacement.output());
 
-        cursor_ = source_.erase(cursor_);
+        source_.erase(expr);
     }
 
     void process_aggregate_group(relation::intermediate::aggregate& expr) {
@@ -542,21 +541,39 @@ private:
         migrate(expr.input(), offer.input());
         migrate(expr.output(), replacement.output());
 
-        cursor_ = source_.erase(cursor_);
+        source_.erase(expr);
     }
 
-    void collect_ordered_limits() {
+    /**
+     * @brief decides how to rewrite the given operator, and then schedules it into targets_ if it must be rewritten.
+     * @details This must be called for each operator in order from upstream to downstream,
+     *      before rewriting any operators.
+     *      Unknown operators are also scheduled, and they will be rejected on rewriting.
+     * @param expr the target operator
+     */
+    void decide(relation::expression& expr) {
+        switch (expr.kind()) {
+            case relation::intermediate::limit::tag:
+                decide_limit(unsafe_downcast<relation::intermediate::limit>(expr));
+                targets_.emplace_back(std::addressof(expr));
+                return;
+            case relation::intermediate::escape::tag:
+                // NOTE: keep escape until stream_variable_rewriter was finished, to distinguish the same rooted variables
+                return;
+            default:
+                if (!relation::is_available_in_step_plan(expr.kind())) {
+                    targets_.emplace_back(std::addressof(expr));
+                }
+                return;
+        }
+    }
+
+    void decide_limit(relation::intermediate::limit& expr) {
         if (!options_.runtime_features().contains(runtime_feature::ordered_forward)) {
             return;
         }
-        for (auto&& expr : source_) {
-            if (expr.kind() != relation::intermediate::limit::tag) {
-                continue;
-            }
-            auto&& limit = unsafe_downcast<relation::intermediate::limit>(expr);
-            if (auto ordering = find_forward_ordering(limit)) {
-                ordered_limits_.emplace(std::addressof(limit), *ordering);
-            }
+        if (auto ordering = find_forward_ordering(expr)) {
+            ordered_limits_.emplace(std::addressof(expr), *ordering);
         }
     }
 
@@ -623,7 +640,7 @@ private:
         migrate(expr.input(), offer.input());
         migrate(expr.output(), take.output());
 
-        cursor_ = source_.erase(cursor_);
+        source_.erase(expr);
     }
 
     void process_limit_group(relation::intermediate::limit& expr) {
@@ -649,7 +666,7 @@ private:
         migrate(expr.input(), offer.input());
         migrate(expr.output(), replacement.output());
 
-        cursor_ = source_.erase(cursor_);
+        source_.erase(expr);
     }
 
     void process_union_all(relation::intermediate::union_& expr) {
@@ -696,7 +713,7 @@ private:
         migrate(expr.right(), right_offer.input());
         migrate(expr.output(), take.output());
 
-        cursor_ = source_.erase(cursor_);
+        source_.erase(expr);
     }
 
     void process_union_distinct(relation::intermediate::union_& expr) {
@@ -749,7 +766,7 @@ private:
         migrate(expr.right(), right_offer.input());
         migrate(expr.output(), replacement.output());
 
-        cursor_ = source_.erase(cursor_);
+        source_.erase(expr);
     }
 
     template<class Step, class Intermediate>
@@ -811,7 +828,7 @@ private:
         migrate(expr.right(), right_offer.input());
         migrate(expr.output(), replacement.output());
 
-        cursor_ = source_.erase(cursor_);
+        source_.erase(expr);
     }
 
     template<class Intermediate>
@@ -873,7 +890,7 @@ private:
         migrate(expr.right(), right_offer.input());
         migrate(expr.output(), replacement.output());
 
-        cursor_ = source_.erase(cursor_);
+        source_.erase(expr);
     }
 };
 
