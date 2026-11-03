@@ -3,11 +3,13 @@
 #include <gtest/gtest.h>
 
 #include <takatori/type/primitive.h>
+#include <takatori/type/table.h>
 
 #include <takatori/scalar/binary.h>
 
 #include <takatori/relation/graph.h>
 #include <takatori/relation/scan.h>
+#include <takatori/relation/apply.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/buffer.h>
@@ -101,6 +103,35 @@ protected:
         r0.output() >> r1.left();
         return r1;
     }
+
+    relation::apply& add_apply(relation::graph_type& r, relation::apply_kind kind) {
+        auto&& r0 = add_scan(r);
+        auto&& tvf = bindings.function({
+                function::declaration::minimum_user_function_id + 1,
+                "tvf",
+                ::takatori::type::table {
+                        { "o1", ::takatori::type::int8 {} },
+                },
+                {
+                        ::takatori::type::int8 {},
+                },
+                {
+                        function::function_feature::table_valued_function,
+                },
+        });
+        auto&& r1 = r.insert(relation::apply {
+                tvf,
+                {
+                        varref { c0 },
+                },
+                {
+                        { 0, bindings.stream_variable("x0") },
+                },
+                kind,
+        });
+        r0.output() >> r1.input();
+        return r1;
+    }
 };
 
 TEST_F(path_capability_test, project) {
@@ -162,6 +193,26 @@ TEST_F(path_capability_test, limit_sort_keys) {
 
     auto result = find_path_capabilities(r1.input(), r1.output());
     EXPECT_EQ(result, path_capability_set {});
+}
+
+TEST_F(path_capability_test, apply_cross) {
+    // NOTE: cross apply drops the input rows if the function returns no rows
+    relation::graph_type r;
+    auto&& r0 = add_apply(r, relation::apply_kind::cross);
+
+    auto result = find_path_capabilities(r0.input(), r0.output());
+    EXPECT_EQ(result, path_capability_set {});
+}
+
+TEST_F(path_capability_test, apply_outer) {
+    // NOTE: the row order depends on the implementation of table-valued functions
+    relation::graph_type r;
+    auto&& r0 = add_apply(r, relation::apply_kind::outer);
+
+    auto result = find_path_capabilities(r0.input(), r0.output());
+    EXPECT_EQ(result, (path_capability_set {
+            path_capability::at_least_one,
+    }));
 }
 
 TEST_F(path_capability_test, different_operators) {

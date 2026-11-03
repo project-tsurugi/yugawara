@@ -75,6 +75,7 @@ inline std::ostream& operator<<(std::ostream& out, path_capability value) {
  *      - the left input of index joins (`join_find` and `join_scan`)
  *      - the primary output of `buffer` which can stop with the primary output
  *        (see `buffer::stop_with_primary()`)
+ *      - `apply` (outer apply only, and it never preserves the row order)
  *
  *      The callers must treat the empty set as the path has no capabilities.
  *

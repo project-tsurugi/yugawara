@@ -4,6 +4,7 @@
 
 #include <cstdlib>
 
+#include <takatori/relation/apply.h>
 #include <takatori/relation/buffer.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/join_find.h>
@@ -21,6 +22,21 @@ namespace relation = ::takatori::relation;
 using ::takatori::util::unsafe_downcast;
 
 namespace {
+
+path_capability_set find_apply_capabilities(relation::apply const& expr) {
+    // NOTE: the row order depends on the implementation of table-valued functions, so that this never provides it
+    switch (expr.operator_kind()) {
+        case relation::apply_kind::cross:
+            // NOTE: cross apply drops the input rows if the function returns no rows
+            return {};
+        case relation::apply_kind::outer:
+            // NOTE: outer apply keeps the input rows even if the function returns no rows
+            return {
+                    path_capability::at_least_one,
+            };
+    }
+    std::abort();
+}
 
 path_capability_set find_join_capabilities(
         relation::intermediate::join const& expr,
@@ -124,6 +140,8 @@ path_capability_set find_path_capabilities(
             };
         case relation::buffer::tag:
             return find_buffer_capabilities(unsafe_downcast<relation::buffer>(owner), output);
+        case relation::apply::tag:
+            return find_apply_capabilities(unsafe_downcast<relation::apply>(owner));
         case relation::join_find::tag:
             return find_index_join_capabilities(unsafe_downcast<relation::join_find>(owner).operator_kind());
         case relation::join_scan::tag:

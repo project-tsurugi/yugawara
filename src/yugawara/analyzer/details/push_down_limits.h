@@ -24,7 +24,7 @@ namespace yugawara::analyzer::details {
  *      If the `limit` reaches an operator whose input path makes one or more rows from each input row
  *      (see find_path_capabilities()), this places a copy of the `limit` (partial limit) into the input,
  *      and keeps the original `limit` in the downstream.
- *      Currently, such paths are only the left input of left outer joins.
+ *      Currently, such paths are only the left input of left outer joins, and the input of outer apply.
  *      This only places the partial limit if the `limit` does not have the start position,
  *      its row count is an immediate value which is less than or equal to `max_partial_limit_count`,
  *      and its sort keys only refer the columns of the input.

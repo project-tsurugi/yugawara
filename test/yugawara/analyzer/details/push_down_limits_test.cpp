@@ -134,6 +134,35 @@ protected:
         }
         return ::takatori::util::unsafe_downcast<relation::intermediate::limit>(upstream->owner());
     }
+
+    /**
+     * @brief adds an apply which calls a table-valued function with `c1`, and outputs the column `x0`.
+     */
+    relation::apply& add_apply(relation::graph_type& r, relation::apply_kind kind, descriptor::variable const& x0) {
+        auto&& tvf = bindings.function({
+                function::declaration::minimum_user_function_id + 1,
+                "tvf",
+                ::takatori::type::table {
+                        { "o1", ::takatori::type::int8 {} },
+                },
+                {
+                        ::takatori::type::int8 {},
+                },
+                {
+                        function::function_feature::table_valued_function,
+                },
+        });
+        return r.insert(relation::apply {
+                tvf,
+                {
+                        varref { c1 },
+                },
+                {
+                        { 0, x0 },
+                },
+                kind,
+        });
+    }
 };
 
 TEST_F(push_down_limits_test, project) {
@@ -1075,6 +1104,108 @@ TEST_F(push_down_limits_test, left_outer_join_partial_over_apply) {
     EXPECT_EQ(p->row_slice(), row_slice(3));
     EXPECT_GT(r0.output(), r1.input());
     EXPECT_GT(r3.output(), r4.input());
+}
+
+TEST_F(push_down_limits_test, outer_apply) {
+    /*
+     * scan:r0 - apply[outer]:r1 - limit:r2[c0](3) - emit:r3
+     * =>
+     * scan:r0 - limit:p[c0](3) - apply[outer]:r1 - limit:r2[c0](3) - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r1 = add_apply(r, relation::apply_kind::outer, x0);
+    auto&& r2 = r.insert(limit({ c0 }));
+    auto&& r3 = r.insert(relation::emit { c0, x0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    auto p = upstream_limit(r1.input());
+    ASSERT_TRUE(p);
+    EXPECT_GT(r0.output(), p->input());
+    EXPECT_EQ(p->group_keys().size(), 0);
+    EXPECT_EQ(p->sort_keys(), (std::vector<relation::intermediate::limit::sort_key> { c0 }));
+    EXPECT_EQ(p->row_slice(), row_slice(3));
+    EXPECT_GT(r1.output(), r2.input());
+    EXPECT_GT(r2.output(), r3.input());
+}
+
+TEST_F(push_down_limits_test, outer_apply_without_sort_keys) {
+    /*
+     * scan:r0 - apply[outer]:r1 - limit:r2(3) - emit:r3
+     * =>
+     * scan:r0 - limit:p(3) - apply[outer]:r1 - limit:r2(3) - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r1 = add_apply(r, relation::apply_kind::outer, x0);
+    auto&& r2 = r.insert(limit());
+    auto&& r3 = r.insert(relation::emit { c0, x0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    auto p = upstream_limit(r1.input());
+    ASSERT_TRUE(p);
+    EXPECT_GT(r0.output(), p->input());
+    EXPECT_EQ(p->sort_keys().size(), 0);
+    EXPECT_EQ(p->row_slice(), row_slice(3));
+    EXPECT_GT(r1.output(), r2.input());
+}
+
+TEST_F(push_down_limits_test, outer_apply_sort_key_defined) {
+    /*
+     * scan:r0 - apply[outer]:r1 - limit:r2[x0](3) - emit:r3
+     * => (not changed, because the sort key is defined in the apply)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r1 = add_apply(r, relation::apply_kind::outer, x0);
+    auto&& r2 = r.insert(limit({ x0 }));
+    auto&& r3 = r.insert(relation::emit { c0, x0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 4);
+    EXPECT_GT(r0.output(), r1.input());
+    EXPECT_GT(r1.output(), r2.input());
+    EXPECT_GT(r2.output(), r3.input());
+}
+
+TEST_F(push_down_limits_test, cross_apply) {
+    /*
+     * scan:r0 - apply[cross]:r1 - limit:r2[c0](3) - emit:r3
+     * => (not changed, because cross apply may drop the input rows)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r1 = add_apply(r, relation::apply_kind::cross, x0);
+    auto&& r2 = r.insert(limit({ c0 }));
+    auto&& r3 = r.insert(relation::emit { c0, x0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 4);
+    EXPECT_GT(r0.output(), r1.input());
+    EXPECT_GT(r1.output(), r2.input());
+    EXPECT_GT(r2.output(), r3.input());
 }
 
 TEST_F(push_down_limits_test, left_outer_join_partial_merge) {
