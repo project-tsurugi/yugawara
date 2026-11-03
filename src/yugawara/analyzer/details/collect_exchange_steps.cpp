@@ -596,7 +596,7 @@ private:
         }
         if (destination->kind() == relation::emit::tag) {
             return unsafe_downcast<relation::emit>(*destination).ordering().contains(
-                    relation::emit_ordering::preserve_input);
+                    relation::emit_ordering::preserve_output);
         }
         // FIXME: limit operators with sort keys may also depend on the order
         return false;

@@ -1435,14 +1435,14 @@ TEST_F(collect_exchange_steps_test, limit_ordered_forward) {
 
 TEST_F(collect_exchange_steps_test, limit_ordered_forward_preserve_output) {
     /*
-     * scan:r0{direction=forward} - limit_relation:r1{sort=c0, count=10} - emit:r2{ordering=preserve_input}
+     * scan:r0{direction=forward} - limit_relation:r1{sort=c0, count=10} - emit:r2{ordering=preserve_output}
      */
     relation::graph_type r;
     auto c0 = bindings.stream_variable("c0");
     auto c1 = bindings.stream_variable("c1");
     auto g = build_ordered_limit(
             r, c0, c1, scan_direction::forward, c0,
-            { emit_ordering::preserve_input });
+            { emit_ordering::preserve_output });
 
     details::step_plan_builder_options options;
     plan::graph_type p;
@@ -1468,7 +1468,7 @@ TEST_F(collect_exchange_steps_test, limit_ordered_forward_preserve_output) {
 TEST_F(collect_exchange_steps_test, limit_ordered_forward_through_order_preserving) {
     /*
      * scan:r0{direction=forward} - filter:r1 - limit_relation:r2{sort=c0, count=10} - project:r3
-     *   - emit:r4{ordering=preserve_input}
+     *   - emit:r4{ordering=preserve_output}
      */
     relation::graph_type r;
     auto c0 = bindings.stream_variable("c0");
@@ -1499,7 +1499,7 @@ TEST_F(collect_exchange_steps_test, limit_ordered_forward_through_order_preservi
     });
     auto& r4 = r.insert(relation::emit {
             { c0, c2 },
-            { emit_ordering::preserve_input },
+            { emit_ordering::preserve_output },
     });
     r0.output() >> r1.input();
     r1.output() >> r2.input();
@@ -1580,14 +1580,14 @@ TEST_F(collect_exchange_steps_test, limit_ordered_forward_unsatisfied) {
 
 TEST_F(collect_exchange_steps_test, limit_ordered_forward_disabled) {
     /*
-     * scan:r0{direction=forward} - limit_relation:r1{sort=c0, count=10} - emit:r2{ordering=preserve_input}
+     * scan:r0{direction=forward} - limit_relation:r1{sort=c0, count=10} - emit:r2{ordering=preserve_output}
      */
     relation::graph_type r;
     auto c0 = bindings.stream_variable("c0");
     auto c1 = bindings.stream_variable("c1");
     auto g = build_ordered_limit(
             r, c0, c1, scan_direction::forward, c0,
-            { emit_ordering::preserve_input });
+            { emit_ordering::preserve_output });
 
     details::step_plan_builder_options options;
     options.runtime_features().erase(runtime_feature::ordered_forward);
@@ -1609,7 +1609,7 @@ TEST_F(collect_exchange_steps_test, limit_ordered_forward_disabled) {
 TEST_F(collect_exchange_steps_test, limit_ordered_forward_not_through_exchange) {
     /*
      * scan:r0{direction=forward} - distinct_relation:r1{c0, c1} - limit_relation:r2{sort=c0, count=10}
-     *   - emit:r3{ordering=preserve_input}
+     *   - emit:r3{ordering=preserve_output}
      */
     relation::graph_type r;
     auto c0 = bindings.stream_variable("c0");
@@ -1637,7 +1637,7 @@ TEST_F(collect_exchange_steps_test, limit_ordered_forward_not_through_exchange) 
     });
     auto& r3 = r.insert(relation::emit {
             { c0 },
-            { emit_ordering::preserve_input },
+            { emit_ordering::preserve_output },
     });
     r0.output() >> r1.input();
     r1.output() >> r2.input();
