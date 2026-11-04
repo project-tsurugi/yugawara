@@ -453,6 +453,23 @@ private:
         return destination;
     }
 
+    /*
+     * NOTE: is_left_mandatory() and is_right_mandatory() decide the `mandatory` flag of each co-group input
+     * of the cogroup join (take_cogroup + join_group).
+     * The co-group row is never generated for the join key if the mandatory group is empty for the key
+     * (see takatori::relation::details::cogroup_element), so that the group can be mandatory only if
+     * the join outputs nothing for the keys where the group is empty.
+     * Making a group non-mandatory is always safe (the join just receives the extra co-group rows),
+     * but making it mandatory by mistake drops the rows which the join must output.
+     *
+     * - inner, semi: both groups are mandatory
+     * - left_outer, left_outer_at_most_one, anti: only the left group is mandatory
+     * - full_outer: neither group is mandatory
+     *
+     * e.g. the anti join outputs the left rows whose key has no right rows, so that the right group
+     * must not be mandatory.
+     */
+
     static bool is_left_mandatory(relation::join_kind k) {
         static constexpr relation::join_kind_set left_mandatory {
                 relation::join_kind::inner,
@@ -468,7 +485,6 @@ private:
         static constexpr relation::join_kind_set right_mandatory {
                 relation::join_kind::inner,
                 relation::join_kind::semi,
-                relation::join_kind::anti,
         };
         return right_mandatory.contains(k);
     }
