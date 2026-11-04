@@ -16,6 +16,7 @@
 #include <takatori/relation/join_find.h>
 #include <takatori/relation/join_scan.h>
 
+#include <takatori/relation/intermediate/escape.h>
 #include <takatori/relation/intermediate/join.h>
 #include <takatori/relation/intermediate/limit.h>
 
@@ -188,6 +189,20 @@ TEST_F(path_capability_test, limit_sort_keys) {
             {},
             { c0 },
             relation::intermediate::limit::row_slice_type { {}, 3 },
+    });
+    r0.output() >> r1.input();
+
+    auto result = find_path_capabilities(r1.input(), r1.output());
+    EXPECT_EQ(result, path_capability_set {});
+}
+
+TEST_F(path_capability_test, escape) {
+    // NOTE: escape is the boundary of the paths, even if it only renames the columns
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(relation::intermediate::escape {
+            { c0, bindings.stream_variable("x0") },
+            { c1, bindings.stream_variable("x1") },
     });
     r0.output() >> r1.input();
 

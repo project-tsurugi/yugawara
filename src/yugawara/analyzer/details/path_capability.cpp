@@ -10,6 +10,7 @@
 #include <takatori/relation/join_find.h>
 #include <takatori/relation/join_scan.h>
 #include <takatori/relation/project.h>
+#include <takatori/relation/intermediate/escape.h>
 #include <takatori/relation/intermediate/join.h>
 #include <takatori/relation/intermediate/limit.h>
 
@@ -152,6 +153,10 @@ path_capability_set find_path_capabilities(
             // NOTE: limits are the boundaries of the paths, even if they only drop rows without changing the order;
             // the passes which handle limits decide whether or not other operators can go over them
             // (e.g. push_down_limits() merges them, and collect_exchange_steps() passes through some of them)
+            return {};
+        case relation::intermediate::escape::tag:
+            // NOTE: escape is the boundary of the paths, even if it only renames the columns;
+            // it separates the paths so that the optimizations do not mix over the merge points
             return {};
         default:
             return {};
