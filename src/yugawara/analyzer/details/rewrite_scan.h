@@ -18,8 +18,9 @@ namespace yugawara::analyzer::details {
  *      this also considers the indices which provide the row order (see is_better_ordered_scan_candidate()),
  *      even if the `scan` does not have any conditions.
  *      If the selected index provides the requested row order, this also sets the direction to the `scan`,
- *      and the row count of the `limit` if the `scan` can stop at it.
- *      The row counts which do not contribute to the index selection are set by absorb_limits() later.
+ *      and the row count of the `limit` if the `scan` can stop at it, even if the row count is too large to
+ *      contribute to the index selection (see index_selection_parameters::max_early_stop_limit_count()).
+ *      The row counts of the `limit` operators without sort keys are set by absorb_limits() later.
  * @attention The graph must not contain the `filter` operators whose condition is just `TRUE`
  *      except ones directly following the `scan` operators (see remove_redundant_conditions()),
  *      because this treats them as the regular `filter` operators in the path to the downstream `limit`,

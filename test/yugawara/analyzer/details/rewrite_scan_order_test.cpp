@@ -320,6 +320,28 @@ TEST_F(rewrite_scan_order_test, early_stop_over_max_count) {
     EXPECT_FALSE(r0.direction());
 }
 
+TEST_F(rewrite_scan_order_test, order_over_max_count_without_absorb_limits) {
+    /*
+     * max_early_stop_limit_count = 10
+     * scan:r0{I2} - limit:r1[k, 11] - emit:r2
+     * => scan:r0{I2}[forward, 11] - limit:r1[k, 11] - emit:r2 (by rewrite_scan() only)
+     */
+    parameters.max_early_stop_limit_count() = 10;
+    relation::graph_type r;
+    auto&& r0 = add_t2(r);
+    auto&& r1 = r.insert(limit(11, k));
+    auto&& r2 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    // NOTE: the large row count does not contribute to the index selection, but is still set to the scan
+    rewrite_scan(r, estimator, parameters, runtime_feature_all);
+
+    EXPECT_EQ(r0.source(), bindings(*i2));
+    EXPECT_EQ(r0.row_slice(), row_slice(11));
+    EXPECT_EQ(r0.direction(), scan_direction::forward);
+}
+
 TEST_F(rewrite_scan_order_test, residual_redundant_bound) {
     /*
      * scan:r0{I2} - filter:r1(v > 5 AND v > 15) - limit:r2[v, 3] - emit:r3

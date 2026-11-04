@@ -194,6 +194,9 @@ struct order_decision {
 
     /// @brief the scan direction to provide the row order, or empty if the candidate does not provide it.
     std::optional<relation::scan_direction> direction {};
+
+    /// @brief the row count to set to the scan, or empty if the scan cannot stop at the row count of the limit.
+    std::optional<std::size_t> count {};
 };
 
 class engine {
@@ -267,16 +270,16 @@ private:
         apply_index_to_scan(expr, candidates[selected], work_graph_);
         // NOTE: the candidate which provides the row order is always a scan (see decide_order()),
         // so that the target scan is still alive here
-        apply_order(expr, decision, *request);
+        apply_order(expr, decision);
     }
 
-    static void apply_order(relation::scan& expr, order_decision const& decision, order_request const& request) {
+    static void apply_order(relation::scan& expr, order_decision const& decision) {
         if (decision.order == candidate_order::none) {
             return;
         }
         expr.direction() = decision.direction;
-        if (decision.order == candidate_order::early_stop) {
-            expr.row_slice() = relation::scan::row_slice_type { {}, *request.count };
+        if (decision.count) {
+            expr.row_slice() = relation::scan::row_slice_type { {}, *decision.count };
         }
     }
 
@@ -331,20 +334,25 @@ private:
         if (*direction == relation::scan_direction::backward && !features_.contains(runtime_feature::backward_scan)) {
             return {};
         }
-        // NOTE: the scan can stop at the row count, only if each row of the scan reaches the limit;
-        // a limit with a large row count is regarded as same as the limit without the row count,
-        // because it rarely stops the scan early (see index_selection_parameters::max_early_stop_limit_count())
+        // NOTE: the scan can stop at the row count, only if each row of the scan reaches the limit
+        std::optional<std::size_t> count {};
         if (request.count
-                && *request.count <= parameters_.max_early_stop_limit_count()
                 && features_.contains(runtime_feature::scan_limit)
                 && keeps_rows(request, candidate)) {
-            return { candidate_order::early_stop, direction };
+            count = request.count;
+        }
+        // NOTE: a limit with a large row count is regarded as same as the limit without the row count
+        // in the index selection, because it rarely stops the scan early
+        // (see index_selection_parameters::max_early_stop_limit_count())
+        if (count && *count <= parameters_.max_early_stop_limit_count()) {
+            return { candidate_order::early_stop, direction, count };
         }
         // NOTE: the limit with the row count becomes a forward exchange with ordering,
-        // and the limit without the row count will be removed (see remove_redundant_limits())
+        // and the limit without the row count will be removed (see remove_redundant_limits());
+        // the large row count is also set to the scan, because it never affects the index selection here
         if (features_.contains(runtime_feature::ordered_scan)
                 && (!request.counted || features_.contains(runtime_feature::ordered_forward))) {
-            return { candidate_order::ordered, direction };
+            return { candidate_order::ordered, direction, count };
         }
         return {};
     }
