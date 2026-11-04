@@ -258,6 +258,48 @@ TEST_F(rewrite_scan_order_test, early_stop_full_bound) {
     EXPECT_EQ(r0.direction(), scan_direction::forward);
 }
 
+TEST_F(rewrite_scan_order_test, early_stop_max_count) {
+    /*
+     * max_early_stop_limit_count = 10
+     * scan:r0{I2} - limit:r1[v, 10] - emit:r2
+     * => scan:r0{I2V}[forward, 10] - limit:r1[v, 10] - emit:r2
+     */
+    parameters.max_early_stop_limit_count() = 10;
+    relation::graph_type r;
+    auto&& r0 = add_t2(r);
+    auto&& r1 = r.insert(limit(10, v));
+    auto&& r2 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    apply(r);
+
+    EXPECT_EQ(r0.source(), bindings(*i2v));
+    EXPECT_EQ(r0.row_slice(), row_slice(10));
+    EXPECT_EQ(r0.direction(), scan_direction::forward);
+}
+
+TEST_F(rewrite_scan_order_test, early_stop_over_max_count) {
+    /*
+     * max_early_stop_limit_count = 10
+     * scan:r0{I2} - limit:r1[v, 11] - emit:r2
+     * => (not changed: same as order_only_indirect, because the row count is too large to stop early)
+     */
+    parameters.max_early_stop_limit_count() = 10;
+    relation::graph_type r;
+    auto&& r0 = add_t2(r);
+    auto&& r1 = r.insert(limit(11, v));
+    auto&& r2 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    apply(r);
+
+    EXPECT_EQ(r0.source(), bindings(*i2));
+    EXPECT_FALSE(r0.row_slice());
+    EXPECT_FALSE(r0.direction());
+}
+
 TEST_F(rewrite_scan_order_test, residual_redundant_bound) {
     /*
      * scan:r0{I2} - filter:r1(v > 5 AND v > 15) - limit:r2[v, 3] - emit:r3

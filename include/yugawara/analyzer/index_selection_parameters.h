@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 namespace yugawara::analyzer {
 
 /**
@@ -12,6 +14,9 @@ public:
 
     /// @brief the default weight of index accesses which also refer the primary index for individual entries.
     static constexpr double default_indirect_access_weight = 2.0;
+
+    /// @brief the default maximum row count of limits to stop index scans early (see max_early_stop_limit_count()).
+    static constexpr std::size_t default_max_early_stop_limit_count = 10'000;
 
     /**
      * @brief creates a new instance with default parameters.
@@ -46,9 +51,27 @@ public:
     /// @copydoc indirect_access_weight()
     [[nodiscard]] double indirect_access_weight() const noexcept;
 
+    /**
+     * @brief returns the maximum row count of limits to stop index scans early.
+     * @details If the downstream limit requires the row order and has the row count,
+     *      the compiler prefers the index scan which provides the row order and stops at the row count,
+     *      without comparing the estimated costs.
+     *      This only applies if the row count is less than or equal to this value,
+     *      because a limit with a large row count rarely stops the scan early.
+     *      Otherwise, the compiler compares the candidates as same as the limit without the row count.
+     *
+     *      Set the maximum value of `std::size_t` to apply it regardless of the row count.
+     * @return the maximum row count
+     */
+    [[nodiscard]] std::size_t& max_early_stop_limit_count() noexcept;
+
+    /// @copydoc max_early_stop_limit_count()
+    [[nodiscard]] std::size_t max_early_stop_limit_count() const noexcept;
+
 private:
     double sort_cost_ { default_sort_cost };
     double indirect_access_weight_ { default_indirect_access_weight };
+    std::size_t max_early_stop_limit_count_ { default_max_early_stop_limit_count };
 };
 
 } // namespace yugawara::analyzer

@@ -305,8 +305,11 @@ private:
         if (*direction == relation::scan_direction::backward && !features_.contains(runtime_feature::backward_scan)) {
             return candidate_order::none;
         }
-        // NOTE: the scan can stop at the row count, only if each row of the scan reaches the limit
+        // NOTE: the scan can stop at the row count, only if each row of the scan reaches the limit;
+        // a limit with a large row count is regarded as same as the limit without the row count,
+        // because it rarely stops the scan early (see index_selection_parameters::max_early_stop_limit_count())
         if (request.count
+                && *request.count <= parameters_.max_early_stop_limit_count()
                 && features_.contains(runtime_feature::scan_limit)
                 && keeps_rows(request, candidate)) {
             return candidate_order::early_stop;

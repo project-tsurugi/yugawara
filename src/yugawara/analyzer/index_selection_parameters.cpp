@@ -18,4 +18,12 @@ double index_selection_parameters::indirect_access_weight() const noexcept {
     return indirect_access_weight_;
 }
 
+std::size_t& index_selection_parameters::max_early_stop_limit_count() noexcept {
+    return max_early_stop_limit_count_;
+}
+
+std::size_t index_selection_parameters::max_early_stop_limit_count() const noexcept {
+    return max_early_stop_limit_count_;
+}
+
 } // namespace yugawara::analyzer
