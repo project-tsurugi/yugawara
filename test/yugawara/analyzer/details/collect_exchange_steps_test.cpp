@@ -400,6 +400,79 @@ TEST_F(collect_exchange_steps_test, join_cogroup) {
     EXPECT_EQ(r7.condition(), compare(c0, c2));
 }
 
+TEST_F(collect_exchange_steps_test, join_cogroup_mandatory) {
+    // the co-group input can be mandatory only if the join outputs nothing for the keys where the input is empty
+    struct expectation {
+        relation::join_kind kind;
+        bool left_mandatory;
+        bool right_mandatory;
+    };
+    std::vector<expectation> const expectations {
+            { relation::join_kind::inner, true, true },
+            { relation::join_kind::left_outer, true, false },
+            { relation::join_kind::left_outer_at_most_one, true, false },
+            { relation::join_kind::full_outer, false, false },
+            { relation::join_kind::semi, true, true },
+            { relation::join_kind::anti, true, false },
+    };
+    for (auto&& e : expectations) {
+        SCOPED_TRACE(e.kind);
+        /*
+         * scan:r0 -\
+         *           join_relation:r2 - emit:r3
+         * scan:r1 -/
+         */
+        relation::graph_type r;
+        auto c0 = bindings.stream_variable("c0");
+        auto c1 = bindings.stream_variable("c1");
+        auto c2 = bindings.stream_variable("c2");
+        auto c3 = bindings.stream_variable("c3");
+        auto& r0 = r.insert(relation::scan {
+                bindings(*i0),
+                {
+                        { t0c0, c0 },
+                        { t0c1, c1 },
+                },
+        });
+        auto& r1 = r.insert(relation::scan {
+                bindings(*i1),
+                {
+                        { t1c0, c2 },
+                        { t1c1, c3 },
+                },
+        });
+        auto& r2 = r.insert(relation::intermediate::join {
+                e.kind,
+                compare(c0, c2),
+        });
+        auto& r3 = r.insert(relation::emit {
+                c1,
+        });
+        r0.output() >> r2.left();
+        r1.output() >> r2.right();
+        r2.output() >> r3.input();
+
+        details::step_plan_builder_options options;
+        options.add(r2, join_strategy::cogroup);
+        plan::graph_type p;
+
+        /*
+         * scan:r0 - offer:r4 - [group]:e0 -\
+         *                                   take_cogroup:r6 - join_group:r7 - emit:r3
+         * scan:r1 - offer:r5 - [group]:e1 -/
+         */
+        details::collect_exchange_steps(r, p, options);
+
+        auto&& r7 = next<relation::step::join>(r3.input());
+        auto&& r6 = next<take_cogroup>(r7.input());
+        EXPECT_EQ(r7.operator_kind(), e.kind);
+
+        ASSERT_EQ(r6.groups().size(), 2);
+        EXPECT_EQ(r6.groups()[0].mandatory(), e.left_mandatory);
+        EXPECT_EQ(r6.groups()[1].mandatory(), e.right_mandatory);
+    }
+}
+
 TEST_F(collect_exchange_steps_test, join_cogroup_is_not_distinct_from) {
     /*
      * scan:r0 -\
