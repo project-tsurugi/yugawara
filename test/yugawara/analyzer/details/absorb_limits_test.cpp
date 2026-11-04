@@ -224,11 +224,11 @@ TEST_F(absorb_limits_test, zero) {
 
 TEST_F(absorb_limits_test, primary_key) {
     /*
-     * scan:r0 - limit:r1[a, b] - emit:r2
+     * scan:r0[forward] - limit:r1[a, b] - emit:r2
      * => scan:r0[forward, 3] - limit:r1[a, b] - emit:r2
      */
     relation::graph_type r;
-    auto&& r0 = add_t0(r);
+    auto&& r0 = add_t0(r, {}, {}, scan_direction::forward);
     auto&& r1 = r.insert(limit(3, { a, b }));
     auto&& r2 = r.insert(relation::emit { a });
     r0.output() >> r1.input();
@@ -244,14 +244,17 @@ TEST_F(absorb_limits_test, primary_key) {
 
 TEST_F(absorb_limits_test, primary_key_prefix_range) {
     /*
-     * scan:r0(a > 2) - limit:r1[a] - emit:r2
+     * scan:r0(a > 2)[forward] - limit:r1[a] - emit:r2
      * => scan:r0(a > 2)[forward, 2] - limit:r1[a] - emit:r2
      */
     relation::graph_type r;
-    auto&& r0 = add_t0(r, {
-            relation::scan::key { t0a, constant(2) },
-            endpoint_kind::prefixed_exclusive,
-    });
+    auto&& r0 = add_t0(r,
+            {
+                    relation::scan::key { t0a, constant(2) },
+                    endpoint_kind::prefixed_exclusive,
+            },
+            {},
+            scan_direction::forward);
     auto&& r1 = r.insert(limit(2, { a }));
     auto&& r2 = r.insert(relation::emit { a });
     r0.output() >> r1.input();
@@ -265,7 +268,7 @@ TEST_F(absorb_limits_test, primary_key_prefix_range) {
 
 TEST_F(absorb_limits_test, fixed_key) {
     /*
-     * scan:r0(a = 1) - limit:r1[b] - emit:r2
+     * scan:r0(a = 1)[forward] - limit:r1[b] - emit:r2
      * => scan:r0(a = 1)[forward, 2] - limit:r1[b] - emit:r2
      */
     relation::graph_type r;
@@ -277,7 +280,8 @@ TEST_F(absorb_limits_test, fixed_key) {
             {
                     relation::scan::key { t0a, constant(1) },
                     endpoint_kind::prefixed_inclusive,
-            });
+            },
+            scan_direction::forward);
     auto&& r1 = r.insert(limit(2, { b }));
     auto&& r2 = r.insert(relation::emit { a });
     r0.output() >> r1.input();
@@ -291,7 +295,7 @@ TEST_F(absorb_limits_test, fixed_key) {
 
 TEST_F(absorb_limits_test, descendant_key) {
     /*
-     * scan:r0 - limit:r1[k DESC] - emit:r2
+     * scan:r0[forward] - limit:r1[k DESC] - emit:r2
      * => scan:r0[forward, 2] - limit:r1[k DESC] - emit:r2
      */
     relation::graph_type r;
@@ -301,6 +305,9 @@ TEST_F(absorb_limits_test, descendant_key) {
             {
                     { t1k, k },
             },
+            {},
+            {},
+            scan_direction::forward,
     });
     auto&& r1 = r.insert(limit(2, {
             relation::intermediate::limit::sort_key { k, sort_direction::descendant },
@@ -313,6 +320,25 @@ TEST_F(absorb_limits_test, descendant_key) {
 
     EXPECT_EQ(r0.row_slice(), row_slice(2));
     EXPECT_EQ(r0.direction(), scan_direction::forward);
+}
+
+TEST_F(absorb_limits_test, without_direction) {
+    /*
+     * scan:r0 - limit:r1[a] - emit:r2
+     * => (not changed: the scan does not provide the row order yet)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t0(r);
+    auto&& r1 = r.insert(limit(3, { a }));
+    auto&& r2 = r.insert(relation::emit { a });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    apply(r);
+
+    // taking the row count before sorting the rows changes the result
+    EXPECT_FALSE(r0.row_slice());
+    EXPECT_FALSE(r0.direction());
 }
 
 TEST_F(absorb_limits_test, not_sorted) {
@@ -490,11 +516,11 @@ TEST_F(absorb_limits_test, group_keys) {
 
 TEST_F(absorb_limits_test, direction_only) {
     /*
-     * scan:r0 - filter:r1 - limit:r2[a] - emit:r3
-     * => scan:r0[forward] - filter:r1 - limit:r2[a] - emit:r3
+     * scan:r0[forward] - filter:r1 - limit:r2[a] - emit:r3
+     * => (not changed: the filter may reduce the rows)
      */
     relation::graph_type r;
-    auto&& r0 = add_t0(r);
+    auto&& r0 = add_t0(r, {}, {}, scan_direction::forward);
     auto&& r1 = r.insert(relation::filter {
             compare(varref { c }, constant(1)),
     });
@@ -510,37 +536,13 @@ TEST_F(absorb_limits_test, direction_only) {
     EXPECT_EQ(r0.direction(), scan_direction::forward);
 }
 
-TEST_F(absorb_limits_test, direction_only_disabled) {
-    /*
-     * scan:r0 - filter:r1 - limit:r2[a] - emit:r3
-     * => (not changed, if ordered_forward is disabled)
-     */
-    relation::graph_type r;
-    auto&& r0 = add_t0(r);
-    auto&& r1 = r.insert(relation::filter {
-            compare(varref { c }, constant(1)),
-    });
-    auto&& r2 = r.insert(limit(2, { a }));
-    auto&& r3 = r.insert(relation::emit { a });
-    r0.output() >> r1.input();
-    r1.output() >> r2.input();
-    r2.output() >> r3.input();
-
-    auto features = runtime_feature_all;
-    features.erase(runtime_feature::ordered_forward);
-    apply(r, features);
-
-    EXPECT_FALSE(r0.row_slice());
-    EXPECT_FALSE(r0.direction());
-}
-
 TEST_F(absorb_limits_test, scan_limit_only) {
     /*
-     * scan:r0 - limit:r1[a] - emit:r2
+     * scan:r0[forward] - limit:r1[a] - emit:r2
      * => scan:r0[forward, 3] - limit:r1[a] - emit:r2 (only scan_limit is enabled)
      */
     relation::graph_type r;
-    auto&& r0 = add_t0(r);
+    auto&& r0 = add_t0(r, {}, {}, scan_direction::forward);
     auto&& r1 = r.insert(limit(3, { a }));
     auto&& r2 = r.insert(relation::emit { a });
     r0.output() >> r1.input();
@@ -555,7 +557,7 @@ TEST_F(absorb_limits_test, scan_limit_only) {
 TEST_F(absorb_limits_test, order_only) {
     /*
      * scan:r0{I0} - limit:r1[a] - emit:r2
-     * => scan:r0{I0}[forward] - limit:r1[a] - emit:r2
+     * => (not changed: the direction is set by rewrite_scan())
      */
     relation::graph_type r;
     auto&& r0 = add_t0(r);
@@ -568,27 +570,6 @@ TEST_F(absorb_limits_test, order_only) {
     r1.output() >> r2.input();
 
     apply(r, { runtime_feature::ordered_scan });
-
-    EXPECT_FALSE(r0.row_slice());
-    EXPECT_EQ(r0.direction(), scan_direction::forward);
-}
-
-TEST_F(absorb_limits_test, order_only_disabled) {
-    /*
-     * scan:r0{I0} - limit:r1[a] - emit:r2
-     * => (not changed, if ordered_scan is disabled)
-     */
-    relation::graph_type r;
-    auto&& r0 = add_t0(r);
-    auto&& r1 = r.insert(relation::intermediate::limit {
-            std::vector<descriptor::variable> {},
-            std::vector<relation::intermediate::limit::sort_key> { a },
-    });
-    auto&& r2 = r.insert(relation::emit { a });
-    r0.output() >> r1.input();
-    r1.output() >> r2.input();
-
-    apply(r, { runtime_feature::scan_limit, runtime_feature::ordered_forward });
 
     EXPECT_FALSE(r0.row_slice());
     EXPECT_FALSE(r0.direction());

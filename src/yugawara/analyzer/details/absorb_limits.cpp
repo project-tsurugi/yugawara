@@ -35,18 +35,6 @@ std::optional<std::size_t> find_target_count(relation::intermediate::limit const
     return {};
 }
 
-/**
- * @brief returns whether or not the limit only requests the row order, without any row count nor group keys.
- * @param expr the target limit
- * @return true if it only requests the row order
- * @return false otherwise
- */
-bool is_order_only(relation::intermediate::limit const& expr) {
-    return expr.group_keys().empty()
-            && !expr.sort_keys().empty()
-            && !expr.row_slice();
-}
-
 class engine {
 public:
     explicit engine(runtime_feature_set const& features) noexcept :
@@ -72,18 +60,9 @@ private:
                 && !scan.row_slice();
     }
 
-    [[nodiscard]] bool can_absorb_direction_only(relation::intermediate::limit const& expr) const {
-        if (!features_.contains(runtime_feature::ordered_scan)) {
-            return false;
-        }
-        // NOTE: the limit with row count becomes a forward exchange with ordering,
-        // and the limit without row count will be removed (see remove_redundant_limits())
-        return !expr.row_slice() || features_.contains(runtime_feature::ordered_forward);
-    }
-
     void absorb(relation::intermediate::limit& expr) {
         auto count = find_target_count(expr);
-        if (!count && !is_order_only(expr)) {
+        if (!count) {
             return;
         }
         auto path = find_ordered_source(expr);
@@ -91,28 +70,18 @@ private:
             return;
         }
         auto&& scan = unsafe_downcast<relation::scan>(*path.end);
-        bool absorb_count = count && can_absorb_count(scan, path.capabilities);
-        if (!absorb_count && !can_absorb_direction_only(expr)) {
+        if (!can_absorb_count(scan, path.capabilities)) {
             return;
         }
+        // NOTE: the scan must already provide the row order of the limit (see rewrite_scan()),
+        // because taking the row count before sorting the rows changes the result
         if (!expr.sort_keys().empty()) {
             auto direction = find_scan_direction(scan, expr);
-            if (!direction) {
+            if (!direction || scan.direction() != direction) {
                 return;
             }
-            if (*direction == relation::scan_direction::backward
-                    && !features_.contains(runtime_feature::backward_scan)) {
-                return;
-            }
-            // adopt the direction only if the scan does not specify any directions, or it is same as the required one
-            if (auto&& current = scan.direction(); current && *current != *direction) {
-                return;
-            }
-            scan.direction() = direction;
         }
-        if (absorb_count) {
-            scan.row_slice() = relation::scan::row_slice_type { {}, *count };
-        }
+        scan.row_slice() = relation::scan::row_slice_type { {}, *count };
     }
 };
 

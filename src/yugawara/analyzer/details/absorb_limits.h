@@ -7,27 +7,23 @@
 namespace yugawara::analyzer::details {
 
 /**
- * @brief absorbs the row count and the row order of `limit` operators into the upstream `scan` operators.
+ * @brief absorbs the row count of `limit` operators into the upstream `scan` operators.
  * @details This only considers `limit` operators without any group keys nor the start position,
- *      which have the immediate row count or only the sort keys, and their source `scan` operators
- *      (see find_ordered_source()).
- *      This does not select indices: the index of the `scan` has already been selected by rewrite_scan(),
- *      with considering the row order of the `limit`.
+ *      which have the immediate row count, and their source `scan` operators (see find_ordered_source()).
+ *      This never changes the index nor the direction of the `scan`:
+ *      rewrite_scan() has already selected them, and has set the row count if it contributes to the selection.
+ *      This sets the rest of the row counts, which do not affect the index selection.
  *
- *      If the `limit` has the row count and each row of the `scan` becomes exactly one input row of the `limit`
+ *      If each row of the `scan` becomes exactly one input row of the `limit`
  *      (that is, the path between them has both `at_least_one` and `at_most_one`, see find_path_capabilities()),
  *      this sets the row count of the `limit` to the `scan` (requires runtime_feature::scan_limit).
  *      Otherwise, the operators between them may reduce or increase the number of rows,
  *      and this does not set the row count.
+ *      This also does not set the row count if the `scan` already has one.
  *
- *      If the `limit` has sort keys, this also sets the direction to the `scan`,
- *      only if reading the index of the `scan` in the direction provides the rows in the order of the sort keys.
- *      If the `scan` already has a direction, this absorbs nothing unless the direction is same as the above.
- *      The backward direction requires runtime_feature::backward_scan.
- *      If this does not set the row count, this sets only the direction, and requires runtime_feature::ordered_scan:
- *      the `limit` with the row count becomes a forward exchange with ordering
- *      (also requires runtime_feature::ordered_forward),
- *      and the `limit` without the row count will be removed (see remove_redundant_limits()).
+ *      If the `limit` has sort keys, this sets the row count only if the `scan` already has the direction
+ *      which provides the rows in the order of the sort keys,
+ *      because taking the row count before sorting the rows changes the result.
  *
  *      The `limit` operators are retained, so that the downstream operators are not changed.
  * @attention The graph must not contain the `filter` operators whose condition is just `TRUE`

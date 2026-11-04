@@ -178,6 +178,26 @@ TEST_F(rewrite_scan_order_test, early_stop) {
     EXPECT_EQ(r0.direction(), scan_direction::forward);
 }
 
+TEST_F(rewrite_scan_order_test, early_stop_without_absorb_limits) {
+    /*
+     * scan:r0{I2} - limit:r1[v, 3] - emit:r2
+     * => scan:r0{I2V}[forward, 3] - limit:r1[v, 3] - emit:r2 (by rewrite_scan() only)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t2(r);
+    auto&& r1 = r.insert(limit(3, v));
+    auto&& r2 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    // NOTE: rewrite_scan() sets the direction and the row count which contribute to the index selection
+    rewrite_scan(r, estimator, parameters, runtime_feature_all);
+
+    EXPECT_EQ(r0.source(), bindings(*i2v));
+    EXPECT_EQ(r0.row_slice(), row_slice(3));
+    EXPECT_EQ(r0.direction(), scan_direction::forward);
+}
+
 TEST_F(rewrite_scan_order_test, early_stop_range) {
     /*
      * scan:r0{I2} - filter:r1(v > 15) - limit:r2[v, 3] - emit:r3
@@ -476,6 +496,25 @@ TEST_F(rewrite_scan_order_test, order_only_direct) {
     r1.output() >> r2.input();
 
     apply(r);
+
+    EXPECT_EQ(r0.source(), bindings(*i2));
+    EXPECT_FALSE(r0.row_slice());
+    EXPECT_EQ(r0.direction(), scan_direction::forward);
+}
+
+TEST_F(rewrite_scan_order_test, order_only_without_absorb_limits) {
+    /*
+     * scan:r0{I2} - limit:r1[k] - emit:r2
+     * => scan:r0{I2}[forward] - limit:r1[k] - emit:r2 (by rewrite_scan() only)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t2(r);
+    auto&& r1 = r.insert(order_only(k));
+    auto&& r2 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    rewrite_scan(r, estimator, parameters, runtime_feature_all);
 
     EXPECT_EQ(r0.source(), bindings(*i2));
     EXPECT_FALSE(r0.row_slice());

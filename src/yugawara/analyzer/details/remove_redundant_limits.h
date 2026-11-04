@@ -27,6 +27,7 @@ namespace yugawara::analyzer::details {
  *      in the path from the `scan` to the `limit`.
  * @param graph the target graph
  * @param features the available runtime features
+ * @see rewrite_scan()
  * @see absorb_limits()
  */
 void remove_redundant_limits(
