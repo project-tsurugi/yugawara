@@ -185,6 +185,17 @@ struct order_request {
             && capabilities.contains(path_capability::at_most_one);
 }
 
+/**
+ * @brief how an index candidate provides the row order requested by the downstream `limit`.
+ */
+struct order_decision {
+    /// @brief how the candidate provides the row order.
+    candidate_order order { candidate_order::none };
+
+    /// @brief the scan direction to provide the row order, or empty if the candidate does not provide it.
+    std::optional<relation::scan_direction> direction {};
+};
+
 class engine {
 public:
     explicit engine(
@@ -248,10 +259,25 @@ private:
             VLOG(50) << "index " << entry->simple_name() << ": " << current.result;
             candidates.emplace_back(std::move(current));
         }
-        std::size_t selected = request
-                ? select_ordered(candidates, *request)
-                : select(candidates);
+        if (!request) {
+            apply_index_to_scan(expr, candidates[select(candidates)], work_graph_);
+            return;
+        }
+        auto [selected, decision] = select_ordered(candidates, *request);
         apply_index_to_scan(expr, candidates[selected], work_graph_);
+        // NOTE: the candidate which provides the row order is always a scan (see decide_order()),
+        // so that the target scan is still alive here
+        apply_order(expr, decision, *request);
+    }
+
+    static void apply_order(relation::scan& expr, order_decision const& decision, order_request const& request) {
+        if (decision.order == candidate_order::none) {
+            return;
+        }
+        expr.direction() = decision.direction;
+        if (decision.order == candidate_order::early_stop) {
+            expr.row_slice() = relation::scan::row_slice_type { {}, *request.count };
+        }
     }
 
     [[nodiscard]] std::size_t select(std::vector<index_candidate> const& candidates) const {
@@ -264,14 +290,14 @@ private:
         return saved;
     }
 
-    [[nodiscard]] std::size_t select_ordered(
+    [[nodiscard]] std::pair<std::size_t, order_decision> select_ordered(
             std::vector<index_candidate> const& candidates,
             order_request const& request) const {
-        std::vector<candidate_order> orders {};
-        orders.reserve(candidates.size());
+        std::vector<order_decision> decisions {};
+        decisions.reserve(candidates.size());
         double sort_selectivity = 1.0;
         for (auto&& candidate : candidates) {
-            orders.emplace_back(decide_order(candidate, request));
+            decisions.emplace_back(decide_order(candidate, request));
             // NOTE: the rows to sort are at most the rows of the most selective candidate
             sort_selectivity = std::min(sort_selectivity, candidate.result.selectivity());
         }
@@ -279,31 +305,31 @@ private:
         for (std::size_t i = 1, n = candidates.size(); i < n; ++i) {
             if (is_better_ordered_scan_candidate(
                     candidates[i],
-                    orders[i],
+                    decisions[i].order,
                     candidates[saved],
-                    orders[saved],
+                    decisions[saved].order,
                     sort_selectivity,
                     parameters_)) {
                 saved = i;
             }
         }
-        return saved;
+        return { saved, decisions[saved] };
     }
 
-    [[nodiscard]] candidate_order decide_order(
+    [[nodiscard]] order_decision decide_order(
             index_candidate const& candidate,
             order_request const& request) const {
         // NOTE: find operations do not provide any row order
         if (candidate.kind == index_candidate::access_kind::find || !candidate.scannable) {
-            return candidate_order::none;
+            return {};
         }
         auto fixed = fixed_columns(candidate);
         auto direction = find_scan_direction(candidate.index, request.sort_keys, fixed);
         if (!direction) {
-            return candidate_order::none;
+            return {};
         }
         if (*direction == relation::scan_direction::backward && !features_.contains(runtime_feature::backward_scan)) {
-            return candidate_order::none;
+            return {};
         }
         // NOTE: the scan can stop at the row count, only if each row of the scan reaches the limit;
         // a limit with a large row count is regarded as same as the limit without the row count,
@@ -312,15 +338,15 @@ private:
                 && *request.count <= parameters_.max_early_stop_limit_count()
                 && features_.contains(runtime_feature::scan_limit)
                 && keeps_rows(request, candidate)) {
-            return candidate_order::early_stop;
+            return { candidate_order::early_stop, direction };
         }
         // NOTE: the limit with the row count becomes a forward exchange with ordering,
         // and the limit without the row count will be removed (see remove_redundant_limits())
         if (features_.contains(runtime_feature::ordered_scan)
                 && (!request.counted || features_.contains(runtime_feature::ordered_forward))) {
-            return candidate_order::ordered;
+            return { candidate_order::ordered, direction };
         }
-        return candidate_order::none;
+        return {};
     }
 
     void install(relation::graph_type& graph) {
