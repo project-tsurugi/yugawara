@@ -13,7 +13,6 @@
 #include <takatori/util/sequence_view.h>
 
 #include <yugawara/storage/table.h>
-#include <yugawara/storage/index.h>
 
 #include "search_key_term_builder.h"
 
@@ -26,9 +25,6 @@ class scan_key_collector {
 public:
     /// @brief the term of individual scan key elements.
     using term = search_key_term;
-
-    /// @brief the sort key piece type.
-    using sort_key = storage::details::index_key_element;
 
     /// @brief the column reference type.
     using column_ref = std::reference_wrapper<storage::column const>;
@@ -69,8 +65,6 @@ public:
 
     [[nodiscard]] ::takatori::util::optional_ptr<term> find(storage::column const& column);
 
-    [[nodiscard]] ::takatori::util::sequence_view<sort_key const> sort_keys() const;
-
     [[nodiscard]] ::takatori::util::sequence_view<column_ref const> referring() const;
 
 private:
@@ -82,7 +76,6 @@ private:
             std::equal_to<>> column_map_;
 
     ::takatori::util::optional_ptr<storage::table const> table_ {};
-    std::vector<sort_key> sort_keys_;
     std::vector<column_ref> referring_;
 };
 

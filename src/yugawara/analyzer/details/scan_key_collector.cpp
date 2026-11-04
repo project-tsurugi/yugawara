@@ -44,15 +44,12 @@ storage::column const* extract_column(descriptor::variable const& variable, bool
 class factor_collector {
 public:
     using output_port_type = relation::expression::output_port_type;
-    using sort_key = scan_key_collector::sort_key;
 
     explicit factor_collector(
             search_key_term_builder& builder,
-            std::vector<sort_key>& sort_keys,
-            bool include_join) noexcept
-        : builder_(builder)
-        , sort_keys_(sort_keys)
-        , for_join_(include_join)
+            bool include_join) noexcept :
+        builder_ { builder },
+        for_join_ { include_join }
     {}
 
     void process(output_port_type& output) {
@@ -89,15 +86,12 @@ public:
         return {};
     }
 
-    // FIXME: limit (ignore if include_join)
-
     [[nodiscard]] bool reach_join() const noexcept {
         return found_join_;
     }
 
 private:
     search_key_term_builder& builder_;
-    std::vector<sort_key> sort_keys_;
     bool for_join_;
     bool found_join_ { false };
 };
@@ -128,7 +122,7 @@ bool scan_key_collector::operator()(relation::scan& expression, scope target) {
     }
 
     // collect factors
-    factor_collector collector { term_builder_, sort_keys_, include_join };
+    factor_collector collector { term_builder_, include_join };
     collector.process(expression.output());
     if (term_builder_.empty() || (include_join && !collector.reach_join())) {
         return false;
@@ -145,7 +139,6 @@ void scan_key_collector::clear() {
     table_ = {};
     term_builder_.clear();
     column_map_.clear();
-    sort_keys_.clear();
     referring_.clear();
 }
 
@@ -158,10 +151,6 @@ takatori::util::optional_ptr<scan_key_collector::term> scan_key_collector::find(
         return term_builder_.find(it->second);
     }
     return {};
-}
-
-sequence_view<scan_key_collector::sort_key const> scan_key_collector::sort_keys() const {
-    return sort_keys_;
 }
 
 sequence_view<scan_key_collector::column_ref const> scan_key_collector::referring() const {

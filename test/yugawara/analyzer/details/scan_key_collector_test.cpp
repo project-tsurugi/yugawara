@@ -82,7 +82,6 @@ TEST_F(scan_key_collector_test, simple) {
     EXPECT_EQ(s0->equivalent_factor(), constant(0));
 
     EXPECT_EQ(collector.table(), *t0);
-    EXPECT_TRUE(eq(collector.sort_keys(), {}));
     EXPECT_TRUE(eq(collector.referring(), {
             std::cref(t0c0),
     }));
