@@ -9,9 +9,10 @@ namespace yugawara::analyzer {
  * @details This does not use any statistics: the selectivity is the product of factors for individual key criteria.
  *      The factors are given as parameters.
  *
- *      Because the key columns are often correlated, the factors of the subsequent key criteria are weakened:
+ *      The factors of the subsequent key criteria can be weakened, for the case that the key columns are correlated:
  *      the factor of the `i`-th key criteria (0-origin) is raised to the power of `pow(decay, i)`,
  *      where `decay` is parameters_type::selectivity_decay().
+ *      By default, the key criteria are regarded as independent (`decay = 1.0`).
  *
  *      If the index is unique and the search keys point a single entry
  *      (all index keys are equivalent conditions), this estimates the number of entries as `1`.
@@ -33,8 +34,13 @@ public:
         /// @brief the default selectivity factor for range condition with only one bound.
         static constexpr double default_half_bound_selectivity = 0.6;
 
-        /// @brief the default decay of the selectivity factors for the subsequent key criteria.
-        static constexpr double default_selectivity_decay = 0.5;
+        /**
+         * @brief the default decay of the selectivity factors for the subsequent key criteria.
+         * @details This regards the key criteria as independent, because weakening the subsequent key criteria
+         *      can prefer an index with the fewer key criteria
+         *      (e.g. the direct primary index prefix over the indirect secondary index with more equivalent conditions).
+         */
+        static constexpr double default_selectivity_decay = 1.0;
 
         /**
          * @brief creates a new instance with default parameters.

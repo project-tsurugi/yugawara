@@ -108,14 +108,14 @@ TEST_F(parametric_index_estimator_test, prefix_then_range) {
     parametric_index_estimator estimator {};
     auto narrow = estimate(estimator, *non_unique_index, { equivalent(t0c0), half_bound(t0c1) });
     auto wide = estimate(estimator, *non_unique_index, { half_bound(t0c0) });
-    EXPECT_DOUBLE_EQ(narrow.selectivity(), 0.1 * std::pow(0.6, 0.5));
+    EXPECT_DOUBLE_EQ(narrow.selectivity(), 0.1 * 0.6);
     EXPECT_LT(narrow.selectivity(), wide.selectivity());
 }
 
 TEST_F(parametric_index_estimator_test, unique_point) {
     parametric_index_estimator estimator {};
     auto result = estimate(estimator, *unique_index, { equivalent(t0c0), equivalent(t0c1) });
-    EXPECT_DOUBLE_EQ(result.selectivity(), 0.1 * std::pow(0.1, 0.5));
+    EXPECT_DOUBLE_EQ(result.selectivity(), 0.1 * 0.1);
     EXPECT_EQ(result.count(), 1);
 }
 
@@ -165,13 +165,22 @@ TEST_F(parametric_index_estimator_test, decay_first_only) {
     EXPECT_DOUBLE_EQ(result.selectivity(), 0.1);
 }
 
-TEST_F(parametric_index_estimator_test, decay_default) {
-    parametric_index_estimator estimator {};
+TEST_F(parametric_index_estimator_test, decay_half) {
+    parametric_index_estimator::parameters_type parameters {};
+    parameters.selectivity_decay() = 0.5;
+    parametric_index_estimator estimator { parameters };
     auto one = estimate(estimator, *non_unique_index, { equivalent(t0c0) });
     auto two = estimate(estimator, *non_unique_index, { equivalent(t0c0), equivalent(t0c1) });
     EXPECT_DOUBLE_EQ(two.selectivity(), 0.1 * std::pow(0.1, 0.5));
     // still decreases monotonically
     EXPECT_LT(two.selectivity(), one.selectivity());
+}
+
+TEST_F(parametric_index_estimator_test, decay_default) {
+    // the key criteria are regarded as independent by default
+    parametric_index_estimator estimator {};
+    auto result = estimate(estimator, *non_unique_index, { equivalent(t0c0), equivalent(t0c1) });
+    EXPECT_DOUBLE_EQ(result.selectivity(), 0.1 * 0.1);
 }
 
 } // namespace yugawara::analyzer
