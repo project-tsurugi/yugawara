@@ -208,8 +208,9 @@ TEST_F(step_plan_builder_test, scan_row_slice_and_direction) {
             {},
             {},
             relation::scan_direction::forward,
-            relation::scan::row_slice_type { {}, 3 },
+            relation::scan::row_slice_type { {}, 5 },
     });
+    // NOTE: the limit is not redundant, because the scan may return more rows
     auto&& r1 = r.insert(relation::intermediate::limit {
             relation::intermediate::limit::row_slice_type { {}, 3 },
     });
@@ -233,7 +234,7 @@ TEST_F(step_plan_builder_test, scan_row_slice_and_direction) {
 
     // scan
     EXPECT_EQ(r0.direction(), relation::scan_direction::forward);
-    EXPECT_EQ(r0.row_slice(), (relation::scan::row_slice_type { {}, 3 }));
+    EXPECT_EQ(r0.row_slice(), (relation::scan::row_slice_type { {}, 5 }));
     ASSERT_EQ(r0.columns().size(), 1);
     EXPECT_EQ(r0.columns()[0].source(), t0c1);
 

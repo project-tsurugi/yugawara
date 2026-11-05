@@ -17,7 +17,6 @@
 #include "details/decompose_filter.h"
 #include "details/decompose_disjunction_range.h"
 #include "details/absorb_limits.h"
-#include "details/remove_redundant_limits.h"
 
 namespace yugawara::analyzer {
 
@@ -87,7 +86,6 @@ void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& g
             options_.runtime_features());
     details::remove_redundant_conditions(graph);
     details::absorb_limits(graph, options_.runtime_features());
-    details::remove_redundant_limits(graph, options_.runtime_features());
 }
 
 } // namespace yugawara::analyzer

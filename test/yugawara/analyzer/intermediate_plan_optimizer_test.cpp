@@ -877,11 +877,13 @@ TEST_F(intermediate_plan_optimizer_test, absorb_limits) {
     intermediate_plan_optimizer optimizer { options() };
     optimizer(r);
 
-    // the limit is absorbed into the scan, and then removed
-    ASSERT_EQ(r.size(), 2);
+    // the limit is absorbed into the scan, and it remains until collect_exchange_steps() removes it
+    ASSERT_EQ(r.size(), 3);
     ASSERT_TRUE(r.contains(in));
+    ASSERT_TRUE(r.contains(limit));
     ASSERT_TRUE(r.contains(out));
-    EXPECT_GT(in.output(), out.input());
+    EXPECT_GT(in.output(), limit.input());
+    EXPECT_GT(limit.output(), out.input());
     EXPECT_EQ(in.row_slice(), (relation::scan::row_slice_type { {}, 3 }));
 }
 
@@ -944,10 +946,13 @@ TEST_F(intermediate_plan_optimizer_test, absorb_limits_after_rewrite_scan) {
     intermediate_plan_optimizer optimizer { options() };
     optimizer(r);
 
-    // the filter is absorbed into the scan range, and then the limit is absorbed into the scan and removed
-    ASSERT_EQ(r.size(), 2);
+    // the filter is absorbed into the scan range, and then the limit is absorbed into the scan,
+    // and the limit remains until collect_exchange_steps() removes it
+    ASSERT_EQ(r.size(), 3);
+    ASSERT_TRUE(r.contains(limit));
     ASSERT_TRUE(r.contains(out));
-    auto upstream = out.input().opposite();
+    EXPECT_GT(limit.output(), out.input());
+    auto upstream = limit.input().opposite();
     ASSERT_TRUE(upstream);
     ASSERT_EQ(upstream->owner().kind(), relation::scan::tag);
     auto&& scan = ::takatori::util::unsafe_downcast<relation::scan>(upstream->owner());

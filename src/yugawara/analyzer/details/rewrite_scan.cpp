@@ -348,7 +348,7 @@ private:
             return { candidate_order::early_stop, direction, count };
         }
         // NOTE: the limit with the row count becomes a forward exchange with ordering,
-        // and the limit without the row count will be removed (see remove_redundant_limits());
+        // and the limit without the row count will be removed (see collect_exchange_steps());
         // the large row count is also set to the scan, because it never affects the index selection here
         if (features_.contains(runtime_feature::ordered_scan)
                 && (!request.counted || features_.contains(runtime_feature::ordered_forward))) {

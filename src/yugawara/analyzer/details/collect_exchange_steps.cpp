@@ -1,5 +1,6 @@
 #include "collect_exchange_steps.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 
@@ -60,6 +61,22 @@ optional_ptr<descriptor::variable> extract_if_variable_ref(scalar::expression& e
         return unsafe_downcast<scalar::variable_reference>(expr).variable();
     }
     return {};
+}
+
+template<class T>
+bool has_start(T const& slice) {
+    auto&& start = slice.start();
+    if (start.is_absent()) {
+        return false;
+    }
+    auto position = start.immediate_if();
+    return !position || *position != 0;
+}
+
+bool is_empty(relation::intermediate::limit const& expr) {
+    return expr.group_keys().empty()
+            && expr.sort_keys().empty()
+            && !expr.row_slice();
 }
 
 class engine {
@@ -189,6 +206,10 @@ public:
     }
 
     void operator()(relation::intermediate::limit& expr) {
+        if (redundant_limits_.contains(std::addressof(expr))) {
+            remove_limit(expr);
+            return;
+        }
         shrink_duplicated_variables(expr.group_keys());
 
         if (auto iter = ordered_limits_.find(std::addressof(expr)); iter != ordered_limits_.end()) {
@@ -232,6 +253,7 @@ private:
     std::vector<relation::expression*> targets_;
     std::vector<std::unique_ptr<relation::expression>> added_;
     ::tsl::hopscotch_map<relation::intermediate::limit const*, plan::forward::ordering_type> ordered_limits_ {};
+    ::tsl::hopscotch_set<relation::intermediate::limit const*> redundant_limits_ {};
 
     template<class T>
     [[nodiscard]] std::vector<T> empty() const noexcept {
@@ -589,8 +611,10 @@ private:
     }
 
     /**
-     * @brief decides whether or not the given limit becomes a forward exchange with ordering.
-     * @details The limit can be replaced with a forward exchange only if its input rows are already in the order
+     * @brief decides whether the given limit is removed, or becomes a forward exchange with ordering.
+     * @details The limit is removed if it is redundant (see is_redundant()), and then it is registered into
+     *      redundant_limits_.
+     *      Otherwise, the limit can be replaced with a forward exchange only if its input rows are already in the order
      *      of its sort keys, that is, the source scan has the direction which provides the rows in the order.
      *      The source scan may be in the upstream of other limits which become forward exchanges with ordering,
      *      and then the nearest one must preserve the order of its output rows (see trace_ordered_upstream()).
@@ -599,6 +623,10 @@ private:
      * @param expr the target limit
      */
     void decide_limit(relation::intermediate::limit& expr) {
+        if (is_redundant(expr)) {
+            redundant_limits_.emplace(std::addressof(expr));
+            return;
+        }
         if (!options_.runtime_features().contains(runtime_feature::ordered_forward)) {
             return;
         }
@@ -622,6 +650,124 @@ private:
             // NOTE: this limit depends on the order of the rows from the upstream limit
             require_preserve_output(*upstream.limit);
         }
+    }
+
+    /**
+     * @brief returns whether or not the given limit is redundant, that is, it never changes its input rows.
+     * @details This returns `true` if the limit is empty, or the nearest upstream `scan` or `limit` (except the
+     *      redundant ones) already provides the rows which satisfy the given limit.
+     *      This walks the upstream through the operators which preserve the row order, as same as
+     *      trace_ordered_upstream().
+     *      This must be called after all upstream operators are decided (see decide()).
+     * @param expr the target limit
+     * @return true if the limit is redundant
+     * @return false otherwise
+     */
+    [[nodiscard]] bool is_redundant(relation::intermediate::limit& expr) const {
+        if (is_empty(expr)) {
+            return true;
+        }
+        if (!expr.group_keys().empty() || has_start(expr.row_slice())) {
+            return false;
+        }
+        auto path = find_ordered_source(expr);
+        // NOTE: the redundant limits never change their input rows
+        while (path.end && path.end->kind() == relation::intermediate::limit::tag) {
+            auto&& limit = unsafe_downcast<relation::intermediate::limit>(*path.end);
+            if (!redundant_limits_.contains(std::addressof(limit))) {
+                return satisfies_count(limit, expr, path.capabilities)
+                        && satisfies_order(limit, expr);
+            }
+            auto capabilities = path.capabilities;
+            path = find_ordered_source(limit);
+            path.capabilities &= capabilities;
+        }
+        if (path.end && path.end->kind() == relation::scan::tag) {
+            auto&& scan = unsafe_downcast<relation::scan>(*path.end);
+            return satisfies_count(scan, expr, path.capabilities)
+                    && satisfies_order(scan, expr);
+        }
+        return false;
+    }
+
+    [[nodiscard]] bool satisfies_count(
+            relation::scan const& scan,
+            relation::intermediate::limit const& expr,
+            path_capability_set const& capabilities) const {
+        // NOTE: the given limit must not have any group keys nor the start position (see is_redundant())
+        BOOST_ASSERT(expr.group_keys().empty() && !has_start(expr.row_slice())); // NOLINT
+        auto&& count = expr.row_slice().count();
+        if (count.is_absent()) {
+            return true;
+        }
+        // NOTE: the rows from the scan must not be increased before the limit
+        if (!capabilities.contains(path_capability::at_most_one)) {
+            return false;
+        }
+        // NOTE: the scan must honor its row count
+        if (!options_.runtime_features().contains(runtime_feature::scan_limit)) {
+            return false;
+        }
+        auto&& slice = scan.row_slice();
+        if (has_start(slice)) {
+            return false;
+        }
+        // FIXME: currently we do not remove the limit with the variable count, even if the scan has the same one
+        auto scan_count = slice.count().immediate_if();
+        auto limit_count = count.immediate_if();
+        return scan_count && limit_count && *scan_count <= *limit_count;
+    }
+
+    [[nodiscard]] bool satisfies_order(relation::scan const& scan, relation::intermediate::limit const& expr) const {
+        // NOTE: the given limit must not have any group keys nor the start position (see is_redundant())
+        BOOST_ASSERT(expr.group_keys().empty() && !has_start(expr.row_slice())); // NOLINT
+        if (expr.sort_keys().empty()) {
+            return true;
+        }
+        // NOTE: the scan must provide an ordered relation in its direction
+        if (!options_.runtime_features().contains(runtime_feature::ordered_scan)) {
+            return false;
+        }
+        auto&& direction = scan.direction();
+        return direction && find_scan_direction(scan, expr) == direction;
+    }
+
+    [[nodiscard]] static bool satisfies_count(
+            relation::intermediate::limit const& upstream,
+            relation::intermediate::limit const& expr,
+            path_capability_set const& capabilities) {
+        // NOTE: the given limit must not have any group keys nor the start position (see is_redundant())
+        BOOST_ASSERT(expr.group_keys().empty() && !has_start(expr.row_slice())); // NOLINT
+        auto&& count = expr.row_slice().count();
+        if (count.is_absent()) {
+            return true;
+        }
+        // NOTE: the rows from the upstream limit must not be increased before the limit
+        if (!capabilities.contains(path_capability::at_most_one)) {
+            return false;
+        }
+        auto&& slice = upstream.row_slice();
+        if (!upstream.group_keys().empty() || has_start(slice)) {
+            return false;
+        }
+        // FIXME: currently we do not remove the limit with the variable count, even if the upstream has the same one
+        auto upstream_count = slice.count().immediate_if();
+        auto limit_count = count.immediate_if();
+        return upstream_count && limit_count && *upstream_count <= *limit_count;
+    }
+
+    [[nodiscard]] static bool satisfies_order(
+            relation::intermediate::limit const& upstream,
+            relation::intermediate::limit const& expr) {
+        // NOTE: the given limit must not have any group keys nor the start position (see is_redundant())
+        BOOST_ASSERT(expr.group_keys().empty() && !has_start(expr.row_slice())); // NOLINT
+        // NOTE: the upstream limit provides the rows in the order of its sort keys,
+        // and they are also in the order of the given limit only if its sort keys are a prefix of the upstream ones
+        auto&& upstream_keys = upstream.sort_keys();
+        auto&& keys = expr.sort_keys();
+        return upstream.group_keys().empty()
+                && keys.size() <= upstream_keys.size()
+                && std::equal(keys.begin(), keys.end(), upstream_keys.begin());
     }
 
     /**
@@ -655,6 +801,8 @@ private:
      * @brief traces the upstream from the given input port, through the operators which preserve the row order.
      * @details This passes through the upstream limits which become forward exchanges with ordering
      *      (that is, they are registered in ordered_limits_), because they can preserve the order of their input rows.
+     *      This also passes through the redundant limits (that is, they are registered in redundant_limits_),
+     *      because they will be removed.
      *      This stops at the other limits, because the path capabilities of limits are always empty
      *      (see find_path_capabilities()).
      *      This must be called after all upstream operators are decided (see decide()).
@@ -666,11 +814,14 @@ private:
         auto path = find_ordered_source(input);
         while (path.end && path.end->kind() == relation::intermediate::limit::tag) {
             auto&& limit = unsafe_downcast<relation::intermediate::limit>(*path.end);
-            if (!ordered_limits_.contains(std::addressof(limit))) {
-                return result;
-            }
-            if (!result.limit) {
-                result.limit = limit;
+            // NOTE: the redundant limits will be removed, and their input rows are directly passed to the downstream
+            if (!redundant_limits_.contains(std::addressof(limit))) {
+                if (!ordered_limits_.contains(std::addressof(limit))) {
+                    return result;
+                }
+                if (!result.limit) {
+                    result.limit = limit;
+                }
             }
             path = find_ordered_source(limit);
         }
@@ -688,6 +839,24 @@ private:
         auto iter = ordered_limits_.find(std::addressof(expr));
         BOOST_ASSERT(iter != ordered_limits_.end()); // NOLINT
         iter.value().insert(plan::forward_ordering::preserve_output);
+    }
+
+    void remove_limit(relation::intermediate::limit& expr) {
+        /*
+         * .. - limit_relation{...} - ..
+         * =>
+         * .. - ..
+         */
+        auto upstream = expr.input().opposite();
+        auto downstream = expr.output().opposite();
+        if (!upstream || !downstream) {
+            throw_exception(std::domain_error(string_builder {}
+                    << "disconnected limit: "
+                    << expr
+                    << string_builder::to_string));
+        }
+        upstream->reconnect_to(*downstream);
+        source_.erase(expr);
     }
 
     void process_limit_flat(relation::intermediate::limit& expr, plan::forward::ordering_type ordering) {
