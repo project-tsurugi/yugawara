@@ -11,6 +11,7 @@
 #include <takatori/relation/buffer.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/intermediate/limit.h>
+#include <takatori/relation/intermediate/union.h>
 
 #include <takatori/util/clone_tag.h>
 #include <takatori/util/downcast.h>
@@ -216,20 +217,22 @@ public:
         if (!upstream || max_partial_limit_count_ == 0 || !is_partial_limit_target(expr)) {
             return;
         }
-        auto entry = find_partial_entry(expr, *upstream);
+        // NOTE: the partial limit may refer to the different columns from the original one (e.g. over union)
+        relation::intermediate::limit partial { ::takatori::util::clone_tag, expr };
+        auto entry = find_partial_entry(partial, *upstream);
         if (!entry) {
             return;
         }
         // NOTE: the partial limit is placed into the upstream, and the original limit is kept in the downstream
-        auto&& destination = find_partial_destination(expr, *entry);
+        auto&& destination = find_partial_destination(partial, *entry);
         if (auto upstream_limit = find_upstream_limit(destination)) {
             // NOTE: merging into the existing limit never increases the number of exchanges
-            if (merge_into(expr, *upstream_limit)) {
+            if (merge_into(partial, *upstream_limit)) {
                 return;
             }
         }
-        if (auto count = expr.row_slice().count().immediate_if(); count && *count <= max_partial_limit_count_) {
-            place_partial_limit(expr, destination);
+        if (auto count = partial.row_slice().count().immediate_if(); count && *count <= max_partial_limit_count_) {
+            place_partial_limit(partial, destination);
         }
     }
 
@@ -262,18 +265,57 @@ private:
     }
 
     /**
+     * @brief returns the left input port of the given union, where the partial limit can be placed into.
+     * @details If the union has the set quantifier `all`, each its input row becomes exactly one output row,
+     *      so that the top rows of the union output only come from the top rows of each input.
+     *      This rewrites the sort keys of the partial limit into the corresponding columns of the left input.
+     * @param partial the partial limit, whose sort keys will be rewritten only if this returns the input port
+     * @param expr the union
+     * @return the left input port
+     * @return empty if the partial limit cannot be placed into the left input
+     */
+    [[nodiscard]] static optional_ptr<relation::expression::input_port_type> find_union_entry(
+            relation::intermediate::limit& partial,
+            relation::intermediate::union_& expr) {
+        // NOTE: each input of union all has `at_least_one`, but find_path_capabilities() does not provide it yet
+        // FIXME: move this into find_path_capabilities(), and consider the right input
+        if (expr.quantifier() != relation::set_quantifier::all) {
+            return {};
+        }
+        auto&& mappings = expr.mappings();
+        std::vector<relation::intermediate::limit::sort_key> sort_keys {};
+        sort_keys.reserve(partial.sort_keys().size());
+        for (auto&& key : partial.sort_keys()) {
+            auto mapping = std::find_if(mappings.begin(), mappings.end(), [&](auto&& m) {
+                return m.destination() == key.variable();
+            });
+            // NOTE: if the left input does not have the column, it is always null in the rows from the left input;
+            // we never place the partial limit into such the input for simplicity
+            if (mapping == mappings.end() || !mapping->left()) {
+                return {};
+            }
+            sort_keys.emplace_back(*mapping->left(), key.direction());
+        }
+        partial.sort_keys() = std::move(sort_keys);
+        return expr.left();
+    }
+
+    /**
      * @brief returns the input port of the given upstream operator, where the partial limit can be placed into.
-     * @param expr the target limit
+     * @param partial the partial limit, whose sort keys may be rewritten into the columns of the returned input
      * @param upstream the output port of the upstream operator
      * @return the input port whose path makes one or more rows from each input row
      * @return empty if there is no such the input
      */
     [[nodiscard]] optional_ptr<relation::expression::input_port_type> find_partial_entry(
-            relation::intermediate::limit const& expr,
+            relation::intermediate::limit& partial,
             relation::expression::output_port_type& upstream) {
+        if (auto&& owner = upstream.owner(); owner.kind() == relation::intermediate::union_::tag) {
+            return find_union_entry(partial, unsafe_downcast<relation::intermediate::union_>(owner));
+        }
         for (auto&& input : upstream.owner().input_ports()) {
             auto capabilities = find_path_capabilities(input, upstream);
-            if (capabilities.contains(path_capability::at_least_one) && is_available(expr, input)) {
+            if (capabilities.contains(path_capability::at_least_one) && is_available(partial, input)) {
                 return input;
             }
         }
@@ -284,12 +326,12 @@ private:
      * @brief returns the farthest upstream input port where the partial limit can be placed into.
      * @details This walks the upstream from the given input port, while the partial limit can be moved over
      *      the operators, and stops at the upstream limit.
-     * @param expr the target limit
+     * @param partial the partial limit, whose sort keys may be rewritten into the columns of the returned input
      * @param input the input port where the walk starts
      * @return the destination input port
      */
     [[nodiscard]] relation::expression::input_port_type& find_partial_destination(
-            relation::intermediate::limit const& expr,
+            relation::intermediate::limit& partial,
             relation::expression::input_port_type& input) {
         // NOTE: partial limits can be placed anywhere in the upstream, only if the rows in the original limit are kept
         optional_ptr result { input };
@@ -298,11 +340,11 @@ private:
             if (!upstream || upstream->owner().kind() == relation::intermediate::limit::tag) {
                 break;
             }
-            if (auto next = find_move_destination(expr, *upstream)) {
+            if (auto next = find_move_destination(partial, *upstream)) {
                 result = next;
                 continue;
             }
-            if (auto next = find_partial_entry(expr, *upstream)) {
+            if (auto next = find_partial_entry(partial, *upstream)) {
                 result = next;
                 continue;
             }

@@ -18,6 +18,7 @@
 #include <takatori/relation/intermediate/distinct.h>
 #include <takatori/relation/intermediate/join.h>
 #include <takatori/relation/intermediate/limit.h>
+#include <takatori/relation/intermediate/union.h>
 
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/configurable_provider.h>
@@ -1340,6 +1341,338 @@ TEST_F(push_down_limits_test, left_outer_join_chain) {
     ASSERT_TRUE(p);
     EXPECT_GT(r0.output(), p->input());
     EXPECT_GT(r4.output(), r5.input());
+}
+
+TEST_F(push_down_limits_test, union_all) {
+    /*
+     * scan:r0 -\
+     * scan:r1 - union[all]:r2 - limit:r3[u0, u1 desc](3) - emit:r4
+     * =>
+     * scan:r0 - limit:p[c0, c1 desc](3) -\
+     * scan:r1 --------------------------- union[all]:r2 - limit:r3[u0, u1 desc](3) - emit:r4
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_scan1(r);
+    auto u0 = bindings.stream_variable("u0");
+    auto u1 = bindings.stream_variable("u1");
+    auto&& r2 = r.insert(relation::intermediate::union_ {
+            {
+                    { c0, d0, u0 },
+                    { c1, d1, u1 },
+            },
+            relation::set_quantifier::all,
+    });
+    auto&& r3 = r.insert(limit({ u0, { u1, relation::sort_direction::descendant } }));
+    auto&& r4 = r.insert(relation::emit { u0, u1 });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 6);
+    auto p = upstream_limit(r2.left());
+    ASSERT_TRUE(p);
+    EXPECT_GT(r0.output(), p->input());
+    EXPECT_EQ(p->group_keys().size(), 0);
+    EXPECT_EQ(p->sort_keys(), (std::vector<relation::intermediate::limit::sort_key> {
+            c0,
+            { c1, relation::sort_direction::descendant },
+    }));
+    EXPECT_EQ(p->row_slice(), row_slice(3));
+    EXPECT_GT(r1.output(), r2.right());
+    EXPECT_GT(r2.output(), r3.input());
+    EXPECT_EQ(r3.sort_keys(), (std::vector<relation::intermediate::limit::sort_key> {
+            u0,
+            { u1, relation::sort_direction::descendant },
+    }));
+    EXPECT_GT(r3.output(), r4.input());
+}
+
+TEST_F(push_down_limits_test, union_all_without_sort_keys) {
+    /*
+     * scan:r0 -\
+     * scan:r1 - union[all]:r2 - limit:r3(3) - emit:r4
+     * =>
+     * scan:r0 - limit:p(3) -\
+     * scan:r1 -------------- union[all]:r2 - limit:r3(3) - emit:r4
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_scan1(r);
+    auto u0 = bindings.stream_variable("u0");
+    auto&& r2 = r.insert(relation::intermediate::union_ {
+            {
+                    { c0, d0, u0 },
+            },
+            relation::set_quantifier::all,
+    });
+    auto&& r3 = r.insert(limit());
+    auto&& r4 = r.insert(relation::emit { u0 });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 6);
+    auto p = upstream_limit(r2.left());
+    ASSERT_TRUE(p);
+    EXPECT_GT(r0.output(), p->input());
+    EXPECT_EQ(p->sort_keys().size(), 0);
+    EXPECT_EQ(p->row_slice(), row_slice(3));
+    EXPECT_GT(r1.output(), r2.right());
+    EXPECT_GT(r2.output(), r3.input());
+}
+
+TEST_F(push_down_limits_test, union_all_absent_left_column) {
+    /*
+     * scan:r0 -\
+     * scan:r1 - union[all]:r2 - limit:r3[u0, u1](3) - emit:r4
+     * (u1 is absent in the left input)
+     * => (not changed)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_scan1(r);
+    auto u0 = bindings.stream_variable("u0");
+    auto u1 = bindings.stream_variable("u1");
+    auto&& r2 = r.insert(relation::intermediate::union_ {
+            {
+                    { c0, d0, u0 },
+                    { {}, d1, u1 },
+            },
+            relation::set_quantifier::all,
+    });
+    auto&& r3 = r.insert(limit({ u0, u1 }));
+    auto&& r4 = r.insert(relation::emit { u0, u1 });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(r0.output(), r2.left());
+    EXPECT_GT(r1.output(), r2.right());
+    EXPECT_GT(r2.output(), r3.input());
+}
+
+TEST_F(push_down_limits_test, union_distinct) {
+    /*
+     * scan:r0 -\
+     * scan:r1 - union[distinct]:r2 - limit:r3[u0](3) - emit:r4
+     * => (not changed)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_scan1(r);
+    auto u0 = bindings.stream_variable("u0");
+    auto&& r2 = r.insert(relation::intermediate::union_ {
+            {
+                    { c0, d0, u0 },
+            },
+            relation::set_quantifier::distinct,
+    });
+    auto&& r3 = r.insert(limit({ u0 }));
+    auto&& r4 = r.insert(relation::emit { u0 });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(r0.output(), r2.left());
+    EXPECT_GT(r1.output(), r2.right());
+    EXPECT_GT(r2.output(), r3.input());
+}
+
+TEST_F(push_down_limits_test, union_all_max_partial_limit_count) {
+    /*
+     * scan:r0 -\
+     * scan:r1 - union[all]:r2 - limit:r3[u0](3) - emit:r4
+     * => (not changed if 3 > max_partial_limit_count, or max_partial_limit_count == 0)
+     */
+    for (std::size_t max : { 2, 0 }) {
+        max_partial_limit_count = max;
+        relation::graph_type r;
+        auto&& r0 = add_scan(r);
+        auto&& r1 = add_scan1(r);
+        auto u0 = bindings.stream_variable("u0");
+        auto&& r2 = r.insert(relation::intermediate::union_ {
+                {
+                        { c0, d0, u0 },
+                },
+                relation::set_quantifier::all,
+        });
+        auto&& r3 = r.insert(limit({ u0 }));
+        auto&& r4 = r.insert(relation::emit { u0 });
+        r0.output() >> r2.left();
+        r1.output() >> r2.right();
+        r2.output() >> r3.input();
+        r3.output() >> r4.input();
+
+        apply(r);
+
+        ASSERT_EQ(r.size(), 5) << max;
+        EXPECT_GT(r0.output(), r2.left()) << max;
+        EXPECT_GT(r2.output(), r3.input()) << max;
+    }
+}
+
+TEST_F(push_down_limits_test, union_all_nested) {
+    /*
+     * scan:r0 -\
+     * scan:r1 - union[all]:r2 -\
+     * scan:r3 ----------------- union[all]:r4 - limit:r5[w0](3) - emit:r6
+     * =>
+     * scan:r0 - limit:p[c0](3) -\
+     * scan:r1 ------------------ union[all]:r2 -\
+     * scan:r3 ---------------------------------- union[all]:r4 - limit:r5[w0](3) - emit:r6
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_scan1(r);
+    auto u0 = bindings.stream_variable("u0");
+    auto&& r2 = r.insert(relation::intermediate::union_ {
+            {
+                    { c0, d0, u0 },
+            },
+            relation::set_quantifier::all,
+    });
+    auto e0 = bindings.stream_variable("e0");
+    auto e1 = bindings.stream_variable("e1");
+    auto&& r3 = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { t1c0, e0 },
+                    { t1c1, e1 },
+            },
+    });
+    auto w0 = bindings.stream_variable("w0");
+    auto&& r4 = r.insert(relation::intermediate::union_ {
+            {
+                    { u0, e0, w0 },
+            },
+            relation::set_quantifier::all,
+    });
+    auto&& r5 = r.insert(limit({ w0 }));
+    auto&& r6 = r.insert(relation::emit { w0 });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r4.left();
+    r3.output() >> r4.right();
+    r4.output() >> r5.input();
+    r5.output() >> r6.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 8);
+    auto p = upstream_limit(r2.left());
+    ASSERT_TRUE(p);
+    EXPECT_GT(r0.output(), p->input());
+    EXPECT_EQ(p->sort_keys(), (std::vector<relation::intermediate::limit::sort_key> { c0 }));
+    EXPECT_EQ(p->row_slice(), row_slice(3));
+    EXPECT_GT(r1.output(), r2.right());
+    EXPECT_GT(r2.output(), r4.left());
+    EXPECT_GT(r3.output(), r4.right());
+    EXPECT_GT(r4.output(), r5.input());
+}
+
+TEST_F(push_down_limits_test, union_all_left_outer_join) {
+    /*
+     * scan:r0 -\
+     * scan:r1 - join[left_outer]:r2 -\
+     * scan:r3 ----------------------- union[all]:r4 - limit:r5[w0](3) - emit:r6
+     * =>
+     * scan:r0 - limit:p[c0](3) -\
+     * scan:r1 ------------------ join[left_outer]:r2 -\
+     * scan:r3 ---------------------------------------- union[all]:r4 - limit:r5[w0](3) - emit:r6
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_scan1(r);
+    auto&& r2 = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+    });
+    auto e0 = bindings.stream_variable("e0");
+    auto e1 = bindings.stream_variable("e1");
+    auto&& r3 = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { t1c0, e0 },
+                    { t1c1, e1 },
+            },
+    });
+    auto w0 = bindings.stream_variable("w0");
+    auto&& r4 = r.insert(relation::intermediate::union_ {
+            {
+                    { c0, e0, w0 },
+            },
+            relation::set_quantifier::all,
+    });
+    auto&& r5 = r.insert(limit({ w0 }));
+    auto&& r6 = r.insert(relation::emit { w0 });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r4.left();
+    r3.output() >> r4.right();
+    r4.output() >> r5.input();
+    r5.output() >> r6.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 8);
+    auto p = upstream_limit(r2.left());
+    ASSERT_TRUE(p);
+    EXPECT_GT(r0.output(), p->input());
+    EXPECT_EQ(p->sort_keys(), (std::vector<relation::intermediate::limit::sort_key> { c0 }));
+    EXPECT_GT(r1.output(), r2.right());
+    EXPECT_GT(r2.output(), r4.left());
+    EXPECT_GT(r4.output(), r5.input());
+}
+
+TEST_F(push_down_limits_test, union_all_partial_merge) {
+    /*
+     * scan:r0 - limit:r1[c0](5) -\
+     * scan:r2 ------------------- union[all]:r3 - limit:r4[u0](3) - emit:r5
+     * =>
+     * scan:r0 - limit:r1[c0](3) -\
+     * scan:r2 ------------------- union[all]:r3 - limit:r4[u0](3) - emit:r5
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(limit(5, { c0 }));
+    auto&& r2 = add_scan1(r);
+    auto u0 = bindings.stream_variable("u0");
+    auto&& r3 = r.insert(relation::intermediate::union_ {
+            {
+                    { c0, d0, u0 },
+            },
+            relation::set_quantifier::all,
+    });
+    auto&& r4 = r.insert(limit({ u0 }));
+    auto&& r5 = r.insert(relation::emit { u0 });
+    r0.output() >> r1.input();
+    r1.output() >> r3.left();
+    r2.output() >> r3.right();
+    r3.output() >> r4.input();
+    r4.output() >> r5.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 6);
+    EXPECT_GT(r0.output(), r1.input());
+    EXPECT_GT(r1.output(), r3.left());
+    EXPECT_EQ(r1.sort_keys(), (std::vector<relation::intermediate::limit::sort_key> { c0 }));
+    EXPECT_EQ(r1.row_slice(), row_slice(3));
+    EXPECT_GT(r3.output(), r4.input());
 }
 
 } // namespace yugawara::analyzer::details
