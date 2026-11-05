@@ -1778,7 +1778,7 @@ TEST_F(collect_exchange_steps_test, limit_ordered_forward_disabled) {
     ASSERT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 10 }));
 }
 
-TEST_F(collect_exchange_steps_test, limit_ordered_forward_chain) {
+TEST_F(collect_exchange_steps_test, limit_ordered_forward_merge) {
     /*
      * scan:r0{direction=forward} - limit_relation:r1{sort=c0, count=10} - limit_relation:r2{sort=c0, count=5}
      *   - emit:r3{ordering=preserve_output}
@@ -1792,25 +1792,19 @@ TEST_F(collect_exchange_steps_test, limit_ordered_forward_chain) {
     plan::graph_type p;
 
     /*
-     * scan:r0 - offer - [forward{limit=10, ordering=respect_input,preserve_output}] - take_flat
-     *   - offer - [forward{limit=5, ordering=respect_input,preserve_output}] - take_flat - emit:r3
+     * scan:r0 - offer - [forward{limit=5, ordering=respect_input,preserve_output}] - take_flat - emit:r3
+     * the row count of the downstream limit is merged into the upstream, and then the downstream is removed
      */
     details::collect_exchange_steps(r, p, options);
 
     auto&& o0 = next<offer>(g.scan.output());
-    auto&& t1 = next<relation::step::take_flat>(g.emit.input());
-    auto&& e0 = resolve<plan::forward>(o0.destination());
-    auto&& e1 = resolve<plan::forward>(t1.source());
-    ASSERT_EQ(p.size(), 2);
-    ASSERT_NE(std::addressof(e0), std::addressof(e1));
+    auto&& t0 = next<relation::step::take_flat>(g.emit.input());
+    ASSERT_EQ(p.size(), 1);
+    EXPECT_EQ(o0.destination(), t0.source());
 
-    EXPECT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 10 }));
+    auto&& e0 = resolve<plan::forward>(o0.destination());
+    EXPECT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 5 }));
     EXPECT_EQ(e0.ordering(), (plan::forward::ordering_type {
-            forward_ordering::respect_input,
-            forward_ordering::preserve_output,
-    }));
-    EXPECT_EQ(e1.row_slice(), (relation::details::row_slice { {}, 5 }));
-    EXPECT_EQ(e1.ordering(), (plan::forward::ordering_type {
             forward_ordering::respect_input,
             forward_ordering::preserve_output,
     }));
@@ -1853,13 +1847,14 @@ TEST_F(collect_exchange_steps_test, limit_ordered_forward_chain_through_order_pr
 
 TEST_F(collect_exchange_steps_test, limit_ordered_forward_chain_without_ordered_emit) {
     /*
-     * scan:r0{direction=forward} - limit_relation:r1{sort=c0, count=10} - limit_relation:r2{sort=c0, count=5}
-     *   - emit:r3
+     * scan:r0{direction=forward} - limit_relation:r1{sort=c0, count=10} - project
+     *   - limit_relation:r2{sort=c0, count=5} - emit:r3
+     * (the project prevents from merging the limits, see limit_ordered_forward_merge)
      */
     relation::graph_type r;
     auto c0 = bindings.stream_variable("c0");
     auto c1 = bindings.stream_variable("c1");
-    auto g = build_chained_limits(r, c0, c1, c0);
+    auto g = build_chained_limits(r, c0, c1, c0, {}, true);
 
     details::step_plan_builder_options options;
     plan::graph_type p;
@@ -2322,6 +2317,229 @@ TEST_F(collect_exchange_steps_test, limit_redundant_empty) {
     ASSERT_EQ(e0.group_keys().size(), 1);
 }
 
+TEST_F(collect_exchange_steps_test, limit_merge_strengthen) {
+    /*
+     * scan:r0 - limit_relation:r1{sort=c0, count=10} - limit_relation:r2{sort=(c0, c1), count=3} - emit:r3
+     * => scan:r0 - offer - [group{sort=(c0, c1), limit=3}] - take_group - flatten:r4 - emit:r3
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto& r0 = add_scan(r, c0, c1);
+    auto& r1 = r.insert(limit(10, { c0 }));
+    auto& r2 = r.insert(limit(3, { c0, c1 }));
+    auto& r3 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+    details::collect_exchange_steps(r, p, options);
+
+    ASSERT_EQ(p.size(), 1);
+    auto&& r4 = next<flatten>(r3.input());
+    auto&& t0 = next<take_group>(r4.input());
+    auto&& e0 = resolve<plan::group>(t0.source());
+    EXPECT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 3 }));
+    ASSERT_EQ(e0.sort_keys().size(), 2);
+    EXPECT_EQ(e0.sort_keys()[0].variable(), c0);
+    EXPECT_EQ(e0.sort_keys()[1].variable(), c1);
+}
+
+TEST_F(collect_exchange_steps_test, limit_merge_strengthen_without_upstream_count) {
+    /*
+     * scan:r0 - limit_relation:r1{sort=c0} - limit_relation:r2{sort=(c0, c1), count=3} - emit:r3
+     * => scan:r0 - offer - [group{sort=(c0, c1), limit=3}] - take_group - flatten:r4 - emit:r3
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto& r0 = add_scan(r, c0, c1);
+    auto& r1 = r.insert(limit({}, { c0 }));
+    auto& r2 = r.insert(limit(3, { c0, c1 }));
+    auto& r3 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+    details::collect_exchange_steps(r, p, options);
+
+    ASSERT_EQ(p.size(), 1);
+    auto&& r4 = next<flatten>(r3.input());
+    auto&& t0 = next<take_group>(r4.input());
+    auto&& e0 = resolve<plan::group>(t0.source());
+    EXPECT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 3 }));
+    EXPECT_EQ(e0.sort_keys().size(), 2);
+}
+
+TEST_F(collect_exchange_steps_test, limit_merge_shrink) {
+    /*
+     * scan:r0 - limit_relation:r1{sort=(c0, c1), count=10} - limit_relation:r2{sort=c0, count=3} - emit:r3
+     * => scan:r0 - offer - [group{sort=(c0, c1), limit=3}] - take_group - flatten:r4 - emit:r3
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto& r0 = add_scan(r, c0, c1);
+    auto& r1 = r.insert(limit(10, { c0, c1 }));
+    auto& r2 = r.insert(limit(3, { c0 }));
+    auto& r3 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+    details::collect_exchange_steps(r, p, options);
+
+    ASSERT_EQ(p.size(), 1);
+    auto&& r4 = next<flatten>(r3.input());
+    auto&& t0 = next<take_group>(r4.input());
+    auto&& e0 = resolve<plan::group>(t0.source());
+    EXPECT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 3 }));
+    EXPECT_EQ(e0.sort_keys().size(), 2);
+}
+
+TEST_F(collect_exchange_steps_test, limit_merge_chain) {
+    /*
+     * scan:r0 - limit_relation:r1{sort=c0, count=10} - limit_relation:r2{sort=c0, count=5}
+     *         - limit_relation:r3{sort=(c0, c1), count=3} - emit:r4
+     * => scan:r0 - offer - [group{sort=(c0, c1), limit=3}] - take_group - flatten:r5 - emit:r4
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto& r0 = add_scan(r, c0, c1);
+    auto& r1 = r.insert(limit(10, { c0 }));
+    auto& r2 = r.insert(limit(5, { c0 }));
+    auto& r3 = r.insert(limit(3, { c0, c1 }));
+    auto& r4 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+    details::collect_exchange_steps(r, p, options);
+
+    ASSERT_EQ(p.size(), 1);
+    auto&& r5 = next<flatten>(r4.input());
+    auto&& t0 = next<take_group>(r5.input());
+    auto&& e0 = resolve<plan::group>(t0.source());
+    EXPECT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 3 }));
+    EXPECT_EQ(e0.sort_keys().size(), 2);
+}
+
+TEST_F(collect_exchange_steps_test, limit_merge_strengthen_ordered_upstream) {
+    /*
+     * scan:r0{forward} - limit_relation:r1{sort=c0, count=10} - limit_relation:r2{sort=(c0, c1), count=3} - emit:r3
+     * => (not merged: the upstream limit becomes a forward exchange with ordering)
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto& r0 = add_scan(r, c0, c1, scan_direction::forward);
+    auto& r1 = r.insert(limit(10, { c0 }));
+    auto& r2 = r.insert(limit(3, { c0, c1 }));
+    auto& r3 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+    details::collect_exchange_steps(r, p, options);
+
+    EXPECT_EQ(p.size(), 2);
+    auto&& o0 = next<offer>(r0.output());
+    auto&& e0 = resolve<plan::forward>(o0.destination());
+    EXPECT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 10 }));
+}
+
+TEST_F(collect_exchange_steps_test, limit_merge_strengthen_without_upstream_sort_keys) {
+    /*
+     * scan:r0 - limit_relation:r1{count=10} - limit_relation:r2{sort=c0, count=3} - emit:r3
+     * => (not merged: the upstream limit becomes a flat forward exchange)
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto& r0 = add_scan(r, c0, c1);
+    auto& r1 = r.insert(limit(10));
+    auto& r2 = r.insert(limit(3, { c0 }));
+    auto& r3 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+    details::collect_exchange_steps(r, p, options);
+
+    EXPECT_EQ(p.size(), 2);
+    auto&& o0 = next<offer>(r0.output());
+    auto&& e0 = resolve<plan::forward>(o0.destination());
+    EXPECT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 10 }));
+}
+
+TEST_F(collect_exchange_steps_test, limit_merge_not_prefix) {
+    /*
+     * scan:r0 - limit_relation:r1{sort=c0, count=10} - limit_relation:r2{sort=c1, count=3} - emit:r3
+     * => (not merged)
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto& r0 = add_scan(r, c0, c1);
+    auto& r1 = r.insert(limit(10, { c0 }));
+    auto& r2 = r.insert(limit(3, { c1 }));
+    auto& r3 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+    details::collect_exchange_steps(r, p, options);
+
+    EXPECT_EQ(p.size(), 2);
+}
+
+TEST_F(collect_exchange_steps_test, limit_merge_variable_count) {
+    /*
+     * scan:r0 - limit_relation:r1{sort=c0, count=n} - limit_relation:r2{sort=(c0, c1), count=3} - emit:r3
+     * => (not merged: the row counts cannot be merged)
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto n = bindings.stream_variable("n");
+    auto& r0 = add_scan(r, c0, c1);
+    auto& r1 = r.insert(relation::intermediate::limit {
+            std::vector<descriptor::variable> {},
+            std::vector<relation::intermediate::limit::sort_key> { c0 },
+            relation::intermediate::limit::row_slice_type { {}, n },
+    });
+    auto& r2 = r.insert(limit(3, { c0, c1 }));
+    auto& r3 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+    details::collect_exchange_steps(r, p, options);
+
+    EXPECT_EQ(p.size(), 2);
+    auto&& o0 = next<offer>(r0.output());
+    auto&& e0 = resolve<plan::group>(o0.destination());
+    EXPECT_EQ(e0.sort_keys().size(), 1);
+}
+
 TEST_F(collect_exchange_steps_test, limit_redundant_upstream_limit) {
     /*
      * scan:r0 - limit_relation:r1{sort=c0, count=3} - limit_relation:r2{sort=c0, count=5} - emit:r3
@@ -2351,18 +2569,24 @@ TEST_F(collect_exchange_steps_test, limit_redundant_upstream_limit) {
 
 TEST_F(collect_exchange_steps_test, limit_redundant_upstream_limit_count_greater) {
     /*
-     * scan:r0 - limit_relation:r1{sort=c0, count=5} - limit_relation:r2{sort=c0, count=3} - emit:r3
+     * scan:r0 - limit_relation:r1{sort=c0, count=5} - project:rp - limit_relation:r2{sort=c0, count=3} - emit:r3
      * => (not removed)
+     * (the project prevents from merging the limits, see limit_merge_*)
      */
     relation::graph_type r;
     auto c0 = bindings.stream_variable("c0");
     auto c1 = bindings.stream_variable("c1");
+    auto x = bindings.stream_variable("x");
     auto& r0 = add_scan(r, c0, c1);
     auto& r1 = r.insert(limit(5, { c0 }));
+    auto& rp = r.insert(relation::project {
+            relation::project::column { constant(), x },
+    });
     auto& r2 = r.insert(limit(3, { c0 }));
-    auto& r3 = r.insert(relation::emit { c0 });
+    auto& r3 = r.insert(relation::emit { c0, x });
     r0.output() >> r1.input();
-    r1.output() >> r2.input();
+    r1.output() >> rp.input();
+    rp.output() >> r2.input();
     r2.output() >> r3.input();
 
     details::step_plan_builder_options options;
@@ -2401,18 +2625,24 @@ TEST_F(collect_exchange_steps_test, limit_redundant_upstream_limit_sort_keys_pre
 
 TEST_F(collect_exchange_steps_test, limit_redundant_upstream_limit_sort_keys_not_prefix) {
     /*
-     * scan:r0 - limit_relation:r1{sort=c0, count=3} - limit_relation:r2{sort=(c0, c1), count=5} - emit:r3
+     * scan:r0 - limit_relation:r1{sort=c0, count=3} - project:rp - limit_relation:r2{sort=(c0, c1), count=5} - emit:r3
      * => (not removed)
+     * (the project prevents from merging the limits, see limit_merge_*)
      */
     relation::graph_type r;
     auto c0 = bindings.stream_variable("c0");
     auto c1 = bindings.stream_variable("c1");
+    auto x = bindings.stream_variable("x");
     auto& r0 = add_scan(r, c0, c1);
     auto& r1 = r.insert(limit(3, { c0 }));
+    auto& rp = r.insert(relation::project {
+            relation::project::column { constant(), x },
+    });
     auto& r2 = r.insert(limit(5, { c0, c1 }));
-    auto& r3 = r.insert(relation::emit { c0 });
+    auto& r3 = r.insert(relation::emit { c0, x });
     r0.output() >> r1.input();
-    r1.output() >> r2.input();
+    r1.output() >> rp.input();
+    rp.output() >> r2.input();
     r2.output() >> r3.input();
 
     details::step_plan_builder_options options;

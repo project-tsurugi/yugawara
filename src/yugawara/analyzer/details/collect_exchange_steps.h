@@ -17,6 +17,15 @@ namespace yugawara::analyzer::details {
  *      But this will fill column mapping information of operations which obtains rows from indices.
  *      To complete exchange columns, please call collect_exchange_columns()
  *
+ *      Before deciding whether or not each `limit` operator is redundant, this adjusts its adjacent upstream `limit`
+ *      (except the redundant ones) so that the upstream also satisfies the `limit`, and then the `limit` becomes
+ *      redundant as described below.
+ *      This only adjusts the upstream if both do not have any group keys nor the start position, their row counts
+ *      can be merged, and the sort keys of either one are a prefix of the other ones.
+ *      The upstream has the longer sort keys of them, and the smaller row count of them.
+ *      If the upstream sort keys become longer, it also requires that the upstream has one or more sort keys,
+ *      and it does not become a forward exchange with ordering, so that it still becomes a group exchange.
+ *
  *      This also removes the redundant `limit` operators instead of generating exchange steps for them:
  *
  *      - `limit` operators which have neither the row count, the start position, sort keys nor group keys.

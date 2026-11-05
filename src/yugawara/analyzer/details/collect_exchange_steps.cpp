@@ -603,7 +603,9 @@ private:
 
     /**
      * @brief decides whether the given limit is removed, or becomes a forward exchange with ordering.
-     * @details The limit is removed if it is redundant (see is_redundant()), and then it is registered into
+     * @details First, this adjusts the adjacent upstream limit so that it also satisfies the given limit
+     *      (see merge_into_upstream()).
+     *      The limit is removed if it is redundant (see is_redundant()), and then it is registered into
      *      redundant_limits_.
      *      Otherwise, the limit can be replaced with a forward exchange only if its input rows are already in the order
      *      of its sort keys, that is, the source scan has the direction which provides the rows in the order.
@@ -614,7 +616,8 @@ private:
      * @param expr the target limit
      */
     void decide_limit(relation::intermediate::limit& expr) {
-        if (is_redundant(expr)) {
+        // NOTE: the limit always becomes redundant if the upstream limit is adjusted
+        if (merge_into_upstream(expr) || is_redundant(expr)) {
             redundant_limits_.emplace(std::addressof(expr));
             return;
         }
@@ -641,6 +644,82 @@ private:
             // NOTE: this limit depends on the order of the rows from the upstream limit
             require_preserve_output(*upstream.limit);
         }
+    }
+
+    /**
+     * @brief adjusts the adjacent upstream limit so that it also satisfies the given limit.
+     * @details The upstream limit has the longer sort keys of them, and the smaller row count of them.
+     *      Then, the given limit becomes redundant (see is_redundant()).
+     *      This only adjusts the upstream if both do not have any group keys nor the start position,
+     *      their row counts can be merged (see merge_row_slice()), and the sort keys of either one are
+     *      a prefix of the other ones.
+     *      If the upstream sort keys become longer, it also requires that the upstream has one or more sort keys,
+     *      and it does not become a forward exchange with ordering.
+     *      Otherwise, the upstream may become a group exchange only for the longer sort keys,
+     *      or it may not provide the rows in the order of the longer sort keys.
+     *      This must be called after all upstream operators are decided (see decide()).
+     * @param expr the downstream limit
+     * @return true if the upstream limit is adjusted, and then the given limit is redundant
+     * @return false otherwise
+     */
+    bool merge_into_upstream(relation::intermediate::limit& expr) {
+        if (!expr.group_keys().empty()) {
+            return false;
+        }
+        auto found = find_adjacent_upstream_limit(expr);
+        if (!found) {
+            return false;
+        }
+        auto&& upstream = *found;
+        if (!upstream.group_keys().empty()) {
+            return false;
+        }
+        // NOTE: this also rejects the row slices with the effective start position
+        auto slice = merge_row_slice(upstream.row_slice(), expr.row_slice());
+        if (!slice) {
+            return false;
+        }
+        auto&& upstream_keys = upstream.sort_keys();
+        auto&& keys = expr.sort_keys();
+        if (keys.size() <= upstream_keys.size()) {
+            // NOTE: the top rows of the upstream limit are also the top rows of the downstream one
+            if (!std::equal(keys.begin(), keys.end(), upstream_keys.begin())) {
+                return false;
+            }
+        } else {
+            // NOTE: the upstream limit which becomes a forward exchange depends on the row order of its input
+            if (upstream_keys.empty() || ordered_limits_.contains(std::addressof(upstream))) {
+                return false;
+            }
+            // NOTE: the top rows in the order of the downstream sort keys are also the top rows of the upstream one
+            if (!std::equal(upstream_keys.begin(), upstream_keys.end(), keys.begin())) {
+                return false;
+            }
+            upstream.sort_keys() = keys;
+        }
+        upstream.row_slice() = std::move(*slice);
+        BOOST_ASSERT(is_redundant(expr)); // NOLINT
+        return true;
+    }
+
+    /**
+     * @brief returns the adjacent upstream limit of the given limit, except the redundant ones.
+     * @param expr the downstream limit
+     * @return the adjacent upstream limit
+     * @return empty if there is no such the limit
+     */
+    [[nodiscard]] optional_ptr<relation::intermediate::limit> find_adjacent_upstream_limit(
+            relation::intermediate::limit& expr) const {
+        auto upstream = expr.input().opposite();
+        while (upstream && upstream->owner().kind() == relation::intermediate::limit::tag) {
+            auto&& limit = unsafe_downcast<relation::intermediate::limit>(upstream->owner());
+            // NOTE: the redundant limits will be removed, and their input rows are directly passed to the downstream
+            if (!redundant_limits_.contains(std::addressof(limit))) {
+                return limit;
+            }
+            upstream = limit.input().opposite();
+        }
+        return {};
     }
 
     /**
