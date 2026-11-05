@@ -132,7 +132,7 @@ private:
         if (!allow.contains(expr.operator_kind())) {
             return;
         }
-        process_input(expr, join_side::left, false, collector, saved);
+        process_input(expr, join_side::left, collector, saved);
     }
 
     void process_right(
@@ -147,33 +147,30 @@ private:
                 join_kind::left_outer,
                 join_kind::left_outer_at_most_one,
         };
-        static constexpr join_kind_set direct {
-                join_kind::anti,
-                join_kind::left_outer,
-                join_kind::left_outer_at_most_one,
-        };
         if (!allow.contains(expr.operator_kind())) {
             return;
         }
-        process_input(expr, join_side::right, direct.contains(expr.operator_kind()), collector, saved);
+        // NOTE: the filters between the scan and the join only refer the columns of the scan,
+        // so that merging them into the join condition never changes the result for the join kinds above.
+        // Note that, this is not true for NAAJ (Null-Aware Anti-Join), whose result depends on whether
+        // the input has nulls, so that it must not be added into the join kinds above without care.
+        process_input(expr, join_side::right, collector, saved);
     }
 
     /**
      * @brief estimates the indices for the scan on the given join input.
      * @param expr the target join
      * @param side the join input to estimate
-     * @param direct whether or not the scan must directly connect to the join, without any filters
      * @param collector the collector for the join input
      * @param saved the best candidate so far, which will be replaced if better one is found
      */
     void process_input(
             relation::intermediate::join& expr,
             join_side side,
-            bool direct,
             scan_key_collector& collector,
             std::optional<candidate>& saved) const {
         std::vector<relation::filter*> filters {};
-        auto scan = find_scan(input(expr, side), direct, filters);
+        auto scan = find_scan(input(expr, side), filters);
         if (!scan || !collector(*scan, scan_key_collector::scope::join)) {
             return;
         }
@@ -200,7 +197,6 @@ private:
 
     static optional_ptr<relation::scan> find_scan(
             relation::expression::input_port_type& input,
-            bool direct,
             std::vector<relation::filter*>& filters) {
         auto current = input.opposite();
         while (true) {
@@ -220,9 +216,6 @@ private:
                 }
 
                 case kind::filter: {
-                    if (direct) {
-                        return {};
-                    }
                     auto&& filter = unsafe_downcast<relation::filter>(expr);
                     filters.emplace_back(std::addressof(filter));
                     current = filter.input().opposite();

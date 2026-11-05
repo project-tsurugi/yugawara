@@ -888,12 +888,86 @@ TEST_F(rewrite_join_test, right_indirect_outer) {
     });
     apply(r);
 
-    ASSERT_EQ(r.size(), 5);
+    // NOTE: the filter only refers the right columns, so that it can be merged into the index join
+    ASSERT_EQ(r.size(), 3);
 
-    auto&& result = next<relation::intermediate::join>(out.input());
+    auto&& result = next<relation::join_find>(out.input());
+    EXPECT_GT(inl.output(), result.left());
+
+    EXPECT_EQ(result.source(), bindings(*x0));
+
     EXPECT_EQ(result.operator_kind(), relation::join_kind::left_outer);
-    EXPECT_EQ(result.condition(), compare(cl0, cr0));
-    EXPECT_EQ(filter.condition(), compare(varref(cr1), constant(1)));
+
+    ASSERT_EQ(result.keys().size(), 2);
+    EXPECT_EQ(result.keys()[0].variable(), bindings(t1c1));
+    EXPECT_EQ(result.keys()[1].variable(), bindings(t1c0));
+    EXPECT_EQ(result.keys()[0].value(), constant(1));
+    EXPECT_EQ(result.keys()[1].value(), varref(cl0));
+
+    EXPECT_EQ(result.condition(), nullptr);
+}
+
+TEST_F(rewrite_join_test, right_indirect_outer_at_most_one) {
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto&& inl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), cl0 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto&& inr = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), cr0 },
+                    { bindings(t1c1), cr1 },
+            },
+    });
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer_at_most_one,
+            compare(cl0, cr0),
+    });
+
+    auto&& out = r.insert(relation::emit { cl0, cr0 });
+
+    auto&& filter = r.insert(relation::filter {
+            compare(varref(cr1), constant(1)),
+    });
+
+    inl.output() >> join.left();
+    inr.output() >> filter.input();
+    filter.output() >> join.right();
+    join.output() >> out.input();
+
+    auto x0 = storages.add_index(storage::index {
+            t1,
+            "x0",
+            {
+                    t1->columns()[1],
+                    t1->columns()[0],
+            },
+    });
+    apply(r);
+
+    // NOTE: the filter only refers the right columns, so that it can be merged into the index join
+    ASSERT_EQ(r.size(), 3);
+
+    auto&& result = next<relation::join_find>(out.input());
+    EXPECT_GT(inl.output(), result.left());
+
+    EXPECT_EQ(result.source(), bindings(*x0));
+
+    EXPECT_EQ(result.operator_kind(), relation::join_kind::left_outer_at_most_one);
+
+    ASSERT_EQ(result.keys().size(), 2);
+    EXPECT_EQ(result.keys()[0].variable(), bindings(t1c1));
+    EXPECT_EQ(result.keys()[1].variable(), bindings(t1c0));
+    EXPECT_EQ(result.keys()[0].value(), constant(1));
+    EXPECT_EQ(result.keys()[1].value(), varref(cl0));
+
+    EXPECT_EQ(result.condition(), nullptr);
 }
 
 TEST_F(rewrite_join_test, left_direct_outer_at_most_one) {
@@ -1238,7 +1312,7 @@ TEST_F(rewrite_join_test, right_indirect_anti) {
     filter.output() >> join.right();
     join.output() >> out.input();
 
-    storages.add_index(storage::index {
+    auto x0 = storages.add_index(storage::index {
             t1,
             "x0",
             {
@@ -1248,13 +1322,23 @@ TEST_F(rewrite_join_test, right_indirect_anti) {
     });
     apply(r);
 
-    // the anti join only accepts the right scan directly connected
-    ASSERT_EQ(r.size(), 5);
+    // NOTE: the filter only refers the right columns, so that it can be merged into the index join
+    ASSERT_EQ(r.size(), 3);
 
-    auto&& result = next<relation::intermediate::join>(out.input());
+    auto&& result = next<relation::join_find>(out.input());
+    EXPECT_GT(inl.output(), result.left());
+
+    EXPECT_EQ(result.source(), bindings(*x0));
+
     EXPECT_EQ(result.operator_kind(), relation::join_kind::anti);
-    EXPECT_EQ(result.condition(), compare(cl0, cr0));
-    EXPECT_EQ(filter.condition(), compare(varref(cr1), constant(1)));
+
+    ASSERT_EQ(result.keys().size(), 2);
+    EXPECT_EQ(result.keys()[0].variable(), bindings(t1c1));
+    EXPECT_EQ(result.keys()[1].variable(), bindings(t1c0));
+    EXPECT_EQ(result.keys()[0].value(), constant(1));
+    EXPECT_EQ(result.keys()[1].value(), varref(cl0));
+
+    EXPECT_EQ(result.condition(), nullptr);
 }
 
 TEST_F(rewrite_join_test, left_direct_semi) {

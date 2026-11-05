@@ -45,9 +45,11 @@ public:
      *
      *      This also collect from the succeeding `join_relation` operation if `scope::join` is specified.
      *      If there are one or more filters between `scan` and `join_relation`,
-     *
-     *      - If it includes anti join, must not use this function
-     *      - Otherwise, merge all filter conditions except scan key into its join condition manually
+     *      merge all filter conditions except scan key into its join condition manually.
+     *      This is valid for inner, semi, anti, and left outer joins, because the filters only refer the columns of
+     *      the `scan`, and then they never change the result even if they are evaluated in the join condition.
+     *      Note that, this is not valid for NAAJ (Null-Aware Anti-Join), whose result depends on whether the input
+     *      has nulls, so that this function must not be used for it with such the filters.
      *
      *      Note that, this don't care the `scan` reaches which input port of the succeeding `join_relation`.
      *
