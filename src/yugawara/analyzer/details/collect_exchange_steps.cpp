@@ -667,6 +667,7 @@ private:
         if (is_empty(expr)) {
             return true;
         }
+        // FIXME: currently we do not remove the limit with the effective start position (other than immediate `0`)
         if (!expr.group_keys().empty() || has_start(expr.row_slice())) {
             return false;
         }
@@ -709,6 +710,7 @@ private:
             return false;
         }
         auto&& slice = scan.row_slice();
+        // FIXME: currently we do not consider the scan with the effective start position (other than immediate `0`)
         if (has_start(slice)) {
             return false;
         }
@@ -747,6 +749,7 @@ private:
             return false;
         }
         auto&& slice = upstream.row_slice();
+        // FIXME: currently we do not consider the upstream with the effective start position (other than immediate `0`)
         if (!upstream.group_keys().empty() || has_start(slice)) {
             return false;
         }

@@ -273,6 +273,7 @@ private:
 
     [[nodiscard]] static bool is_partial_limit_target(relation::intermediate::limit const& expr) {
         auto&& slice = expr.row_slice();
+        // FIXME: currently we do not copy the limit with the effective start position (other than immediate `0`)
         if (!expr.group_keys().empty() || has_start(slice)) {
             return false;
         }
