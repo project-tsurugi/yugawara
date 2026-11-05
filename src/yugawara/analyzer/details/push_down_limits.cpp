@@ -16,6 +16,7 @@
 #include <takatori/util/downcast.h>
 #include <takatori/util/optional_ptr.h>
 
+#include "row_slice_utils.h"
 #include "path_capability.h"
 #include "stream_variable_flow_info.h"
 
@@ -95,40 +96,6 @@ optional_ptr<relation::expression::input_port_type> find_move_destination(
         return {};
     }
     return input;
-}
-
-bool has_start(relation::intermediate::limit::row_slice_type const& slice) {
-    auto&& start = slice.start();
-    if (start.is_absent()) {
-        return false;
-    }
-    auto position = start.immediate_if();
-    return !position || *position != 0;
-}
-
-std::optional<relation::intermediate::limit::row_slice_type> merge_row_slice(
-        relation::intermediate::limit::row_slice_type const& outer,
-        relation::intermediate::limit::row_slice_type const& inner) {
-    // FIXME: currently we do not merge the row slices with the effective start position (other than immediate `0`)
-    if (has_start(outer) || has_start(inner)) {
-        return {};
-    }
-    auto&& outer_count = outer.count();
-    auto&& inner_count = inner.count();
-    if (inner_count.is_absent()) {
-        return relation::intermediate::limit::row_slice_type { {}, outer_count };
-    }
-    // NOTE: also accepts the same variables
-    if (outer_count.is_absent() || outer_count == inner_count) {
-        return relation::intermediate::limit::row_slice_type { {}, inner_count };
-    }
-    // FIXME: currently we do not merge the different variable counts, or the variable and the immediate ones
-    auto outer_value = outer_count.immediate_if();
-    auto inner_value = inner_count.immediate_if();
-    if (outer_value && inner_value) {
-        return relation::intermediate::limit::row_slice_type { {}, std::min(*outer_value, *inner_value) };
-    }
-    return {};
 }
 
 /**

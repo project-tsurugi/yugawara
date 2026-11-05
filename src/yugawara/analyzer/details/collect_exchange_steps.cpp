@@ -40,6 +40,7 @@
 #include <yugawara/binding/factory.h>
 
 #include "detect_join_endpoint_style.h"
+#include "row_slice_utils.h"
 #include "ordered_relation.h"
 
 namespace yugawara::analyzer::details {
@@ -61,16 +62,6 @@ optional_ptr<descriptor::variable> extract_if_variable_ref(scalar::expression& e
         return unsafe_downcast<scalar::variable_reference>(expr).variable();
     }
     return {};
-}
-
-template<class T>
-bool has_start(T const& slice) {
-    auto&& start = slice.start();
-    if (start.is_absent()) {
-        return false;
-    }
-    auto position = start.immediate_if();
-    return !position || *position != 0;
 }
 
 bool is_empty(relation::intermediate::limit const& expr) {
