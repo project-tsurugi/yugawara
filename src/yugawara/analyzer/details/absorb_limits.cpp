@@ -40,11 +40,12 @@ std::optional<std::size_t> find_target_count(relation::intermediate::limit const
 }
 
 /**
- * @brief returns the upstream `scan` whose each row becomes exactly one input row of the given `limit`.
- * @details This walks the upstream operators which have a single input, only while the path from the input
- *      to the output has both `at_least_one` and `at_most_one` (see find_path_capabilities()).
- *      This never walks the operators which have two or more inputs (e.g. the left input of left outer joins),
- *      because push_down_limits() places the partial limits into such the inputs.
+ * @brief returns the upstream `scan` whose each row becomes one or more input rows of the given `limit`.
+ * @details This walks the upstream operators only while the path from the input to the output has
+ *      `at_least_one` (see find_path_capabilities()).
+ *      If the operator has two or more inputs, this only walks the first input.
+ *      It is still correct, because the row count can be absorbed into each upstream `scan` independently,
+ *      and absorbing it into only some of them never changes the result.
  * @param expr the target limit
  * @return the upstream scan
  * @return empty if there is no such the scan
@@ -57,13 +58,14 @@ optional_ptr<relation::scan> find_source_scan(relation::intermediate::limit& exp
             return unsafe_downcast<relation::scan>(owner);
         }
         auto&& inputs = owner.input_ports();
-        if (inputs.size() != 1) {
+        if (inputs.empty()) {
             return {};
         }
+        // NOTE: only walks the first input (e.g. the left input of left outer joins)
+        // FIXME: consider the other inputs (e.g. each input of union all, if it has at_least_one)
         auto&& input = inputs[0];
         auto capabilities = find_path_capabilities(input, *upstream);
-        if (!capabilities.contains(path_capability::at_least_one)
-                || !capabilities.contains(path_capability::at_most_one)) {
+        if (!capabilities.contains(path_capability::at_least_one)) {
             return {};
         }
         upstream = input.opposite();

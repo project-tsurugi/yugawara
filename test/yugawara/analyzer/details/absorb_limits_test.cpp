@@ -3,9 +3,11 @@
 #include <gtest/gtest.h>
 
 #include <takatori/type/primitive.h>
+#include <takatori/type/table.h>
 
 #include <takatori/relation/graph.h>
 #include <takatori/relation/scan.h>
+#include <takatori/relation/apply.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/emit.h>
@@ -186,6 +188,35 @@ protected:
 
     void apply(relation::graph_type& r, runtime_feature_set const& features = runtime_feature_all) {
         absorb_limits(r, features);
+    }
+
+    /**
+     * @brief adds an apply which calls a table-valued function with `b`, and outputs the column `x`.
+     */
+    relation::apply& add_apply(relation::graph_type& r, relation::apply_kind kind, descriptor::variable const& x) {
+        auto&& tvf = bindings.function({
+                function::declaration::minimum_user_function_id + 1,
+                "tvf",
+                ::takatori::type::table {
+                        { "o1", ::takatori::type::int8 {} },
+                },
+                {
+                        ::takatori::type::int8 {},
+                },
+                {
+                        function::function_feature::table_valued_function,
+                },
+        });
+        return r.insert(relation::apply {
+                tvf,
+                {
+                        varref { b },
+                },
+                {
+                        { 0, x },
+                },
+                kind,
+        });
     }
 };
 
@@ -387,6 +418,122 @@ TEST_F(absorb_limits_test, join) {
     apply(r);
 
     EXPECT_FALSE(r0.row_slice());
+    EXPECT_FALSE(r1.row_slice());
+}
+
+TEST_F(absorb_limits_test, left_outer_join) {
+    /*
+     * scan:r0 -\
+     *           join[left_outer]:r2 - limit:r3 - emit:r4
+     * scan:r1 -/
+     * => scan:r0[2] - ...
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t0(r);
+    auto k = bindings.stream_variable("k");
+    auto&& r1 = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { t1k, k },
+            },
+    });
+    auto&& r2 = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+    });
+    auto&& r3 = r.insert(limit(2));
+    auto&& r4 = r.insert(relation::emit { a });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    apply(r);
+
+    // NOTE: each left input row becomes one or more output rows
+    EXPECT_EQ(r0.row_slice(), row_slice(2));
+    EXPECT_FALSE(r1.row_slice());
+    EXPECT_GT(r2.output(), r3.input());
+}
+
+TEST_F(absorb_limits_test, outer_apply) {
+    /*
+     * scan:r0 - apply[outer]:r1 - limit:r2 - emit:r3
+     * => scan:r0[2] - apply[outer]:r1 - limit:r2 - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t0(r);
+    auto x = bindings.stream_variable("x");
+    auto&& r1 = add_apply(r, relation::apply_kind::outer, x);
+    auto&& r2 = r.insert(limit(2));
+    auto&& r3 = r.insert(relation::emit { a, x });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    EXPECT_EQ(r0.row_slice(), row_slice(2));
+    EXPECT_GT(r1.output(), r2.input());
+}
+
+TEST_F(absorb_limits_test, cross_apply) {
+    /*
+     * scan:r0 - apply[cross]:r1 - limit:r2 - emit:r3
+     * => (not changed)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t0(r);
+    auto x = bindings.stream_variable("x");
+    auto&& r1 = add_apply(r, relation::apply_kind::cross, x);
+    auto&& r2 = r.insert(limit(2));
+    auto&& r3 = r.insert(relation::emit { a, x });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    // NOTE: the table-valued function may not return any rows for some input rows
+    EXPECT_FALSE(r0.row_slice());
+}
+
+TEST_F(absorb_limits_test, left_outer_join_over_project) {
+    /*
+     * scan:r0 - project:rp -\
+     *                        join[left_outer]:r2 - apply[outer]:ra - limit:r3 - emit:r4
+     * scan:r1 --------------/
+     * => scan:r0[2] - ...
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t0(r);
+    auto y = bindings.stream_variable("y");
+    auto&& rp = r.insert(relation::project {
+            relation::project::column { constant(), y },
+    });
+    auto k = bindings.stream_variable("k");
+    auto&& r1 = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { t1k, k },
+            },
+    });
+    auto&& r2 = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+    });
+    auto x = bindings.stream_variable("x");
+    auto&& ra = add_apply(r, relation::apply_kind::outer, x);
+    auto&& r3 = r.insert(limit(2));
+    auto&& r4 = r.insert(relation::emit { a, x, y });
+    r0.output() >> rp.input();
+    rp.output() >> r2.left();
+    r1.output() >> r2.right();
+    r2.output() >> ra.input();
+    ra.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    apply(r);
+
+    EXPECT_EQ(r0.row_slice(), row_slice(2));
     EXPECT_FALSE(r1.row_slice());
 }
 

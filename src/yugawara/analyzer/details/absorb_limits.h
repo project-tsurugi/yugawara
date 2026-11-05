@@ -13,19 +13,22 @@ namespace yugawara::analyzer::details {
  *      The `limit` operators with sort keys are handled by rewrite_scan(), because their row counts
  *      are only available if the `scan` provides the row order.
  *
- *      This walks from the `limit` to upstream, only while each row of the upstream becomes exactly one
- *      input row of the `limit` (that is, the path has both `at_least_one` and `at_most_one`,
- *      see find_path_capabilities()), and only through the operators which have a single input.
+ *      This walks from the `limit` to upstream, only while each row of the upstream becomes one or more
+ *      input rows of the `limit` (that is, the path has `at_least_one`, see find_path_capabilities()).
  *      If it reaches a `scan`, this sets the smaller one of the row counts of the `limit` and the `scan`
  *      to the `scan` (requires runtime_feature::scan_limit).
  *      The `scan` without the row count is regarded as the one with the infinite row count,
  *      and this does nothing if the `scan` has the variable row count.
  *      This never changes the index nor the direction of the `scan`.
  *
- *      The operators which have two or more inputs (e.g. the left input of left outer joins) stop the walk,
- *      because push_down_limits() places the partial limits into such the inputs.
+ *      If the walk reaches an operator which has two or more inputs (e.g. left outer joins),
+ *      this only walks its first input (e.g. the left input of left outer joins).
+ *      It is still correct, because the row count can be absorbed into each upstream `scan` independently;
+ *      but this may miss the other inputs which also have `at_least_one` (e.g. each input of union all,
+ *      if it is defined to have the capability in the future).
  *
  *      The `limit` operators are retained, so that the downstream operators are not changed.
+ *      The `limit` may be removed later only if the path also has `at_most_one` (see collect_exchange_steps()).
  * @note This does not absorb the row count if a `filter` remains between the `scan` and the `limit`,
  *      for example, if its condition is not consumed by the `scan`, or if it is just `TRUE`
  *      (see remove_redundant_conditions()).
