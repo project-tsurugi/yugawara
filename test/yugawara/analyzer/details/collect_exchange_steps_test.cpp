@@ -2460,6 +2460,46 @@ TEST_F(collect_exchange_steps_test, limit_merge_strengthen_ordered_upstream) {
     EXPECT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 10 }));
 }
 
+TEST_F(collect_exchange_steps_test, limit_merge_strengthen_ordered_upstream_through_filter) {
+    /*
+     * scan:r0{forward} - filter:r1 - limit_relation:r2{sort=c0, count=3} - limit_relation:r3{sort=(c0, c1), count=3}
+     *   - emit:r4
+     * => scan:r0 - filter:r1 - offer - [forward{limit=3, ordering=respect_input}] - take_flat
+     *   - offer - [group{sort=(c0, c1), limit=3}] - take_group - flatten - emit:r4
+     * (not merged: the upstream limit becomes a forward exchange with ordering, which stops early)
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto& r0 = add_scan(r, c0, c1, scan_direction::forward);
+    auto& r1 = r.insert(relation::filter {
+            compare(varref { c1 }, constant(1)),
+    });
+    auto& r2 = r.insert(limit(3, { c0 }));
+    auto& r3 = r.insert(limit(3, { c0, c1 }));
+    auto& r4 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+    details::collect_exchange_steps(r, p, options);
+
+    ASSERT_EQ(p.size(), 2);
+    auto&& o0 = next<offer>(r1.output());
+    auto&& e0 = resolve<plan::forward>(o0.destination());
+    EXPECT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 3 }));
+    EXPECT_TRUE(e0.ordering().contains(forward_ordering::respect_input));
+
+    auto&& f1 = next<flatten>(r4.input());
+    auto&& t1 = next<take_group>(f1.input());
+    auto&& e1 = resolve<plan::group>(t1.source());
+    EXPECT_EQ(e1.row_slice(), (relation::details::row_slice { {}, 3 }));
+    EXPECT_EQ(e1.sort_keys().size(), 2);
+}
+
 TEST_F(collect_exchange_steps_test, limit_merge_strengthen_without_upstream_sort_keys) {
     /*
      * scan:r0 - limit_relation:r1{count=10} - limit_relation:r2{sort=c0, count=3} - emit:r3
