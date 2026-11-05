@@ -21,11 +21,9 @@ namespace yugawara::analyzer::details {
  *      and this does nothing if the `scan` has the variable row count.
  *      This never changes the index nor the direction of the `scan`.
  *
- *      If the walk reaches an operator which has two or more inputs (e.g. left outer joins),
- *      this only walks its first input (e.g. the left input of left outer joins).
- *      It is still correct, because the row count can be absorbed into each upstream `scan` independently;
- *      but this may miss the other inputs which also have `at_least_one` (e.g. each input of union all,
- *      if it is defined to have the capability in the future).
+ *      If the walk reaches an operator which has two or more inputs, this walks each input
+ *      which has `at_least_one` (e.g. the left input of left outer joins, or each input of union all),
+ *      and then absorbs the row count into each `scan` independently.
  *
  *      The `limit` operators are retained, so that the downstream operators are not changed.
  *      The `limit` may be removed later only if the path also has `at_most_one` (see collect_exchange_steps()).
