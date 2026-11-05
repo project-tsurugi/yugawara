@@ -131,54 +131,92 @@ std::optional<relation::intermediate::limit::row_slice_type> merge_row_slice(
     return {};
 }
 
-bool merge_into(relation::intermediate::limit& outer, relation::intermediate::limit& inner) {
-    if (!inner.group_keys().empty()) {
+/**
+ * @brief merges the row slice of the given limit into the upstream one.
+ * @details This only shrinks the row count of the upstream limit, and never removes the given limit.
+ *      This never changes the sort keys of the upstream limit, that is, the sort keys of the given limit must be
+ *      a prefix of the upstream ones (including empty).
+ * @param expr the downstream limit
+ * @param upstream the upstream limit
+ * @return true if merged
+ * @return false if they cannot be merged
+ */
+bool merge_into(relation::intermediate::limit const& expr, relation::intermediate::limit& upstream) {
+    if (!upstream.group_keys().empty()) {
         return false;
     }
-    // NOTE: the top rows of the inner limit are also the top rows of the outer one,
-    // only if the outer sort keys are a prefix of the inner ones
-    auto&& outer_keys = outer.sort_keys();
-    auto&& inner_keys = inner.sort_keys();
-    if (outer_keys.size() > inner_keys.size()
-            || !std::equal(outer_keys.begin(), outer_keys.end(), inner_keys.begin())) {
+    // NOTE: the top rows of the upstream limit are also the top rows of the downstream one,
+    // only if the downstream sort keys are a prefix of the upstream ones
+    auto&& keys = expr.sort_keys();
+    auto&& upstream_keys = upstream.sort_keys();
+    if (keys.size() > upstream_keys.size()
+            || !std::equal(keys.begin(), keys.end(), upstream_keys.begin())) {
         return false;
     }
-    auto slice = merge_row_slice(outer.row_slice(), inner.row_slice());
+    auto slice = merge_row_slice(expr.row_slice(), upstream.row_slice());
     if (!slice) {
         return false;
     }
-    auto downstream = outer.output().opposite();
-    if (!downstream) {
-        return false;
-    }
-    // before: inner -> outer -> downstream
-    // after:  inner -> downstream
-    inner.row_slice() = std::move(*slice);
-    outer.output().disconnect_from(*downstream);
-    inner.output().disconnect_from(outer.input());
-    inner.output().connect_to(*downstream);
+    upstream.row_slice() = std::move(*slice);
     return true;
 }
 
-bool move_over(
+/**
+ * @brief moves the given limit into the given input port.
+ * @param limit the limit to move
+ * @param destination the input port in the upstream, where the limit will be placed into
+ * @return true if moved
+ * @return false if the limit or the destination is not connected
+ */
+bool move_to(
         relation::intermediate::limit& limit,
-        relation::expression::input_port_type& owner_input,
-        relation::expression::output_port_type& owner_output) {
-    auto upstream = owner_input.opposite();
+        relation::expression::input_port_type& destination) {
+    auto source = limit.input().opposite();
     auto downstream = limit.output().opposite();
-    if (!upstream || !downstream) {
+    auto upstream = destination.opposite();
+    if (!source || !downstream || !upstream) {
         return false;
     }
-    // before: upstream -> operator -> limit -> downstream
-    // after:  upstream -> limit -> operator -> downstream
-    owner_input.disconnect_from(*upstream);
-    owner_output.disconnect_from(limit.input());
+    // before: upstream -> destination .. source -> limit -> downstream
+    // after:  upstream -> limit -> destination .. source -> downstream
+    limit.input().disconnect_from(*source);
     limit.output().disconnect_from(*downstream);
+    source->connect_to(*downstream);
 
+    destination.disconnect_from(*upstream);
     limit.input().connect_to(*upstream);
-    limit.output().connect_to(owner_input);
-    owner_output.connect_to(*downstream);
+    limit.output().connect_to(destination);
     return true;
+}
+
+optional_ptr<relation::intermediate::limit> find_upstream_limit(relation::expression::input_port_type& input) {
+    if (auto upstream = input.opposite()) {
+        if (auto&& owner = upstream->owner(); owner.kind() == relation::intermediate::limit::tag) {
+            return unsafe_downcast<relation::intermediate::limit>(owner);
+        }
+    }
+    return {};
+}
+
+/**
+ * @brief returns the farthest upstream input port where the given limit can be moved into.
+ * @param expr the target limit
+ * @return the destination input port
+ * @return empty if the limit cannot be moved
+ */
+optional_ptr<relation::expression::input_port_type> find_farthest_move_destination(
+        relation::intermediate::limit& expr) {
+    optional_ptr<relation::expression::input_port_type> result {};
+    auto current = expr.input().opposite();
+    while (current) {
+        auto next = find_move_destination(expr, *current);
+        if (!next) {
+            break;
+        }
+        result = next;
+        current = next->opposite();
+    }
+    return result;
 }
 
 class engine {
@@ -188,70 +226,57 @@ public:
         max_partial_limit_count_ { max_partial_limit_count }
     {}
 
+    /**
+     * @brief moves the given limit to upstream, and then places a partial limit into further upstream.
+     * @details This never removes any limits, and the redundant limits will be removed later
+     *      (see collect_exchange_steps()).
+     *      The upstream limits must be processed after the downstream ones, so that the upstream limits are moved
+     *      with their row count shrunk by the downstream limits.
+     * @param expr the target limit
+     */
     void process(relation::intermediate::limit& expr) {
-        optional_ptr current { expr };
-        // NOTE: partial limits are copies of the original limit, which is kept in the downstream
-        bool partial = false;
-        while (true) {
-            auto upstream = current->input().opposite();
-            if (!upstream) {
+        // NOTE: moves the limit itself over the operators which make exactly one row from each input row
+        if (auto destination = find_farthest_move_destination(expr)) {
+            if (!move_to(expr, *destination)) {
                 return;
             }
-            auto&& owner = upstream->owner();
-            if (owner.kind() == relation::intermediate::limit::tag) {
-                auto&& inner = unsafe_downcast<relation::intermediate::limit>(owner);
-                if (!merge_into(*current, inner)) {
-                    return;
-                }
-                merged_.emplace_back(current.get());
-                current = inner;
-                partial = false;
-                continue;
-            }
-            if (auto input = find_move_destination(*current, *upstream)) {
-                if (!move_over(*current, *input, *upstream)) {
-                    return;
-                }
-                continue;
-            }
-            if (auto input = find_partial_destination(*current, *upstream)) {
-                if (partial) {
-                    // partial limits can be placed anywhere in the upstream,
-                    // only if the rows in the original limit are kept
-                    if (!move_over(*current, *input, *upstream)) {
-                        return;
-                    }
-                    continue;
-                }
-                auto copy = place_partial_limit(*current, *input);
-                if (!copy) {
-                    return;
-                }
-                current = copy;
-                partial = true;
-                continue;
-            }
+        }
+        if (auto upstream_limit = find_upstream_limit(expr.input())) {
+            merge_into(expr, *upstream_limit);
             return;
         }
-    }
-
-    [[nodiscard]] std::vector<relation::intermediate::limit*>& merged() noexcept {
-        return merged_;
+        auto upstream = expr.input().opposite();
+        if (!upstream || max_partial_limit_count_ == 0 || !is_partial_limit_target(expr)) {
+            return;
+        }
+        auto entry = find_partial_entry(expr, *upstream);
+        if (!entry) {
+            return;
+        }
+        // NOTE: the partial limit is placed into the upstream, and the original limit is kept in the downstream
+        auto&& destination = find_partial_destination(expr, *entry);
+        if (auto upstream_limit = find_upstream_limit(destination)) {
+            // NOTE: merging into the existing limit never increases the number of exchanges
+            if (merge_into(expr, *upstream_limit)) {
+                return;
+            }
+        }
+        if (auto count = expr.row_slice().count().immediate_if(); count && *count <= max_partial_limit_count_) {
+            place_partial_limit(expr, destination);
+        }
     }
 
 private:
     relation::graph_type& graph_;
     std::size_t max_partial_limit_count_;
     stream_variable_flow_info flow_info_ {};
-    std::vector<relation::intermediate::limit*> merged_ {};
 
-    [[nodiscard]] bool is_partial_limit_target(relation::intermediate::limit const& expr) const {
+    [[nodiscard]] static bool is_partial_limit_target(relation::intermediate::limit const& expr) {
         auto&& slice = expr.row_slice();
         if (!expr.group_keys().empty() || has_start(slice)) {
             return false;
         }
-        auto count = slice.count().immediate_if();
-        return count && *count <= max_partial_limit_count_;
+        return slice.count().immediate_if().has_value();
     }
 
     [[nodiscard]] bool is_available(
@@ -268,12 +293,16 @@ private:
         });
     }
 
-    [[nodiscard]] optional_ptr<relation::expression::input_port_type> find_partial_destination(
+    /**
+     * @brief returns the input port of the given upstream operator, where the partial limit can be placed into.
+     * @param expr the target limit
+     * @param upstream the output port of the upstream operator
+     * @return the input port whose path makes one or more rows from each input row
+     * @return empty if there is no such the input
+     */
+    [[nodiscard]] optional_ptr<relation::expression::input_port_type> find_partial_entry(
             relation::intermediate::limit const& expr,
             relation::expression::output_port_type& upstream) {
-        if (max_partial_limit_count_ == 0 || !is_partial_limit_target(expr)) {
-            return {};
-        }
         for (auto&& input : upstream.owner().input_ports()) {
             auto capabilities = find_path_capabilities(input, upstream);
             if (capabilities.contains(path_capability::at_least_one) && is_available(expr, input)) {
@@ -283,12 +312,43 @@ private:
         return {};
     }
 
-    [[nodiscard]] optional_ptr<relation::intermediate::limit> place_partial_limit(
+    /**
+     * @brief returns the farthest upstream input port where the partial limit can be placed into.
+     * @details This walks the upstream from the given input port, while the partial limit can be moved over
+     *      the operators, and stops at the upstream limit.
+     * @param expr the target limit
+     * @param input the input port where the walk starts
+     * @return the destination input port
+     */
+    [[nodiscard]] relation::expression::input_port_type& find_partial_destination(
+            relation::intermediate::limit const& expr,
+            relation::expression::input_port_type& input) {
+        // NOTE: partial limits can be placed anywhere in the upstream, only if the rows in the original limit are kept
+        optional_ptr result { input };
+        while (true) {
+            auto upstream = result->opposite();
+            if (!upstream || upstream->owner().kind() == relation::intermediate::limit::tag) {
+                break;
+            }
+            if (auto next = find_move_destination(expr, *upstream)) {
+                result = next;
+                continue;
+            }
+            if (auto next = find_partial_entry(expr, *upstream)) {
+                result = next;
+                continue;
+            }
+            break;
+        }
+        return *result;
+    }
+
+    void place_partial_limit(
             relation::intermediate::limit const& expr,
             relation::expression::input_port_type& input) {
         auto upstream = input.opposite();
         if (!upstream) {
-            return {};
+            return;
         }
         auto&& copy = graph_.emplace<relation::intermediate::limit>(::takatori::util::clone_tag, expr);
         // before: upstream -> input
@@ -296,7 +356,6 @@ private:
         input.disconnect_from(*upstream);
         copy.input().connect_to(*upstream);
         copy.output().connect_to(input);
-        return copy;
     }
 };
 
@@ -304,25 +363,18 @@ private:
 
 void push_down_limits(::takatori::relation::graph_type& graph, std::size_t max_partial_limit_count) {
     std::vector<relation::intermediate::limit*> targets {};
-    for (auto&& expr : graph) {
+    relation::sort_from_upstream(graph, [&](relation::expression& expr) {
         if (expr.kind() == relation::intermediate::limit::tag) {
             auto&& limit = unsafe_downcast<relation::intermediate::limit>(expr);
             if (is_target(limit)) {
                 targets.emplace_back(std::addressof(limit));
             }
         }
-    }
+    });
     engine e { graph, max_partial_limit_count };
-    auto&& merged = e.merged();
-    for (auto* limit : targets) {
-        // NOTE: skip the limits which have already been merged into the others
-        if (std::find(merged.begin(), merged.end(), limit) != merged.end()) {
-            continue;
-        }
-        e.process(*limit);
-    }
-    for (auto* limit : merged) {
-        graph.erase(*limit);
+    // NOTE: process from downstream to upstream, so that the upstream limits are moved after shrunk
+    for (auto iter = targets.rbegin(); iter != targets.rend(); ++iter) {
+        e.process(**iter);
     }
 }
 

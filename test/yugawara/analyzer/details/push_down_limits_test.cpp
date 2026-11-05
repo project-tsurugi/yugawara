@@ -389,7 +389,8 @@ TEST_F(push_down_limits_test, merge) {
     /*
      * scan:r0 - limit:r1[c0](10) - limit:r2[c0](3) - emit:r3
      * =>
-     * scan:r0 - limit:r1[c0](3) - emit:r3
+     * scan:r0 - limit:r1[c0](3) - limit:r2[c0](3) - emit:r3
+     * (the downstream limit is removed later)
      */
     relation::graph_type r;
     auto&& r0 = add_scan(r);
@@ -402,10 +403,12 @@ TEST_F(push_down_limits_test, merge) {
 
     apply(r);
 
-    ASSERT_EQ(r.size(), 3);
+    ASSERT_EQ(r.size(), 4);
     EXPECT_GT(r0.output(), r1.input());
-    EXPECT_GT(r1.output(), r3.input());
+    EXPECT_GT(r1.output(), r2.input());
+    EXPECT_GT(r2.output(), r3.input());
     EXPECT_EQ(r1.row_slice(), row_slice(3));
+    EXPECT_EQ(r2.row_slice(), row_slice(3));
     ASSERT_EQ(r1.sort_keys().size(), 1);
     EXPECT_EQ(r1.sort_keys()[0].variable(), c0);
 }
@@ -414,7 +417,8 @@ TEST_F(push_down_limits_test, merge_prefix) {
     /*
      * scan:r0 - limit:r1[c0, c1](3) - limit:r2[c0](10) - emit:r3
      * =>
-     * scan:r0 - limit:r1[c0, c1](3) - emit:r3
+     * scan:r0 - limit:r1[c0, c1](3) - limit:r2[c0](10) - emit:r3
+     * (the downstream limit is removed later)
      */
     relation::graph_type r;
     auto&& r0 = add_scan(r);
@@ -427,8 +431,9 @@ TEST_F(push_down_limits_test, merge_prefix) {
 
     apply(r);
 
-    ASSERT_EQ(r.size(), 3);
-    EXPECT_GT(r1.output(), r3.input());
+    ASSERT_EQ(r.size(), 4);
+    EXPECT_GT(r1.output(), r2.input());
+    EXPECT_GT(r2.output(), r3.input());
     EXPECT_EQ(r1.row_slice(), row_slice(3));
     ASSERT_EQ(r1.sort_keys().size(), 2);
 }
@@ -437,7 +442,8 @@ TEST_F(push_down_limits_test, merge_without_sort_keys) {
     /*
      * scan:r0 - limit:r1[c0](10) - limit:r2(3) - emit:r3
      * =>
-     * scan:r0 - limit:r1[c0](3) - emit:r3
+     * scan:r0 - limit:r1[c0](3) - limit:r2(3) - emit:r3
+     * (the downstream limit is removed later)
      */
     relation::graph_type r;
     auto&& r0 = add_scan(r);
@@ -450,8 +456,9 @@ TEST_F(push_down_limits_test, merge_without_sort_keys) {
 
     apply(r);
 
-    ASSERT_EQ(r.size(), 3);
-    EXPECT_GT(r1.output(), r3.input());
+    ASSERT_EQ(r.size(), 4);
+    EXPECT_GT(r1.output(), r2.input());
+    EXPECT_GT(r2.output(), r3.input());
     EXPECT_EQ(r1.row_slice(), row_slice(3));
     ASSERT_EQ(r1.sort_keys().size(), 1);
 }
@@ -460,7 +467,8 @@ TEST_F(push_down_limits_test, merge_inner_without_count) {
     /*
      * scan:r0 - limit:r1[c0] - limit:r2[c0](3) - emit:r3
      * =>
-     * scan:r0 - limit:r1[c0](3) - emit:r3
+     * scan:r0 - limit:r1[c0](3) - limit:r2[c0](3) - emit:r3
+     * (the downstream limit is removed later)
      */
     relation::graph_type r;
     auto&& r0 = add_scan(r);
@@ -476,8 +484,9 @@ TEST_F(push_down_limits_test, merge_inner_without_count) {
 
     apply(r);
 
-    ASSERT_EQ(r.size(), 3);
-    EXPECT_GT(r1.output(), r3.input());
+    ASSERT_EQ(r.size(), 4);
+    EXPECT_GT(r1.output(), r2.input());
+    EXPECT_GT(r2.output(), r3.input());
     EXPECT_EQ(r1.row_slice(), row_slice(3));
 }
 
@@ -485,7 +494,8 @@ TEST_F(push_down_limits_test, merge_over_project) {
     /*
      * scan:r0 - limit:r1[c0](10) - project:r2 - limit:r3[c0](3) - emit:r4
      * =>
-     * scan:r0 - limit:r1[c0](3) - project:r2 - emit:r4
+     * scan:r0 - limit:r1[c0](3) - limit:r3[c0](3) - project:r2 - emit:r4
+     * (the downstream limit is removed later)
      */
     relation::graph_type r;
     auto&& r0 = add_scan(r);
@@ -503,9 +513,10 @@ TEST_F(push_down_limits_test, merge_over_project) {
 
     apply(r);
 
-    ASSERT_EQ(r.size(), 4);
+    ASSERT_EQ(r.size(), 5);
     EXPECT_GT(r0.output(), r1.input());
-    EXPECT_GT(r1.output(), r2.input());
+    EXPECT_GT(r1.output(), r3.input());
+    EXPECT_GT(r3.output(), r2.input());
     EXPECT_GT(r2.output(), r4.input());
     EXPECT_EQ(r1.row_slice(), row_slice(3));
 }
@@ -514,7 +525,8 @@ TEST_F(push_down_limits_test, merge_chain) {
     /*
      * scan:r0 - limit:r1[c0](10) - limit:r2[c0](5) - limit:r3(3) - emit:r4
      * =>
-     * scan:r0 - limit:r1[c0](3) - emit:r4
+     * scan:r0 - limit:r1[c0](3) - limit:r2[c0](3) - limit:r3(3) - emit:r4
+     * (the row count of the downstream is passed to the farthest upstream, and the downstream ones are removed later)
      */
     relation::graph_type r;
     auto&& r0 = add_scan(r);
@@ -529,9 +541,12 @@ TEST_F(push_down_limits_test, merge_chain) {
 
     apply(r);
 
-    ASSERT_EQ(r.size(), 3);
-    EXPECT_GT(r1.output(), r4.input());
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(r1.output(), r2.input());
+    EXPECT_GT(r2.output(), r3.input());
+    EXPECT_GT(r3.output(), r4.input());
     EXPECT_EQ(r1.row_slice(), row_slice(3));
+    EXPECT_EQ(r2.row_slice(), row_slice(3));
 }
 
 TEST_F(push_down_limits_test, merge_inconsistent_sort_keys) {
@@ -585,7 +600,8 @@ TEST_F(push_down_limits_test, merge_same_variable_count) {
     /*
      * scan:r0 - limit:r1[c0](n) - limit:r2[c0](n) - emit:r3
      * =>
-     * scan:r0 - limit:r1[c0](n) - emit:r3
+     * scan:r0 - limit:r1[c0](n) - limit:r2[c0](n) - emit:r3
+     * (the downstream limit is removed later)
      */
     relation::graph_type r;
     auto n = bindings.stream_variable("n");
@@ -607,8 +623,9 @@ TEST_F(push_down_limits_test, merge_same_variable_count) {
 
     apply(r);
 
-    ASSERT_EQ(r.size(), 3);
-    EXPECT_GT(r1.output(), r3.input());
+    ASSERT_EQ(r.size(), 4);
+    EXPECT_GT(r1.output(), r2.input());
+    EXPECT_GT(r2.output(), r3.input());
     EXPECT_EQ(r1.row_slice(), (relation::intermediate::limit::row_slice_type { {}, n }));
 }
 
@@ -1238,6 +1255,44 @@ TEST_F(push_down_limits_test, left_outer_join_partial_merge) {
     EXPECT_GT(r1.output(), r3.left());
     EXPECT_EQ(r1.row_slice(), row_slice(3));
     EXPECT_GT(r3.output(), r4.input());
+}
+
+TEST_F(push_down_limits_test, left_outer_join_partial_merge_over_max_partial_limit_count) {
+    /*
+     * scan:r0 - limit:r1[c0](5) -     * scan:r2 ------------------- join[left_outer]:r3 - limit:r4[c0](3) - emit:r5
+     * => the upstream limit is shrunk even if 3 > max_partial_limit_count, but not if max_partial_limit_count == 0
+     */
+    struct param {
+        std::size_t max;
+        std::size_t count;
+    };
+    for (auto&& [max, count] : {
+            param { 2, 3 },
+            param { 0, 5 },
+    }) {
+        max_partial_limit_count = max;
+        relation::graph_type r;
+        auto&& r0 = add_scan(r);
+        auto&& r1 = r.insert(limit(5, { c0 }));
+        auto&& r2 = add_scan1(r);
+        auto&& r3 = r.insert(relation::intermediate::join {
+                relation::join_kind::left_outer,
+        });
+        auto&& r4 = r.insert(limit({ c0 }));
+        auto&& r5 = r.insert(relation::emit { c0 });
+        r0.output() >> r1.input();
+        r1.output() >> r3.left();
+        r2.output() >> r3.right();
+        r3.output() >> r4.input();
+        r4.output() >> r5.input();
+
+        apply(r);
+
+        ASSERT_EQ(r.size(), 6) << max;
+        EXPECT_GT(r1.output(), r3.left()) << max;
+        EXPECT_EQ(r1.row_slice(), row_slice(count)) << max;
+        EXPECT_GT(r3.output(), r4.input()) << max;
+    }
 }
 
 TEST_F(push_down_limits_test, left_outer_join_chain) {

@@ -750,7 +750,11 @@ private:
         if (!upstream.group_keys().empty() || has_start(slice)) {
             return false;
         }
-        // FIXME: currently we do not remove the limit with the variable count, even if the upstream has the same one
+        // NOTE: also accepts the same variables
+        if (slice.count() == count) {
+            return true;
+        }
+        // FIXME: currently we do not compare the different variable counts, or the variable and the immediate ones
         auto upstream_count = slice.count().immediate_if();
         auto limit_count = count.immediate_if();
         return upstream_count && limit_count && *upstream_count <= *limit_count;

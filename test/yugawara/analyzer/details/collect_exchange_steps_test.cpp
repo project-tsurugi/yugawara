@@ -2422,6 +2422,42 @@ TEST_F(collect_exchange_steps_test, limit_redundant_upstream_limit_sort_keys_not
     EXPECT_EQ(p.size(), 2);
 }
 
+TEST_F(collect_exchange_steps_test, limit_redundant_upstream_limit_same_variable_count) {
+    /*
+     * scan:r0 - limit_relation:r1{sort=c0, count=n} - limit_relation:r2{sort=c0, count=n} - emit:r3
+     * => scan:r0 - offer - [group{sort=c0, limit=n}] - take_group - flatten:r4 - emit:r3
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto n = bindings.stream_variable("n");
+    auto& r0 = add_scan(r, c0, c1);
+    auto& r1 = r.insert(relation::intermediate::limit {
+            std::vector<descriptor::variable> {},
+            std::vector<relation::intermediate::limit::sort_key> { c0 },
+            relation::intermediate::limit::row_slice_type { {}, n },
+    });
+    auto& r2 = r.insert(relation::intermediate::limit {
+            std::vector<descriptor::variable> {},
+            std::vector<relation::intermediate::limit::sort_key> { c0 },
+            relation::intermediate::limit::row_slice_type { {}, n },
+    });
+    auto& r3 = r.insert(relation::emit { c0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+    details::collect_exchange_steps(r, p, options);
+
+    ASSERT_EQ(p.size(), 1);
+    auto&& r4 = next<flatten>(r3.input());
+    auto&& t0 = next<take_group>(r4.input());
+    auto&& e0 = resolve<plan::group>(t0.source());
+    EXPECT_EQ(e0.row_slice(), (relation::details::row_slice { {}, n }));
+}
+
 TEST_F(collect_exchange_steps_test, limit_redundant_chain) {
     /*
      * scan:r0{count=3} - limit_relation:r1{count=5} - limit_relation:r2{count=7} - emit:r3
