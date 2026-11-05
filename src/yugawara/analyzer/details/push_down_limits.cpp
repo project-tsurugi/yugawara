@@ -319,13 +319,14 @@ private:
     [[nodiscard]] static std::vector<partial_entry> find_union_entries(
             relation::intermediate::limit const& source,
             relation::intermediate::union_& expr) {
-        // NOTE: each input of union all has `at_least_one`, but find_path_capabilities() does not provide it yet
-        // FIXME: move this into find_path_capabilities()
+        // NOTE: the path capabilities only tell whether or not the rows are kept,
+        // and the sort keys must be rewritten here because the union defines the new columns
         std::vector<partial_entry> results {};
-        if (expr.quantifier() != relation::set_quantifier::all) {
-            return results;
-        }
         for (auto* input : { std::addressof(expr.left()), std::addressof(expr.right()) }) {
+            auto capabilities = find_path_capabilities(*input, expr.output());
+            if (!capabilities.contains(path_capability::at_least_one)) {
+                continue;
+            }
             if (auto partial = rewrite_over_union(source, expr, *input)) {
                 results.emplace_back(partial_entry { std::move(partial), *input });
             }

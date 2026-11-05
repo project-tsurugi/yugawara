@@ -76,6 +76,7 @@ inline std::ostream& operator<<(std::ostream& out, path_capability value) {
  *      - the primary output of `buffer` which can stop with the primary output
  *        (see `buffer::stop_with_primary()`)
  *      - `apply` (outer apply only, and it never preserves the row order)
+ *      - each input of `intermediate::union_` (union all only, and it never preserves the row order)
  *
  *      The callers must treat the empty set as the path has no capabilities.
  *

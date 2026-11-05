@@ -13,6 +13,7 @@
 #include <takatori/relation/intermediate/escape.h>
 #include <takatori/relation/intermediate/join.h>
 #include <takatori/relation/intermediate/limit.h>
+#include <takatori/relation/intermediate/union.h>
 
 #include <takatori/util/downcast.h>
 
@@ -69,6 +70,21 @@ path_capability_set find_join_capabilities(
             return {
                     path_capability::at_most_one,
             };
+    }
+    std::abort();
+}
+
+path_capability_set find_union_capabilities(relation::intermediate::union_ const& expr) {
+    switch (expr.quantifier()) {
+        case relation::set_quantifier::all:
+            // NOTE: union all makes each input row exactly one output row, but the output also contains the rows
+            // from the other input (i.e. not `at_most_one`), and it never preserves the row order
+            return {
+                    path_capability::at_least_one,
+            };
+        case relation::set_quantifier::distinct:
+            // NOTE: union distinct may drop the input rows which are duplicated
+            return {};
     }
     std::abort();
 }
@@ -149,6 +165,8 @@ path_capability_set find_path_capabilities(
             return find_index_join_capabilities(unsafe_downcast<relation::join_scan>(owner).operator_kind());
         case relation::intermediate::join::tag:
             return find_join_capabilities(unsafe_downcast<relation::intermediate::join>(owner), input);
+        case relation::intermediate::union_::tag:
+            return find_union_capabilities(unsafe_downcast<relation::intermediate::union_>(owner));
         case relation::intermediate::limit::tag:
             // NOTE: limits are the boundaries of the paths, even if they only drop rows without changing the order;
             // the passes which handle limits decide whether or not other operators can go over them

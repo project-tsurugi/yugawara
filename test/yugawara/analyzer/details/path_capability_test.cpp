@@ -19,6 +19,7 @@
 #include <takatori/relation/intermediate/escape.h>
 #include <takatori/relation/intermediate/join.h>
 #include <takatori/relation/intermediate/limit.h>
+#include <takatori/relation/intermediate/union.h>
 
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/configurable_provider.h>
@@ -445,6 +446,44 @@ TEST_F(path_capability_test, join_anti) {
             path_capability::at_most_one,
     }));
     EXPECT_EQ(find_path_capabilities(j.right(), j.output()), path_capability_set {});
+}
+
+TEST_F(path_capability_test, union_all) {
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_scan(r);
+    auto&& u = r.insert(relation::intermediate::union_ {
+            {
+                    { c0, c0, bindings.stream_variable("u0") },
+            },
+            relation::set_quantifier::all,
+    });
+    r0.output() >> u.left();
+    r1.output() >> u.right();
+
+    EXPECT_EQ(find_path_capabilities(u.left(), u.output()), (path_capability_set {
+            path_capability::at_least_one,
+    }));
+    EXPECT_EQ(find_path_capabilities(u.right(), u.output()), (path_capability_set {
+            path_capability::at_least_one,
+    }));
+}
+
+TEST_F(path_capability_test, union_distinct) {
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_scan(r);
+    auto&& u = r.insert(relation::intermediate::union_ {
+            {
+                    { c0, c0, bindings.stream_variable("u0") },
+            },
+            relation::set_quantifier::distinct,
+    });
+    r0.output() >> u.left();
+    r1.output() >> u.right();
+
+    EXPECT_EQ(find_path_capabilities(u.left(), u.output()), path_capability_set {});
+    EXPECT_EQ(find_path_capabilities(u.right(), u.output()), path_capability_set {});
 }
 
 } // namespace yugawara::analyzer::details
