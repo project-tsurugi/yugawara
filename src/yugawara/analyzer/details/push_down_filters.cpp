@@ -10,6 +10,7 @@
 #include <tsl/hopscotch_set.h>
 
 #include <takatori/scalar/binary.h>
+#include <takatori/scalar/walk.h>
 #include <takatori/relation/intermediate/dispatch.h>
 
 #include <takatori/util/exception.h>
@@ -35,6 +36,32 @@ using ::takatori::util::throw_exception;
 
 namespace {
 
+using variable_set = ::tsl::hopscotch_set<
+        descriptor::variable,
+        std::hash<descriptor::variable>,
+        std::equal_to<>>;
+
+template<class Replacement>
+class variable_replacer {
+public:
+    explicit variable_replacer(Replacement& replacement, variable_set const& targets) noexcept :
+        replacement_ { replacement },
+        targets_ { targets }
+    {}
+
+    constexpr void operator()(scalar::expression const&) const noexcept {}
+
+    void operator()(scalar::variable_reference& expr) const {
+        if (targets_.contains(expr.variable())) {
+            expr.variable() = replacement_(expr.variable());
+        }
+    }
+
+private:
+    Replacement& replacement_;
+    variable_set const& targets_;
+};
+
 /**
  * @brief a conjunctive term of conditions, which is on the way to its destination.
  */
@@ -50,6 +77,19 @@ public:
 
     [[nodiscard]] term clone() const {
         return term { clone_unique(*expression_) };
+    }
+
+    /**
+     * @brief returns a copy of this term whose stream variables are replaced.
+     * @param replacement the function which returns the replacement of the given stream variable
+     * @return the rewritten copy
+     */
+    template<class Replacement>
+    [[nodiscard]] term rewrite(Replacement&& replacement) const {
+        auto copy = clone_unique(*expression_);
+        variable_replacer<Replacement> replacer { replacement, uses_ };
+        scalar::walk(replacer, *copy);
+        return term { std::move(copy) };
     }
 
     [[nodiscard]] auto const& uses() const noexcept {
@@ -78,10 +118,7 @@ public:
 
 private:
     std::unique_ptr<scalar::expression> expression_;
-    ::tsl::hopscotch_set<
-            descriptor::variable,
-            std::hash<descriptor::variable>,
-            std::equal_to<>> uses_;
+    variable_set uses_;
 };
 
 using term_list = std::vector<term>;
@@ -353,11 +390,25 @@ public:
     }
 
     void operator()(relation::intermediate::union_& expr, term_list incoming) {
-        // FIXME: impl
-        // rewrite variables and carry into left or right
+        // NOTE: the terms can go to the inputs only if all their columns come from both of the inputs,
+        // because each output row comes from either input
+        auto movable = extract(incoming, [&](term const& element) {
+            return available_on_union_inputs(expr, element);
+        });
         place_downstream(expr.output(), std::move(incoming));
-        forward(expr.left(), {});
-        forward(expr.right(), {});
+
+        term_list to_left {};
+        term_list to_right {};
+        for (auto&& element : movable) {
+            to_left.emplace_back(element.rewrite([&](descriptor::variable const& variable) {
+                return *find_union_mapping(expr, variable)->left();
+            }));
+            to_right.emplace_back(element.rewrite([&](descriptor::variable const& variable) {
+                return *find_union_mapping(expr, variable)->right();
+            }));
+        }
+        forward(expr.left(), std::move(to_left));
+        forward(expr.right(), std::move(to_right));
     }
 
     void operator()(relation::intermediate::intersection& expr, term_list incoming) {
@@ -494,6 +545,26 @@ private:
         append(to_left, std::move(left));
         append(to_left, std::move(both));
         append(to_right, extract(terms, available_on(expr.right())));
+    }
+
+    [[nodiscard]] static relation::intermediate::union_::mapping const* find_union_mapping(
+            relation::intermediate::union_ const& expr,
+            descriptor::variable const& variable) {
+        auto&& mappings = expr.mappings();
+        auto found = std::find_if(mappings.begin(), mappings.end(), [&](auto&& mapping) {
+            return mapping.destination() == variable;
+        });
+        return found == mappings.end() ? nullptr : std::addressof(*found);
+    }
+
+    [[nodiscard]] static bool available_on_union_inputs(
+            relation::intermediate::union_ const& expr,
+            term const& element) {
+        auto&& uses = element.uses();
+        return std::all_of(uses.begin(), uses.end(), [&](auto&& use) {
+            auto* mapping = find_union_mapping(expr, use);
+            return mapping != nullptr && mapping->left() && mapping->right();
+        });
     }
 
     template<class Expr>

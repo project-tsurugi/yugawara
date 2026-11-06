@@ -2865,8 +2865,6 @@ TEST_F(push_down_filters_test, limit_relation_pass) {
     EXPECT_EQ(rf.condition(), boolean(true));
 }
 
-// FIXME: impl other than union both
-
 TEST_F(push_down_filters_test, union_relation_both) {
     /*
      * scan:rl -\
@@ -2916,6 +2914,246 @@ TEST_F(push_down_filters_test, union_relation_both) {
 
     EXPECT_EQ(f0.condition(), compare(varref(x1), varref(x2)));
     EXPECT_EQ(rf.condition(), boolean(true));
+}
+
+TEST_F(push_down_filters_test, union_relation_pass) {
+    /*
+     * scan:rl -\
+     *           union_relation[all]:r0 - filter(x0=1):rf - ...
+     * scan:rr -/
+     * =>
+     * scan:rl - filter(cl0=1) -\
+     *                           union_relation[all]:r0 - filter(TRUE):rf - ...
+     * scan:rr - filter(cr0=1) -/
+     * for both set quantifiers
+     */
+    for (auto quantifier : { relation::set_quantifier::all, relation::set_quantifier::distinct }) {
+        relation::graph_type r;
+        auto cl0 = bindings.stream_variable("cl0");
+        auto cr0 = bindings.stream_variable("cr0");
+        auto&& rl = r.insert(relation::scan {
+                bindings(*i0),
+                {
+                        { t0c0, cl0 },
+                },
+        });
+        auto&& rr = r.insert(relation::scan {
+                bindings(*i0),
+                {
+                        { t1c0, cr0 },
+                },
+        });
+        auto x0 = bindings.stream_variable("x0");
+        auto&& r0 = r.insert(relation::intermediate::union_ {
+                {
+                        { cl0, cr0, x0 },
+                },
+                quantifier,
+        });
+        auto&& rf = r.insert(relation::filter {
+                compare(varref(x0), constant(1)),
+        });
+        rl.output() >> r0.left();
+        rr.output() >> r0.right();
+        r0.output() >> rf.input();
+
+        connect(rf.output());
+        apply(r);
+
+        ASSERT_EQ(r.size(), 7) << quantifier;
+        auto&& f0 = next<relation::filter>(rl.output());
+        EXPECT_GT(f0.output(), r0.left()) << quantifier;
+        EXPECT_EQ(f0.condition(), compare(varref(cl0), constant(1))) << quantifier;
+
+        auto&& f1 = next<relation::filter>(rr.output());
+        EXPECT_GT(f1.output(), r0.right()) << quantifier;
+        EXPECT_EQ(f1.condition(), compare(varref(cr0), constant(1))) << quantifier;
+
+        EXPECT_EQ(rf.condition(), boolean(true)) << quantifier;
+    }
+}
+
+TEST_F(push_down_filters_test, union_relation_absent_column) {
+    /*
+     * scan:rl -\
+     *           union_relation[all]:r0 - filter(x0=1 and x1=2):rf - ...
+     * scan:rr -/
+     * (x1 is absent in the right input)
+     * =>
+     * scan:rl - filter(cl0=1) -\
+     *                           union_relation[all]:r0 - filter(x1=2) - filter(TRUE):rf - ...
+     * scan:rr - filter(cr0=1) -/
+     */
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto cl1 = bindings.stream_variable("cl1");
+    auto cr0 = bindings.stream_variable("cr0");
+    auto&& rl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, cl0 },
+                    { t0c1, cl1 },
+            },
+    });
+    auto&& rr = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t1c0, cr0 },
+            },
+    });
+    auto x0 = bindings.stream_variable("x0");
+    auto x1 = bindings.stream_variable("x1");
+    auto&& r0 = r.insert(relation::intermediate::union_ {
+            {
+                    { cl0, cr0, x0 },
+                    { cl1,  {}, x1 },
+            },
+            relation::set_quantifier::all,
+    });
+    auto&& rf = r.insert(relation::filter {
+            land(
+                    compare(varref(x0), constant(1)),
+                    compare(varref(x1), constant(2))),
+    });
+    rl.output() >> r0.left();
+    rr.output() >> r0.right();
+    r0.output() >> rf.input();
+
+    connect(rf.output());
+    apply(r);
+
+    ASSERT_EQ(r.size(), 8);
+    auto&& f0 = next<relation::filter>(rl.output());
+    EXPECT_GT(f0.output(), r0.left());
+    EXPECT_EQ(f0.condition(), compare(varref(cl0), constant(1)));
+
+    auto&& f1 = next<relation::filter>(rr.output());
+    EXPECT_GT(f1.output(), r0.right());
+    EXPECT_EQ(f1.condition(), compare(varref(cr0), constant(1)));
+
+    auto&& f2 = next<relation::filter>(r0.output());
+    EXPECT_GT(f2.output(), rf.input());
+    EXPECT_EQ(f2.condition(), compare(varref(x1), constant(2)));
+    EXPECT_TRUE(terms_of(rf).empty());
+}
+
+TEST_F(push_down_filters_test, union_relation_multiple_columns) {
+    /*
+     * scan:rl -\
+     *           union_relation[all]:r0 - filter(x0=x1):rf - ...
+     * scan:rr -/
+     * =>
+     * scan:rl - filter(cl0=cl1) -\
+     *                             union_relation[all]:r0 - filter(TRUE):rf - ...
+     * scan:rr - filter(cr1=cr0) -/
+     * (the right input has the different column order)
+     */
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto cl1 = bindings.stream_variable("cl1");
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto&& rl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, cl0 },
+                    { t0c1, cl1 },
+            },
+    });
+    auto&& rr = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t1c0, cr0 },
+                    { t1c1, cr1 },
+            },
+    });
+    auto x0 = bindings.stream_variable("x0");
+    auto x1 = bindings.stream_variable("x1");
+    auto&& r0 = r.insert(relation::intermediate::union_ {
+            {
+                    { cl0, cr1, x0 },
+                    { cl1, cr0, x1 },
+            },
+            relation::set_quantifier::all,
+    });
+    auto&& rf = r.insert(relation::filter {
+            compare(varref(x0), varref(x1)),
+    });
+    rl.output() >> r0.left();
+    rr.output() >> r0.right();
+    r0.output() >> rf.input();
+
+    connect(rf.output());
+    apply(r);
+
+    ASSERT_EQ(r.size(), 7);
+    auto&& f0 = next<relation::filter>(rl.output());
+    EXPECT_EQ(f0.condition(), compare(varref(cl0), varref(cl1)));
+    auto&& f1 = next<relation::filter>(rr.output());
+    EXPECT_EQ(f1.condition(), compare(varref(cr1), varref(cr0)));
+}
+
+TEST_F(push_down_filters_test, union_relation_nested) {
+    /*
+     * scan:ra -\
+     *           union_relation:r0 -\
+     * scan:rb -/                    union_relation:r1 - filter(y0=1):rf - ...
+     * scan:rc ---------------------/
+     * =>
+     * the term goes to each scan
+     */
+    relation::graph_type r;
+    auto a0 = bindings.stream_variable("a0");
+    auto b0 = bindings.stream_variable("b0");
+    auto d0 = bindings.stream_variable("d0");
+    auto&& ra = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, a0 },
+            },
+    });
+    auto&& rb = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, b0 },
+            },
+    });
+    auto&& rc = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, d0 },
+            },
+    });
+    auto x0 = bindings.stream_variable("x0");
+    auto y0 = bindings.stream_variable("y0");
+    auto&& r0 = r.insert(relation::intermediate::union_ {
+            {
+                    { a0, b0, x0 },
+            },
+            relation::set_quantifier::all,
+    });
+    auto&& r1 = r.insert(relation::intermediate::union_ {
+            {
+                    { x0, d0, y0 },
+            },
+            relation::set_quantifier::all,
+    });
+    auto&& rf = r.insert(relation::filter {
+            compare(varref(y0), constant(1)),
+    });
+    ra.output() >> r0.left();
+    rb.output() >> r0.right();
+    r0.output() >> r1.left();
+    rc.output() >> r1.right();
+    r1.output() >> rf.input();
+
+    connect(rf.output());
+    apply(r);
+
+    ASSERT_EQ(r.size(), 10);
+    EXPECT_EQ(next<relation::filter>(ra.output()).condition(), compare(varref(a0), constant(1)));
+    EXPECT_EQ(next<relation::filter>(rb.output()).condition(), compare(varref(b0), constant(1)));
+    EXPECT_EQ(next<relation::filter>(rc.output()).condition(), compare(varref(d0), constant(1)));
 }
 
 TEST_F(push_down_filters_test, intersection_relation) {
