@@ -2703,14 +2703,12 @@ TEST_F(push_down_filters_test, distinct_relation_flush) {
     connect(rf.output());
     apply(r);
 
-    ASSERT_EQ(r.size(), 6);
-    auto&& f0 = next<relation::filter>(r0.output());
-    auto&& f1 = next<relation::filter>(r1.output());
-    EXPECT_GT(f0.output(), r1.input());
-    EXPECT_GT(f1.output(), rf.input());
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(r0.output(), r1.input());
+    auto&& f0 = next<relation::filter>(r1.output());
+    EXPECT_GT(f0.output(), rf.input());
 
     EXPECT_EQ(f0.condition(), compare(varref(c2), varref(c0)));
-    EXPECT_EQ(f1.condition(), compare(varref(c2), varref(c0)));
     EXPECT_EQ(rf.condition(), boolean(true));
 }
 

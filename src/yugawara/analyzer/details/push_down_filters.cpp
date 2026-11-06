@@ -374,13 +374,7 @@ public:
     }
 
     void operator()(relation::intermediate::distinct& expr, term_list incoming) {
-        for (auto&& element : incoming) {
-            if (!element.use_only(expr.group_keys())) {
-                // found use other than the group key, put a copy of selection
-                place_downstream(expr.output(), element.clone());
-            }
-        }
-        forward(expr.input(), std::move(incoming));
+        process_group_like(expr, std::move(incoming));
     }
 
     void operator()(relation::intermediate::limit& expr, term_list incoming) {
