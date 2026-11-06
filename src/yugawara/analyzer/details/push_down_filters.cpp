@@ -1,13 +1,17 @@
 #include "push_down_filters.h"
 
-#include <boost/dynamic_bitset.hpp>
+#include <algorithm>
+#include <functional>
+#include <iterator>
+#include <memory>
+#include <utility>
+#include <vector>
 
 #include <tsl/hopscotch_set.h>
 
 #include <takatori/scalar/binary.h>
 #include <takatori/relation/intermediate/dispatch.h>
 
-#include <takatori/util/assertion.h>
 #include <takatori/util/exception.h>
 #include <takatori/util/string_builder.h>
 
@@ -31,31 +35,24 @@ using ::takatori::util::throw_exception;
 
 namespace {
 
-class predicate_info {
+/**
+ * @brief a conjunctive term of conditions, which is on the way to its destination.
+ */
+class term {
 public:
-    using index_type = std::size_t;
-    using reference_count_type = std::size_t;
-
-    explicit predicate_info(
-            index_type index,
-            ownership_reference<scalar::expression> expression) :
-        index_(index),
-        expression_(std::move(expression))
+    explicit term(std::unique_ptr<scalar::expression> expression) :
+        expression_ { std::move(expression) }
     {
         collect_stream_variables(*expression_, [this](descriptor::variable const& v) {
             uses_.emplace(v);
         });
     }
 
-    [[nodiscard]] index_type index() const noexcept {
-        return index_;
+    [[nodiscard]] term clone() const {
+        return term { clone_unique(*expression_) };
     }
 
-    [[nodiscard]] auto& uses() noexcept {
-        return uses_;
-    }
-
-    [[nodiscard]] auto& uses() const noexcept {
+    [[nodiscard]] auto const& uses() const noexcept {
         return uses_;
     }
 
@@ -63,144 +60,178 @@ public:
         return uses_.contains(variable);
     }
 
-    [[nodiscard]] bool available() const noexcept {
-        return reference_count_ != 0;
+    /**
+     * @brief returns whether or not this term only uses the given variables.
+     * @param variables the variables
+     * @return true if this term does not use any other variables
+     * @return false otherwise
+     */
+    [[nodiscard]] bool use_only(std::vector<descriptor::variable> const& variables) const {
+        return std::all_of(uses_.begin(), uses_.end(), [&](auto&& use) {
+            return std::find(variables.begin(), variables.end(), use) != variables.end();
+        });
     }
 
-    void add_count(reference_count_type count = 1) noexcept {
-        reference_count_ += count;
-    }
-
-    void leave() {
-        BOOST_ASSERT(available()); // NOLINT
-        --reference_count_;
-    }
-
-    [[nodiscard]] std::unique_ptr<scalar::expression> release() {
-        BOOST_ASSERT(available()); // NOLINT
-        if (--reference_count_ == 0) {
-            return expression_.exchange(make_boolean_expression(true));
-        }
-        uses_.clear();
-        return clone_unique(*expression_);
+    [[nodiscard]] std::unique_ptr<scalar::expression> release() noexcept {
+        return std::move(expression_);
     }
 
 private:
-    index_type index_;
-    ownership_reference<scalar::expression> expression_;
+    std::unique_ptr<scalar::expression> expression_;
     ::tsl::hopscotch_set<
             descriptor::variable,
             std::hash<descriptor::variable>,
             std::equal_to<>> uses_;
-    reference_count_type reference_count_ { 1 };
 };
+
+using term_list = std::vector<term>;
+
+/**
+ * @brief extracts the terms which satisfy the given predicate.
+ * @details The other terms stay in the given list. That is, the terms never move unless they are extracted.
+ * @param terms the terms
+ * @param predicate the predicate
+ * @return the extracted terms
+ */
+template<class Predicate>
+[[nodiscard]] term_list extract(term_list& terms, Predicate&& predicate) {
+    term_list extracted {};
+    term_list rest {};
+    for (auto&& element : terms) {
+        (predicate(std::as_const(element)) ? extracted : rest).emplace_back(std::move(element));
+    }
+    terms = std::move(rest);
+    return extracted;
+}
+
+void append(term_list& terms, term_list others) {
+    terms.insert(terms.end(), std::make_move_iterator(others.begin()), std::make_move_iterator(others.end()));
+}
+
+/**
+ * @brief takes all conjunctive terms out of the given condition.
+ * @details The rest of the condition only consists of the constant `TRUE`.
+ * @param condition the condition, may be empty
+ * @return the terms in the condition
+ */
+[[nodiscard]] term_list take_terms(ownership_reference<scalar::expression> condition) {
+    term_list results {};
+    if (condition) {
+        decompose_predicate(std::move(condition), [&](ownership_reference<scalar::expression>&& element) {
+            results.emplace_back(element.exchange(make_boolean_expression(true)));
+        });
+    }
+    return results;
+}
+
+/**
+ * @brief builds a conjunction of the given terms.
+ * @param terms the terms
+ * @return the conjunction of the terms
+ * @return empty if there are no terms
+ */
+[[nodiscard]] std::unique_ptr<scalar::expression> make_conjunction(term_list terms) {
+    std::unique_ptr<scalar::expression> result {};
+    for (auto&& element : terms) {
+        if (result) {
+            result = std::make_unique<scalar::binary>(
+                    scalar::binary_operator::conditional_and,
+                    std::move(result),
+                    element.release());
+        } else {
+            result = element.release();
+        }
+    }
+    return result;
+}
 
 // NOTE: avoid error of Boost polymorphic_allocator, this is equivalent to std::pair
 class task_info {
 public:
-    using mask_type = ::boost::dynamic_bitset<std::uintptr_t>;
-
-    explicit task_info(relation::expression& expression, mask_type&& mask)
-        : expression_(std::addressof(expression))
-        , mask_(std::move(mask))
+    explicit task_info(relation::expression& expression, term_list terms) :
+        expression_ { std::addressof(expression) },
+        terms_ { std::move(terms) }
     {}
 
     [[nodiscard]] relation::expression& expression() noexcept {
         return *expression_;
     }
 
-    [[nodiscard]] mask_type& mask() noexcept {
-        return mask_;
+    [[nodiscard]] term_list& terms() noexcept {
+        return terms_;
     }
 
 private:
     relation::expression* expression_;
-    mask_type mask_;
+    term_list terms_;
 };
 
+/**
+ * @brief moves the terms of conditions to upstream.
+ * @details Each operator receives the terms from its downstream (`incoming`), and then decides where to
+ *      deploy each of them, by the following operations:
+ *
+ *      - extract() - takes the terms to move out of the list. The other terms stay in the list.
+ *      - forward() - carries the terms to the upstream of the input.
+ *      - place_downstream() - places the terms at the output of the operator.
+ *      - make_conjunction() - builds the join condition from the terms to place in it.
+ */
 class engine {
 public:
-    using mask_type = task_info::mask_type;
-    using task_type = task_info;
-
-    explicit engine(relation::graph_type& graph) : // NOTE: initialization of hopscotch set may throw exception
-        graph_(graph)
+    explicit engine(relation::graph_type& graph) :
+        graph_ { graph }
     {}
 
     void process() {
         relation::enumerate_bottom(graph_, [&](relation::expression& expr) {
-            schedule(expr, empty_mask());
+            schedule(expr, {});
         });
         while (!tasks_.empty()) {
             auto task = std::move(tasks_.back());
             tasks_.pop_back();
-            relation::intermediate::dispatch(*this, task.expression(), std::move(task.mask()));
+            relation::intermediate::dispatch(*this, task.expression(), std::move(task.terms()));
         }
     }
 
-    void operator()(relation::find& expr, mask_type&& mask) {
-        flush_all(expr.output(), mask);
+    void operator()(relation::find& expr, term_list incoming) {
+        place_downstream(expr.output(), std::move(incoming));
         // no more upstreams
     }
 
-    void operator()(relation::scan& expr, mask_type&& mask) {
-        flush_all(expr.output(), mask);
+    void operator()(relation::scan& expr, term_list incoming) {
+        place_downstream(expr.output(), std::move(incoming));
         // no more upstreams
     }
 
-    void operator()(relation::values& expr, mask_type&& mask) {
-        flush_all(expr.output(), mask);
+    void operator()(relation::values& expr, term_list incoming) {
+        place_downstream(expr.output(), std::move(incoming));
         // no more upstreams
     }
 
-    void operator()(relation::intermediate::join& expr, mask_type&& mask) {
-        relation::dispatch(*this, expr.operator_kind(), expr, std::move(mask));
+    void operator()(relation::intermediate::join& expr, term_list incoming) {
+        relation::dispatch(*this, expr.operator_kind(), expr, std::move(incoming));
     }
 
-    void operator()(enum_tag_t<relation::join_kind::inner>, relation::intermediate::join& expr, mask_type&& mask) {
-        // remain incoming predicates
-        auto incoming_size = predicates_.size();
+    void operator()(enum_tag_t<relation::join_kind::inner>, relation::intermediate::join& expr, term_list incoming) {
+        // NOTE: inner joins can consider the join condition terms as same as incoming terms
+        auto own = take_terms(expr.ownership_condition());
+        term_list to_left {};
+        term_list to_right {};
+        extract_for_inputs(incoming, expr, to_left, to_right);
+        extract_for_inputs(own, expr, to_left, to_right);
 
-        // inner joins can consider the join condition terms as same as incoming terms
-        analyze_predicates(expr.ownership_condition(), mask);
+        // the other terms need both inputs
+        append(own, std::move(incoming));
+        expr.condition(make_conjunction(std::move(own)));
 
-        // compute if each term is applicable on left/right upstream
-        auto left_mask = create_input_mask(expr.left(), mask);
-        auto right_mask = create_input_mask(expr.right(), mask);
-
-        // flush incoming terms
-        for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
-            auto&& predicate = predicates_[i];
-            bool incoming = i < incoming_size;
-            bool l = left_mask[i];
-            bool r = right_mask[i];
-            if (l && r) {
-                // L & R -  carry each
-                predicate.add_count();
-                mask.reset(i);
-            } else if (l || r) {
-                // L | R - just carry to left/right
-                mask.reset(i);
-            } else {
-                // - push down to the join condition
-                if (incoming) {
-                    // schedule push into the condition
-                } else {
-                    // already in the condition
-                    predicate.leave();
-                    mask.reset(i);
-                }
-            }
-        }
-        // merge all incoming terms into join condition
-        merge_predicates(expr.ownership_condition(), std::move(mask));
-
-        // carry to upstream
-        pass(expr.left(), std::move(left_mask));
-        pass(expr.right(), std::move(right_mask));
+        forward(expr.left(), std::move(to_left));
+        forward(expr.right(), std::move(to_right));
     }
 
-    void operator()(enum_tag_t<relation::join_kind::left_outer>, relation::intermediate::join& expr, mask_type&& mask) {
+    void operator()(
+            enum_tag_t<relation::join_kind::left_outer>,
+            relation::intermediate::join& expr,
+            term_list incoming) {
         /*
          * NOTE: the terms of the join condition which only refer the right columns can be pushed down into
          * the right input, because they only restrict the right rows to be joined, that is,
@@ -210,65 +241,41 @@ public:
          * Also, the incoming terms which refer the right columns must not be pushed down into the join condition,
          * because they remove the rows padded with nulls.
          */
-        // remain incoming predicates
-        auto incoming_size = predicates_.size();
+        auto own = take_terms(expr.ownership_condition());
+        auto to_left = extract(incoming, available_on(expr.left()));
+        auto to_right = extract(own, available_on(expr.right()));
 
-        // decompose the join condition into individual terms
-        analyze_predicates(expr.ownership_condition(), mask);
+        expr.condition(make_conjunction(std::move(own)));
+        place_downstream(expr.output(), std::move(incoming));
 
-        // compute if each term is applicable on left/right upstream
-        auto left_mask = create_input_mask(expr.left(), mask);
-        auto right_mask = create_input_mask(expr.right(), mask);
-
-        for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
-            auto&& predicate = predicates_[i];
-            bool incoming = i < incoming_size;
-            if (incoming) {
-                // never pass the incoming terms to the right input
-                right_mask.reset(i);
-                if (!left_mask[i]) {
-                    // never pass the incoming right-term conditions into the join condition
-                    flush(expr.output(), predicate);
-                }
-                // otherwise, L - just carry to left
-            } else {
-                // never pass the join condition terms to the left input
-                left_mask.reset(i);
-                if (!right_mask[i]) {
-                    // keep the term in the join condition
-                    predicate.leave();
-                }
-                // otherwise, R - just carry to right
-            }
-            mask.reset(i);
-        }
-
-        // carry to each input
-        pass(expr.left(), std::move(left_mask));
-        pass(expr.right(), std::move(right_mask));
+        forward(expr.left(), std::move(to_left));
+        forward(expr.right(), std::move(to_right));
     }
 
-    void operator()(enum_tag_t<relation::join_kind::full_outer>, relation::intermediate::join& expr, mask_type&& mask) {
+    void operator()(
+            enum_tag_t<relation::join_kind::full_outer>,
+            relation::intermediate::join& expr,
+            term_list incoming) {
         // NOTE: outer join does not decompose the join condition
-        flush_all(expr.output(), mask);
-        pass(expr.left(), empty_mask());
-        pass(expr.right(), empty_mask());
+        place_downstream(expr.output(), std::move(incoming));
+        forward(expr.left(), {});
+        forward(expr.right(), {});
     }
 
     void operator()(
             enum_tag_t<relation::join_kind::left_outer_at_most_one>,
             relation::intermediate::join& expr,
-            mask_type&& mask) {
+            term_list incoming) {
         // same as left outer join
-        operator()(enum_tag<relation::join_kind::left_outer>, expr, std::move(mask));
+        operator()(enum_tag<relation::join_kind::left_outer>, expr, std::move(incoming));
     }
 
-    void operator()(enum_tag_t<relation::join_kind::semi>, relation::intermediate::join& expr, mask_type&& mask) {
+    void operator()(enum_tag_t<relation::join_kind::semi>, relation::intermediate::join& expr, term_list incoming) {
         // same as inner join
-        operator()(enum_tag<relation::join_kind::inner>, expr, std::move(mask));
+        operator()(enum_tag<relation::join_kind::inner>, expr, std::move(incoming));
     }
 
-    void operator()(enum_tag_t<relation::join_kind::anti>, relation::intermediate::join& expr, mask_type&& mask) {
+    void operator()(enum_tag_t<relation::join_kind::anti>, relation::intermediate::join& expr, term_list incoming) {
         /*
          * NOTE: same as left outer join:
          * - the right-only terms of the join condition only restrict the right rows to be joined
@@ -277,123 +284,109 @@ public:
          * Note that, this is not true for NAAJ (Null-Aware Anti-Join), whose result depends on whether the right
          * input has nulls.
          */
-        operator()(enum_tag<relation::join_kind::left_outer>, expr, std::move(mask));
+        operator()(enum_tag<relation::join_kind::left_outer>, expr, std::move(incoming));
     }
 
-    void operator()(relation::join_find& expr, mask_type&& mask) {
+    void operator()(relation::join_find& expr, term_list incoming) {
         // NOTE: index join is not supported here, it will be generated in the later optimization phase
-        flush_all(expr.output(), mask);
-        pass(expr.left(), empty_mask());
+        place_downstream(expr.output(), std::move(incoming));
+        forward(expr.left(), {});
     }
 
-    void operator()(relation::join_scan& expr, mask_type&& mask) {
+    void operator()(relation::join_scan& expr, term_list incoming) {
         // NOTE: index join is not supported here, it will be generated in the later optimization phase
-        flush_all(expr.output(), mask);
-        pass(expr.left(), empty_mask());
+        place_downstream(expr.output(), std::move(incoming));
+        forward(expr.left(), {});
     }
 
-    void operator()(relation::apply& expr, mask_type&& mask) {
-        // pass predicates only using the input columns
-        for (auto&& column : expr.columns()) {
-            for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
-                auto&& predicate = predicates_[i];
-                // flush if the predicate uses the output column
-                if (predicate.use(column.variable())) {
-                    flush(expr.output(), predicate);
-                    mask.reset(i);
-                }
+    void operator()(relation::apply& expr, term_list incoming) {
+        process_column_definitions(expr, std::move(incoming));
+    }
+
+    void operator()(relation::project& expr, term_list incoming) {
+        process_column_definitions(expr, std::move(incoming));
+    }
+
+    void operator()(relation::filter& expr, term_list incoming) {
+        auto own = take_terms(expr.ownership_condition());
+        // NOTE: the filter must have its condition, even if all terms go away
+        expr.condition(make_boolean_expression(true));
+
+        append(incoming, std::move(own));
+        forward(expr.input(), std::move(incoming));
+    }
+
+    void operator()(relation::identify& expr, term_list incoming) {
+        // NOTE: predicates may not use row_id column in most cases..
+        auto to_input = extract(incoming, [&](term const& element) {
+            return !element.use(expr.variable());
+        });
+        place_downstream(expr.output(), std::move(incoming));
+        forward(expr.input(), std::move(to_input));
+    }
+
+    void operator()(relation::intermediate::aggregate& expr, term_list incoming) {
+        process_group_like(expr, std::move(incoming));
+    }
+
+    void operator()(relation::intermediate::distinct& expr, term_list incoming) {
+        for (auto&& element : incoming) {
+            if (!element.use_only(expr.group_keys())) {
+                // found use other than the group key, put a copy of selection
+                place_downstream(expr.output(), element.clone());
             }
         }
-        pass(expr.input(), std::move(mask));
+        forward(expr.input(), std::move(incoming));
     }
 
-    void operator()(relation::project& expr, mask_type&& mask) {
-        for (auto&& column : expr.columns()) {
-            for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
-                auto&& predicate = predicates_[i];
-                if (predicate.use(column.variable())) {
-                    flush(expr.output(), predicate);
-                    mask.reset(i);
-                }
-            }
-        }
-        pass(expr.input(), std::move(mask));
-    }
-
-    void operator()(relation::filter& expr, mask_type&& mask) {
-        analyze_predicates(expr.ownership_condition(), mask);
-        pass(expr.input(), std::move(mask));
-    }
-
-    void operator()(relation::identify& expr, mask_type&& mask) {
-        for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
-            auto&& predicate = predicates_[i];
-            if (predicate.use(expr.variable())) {
-                // NOTE: predicates may not use row_id column in most cases..
-                flush(expr.output(), predicate);
-                mask.reset(i);
-            }
-        }
-        pass(expr.input(), std::move(mask));
-    }
-
-    void operator()(relation::intermediate::aggregate& expr, mask_type&& mask) {
-        process_group_like(expr, std::move(mask));
-    }
-
-    void operator()(relation::intermediate::distinct& expr, mask_type&& mask) {
-        process_distinct_like(expr, std::move(mask));
-    }
-
-    void operator()(relation::intermediate::limit& expr, mask_type&& mask) {
+    void operator()(relation::intermediate::limit& expr, term_list incoming) {
         // NOTE: the terms must not go over the limit unless they only use the group keys,
         // because they change which rows are in the row slice of each group
-        process_group_like(expr, std::move(mask));
+        process_group_like(expr, std::move(incoming));
     }
 
-    void operator()(relation::intermediate::union_& expr, mask_type&& mask) {
+    void operator()(relation::intermediate::union_& expr, term_list incoming) {
         // FIXME: impl
         // rewrite variables and carry into left or right
-        flush_all(expr.output(), mask);
-        pass(expr.left(), empty_mask());
-        pass(expr.right(), empty_mask());
+        place_downstream(expr.output(), std::move(incoming));
+        forward(expr.left(), {});
+        forward(expr.right(), {});
     }
 
-    void operator()(relation::intermediate::intersection& expr, mask_type&& mask) {
+    void operator()(relation::intermediate::intersection& expr, term_list incoming) {
         // FIXME: check for distinct
-        pass(expr.left(), std::move(mask));
-        pass(expr.right(), empty_mask());
+        forward(expr.left(), std::move(incoming));
+        forward(expr.right(), {});
     }
 
-    void operator()(relation::intermediate::difference& expr, mask_type&& mask) {
+    void operator()(relation::intermediate::difference& expr, term_list incoming) {
         // FIXME: check for distinct
-        pass(expr.left(), std::move(mask));
-        pass(expr.right(), empty_mask());
+        forward(expr.left(), std::move(incoming));
+        forward(expr.right(), {});
     }
 
-    void operator()(relation::emit& expr, mask_type&& mask) {
-        pass(expr.input(), std::move(mask));
+    void operator()(relation::emit& expr, term_list incoming) {
+        forward(expr.input(), std::move(incoming));
     }
 
-    void operator()(relation::write& expr, mask_type&& mask) {
-        pass(expr.input(), std::move(mask));
+    void operator()(relation::write& expr, term_list incoming) {
+        forward(expr.input(), std::move(incoming));
     }
 
-    void operator()(relation::intermediate::escape& expr, mask_type&& mask) {
+    void operator()(relation::intermediate::escape& expr, term_list incoming) {
         // selection cannot push over escape
-        flush_all(expr.output(), mask);
-        pass(expr.input(), std::move(mask));
+        place_downstream(expr.output(), std::move(incoming));
+        forward(expr.input(), {});
     }
 
-    void operator()(relation::buffer& expr, mask_type&&) {
+    void operator()(relation::buffer& expr, term_list const&) {
         throw_exception(std::domain_error(string_builder {}
                 << "unsupported operator: "
                 << expr
                 << string_builder::to_string));
     }
 
-    void operator()(relation::intermediate::extension& expr, mask_type&& mask) {
-        (void) mask;
+    void operator()(relation::intermediate::extension& expr, term_list const&) {
         throw_exception(std::domain_error(string_builder {}
                 << "unsupported operator: "
                 << expr
@@ -402,152 +395,119 @@ public:
 
 private:
     relation::graph_type& graph_;
-    std::vector<task_type> tasks_;
-    std::vector<predicate_info> predicates_;
+    std::vector<task_info> tasks_;
     stream_variable_flow_info flow_info_; // FIXME: reuse flow info?
-    ::tsl::hopscotch_set<
-            descriptor::variable,
-            std::hash<descriptor::variable>,
-            std::equal_to<>> work_;
 
-
-    void schedule(relation::expression& expr, mask_type&& mask) {
-        tasks_.emplace_back(expr, std::move(mask));
+    void schedule(relation::expression& expr, term_list terms) {
+        tasks_.emplace_back(expr, std::move(terms));
     }
 
-    void pass(relation::expression::input_port_type& upstream, mask_type&& mask) {
-        if (!upstream.opposite()) {
+    /**
+     * @brief carries the terms to the upstream of the given input.
+     * @param input the input port
+     * @param terms the terms
+     */
+    void forward(relation::expression::input_port_type& input, term_list terms) {
+        if (!input.opposite()) {
             throw_exception(std::domain_error(string_builder {}
                     << "orphaned port: "
-                    << upstream
+                    << input
                     << string_builder::to_string));
         }
-        auto&& next = upstream.opposite()->owner();
+        auto&& next = input.opposite()->owner();
 
-        // NOTE: always flush all predicates before buffer operators, and never process them
+        // NOTE: always place all terms before buffer operators, and never process them
         if (next.kind() == relation::buffer::tag) {
-            flush_all(*upstream.opposite(), mask);
+            place_downstream(*input.opposite(), std::move(terms));
             return;
         }
 
         // reschedule with the upstream operator
-        schedule(next, std::move(mask));
+        schedule(next, std::move(terms));
     }
 
-    mask_type empty_mask() const {
-        return mask_type {};
-    }
-
-    void analyze_predicates(ownership_reference<scalar::expression>&& expr, mask_type& mask) {
-        if (expr) {
-            mask.resize(predicates_.size(), false);
-            decompose_predicate(std::move(expr), [this](ownership_reference<scalar::expression>&& term) {
-                predicates_.emplace_back(predicates_.size(), std::move(term));
-            });
-            mask.resize(predicates_.size(), true);
-        }
-    }
-
-    void flush(relation::expression::output_port_type& upstream, predicate_info& predicate) {
-        auto&& selection = graph_.emplace<relation::filter>(predicate.release());
-        auto&& downstream = *upstream.opposite();
-        upstream.disconnect_from(downstream);
-        selection.input().connect_to(upstream);
+    /**
+     * @brief places a filter of the term just after the given output.
+     * @param output the output port
+     * @param element the term
+     */
+    void place_downstream(relation::expression::output_port_type& output, term element) {
+        auto&& selection = graph_.emplace<relation::filter>(element.release());
+        auto&& downstream = *output.opposite();
+        output.disconnect_from(downstream);
+        selection.input().connect_to(output);
         selection.output().connect_to(downstream);
     }
 
-    void flush_copy(relation::expression::output_port_type& upstream, predicate_info& predicate) {
-        predicate.add_count();
-        flush(upstream, predicate);
+    /**
+     * @brief places filters of the terms just after the given output.
+     * @param output the output port
+     * @param terms the terms
+     */
+    void place_downstream(relation::expression::output_port_type& output, term_list terms) {
+        for (auto&& element : terms) {
+            place_downstream(output, std::move(element));
+        }
     }
 
-    void flush_all(relation::expression::output_port_type& upstream, mask_type& mask) {
-        for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
-            flush(upstream, predicates_[i]);
-        }
-        mask.clear();
+    /**
+     * @brief returns a predicate which tests whether or not the term can be evaluated on the given input.
+     * @param input the input port
+     * @return the predicate
+     */
+    [[nodiscard]] std::function<bool(term const&)> available_on(relation::expression::input_port_type const& input) {
+        return [this, &input](term const& element) {
+            auto&& uses = element.uses();
+            return std::all_of(uses.begin(), uses.end(), [&](auto&& use) {
+                return flow_info_.find(use, input).has_value();
+            });
+        };
     }
 
-    void merge_predicates(ownership_reference<scalar::expression> expr, mask_type&& mask) {
-        if (mask.none()) {
-            return;
+    /**
+     * @brief extracts the terms which can be evaluated on the left or right input of the join.
+     * @details The terms available on both inputs are carried to each of them.
+     * @param terms the terms
+     * @param expr the target join
+     * @param to_left the destination of the terms for the left input
+     * @param to_right the destination of the terms for the right input
+     */
+    void extract_for_inputs(
+            term_list& terms,
+            relation::intermediate::join const& expr,
+            term_list& to_left,
+            term_list& to_right) {
+        auto left = extract(terms, available_on(expr.left()));
+        auto both = extract(left, available_on(expr.right()));
+        for (auto&& element : both) {
+            to_right.emplace_back(element.clone());
         }
-        auto result = expr.exchange({});
-        for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
-            auto&& predicate = predicates_[i];
-            if (result) {
-                result = std::make_unique<scalar::binary>(
-                        scalar::binary_operator::conditional_and,
-                        std::move(result),
-                        predicate.release());
-            } else {
-                result = predicate.release();
-            }
-        }
-        expr = std::move(result);
-        mask.clear();
-    }
-
-    mask_type create_input_mask(relation::expression::input_port_type const& input, mask_type& mask) {
-        auto result = empty_mask();
-        result.resize(mask.size(), false);
-        for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
-            auto&& predicate = predicates_[i];
-            bool declared = true;
-            for (auto&& use : predicate.uses()) {
-                if (!flow_info_.find(use, input)) {
-                    declared = false;
-                    break;
-                }
-            }
-            result.set(i, declared);
-        }
-        return result;
-    }
-
-    template<class Expr>
-    void process_group_like(Expr& expr, mask_type&& mask) {
-        BOOST_ASSERT(work_.empty()); // NOLINT
-        work_.reserve(expr.group_keys().size());
-        for (auto&& key : expr.group_keys()) {
-            work_.emplace(key);
-        }
-        // check if each term only use the group key
-        for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
-            auto&& predicate = predicates_[i];
-            for (auto&& use : predicate.uses()) {
-                if (!work_.contains(use)) {
-                    // found use other than the group key, just flush
-                    flush(expr.output(), predicate);
-                    mask.reset(i);
-                    break;
-                }
-            }
-        }
-        work_.clear();
-        pass(expr.input(), std::move(mask));
+        append(to_left, std::move(left));
+        append(to_left, std::move(both));
+        append(to_right, extract(terms, available_on(expr.right())));
     }
 
     template<class Expr>
-    void process_distinct_like(Expr& expr, mask_type&& mask) {
-        // check if each term only use the distinct group key
-        BOOST_ASSERT(work_.empty()); // NOLINT
-        work_.reserve(expr.group_keys().size());
-        for (auto&& key : expr.group_keys()) {
-            work_.emplace(key);
-        }
-        for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
-            auto&& predicate = predicates_[i];
-            for (auto&& use : predicate.uses()) {
-                if (!work_.contains(use)) {
-                    // found use other than the group key, put a copy of selection
-                    flush_copy(expr.output(), predicate);
-                    break;
-                }
-            }
-        }
-        work_.clear();
-        pass(expr.input(), std::move(mask));
+    void process_column_definitions(Expr& expr, term_list incoming) {
+        // pass terms only using the input columns
+        auto to_input = extract(incoming, [&](term const& element) {
+            auto&& columns = expr.columns();
+            return std::none_of(columns.begin(), columns.end(), [&](auto&& column) {
+                return element.use(column.variable());
+            });
+        });
+        place_downstream(expr.output(), std::move(incoming));
+        forward(expr.input(), std::move(to_input));
+    }
+
+    template<class Expr>
+    void process_group_like(Expr& expr, term_list incoming) {
+        // pass terms only using the group keys
+        auto to_input = extract(incoming, [&](term const& element) {
+            return element.use_only(expr.group_keys());
+        });
+        place_downstream(expr.output(), std::move(incoming));
+        forward(expr.input(), std::move(to_input));
     }
 };
 
