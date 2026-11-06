@@ -2633,6 +2633,48 @@ TEST_F(push_down_filters_test, aggregate_relation_through) {
     EXPECT_EQ(rf.condition(), boolean(true));
 }
 
+TEST_F(push_down_filters_test, aggregate_relation_without_group_keys_constant) {
+    /*
+     * scan:r0 - aggregate_relation[]:r1 - filter(1=2):rf - ...
+     * =>
+     * scan:r0 - aggregate_relation[]:r1 - filter(1=2) - filter(TRUE):rf - ...
+     * (the aggregation without group keys emits a row even if its input is empty)
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+            },
+    });
+    auto x0 = bindings.stream_variable("x0");
+    auto& r1 = r.insert(relation::intermediate::aggregate {
+            {},
+            {
+                    {
+                            bindings(agg0),
+                            { c0 },
+                            x0,
+                    },
+            },
+    });
+    auto&& rf = r.insert(relation::filter {
+            compare(constant(1), constant(2)),
+    });
+    r0.output() >> r1.input();
+    r1.output() >> rf.input();
+
+    connect(rf.output());
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(r0.output(), r1.input());
+    auto&& f0 = next<relation::filter>(r1.output());
+    EXPECT_GT(f0.output(), rf.input());
+    EXPECT_EQ(f0.condition(), compare(constant(1), constant(2)));
+}
+
 TEST_F(push_down_filters_test, distinct_relation_flush) {
     /*
      * scan:r0 - distinct_relation:r1 - filter:rf - ...

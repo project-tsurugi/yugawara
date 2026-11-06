@@ -326,6 +326,13 @@ public:
     }
 
     void operator()(relation::intermediate::aggregate& expr, term_list incoming) {
+        if (expr.group_keys().empty()) {
+            // NOTE: the aggregation without group keys emits a row even if its input is empty,
+            // so that even the constant terms must not go over it
+            place_downstream(expr.output(), std::move(incoming));
+            forward(expr.input(), {});
+            return;
+        }
         process_group_like(expr, std::move(incoming));
     }
 
