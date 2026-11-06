@@ -361,13 +361,15 @@ public:
     }
 
     void operator()(relation::intermediate::intersection& expr, term_list incoming) {
-        // FIXME: check for distinct
+        // NOTE: this only emits the left rows, and it does not define which rows are emitted in each group,
+        // so that filtering the left rows only selects one of the valid results for both `all` and `distinct`
         forward(expr.left(), std::move(incoming));
         forward(expr.right(), {});
     }
 
     void operator()(relation::intermediate::difference& expr, term_list incoming) {
-        // FIXME: check for distinct
+        // NOTE: this only emits the left rows, and it does not define which rows are emitted in each group,
+        // so that filtering the left rows only selects one of the valid results for both `all` and `distinct`
         forward(expr.left(), std::move(incoming));
         forward(expr.right(), {});
     }
