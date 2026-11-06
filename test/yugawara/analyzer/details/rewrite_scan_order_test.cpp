@@ -2,6 +2,10 @@
 
 #include <gtest/gtest.h>
 
+#include <takatori/type/primitive.h>
+#include <takatori/type/table.h>
+
+#include <takatori/relation/apply.h>
 #include <takatori/relation/scan.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/project.h>
@@ -140,6 +144,32 @@ protected:
                 {
                         relation::join_find::key { t2k, varref { w } },
                 },
+        });
+    }
+
+    relation::apply& add_apply(relation::graph_type& r, relation::apply_kind kind, descriptor::variable output) {
+        auto&& tvf = bindings.function({
+                function::declaration::minimum_user_function_id + 1,
+                "tvf",
+                ::takatori::type::table {
+                        { "o1", ::takatori::type::int8 {} },
+                },
+                {
+                        ::takatori::type::int8 {},
+                },
+                {
+                        function::function_feature::table_valued_function,
+                },
+        });
+        return r.insert(relation::apply {
+                tvf,
+                {
+                        varref { w },
+                },
+                {
+                        { 0, std::move(output) },
+                },
+                kind,
         });
     }
 
@@ -461,6 +491,94 @@ TEST_F(rewrite_scan_order_test, order_over_join_find_inner) {
     EXPECT_EQ(r0.source(), bindings(*i2));
     EXPECT_FALSE(r0.row_slice());
     EXPECT_EQ(r0.direction(), scan_direction::forward);
+}
+
+TEST_F(rewrite_scan_order_test, order_over_apply_disabled) {
+    /*
+     * scan:r0{I2} - apply[outer]:r1 - limit:r2[k, 3] - emit:r3
+     * the row order is not traced over apply
+     */
+    relation::graph_type r;
+    auto x = bindings.stream_variable("x");
+    auto&& r0 = add_t2(r);
+    auto&& r1 = add_apply(r, relation::apply_kind::outer, x);
+    auto&& r2 = r.insert(limit(3, k));
+    auto&& r3 = r.insert(relation::emit { k, x });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    EXPECT_FALSE(r0.direction());
+}
+
+TEST_F(rewrite_scan_order_test, order_over_apply_outer) {
+    /*
+     * scan:r0{I2} - apply[outer]:r1 - limit:r2[k, 3] - emit:r3
+     * => scan:r0{I2}[forward] - apply[outer]:r1 - limit:r2[k, 3] - emit:r3
+     */
+    relation::graph_type r;
+    auto x = bindings.stream_variable("x");
+    auto&& r0 = add_t2(r);
+    auto&& r1 = add_apply(r, relation::apply_kind::outer, x);
+    auto&& r2 = r.insert(limit(3, k));
+    auto&& r3 = r.insert(relation::emit { k, x });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    auto features = runtime_feature_all;
+    features.insert(runtime_feature::apply_preserves_order);
+    apply(r, features);
+
+    EXPECT_EQ(r0.direction(), scan_direction::forward);
+}
+
+TEST_F(rewrite_scan_order_test, order_over_apply_cross) {
+    /*
+     * scan:r0{I2} - apply[cross]:r1 - limit:r2[k, 3] - emit:r3
+     * => scan:r0{I2}[forward] - apply[cross]:r1 - limit:r2[k, 3] - emit:r3
+     * the scan must not stop early, because apply may drop rows
+     */
+    relation::graph_type r;
+    auto x = bindings.stream_variable("x");
+    auto&& r0 = add_t2(r);
+    auto&& r1 = add_apply(r, relation::apply_kind::cross, x);
+    auto&& r2 = r.insert(limit(3, k));
+    auto&& r3 = r.insert(relation::emit { k, x });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    auto features = runtime_feature_all;
+    features.insert(runtime_feature::apply_preserves_order);
+    apply(r, features);
+
+    EXPECT_EQ(r0.direction(), scan_direction::forward);
+    EXPECT_FALSE(r0.row_slice());
+}
+
+TEST_F(rewrite_scan_order_test, order_over_apply_output) {
+    /*
+     * scan:r0{I2} - apply[outer]:r1 - limit:r2[x, 3] - emit:r3
+     * the output columns of apply are not provided in the order of the scan
+     */
+    relation::graph_type r;
+    auto x = bindings.stream_variable("x");
+    auto&& r0 = add_t2(r);
+    auto&& r1 = add_apply(r, relation::apply_kind::outer, x);
+    auto&& r2 = r.insert(limit(3, x));
+    auto&& r3 = r.insert(relation::emit { k, x });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    auto features = runtime_feature_all;
+    features.insert(runtime_feature::apply_preserves_order);
+    apply(r, features);
+
+    EXPECT_FALSE(r0.direction());
 }
 
 TEST_F(rewrite_scan_order_test, residual_over_join_find_inner) {

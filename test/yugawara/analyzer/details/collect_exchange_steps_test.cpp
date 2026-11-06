@@ -3,7 +3,9 @@
 #include <gtest/gtest.h>
 
 #include <takatori/type/primitive.h>
+#include <takatori/type/table.h>
 
+#include <takatori/relation/apply.h>
 #include <takatori/relation/scan.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/project.h>
@@ -1698,6 +1700,117 @@ TEST_F(collect_exchange_steps_test, limit_ordered_forward_through_order_preservi
             forward_ordering::respect_input,
             forward_ordering::preserve_output,
     }));
+}
+
+TEST_F(collect_exchange_steps_test, limit_ordered_forward_through_apply) {
+    /*
+     * scan:r0{direction=forward} - apply:r1 - limit_relation:r2{sort=c0, count=10} - emit:r3
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto x0 = bindings.stream_variable("x0");
+    auto& r0 = r.insert(relation::scan {
+            bindings(*i2),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+            },
+            {},
+            {},
+            scan_direction::forward,
+    });
+    auto&& tvf = bindings.function({
+            function::declaration::minimum_user_function_id + 1,
+            "tvf",
+            ::takatori::type::table {
+                    { "o1", ::takatori::type::int8 {} },
+            },
+            {
+                    ::takatori::type::int8 {},
+            },
+            {
+                    function::function_feature::table_valued_function,
+            },
+    });
+    auto& r1 = r.insert(relation::apply {
+            tvf,
+            {
+                    varref { c1 },
+            },
+            {
+                    { 0, x0 },
+            },
+            relation::apply_kind::outer,
+    });
+    auto& r2 = r.insert(relation::intermediate::limit {
+            {},
+            {
+                    c0,
+            },
+            relation::intermediate::limit::row_slice_type { {}, 10 },
+    });
+    auto& r3 = r.insert(relation::emit { c0, x0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    details::step_plan_builder_options options;
+    options.runtime_features().insert(runtime_feature::apply_preserves_order);
+    plan::graph_type p;
+    details::collect_exchange_steps(r, p, options);
+
+    auto&& r4 = next<offer>(r1.output());
+    auto&& e0 = resolve<plan::forward>(r4.destination());
+    ASSERT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 10 }));
+    EXPECT_TRUE(e0.ordering().contains(forward_ordering::respect_input));
+}
+
+TEST_F(collect_exchange_steps_test, limit_redundant_not_through_apply) {
+    /*
+     * scan:r0{direction=forward, count=3} - apply:r1 - limit_relation:r2{sort=c0, count=3} - emit:r3
+     * the limit remains, because each input row of apply may become two or more rows
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto x0 = bindings.stream_variable("x0");
+    auto& r0 = add_scan(r, c0, c1, scan_direction::forward, 3);
+    auto&& tvf = bindings.function({
+            function::declaration::minimum_user_function_id + 1,
+            "tvf",
+            ::takatori::type::table {
+                    { "o1", ::takatori::type::int8 {} },
+            },
+            {
+                    ::takatori::type::int8 {},
+            },
+            {
+                    function::function_feature::table_valued_function,
+            },
+    });
+    auto& r1 = r.insert(relation::apply {
+            tvf,
+            {
+                    varref { c1 },
+            },
+            {
+                    { 0, x0 },
+            },
+            relation::apply_kind::outer,
+    });
+    auto& r2 = r.insert(limit(3, { c0 }));
+    auto& r3 = r.insert(relation::emit { c0, x0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    details::step_plan_builder_options options;
+    options.runtime_features().insert(runtime_feature::apply_preserves_order);
+    plan::graph_type p;
+    details::collect_exchange_steps(r, p, options);
+
+    EXPECT_EQ(p.size(), 1);
 }
 
 TEST_F(collect_exchange_steps_test, limit_ordered_forward_without_direction) {

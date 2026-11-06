@@ -12,8 +12,9 @@ namespace yugawara::analyzer::details {
  * @return the corresponding options
  */
 [[nodiscard]] inline path_capability_options make_path_capability_options(runtime_feature_set const& features) noexcept {
-    (void) features;
-    return {};
+    return path_capability_options {
+            features.contains(runtime_feature::apply_preserves_order),
+    };
 }
 
 } // namespace yugawara::analyzer::details

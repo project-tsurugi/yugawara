@@ -35,6 +35,8 @@ enum class runtime_feature {
     backward_scan,
     /// @brief enable inlining scalar local variables for all expressions.
     always_inline_scalar_local_variables,
+    /// @brief the `apply` operators emit rows in the order of their input rows.
+    apply_preserves_order,
 };
 
 /**
@@ -43,7 +45,7 @@ enum class runtime_feature {
 using runtime_feature_set = ::takatori::util::enum_set<
         runtime_feature,
         runtime_feature::broadcast_exchange,
-        runtime_feature::always_inline_scalar_local_variables>;
+        runtime_feature::apply_preserves_order>;
 
 /// @brief all recommended elements of runtime_feature_set.
 constexpr runtime_feature_set runtime_feature_all {
@@ -77,6 +79,7 @@ inline constexpr std::string_view to_string_view(runtime_feature value) noexcept
         case kind::ordered_forward: return "ordered_forward"sv;
         case kind::backward_scan: return "backward_scan"sv;
         case kind::always_inline_scalar_local_variables: return "always_inline_scalar_local_variables"sv;
+        case kind::apply_preserves_order: return "apply_preserves_order"sv;
     }
     std::abort();
 }
