@@ -1534,14 +1534,52 @@ TEST_F(push_down_filters_test, limit_relation_flush) {
     connect(rf.output());
     apply(r);
 
-    ASSERT_EQ(r.size(), 6);
-    auto&& f0 = next<relation::filter>(r0.output());
-    auto&& f1 = next<relation::filter>(r1.output());
-    EXPECT_GT(f0.output(), r1.input());
-    EXPECT_GT(f1.output(), rf.input());
+    // NOTE: the filter must not go over the limit, because it changes which rows are in the row slice
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(r0.output(), r1.input());
+    auto&& f0 = next<relation::filter>(r1.output());
+    EXPECT_GT(f0.output(), rf.input());
 
     EXPECT_EQ(f0.condition(), compare(varref(c2), varref(c0)));
-    EXPECT_EQ(f1.condition(), compare(varref(c2), varref(c0)));
+    EXPECT_EQ(rf.condition(), boolean(true));
+}
+
+TEST_F(push_down_filters_test, limit_relation_flush_without_group_keys) {
+    /*
+     * scan:r0 - limit_relation:r1[c1](3) - filter(c0=0):rf - ...
+     * =>
+     * scan:r0 - limit_relation:r1[c1](3) - filter(c0=0) - filter(TRUE):rf - ...
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+            },
+    });
+    auto& r1 = r.insert(relation::intermediate::limit {
+            {},
+            { c1, },
+            relation::intermediate::limit::row_slice_type { {}, 3 },
+    });
+    auto&& rf = r.insert(relation::filter {
+            compare(varref(c0), constant(0)),
+    });
+    r0.output() >> r1.input();
+    r1.output() >> rf.input();
+
+    connect(rf.output());
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(r0.output(), r1.input());
+    auto&& f0 = next<relation::filter>(r1.output());
+    EXPECT_GT(f0.output(), rf.input());
+
+    EXPECT_EQ(f0.condition(), compare(varref(c0), constant(0)));
     EXPECT_EQ(rf.condition(), boolean(true));
 }
 
