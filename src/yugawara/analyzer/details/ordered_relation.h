@@ -37,7 +37,7 @@ struct ordered_path {
  *      This never considers whether or not the `scan` actually provides the rows in the requested order.
  *      If the path is empty, the capabilities contain all `path_capability` values.
  * @param input the input port where the path starts
- * @param options the properties of the runtime
+ * @param options the options to find the path capabilities (see find_path_capabilities())
  * @return the path, whose end is empty if the path is not connected to any operators
  * @see find_scan_direction(::takatori::relation::scan const&, ::takatori::relation::intermediate::limit const&)
  */
@@ -48,7 +48,7 @@ struct ordered_path {
 /**
  * @brief returns the path from the given `limit` to upstream, which preserves the row order.
  * @param expr the target `limit` operator
- * @param options the properties of the runtime
+ * @param options the options to find the path capabilities (see find_path_capabilities())
  * @return the path to the input of the `limit`
  * @see find_ordered_source(::takatori::relation::expression::input_port_type&)
  */
@@ -65,7 +65,7 @@ struct ordered_path {
  *      for example, the `emit` operator depends on it only if it requires to preserve the input order.
  *      If the path is empty, the capabilities contain all `path_capability` values.
  * @param output the output port where the path starts
- * @param options the properties of the runtime
+ * @param options the options to find the path capabilities (see find_path_capabilities())
  * @return the path, whose end is empty if the path is not connected to any operators
  */
 [[nodiscard]] ordered_path find_ordered_destination(
@@ -75,7 +75,7 @@ struct ordered_path {
 /**
  * @brief returns the path from the given `limit` to downstream, which preserves the row order.
  * @param expr the target `limit` operator
- * @param options the properties of the runtime
+ * @param options the options to find the path capabilities (see find_path_capabilities())
  * @return the path from the output of the `limit`
  * @see find_ordered_destination(::takatori::relation::expression::output_port_type&)
  */
@@ -86,7 +86,7 @@ struct ordered_path {
 /**
  * @brief returns the path from the given `scan` to downstream, which preserves the row order.
  * @param expr the target `scan` operator
- * @param options the properties of the runtime
+ * @param options the options to find the path capabilities (see find_path_capabilities())
  * @return the path from the output of the `scan`
  * @see find_ordered_destination(::takatori::relation::expression::output_port_type&)
  */

@@ -18,7 +18,6 @@
 #include <takatori/util/optional_ptr.h>
 
 #include "row_slice_utils.h"
-#include "make_path_capability_options.h"
 #include "path_capability.h"
 #include "stream_variable_flow_info.h"
 
@@ -171,7 +170,7 @@ optional_ptr<relation::intermediate::limit> find_upstream_limit(relation::expres
 /**
  * @brief returns the farthest upstream input port where the given limit can be moved into.
  * @param expr the target limit
- * @param options the properties of the runtime
+ * @param options the options to find the path capabilities (see find_path_capabilities())
  * @return the destination input port
  * @return empty if the limit cannot be moved
  */
@@ -196,10 +195,10 @@ public:
     explicit engine(
             relation::graph_type& graph,
             std::size_t max_partial_limit_count,
-            runtime_feature_set const& features) noexcept :
+            path_capability_options const& capability_options) noexcept :
         graph_ { graph },
         max_partial_limit_count_ { max_partial_limit_count },
-        capability_options_ { make_path_capability_options(features) }
+        capability_options_ { capability_options }
     {}
 
     /**
@@ -433,7 +432,7 @@ private:
 void push_down_limits(
         ::takatori::relation::graph_type& graph,
         std::size_t max_partial_limit_count,
-        runtime_feature_set const& features) {
+        path_capability_options const& capability_options) {
     std::vector<relation::intermediate::limit*> targets {};
     relation::sort_from_upstream(graph, [&](relation::expression& expr) {
         if (expr.kind() == relation::intermediate::limit::tag) {
@@ -443,7 +442,7 @@ void push_down_limits(
             }
         }
     });
-    engine e { graph, max_partial_limit_count, features };
+    engine e { graph, max_partial_limit_count, capability_options };
     // NOTE: process from downstream to upstream, so that the upstream limits are moved after shrunk
     for (auto iter = targets.rbegin(); iter != targets.rend(); ++iter) {
         e.process(**iter);

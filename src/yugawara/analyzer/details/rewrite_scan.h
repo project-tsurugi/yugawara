@@ -6,6 +6,8 @@
 #include <yugawara/analyzer/index_estimator.h>
 #include <yugawara/analyzer/index_selection_parameters.h>
 
+#include "path_capability.h"
+
 namespace yugawara::analyzer::details {
 
 /**
@@ -29,12 +31,14 @@ namespace yugawara::analyzer::details {
  * @param index_estimator the index estimator
  * @param parameters the parameters to choose an index from the estimations
  * @param features the available runtime features, which decide whether the `scan` can provide the row order
+ * @param capability_options the options to find the path capabilities (see find_path_capabilities())
  * @see absorb_limits()
  */
 void rewrite_scan(
         ::takatori::relation::graph_type& graph,
         class index_estimator const& index_estimator,
         index_selection_parameters const& parameters,
-        runtime_feature_set const& features);
+        runtime_feature_set const& features,
+        path_capability_options const& capability_options);
 
 } // namespace yugawara::analyzer::details

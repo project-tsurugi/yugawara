@@ -188,7 +188,7 @@ protected:
     }
 
     void apply(relation::graph_type& r, runtime_feature_set const& features = runtime_feature_all) {
-        absorb_limits(r, features);
+        absorb_limits(r, features, {});
     }
 
     /**

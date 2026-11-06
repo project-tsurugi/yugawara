@@ -4,6 +4,8 @@
 
 #include <yugawara/runtime_feature.h>
 
+#include "path_capability.h"
+
 namespace yugawara::analyzer::details {
 
 /**
@@ -33,12 +35,14 @@ namespace yugawara::analyzer::details {
  *      The result is still correct, but the `scan` may read more rows.
  * @param graph the target graph
  * @param features the available runtime features
+ * @param capability_options the options to find the path capabilities (see find_path_capabilities())
  * @see find_path_capabilities()
  * @see push_down_limits()
  * @see rewrite_scan()
  */
 void absorb_limits(
         ::takatori::relation::graph_type& graph,
-        runtime_feature_set const& features);
+        runtime_feature_set const& features,
+        path_capability_options const& capability_options);
 
 } // namespace yugawara::analyzer::details

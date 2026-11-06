@@ -5,6 +5,10 @@
 #include <takatori/scalar/binary.h>
 #include <takatori/scalar/let.h>
 
+#include <takatori/type/primitive.h>
+#include <takatori/type/table.h>
+
+#include <takatori/relation/apply.h>
 #include <takatori/relation/graph.h>
 #include <takatori/relation/find.h>
 #include <takatori/relation/scan.h>
@@ -20,6 +24,7 @@
 #include <takatori/util/downcast.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/function/declaration.h>
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/variable/declaration.h>
 
@@ -69,6 +74,56 @@ protected:
     details::intermediate_plan_optimizer_options options() {
         details::intermediate_plan_optimizer_options result;
         return result;
+    }
+
+    relation::scan& add_order_over_apply(relation::graph_type& r) {
+        auto c0 = bindings.stream_variable("c0");
+        auto c1 = bindings.stream_variable("c1");
+        auto x0 = bindings.stream_variable("x0");
+        auto&& in = r.insert(relation::scan {
+                bindings(*i0),
+                {
+                        { bindings(t0c0), c0 },
+                        { bindings(t0c1), c1 },
+                },
+        });
+        auto&& tvf = bindings.function({
+                function::declaration::minimum_user_function_id + 1,
+                "tvf",
+                ::takatori::type::table {
+                        { "o1", ::takatori::type::int8 {} },
+                },
+                {
+                        ::takatori::type::int8 {},
+                },
+                {
+                        function::function_feature::table_valued_function,
+                },
+        });
+        auto&& apply = r.insert(relation::apply {
+                tvf,
+                {
+                        scalar::variable_reference { c1 },
+                },
+                {
+                        { 0, x0 },
+                },
+                relation::apply_kind::outer,
+        });
+        auto&& limit = r.insert(relation::intermediate::limit {
+                std::vector<descriptor::variable> {},
+                std::vector<relation::intermediate::limit::sort_key> { c0 },
+                relation::intermediate::limit::row_slice_type { {}, 3 },
+        });
+        auto&& out = r.insert(relation::emit { c0, x0 });
+        in.output() >> apply.input();
+        apply.output() >> limit.input();
+        limit.output() >> out.input();
+        storages->add_index({
+                t0, "x0",
+                { t0c0 },
+        });
+        return in;
     }
 };
 
@@ -689,6 +744,36 @@ TEST_F(intermediate_plan_optimizer_test, rewrite_scan) {
     ASSERT_EQ(find.keys().size(), 1);
     EXPECT_EQ(find.keys()[0].variable(), bindings(t0c0));
     EXPECT_EQ(find.keys()[0].value(), constant(0));
+}
+
+TEST_F(intermediate_plan_optimizer_test, rewrite_scan_order_over_apply) {
+    /*
+     * scan:in - apply - limit[c0, 3] - emit
+     * => scan:in[forward] - apply - limit[c0, 3] - emit
+     */
+    relation::graph_type r;
+    auto&& in = add_order_over_apply(r);
+
+    auto opts = options();
+    opts.runtime_features().insert(runtime_feature::apply_preserves_order);
+    intermediate_plan_optimizer optimizer { std::move(opts) };
+    optimizer(r);
+
+    EXPECT_EQ(in.direction(), ::takatori::relation::scan_direction::forward);
+}
+
+TEST_F(intermediate_plan_optimizer_test, rewrite_scan_order_over_apply_disabled) {
+    /*
+     * scan:in - apply - limit[c0, 3] - emit
+     * the row order is not traced over apply
+     */
+    relation::graph_type r;
+    auto&& in = add_order_over_apply(r);
+
+    intermediate_plan_optimizer optimizer { options() };
+    optimizer(r);
+
+    EXPECT_FALSE(in.direction());
 }
 
 TEST_F(intermediate_plan_optimizer_test, push_down_limits) {

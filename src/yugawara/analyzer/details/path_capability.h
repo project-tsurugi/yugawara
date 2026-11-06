@@ -97,7 +97,7 @@ struct path_capability_options {
  *      has the same capabilities as the regular one (see remove_redundant_conditions()).
  * @param input the input port of the operator
  * @param output the output port of the same operator
- * @param options the properties of the runtime
+ * @param options the options to find the path capabilities
  * @return the capabilities of the path
  * @return empty set if the operator is not known, or the ports do not belong to the same operator
  */

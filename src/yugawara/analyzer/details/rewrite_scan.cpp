@@ -29,7 +29,6 @@
 #include "decompose_predicate.h"
 #include "estimate_index.h"
 #include "find_scan_direction.h"
-#include "make_path_capability_options.h"
 #include "ordered_relation.h"
 #include "scan_key_collector.h"
 #include "remove_orphaned_elements.h"
@@ -207,11 +206,12 @@ public:
     explicit engine(
             index_estimator const& index_estimator,
             index_selection_parameters const& parameters,
-            runtime_feature_set const& features) :
+            runtime_feature_set const& features,
+            path_capability_options const& capability_options) :
         index_estimator_ { index_estimator },
         parameters_ { parameters },
         features_ { features },
-        capability_options_ { make_path_capability_options(features) }
+        capability_options_ { capability_options }
     {}
 
     void process(relation::graph_type& graph) {
@@ -376,8 +376,9 @@ void rewrite_scan(
         ::takatori::relation::graph_type& graph,
         class index_estimator const& index_estimator,
         index_selection_parameters const& parameters,
-        runtime_feature_set const& features) {
-    engine e { index_estimator, parameters, features };
+        runtime_feature_set const& features,
+        path_capability_options const& capability_options) {
+    engine e { index_estimator, parameters, features, capability_options };
     e.process(graph);
 }
 

@@ -11,7 +11,6 @@
 #include <takatori/util/downcast.h>
 #include <takatori/util/optional_ptr.h>
 
-#include "make_path_capability_options.h"
 #include "path_capability.h"
 
 namespace yugawara::analyzer::details {
@@ -48,7 +47,7 @@ std::optional<std::size_t> find_target_count(relation::intermediate::limit const
  *      If the operator has two or more inputs, this walks each input which has `at_least_one`
  *      (e.g. the left input of left outer joins, or each input of union all).
  * @param expr the target limit
- * @param options the properties of the runtime
+ * @param options the options to find the path capabilities (see find_path_capabilities())
  * @return the upstream scans, may be empty
  */
 std::vector<relation::scan*> find_source_scans(
@@ -82,9 +81,9 @@ std::vector<relation::scan*> find_source_scans(
 
 class engine {
 public:
-    explicit engine(runtime_feature_set const& features) noexcept :
+    explicit engine(runtime_feature_set const& features, path_capability_options const& capability_options) noexcept :
         features_ { features },
-        capability_options_ { make_path_capability_options(features) }
+        capability_options_ { capability_options }
     {}
 
     void process(relation::graph_type& graph) {
@@ -131,8 +130,9 @@ private:
 
 void absorb_limits(
         ::takatori::relation::graph_type& graph,
-        runtime_feature_set const& features) {
-    engine e { features };
+        runtime_feature_set const& features,
+        path_capability_options const& capability_options) {
+    engine e { features, capability_options };
     e.process(graph);
 }
 
