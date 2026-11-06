@@ -764,6 +764,266 @@ TEST_F(push_down_filters_test, join_relation_left_outer_flush_right_at_most_one)
     EXPECT_EQ(rj.condition(), compare(varref(cl0), varref(cr1)));
 }
 
+TEST_F(push_down_filters_test, join_relation_left_outer_condition_right) {
+    /*
+     * scan:rl -\
+     *           join_relation(left on:l0=r1 and r0=1):rj - ...
+     * scan:rr -/
+     * =>
+     * scan:rl ---------------\
+     *                         join_relation(left on:l0=r1):rj - ...
+     * scan:rr - filter(r0=1) -/
+     * for all left outer like joins (left outer, left outer at most one, and anti)
+     */
+    for (auto kind : {
+            relation::join_kind::left_outer,
+            relation::join_kind::left_outer_at_most_one,
+            relation::join_kind::anti,
+    }) {
+        relation::graph_type r;
+        auto cl0 = bindings.stream_variable("cl0");
+        auto cl1 = bindings.stream_variable("cl1");
+        auto cr0 = bindings.stream_variable("cr0");
+        auto cr1 = bindings.stream_variable("cr1");
+        auto&& rl = r.insert(relation::scan {
+                bindings(*i0),
+                {
+                        { t0c0, cl0 },
+                        { t0c1, cl1 },
+                },
+        });
+        auto&& rr = r.insert(relation::scan {
+                bindings(*i0),
+                {
+                        { t1c0, cr0 },
+                        { t1c1, cr1 },
+                },
+        });
+        auto&& rj = r.insert(relation::intermediate::join {
+                kind,
+                land(
+                        compare(varref(cl0), varref(cr1)),
+                        compare(varref(cr0), constant(1))),
+        });
+        rl.output() >> rj.left();
+        rr.output() >> rj.right();
+
+        connect(rj.output());
+        apply(r);
+
+        ASSERT_EQ(r.size(), 5) << kind;
+        EXPECT_GT(rl.output(), rj.left()) << kind;
+        auto&& f0 = next<relation::filter>(rr.output());
+        EXPECT_GT(f0.output(), rj.right()) << kind;
+        EXPECT_EQ(f0.condition(), compare(varref(cr0), constant(1))) << kind;
+        EXPECT_EQ(rj.condition(), land(
+                compare(varref(cl0), varref(cr1)),
+                boolean(true))) << kind;
+    }
+}
+
+TEST_F(push_down_filters_test, join_relation_left_outer_condition_left) {
+    /*
+     * scan:rl -\
+     *           join_relation(left on:l0=r1 and l1=1):rj - ...
+     * scan:rr -/
+     * => (not changed, because the left-only terms decide which left rows are padded with nulls)
+     */
+    for (auto kind : {
+            relation::join_kind::left_outer,
+            relation::join_kind::left_outer_at_most_one,
+            relation::join_kind::anti,
+    }) {
+        relation::graph_type r;
+        auto cl0 = bindings.stream_variable("cl0");
+        auto cl1 = bindings.stream_variable("cl1");
+        auto cr0 = bindings.stream_variable("cr0");
+        auto cr1 = bindings.stream_variable("cr1");
+        auto&& rl = r.insert(relation::scan {
+                bindings(*i0),
+                {
+                        { t0c0, cl0 },
+                        { t0c1, cl1 },
+                },
+        });
+        auto&& rr = r.insert(relation::scan {
+                bindings(*i0),
+                {
+                        { t1c0, cr0 },
+                        { t1c1, cr1 },
+                },
+        });
+        auto&& rj = r.insert(relation::intermediate::join {
+                kind,
+                land(
+                        compare(varref(cl0), varref(cr1)),
+                        compare(varref(cl1), constant(1))),
+        });
+        rl.output() >> rj.left();
+        rr.output() >> rj.right();
+
+        connect(rj.output());
+        apply(r);
+
+        ASSERT_EQ(r.size(), 4) << kind;
+        EXPECT_GT(rl.output(), rj.left()) << kind;
+        EXPECT_GT(rr.output(), rj.right()) << kind;
+        EXPECT_EQ(rj.condition(), land(
+                compare(varref(cl0), varref(cr1)),
+                compare(varref(cl1), constant(1)))) << kind;
+    }
+}
+
+TEST_F(push_down_filters_test, join_relation_left_outer_condition_constant) {
+    /*
+     * scan:rl -\
+     *           join_relation(left on:l0=r1 and 1=2):rj - ...
+     * scan:rr -/
+     * =>
+     * scan:rl ---------------\
+     *                         join_relation(left on:l0=r1):rj - ...
+     * scan:rr - filter(1=2) --/
+     * (the constant terms only restrict the right rows, and never remove the left rows)
+     */
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto cl1 = bindings.stream_variable("cl1");
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto&& rl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, cl0 },
+                    { t0c1, cl1 },
+            },
+    });
+    auto&& rr = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t1c0, cr0 },
+                    { t1c1, cr1 },
+            },
+    });
+    auto&& rj = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+            land(
+                    compare(varref(cl0), varref(cr1)),
+                    compare(constant(1), constant(2))),
+    });
+    rl.output() >> rj.left();
+    rr.output() >> rj.right();
+
+    connect(rj.output());
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(rl.output(), rj.left());
+    auto&& f0 = next<relation::filter>(rr.output());
+    EXPECT_GT(f0.output(), rj.right());
+    EXPECT_EQ(f0.condition(), compare(constant(1), constant(2)));
+}
+
+TEST_F(push_down_filters_test, join_relation_left_outer_condition_right_with_incoming) {
+    /*
+     * scan:rl -\
+     *           join_relation(left on:l0=r1 and r0=1):rj - filter(r1=2):rf - ...
+     * scan:rr -/
+     * =>
+     * scan:rl ---------------\
+     *                         join_relation(left on:l0=r1):rj - filter(r1=2) - ...
+     * scan:rr - filter(r0=1) -/
+     * (the incoming right-term conditions are still kept in the downstream of the join)
+     */
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto cl1 = bindings.stream_variable("cl1");
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto&& rl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, cl0 },
+                    { t0c1, cl1 },
+            },
+    });
+    auto&& rr = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t1c0, cr0 },
+                    { t1c1, cr1 },
+            },
+    });
+    auto&& rj = r.insert(relation::intermediate::join {
+            relation::join_kind::left_outer,
+            land(
+                    compare(varref(cl0), varref(cr1)),
+                    compare(varref(cr0), constant(1))),
+    });
+    auto&& rf = r.insert(relation::filter {
+            compare(varref(cr1), constant(2))
+    });
+    rl.output() >> rj.left();
+    rr.output() >> rj.right();
+    rj.output() >> rf.input();
+
+    connect(rf.output());
+    apply(r);
+
+    ASSERT_EQ(r.size(), 7);
+    auto&& f0 = next<relation::filter>(rr.output());
+    EXPECT_GT(f0.output(), rj.right());
+    EXPECT_EQ(f0.condition(), compare(varref(cr0), constant(1)));
+
+    auto&& f1 = next<relation::filter>(rj.output());
+    EXPECT_EQ(f1.condition(), compare(varref(cr1), constant(2)));
+    EXPECT_EQ(rf.condition(), boolean(true));
+}
+
+TEST_F(push_down_filters_test, join_relation_full_outer_condition_right) {
+    /*
+     * scan:rl -\
+     *           join_relation(full on:l0=r1 and r0=1):rj - ...
+     * scan:rr -/
+     * => (not changed, because full outer joins also emit the right rows which are not joined)
+     */
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto cl1 = bindings.stream_variable("cl1");
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto&& rl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, cl0 },
+                    { t0c1, cl1 },
+            },
+    });
+    auto&& rr = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t1c0, cr0 },
+                    { t1c1, cr1 },
+            },
+    });
+    auto&& rj = r.insert(relation::intermediate::join {
+            relation::join_kind::full_outer,
+            land(
+                    compare(varref(cl0), varref(cr1)),
+                    compare(varref(cr0), constant(1))),
+    });
+    rl.output() >> rj.left();
+    rr.output() >> rj.right();
+
+    connect(rj.output());
+    apply(r);
+
+    ASSERT_EQ(r.size(), 4);
+    EXPECT_GT(rr.output(), rj.right());
+    EXPECT_EQ(rj.condition(), land(
+            compare(varref(cl0), varref(cr1)),
+            compare(varref(cr0), constant(1))));
+}
+
 TEST_F(push_down_filters_test, join_relation_full_outer_flush_left) {
     /*
      * scan:rl -\

@@ -201,28 +201,51 @@ public:
     }
 
     void operator()(enum_tag_t<relation::join_kind::left_outer>, relation::intermediate::join& expr, mask_type&& mask) {
-        // NOTE: outer join does not decompose the join condition
+        /*
+         * NOTE: the terms of the join condition which only refer the right columns can be pushed down into
+         * the right input, because they only restrict the right rows to be joined, that is,
+         * "L LEFT JOIN R ON c AND p(R)" is equivalent to "L LEFT JOIN (R WHERE p(R)) ON c".
+         * On the other hand, the other terms of the join condition must be kept, because they decide
+         * which left rows are padded with nulls (the left-only terms must not be pushed down into the left input).
+         * Also, the incoming terms which refer the right columns must not be pushed down into the join condition,
+         * because they remove the rows padded with nulls.
+         */
+        // remain incoming predicates
+        auto incoming_size = predicates_.size();
 
-        // compute if each term is applicable on left upstream
+        // decompose the join condition into individual terms
+        analyze_predicates(expr.ownership_condition(), mask);
+
+        // compute if each term is applicable on left/right upstream
         auto left_mask = create_input_mask(expr.left(), mask);
+        auto right_mask = create_input_mask(expr.right(), mask);
 
-        // push down incoming terms to the join condition
         for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
             auto&& predicate = predicates_[i];
-            bool l = left_mask[i];
-            if (l) {
-                // L - just carry to left
-                mask.reset(i);
+            bool incoming = i < incoming_size;
+            if (incoming) {
+                // never pass the incoming terms to the right input
+                right_mask.reset(i);
+                if (!left_mask[i]) {
+                    // never pass the incoming right-term conditions into the join condition
+                    flush(expr.output(), predicate);
+                }
+                // otherwise, L - just carry to left
             } else {
-                // never pass the right-term conditions
-                flush(expr.output(), predicate);
-                mask.reset(i);
+                // never pass the join condition terms to the left input
+                left_mask.reset(i);
+                if (!right_mask[i]) {
+                    // keep the term in the join condition
+                    predicate.leave();
+                }
+                // otherwise, R - just carry to right
             }
+            mask.reset(i);
         }
 
-        // carry to left
+        // carry to each input
         pass(expr.left(), std::move(left_mask));
-        pass(expr.right(), empty_mask());
+        pass(expr.right(), std::move(right_mask));
     }
 
     void operator()(enum_tag_t<relation::join_kind::full_outer>, relation::intermediate::join& expr, mask_type&& mask) {
@@ -246,8 +269,14 @@ public:
     }
 
     void operator()(enum_tag_t<relation::join_kind::anti>, relation::intermediate::join& expr, mask_type&& mask) {
-        // FIXME: verify algorithm
-        // same as left anti semi join
+        /*
+         * NOTE: same as left outer join:
+         * - the right-only terms of the join condition only restrict the right rows to be joined
+         * - the other terms of the join condition must be kept, because they decide which left rows are emitted
+         * - the incoming terms only refer the left columns, because anti join does not emit the right columns
+         * Note that, this is not true for NAAJ (Null-Aware Anti-Join), whose result depends on whether the right
+         * input has nulls.
+         */
         operator()(enum_tag<relation::join_kind::left_outer>, expr, std::move(mask));
     }
 
