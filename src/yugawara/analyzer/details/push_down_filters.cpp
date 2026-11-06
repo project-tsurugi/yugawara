@@ -75,6 +75,8 @@ public:
         });
     }
 
+    // NOTE: the copies may declare the same local variables in `let`, but it is safe because their scopes are closed
+    // in each copy, and rewrite_stream_variables() renews them individually before the expressions are resolved again
     [[nodiscard]] term clone() const {
         return term { clone_unique(*expression_) };
     }
