@@ -25,17 +25,20 @@ using ::takatori::util::unsafe_downcast;
 
 namespace {
 
-path_capability_set find_apply_capabilities(relation::apply const& expr) {
-    // NOTE: the row order depends on the implementation of table-valued functions, so that this never provides it
+path_capability_set find_apply_capabilities(relation::apply const& expr, path_capability_options const& options) {
+    path_capability_set results {};
+    // NOTE: the row order depends on the runtime, and each input row may become two or more rows
+    if (options.apply_preserves_order) {
+        results.insert(path_capability::preserves_order);
+    }
     switch (expr.operator_kind()) {
         case relation::apply_kind::cross:
             // NOTE: cross apply drops the input rows if the function returns no rows
-            return {};
+            return results;
         case relation::apply_kind::outer:
             // NOTE: outer apply keeps the input rows even if the function returns no rows
-            return {
-                    path_capability::at_least_one,
-            };
+            results.insert(path_capability::at_least_one);
+            return results;
     }
     std::abort();
 }
@@ -138,7 +141,8 @@ path_capability_set find_index_join_capabilities(relation::join_kind kind) {
 
 path_capability_set find_path_capabilities(
         relation::expression::input_port_type const& input,
-        relation::expression::output_port_type const& output) {
+        relation::expression::output_port_type const& output,
+        path_capability_options const& options) {
     auto&& owner = input.owner();
     if (std::addressof(owner) != std::addressof(output.owner())) {
         return {};
@@ -158,7 +162,7 @@ path_capability_set find_path_capabilities(
         case relation::buffer::tag:
             return find_buffer_capabilities(unsafe_downcast<relation::buffer>(owner), output);
         case relation::apply::tag:
-            return find_apply_capabilities(unsafe_downcast<relation::apply>(owner));
+            return find_apply_capabilities(unsafe_downcast<relation::apply>(owner), options);
         case relation::join_find::tag:
             return find_index_join_capabilities(unsafe_downcast<relation::join_find>(owner).operator_kind());
         case relation::join_scan::tag:

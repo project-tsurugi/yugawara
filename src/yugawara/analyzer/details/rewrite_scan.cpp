@@ -29,6 +29,7 @@
 #include "decompose_predicate.h"
 #include "estimate_index.h"
 #include "find_scan_direction.h"
+#include "make_path_capability_options.h"
 #include "ordered_relation.h"
 #include "scan_key_collector.h"
 #include "remove_orphaned_elements.h"
@@ -85,11 +86,13 @@ struct order_request {
     return results;
 }
 
-[[nodiscard]] std::optional<order_request> find_order_request(relation::scan& expr) {
+[[nodiscard]] std::optional<order_request> find_order_request(
+        relation::scan& expr,
+        path_capability_options const& options) {
     auto filters = collect_succeeding_filters(expr);
     auto path = filters.empty()
-            ? find_ordered_destination(expr)
-            : find_ordered_destination(filters.back()->output());
+            ? find_ordered_destination(expr, options)
+            : find_ordered_destination(filters.back()->output(), options);
     auto&& destination = path.end;
     if (!destination || destination->kind() != relation::intermediate::limit::tag) {
         return {};
@@ -207,7 +210,8 @@ public:
             runtime_feature_set const& features) :
         index_estimator_ { index_estimator },
         parameters_ { parameters },
-        features_ { features }
+        features_ { features },
+        capability_options_ { make_path_capability_options(features) }
     {}
 
     void process(relation::graph_type& graph) {
@@ -227,6 +231,7 @@ private:
     index_estimator const& index_estimator_;
     index_selection_parameters const& parameters_;
     runtime_feature_set const& features_;
+    path_capability_options capability_options_;
 
     relation::graph_type work_graph_ {};
 
@@ -235,7 +240,7 @@ private:
         scan_key_collector collector {};
         // NOTE: this may return false if the scan has no conditions, but the collector is still available
         bool has_terms = collector(expr, scan_key_collector::scope::scan);
-        auto request = find_order_request(expr);
+        auto request = find_order_request(expr, capability_options_);
         if (!has_terms && !request) {
             return;
         }

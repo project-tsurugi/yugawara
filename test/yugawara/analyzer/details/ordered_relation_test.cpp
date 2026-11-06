@@ -3,8 +3,10 @@
 #include <gtest/gtest.h>
 
 #include <takatori/type/primitive.h>
+#include <takatori/type/table.h>
 
 #include <takatori/relation/graph.h>
+#include <takatori/relation/apply.h>
 #include <takatori/relation/scan.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/project.h>
@@ -81,6 +83,32 @@ protected:
         });
     }
 
+    relation::apply& add_apply(relation::graph_type& r, relation::apply_kind kind, descriptor::variable output) {
+        auto&& tvf = bindings.function({
+                function::declaration::minimum_user_function_id + 1,
+                "tvf",
+                ::takatori::type::table {
+                        { "o1", ::takatori::type::int8 {} },
+                },
+                {
+                        ::takatori::type::int8 {},
+                },
+                {
+                        function::function_feature::table_valued_function,
+                },
+        });
+        return r.insert(relation::apply {
+                tvf,
+                {
+                        varref { c },
+                },
+                {
+                        { 0, std::move(output) },
+                },
+                kind,
+        });
+    }
+
     static relation::intermediate::limit limit(std::vector<relation::intermediate::limit::sort_key> sort_keys) {
         return relation::intermediate::limit {
                 {},
@@ -101,7 +129,7 @@ TEST_F(ordered_relation_test, scan) {
     r0.output() >> r1.input();
     r1.output() >> r2.input();
 
-    auto result = find_ordered_source(r1);
+    auto result = find_ordered_source(r1, {});
     ASSERT_TRUE(result.end);
     EXPECT_EQ(result.end.get(), &r0);
     EXPECT_EQ(result.capabilities, (path_capability_set {
@@ -109,6 +137,89 @@ TEST_F(ordered_relation_test, scan) {
             path_capability::at_least_one,
             path_capability::at_most_one,
     }));
+}
+
+TEST_F(ordered_relation_test, apply_not_preserved) {
+    /*
+     * scan:r0 - apply:r1 - limit:r2 - emit:r3
+     */
+    relation::graph_type r;
+    auto d = bindings.stream_variable("d");
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_apply(r, relation::apply_kind::outer, d);
+    auto&& r2 = r.insert(limit({ a }));
+    auto&& r3 = r.insert(relation::emit { a, d });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    auto result = find_ordered_source(r2, {});
+    ASSERT_TRUE(result.end);
+    EXPECT_EQ(result.end.get(), &r1);
+}
+
+TEST_F(ordered_relation_test, apply_outer_preserved) {
+    /*
+     * scan:r0 - apply:r1 - limit:r2 - emit:r3
+     */
+    relation::graph_type r;
+    auto d = bindings.stream_variable("d");
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_apply(r, relation::apply_kind::outer, d);
+    auto&& r2 = r.insert(limit({ a }));
+    auto&& r3 = r.insert(relation::emit { a, d });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    auto result = find_ordered_source(r2, { true });
+    ASSERT_TRUE(result.end);
+    EXPECT_EQ(result.end.get(), &r0);
+    // NOTE: each input row may become two or more rows
+    EXPECT_EQ(result.capabilities, (path_capability_set {
+            path_capability::preserves_order,
+            path_capability::at_least_one,
+    }));
+}
+
+TEST_F(ordered_relation_test, apply_cross_preserved_destination) {
+    /*
+     * scan:r0 - apply:r1 - limit:r2 - emit:r3
+     */
+    relation::graph_type r;
+    auto d = bindings.stream_variable("d");
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_apply(r, relation::apply_kind::cross, d);
+    auto&& r2 = r.insert(limit({ a }));
+    auto&& r3 = r.insert(relation::emit { a, d });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    auto result = find_ordered_destination(r0, { true });
+    ASSERT_TRUE(result.end);
+    EXPECT_EQ(result.end.get(), &r2);
+    EXPECT_EQ(result.capabilities, (path_capability_set {
+            path_capability::preserves_order,
+    }));
+}
+
+TEST_F(ordered_relation_test, resolve_sort_keys_apply_output) {
+    /*
+     * scan:r0 - apply:r1 - limit[d]:r2 - emit:r3
+     * the output columns of apply are not the columns of the scan
+     */
+    relation::graph_type r;
+    auto d = bindings.stream_variable("d");
+    auto&& r0 = add_scan(r);
+    auto&& r1 = add_apply(r, relation::apply_kind::outer, d);
+    auto&& r2 = r.insert(limit({ d }));
+    auto&& r3 = r.insert(relation::emit { a, d });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    EXPECT_FALSE(resolve_sort_keys(r0, r2));
 }
 
 TEST_F(ordered_relation_test, through_filter_project) {
@@ -131,7 +242,7 @@ TEST_F(ordered_relation_test, through_filter_project) {
     r2.output() >> r3.input();
     r3.output() >> r4.input();
 
-    auto result = find_ordered_source(r3);
+    auto result = find_ordered_source(r3, {});
     ASSERT_TRUE(result.end);
     EXPECT_EQ(result.end.get(), &r0);
     EXPECT_EQ(result.capabilities, (path_capability_set {
@@ -164,7 +275,7 @@ TEST_F(ordered_relation_test, through_join_find) {
     r1.output() >> r2.input();
     r2.output() >> r3.input();
 
-    auto result = find_ordered_source(r2);
+    auto result = find_ordered_source(r2, {});
     ASSERT_TRUE(result.end);
     EXPECT_EQ(result.end.get(), &r0);
     EXPECT_EQ(result.capabilities, (path_capability_set {
@@ -185,7 +296,7 @@ TEST_F(ordered_relation_test, not_order_preserving) {
     r1.output() >> r2.input();
     r2.output() >> r3.input();
 
-    auto result = find_ordered_source(r2);
+    auto result = find_ordered_source(r2, {});
     ASSERT_TRUE(result.end);
     EXPECT_EQ(result.end.get(), &r1);
 }
@@ -201,7 +312,7 @@ TEST_F(ordered_relation_test, destination) {
     r0.output() >> r1.input();
     r1.output() >> r2.input();
 
-    auto result = find_ordered_destination(r1);
+    auto result = find_ordered_destination(r1, {});
     ASSERT_TRUE(result.end);
     EXPECT_EQ(result.end.get(), &r2);
     EXPECT_EQ(result.capabilities, (path_capability_set {
@@ -231,7 +342,7 @@ TEST_F(ordered_relation_test, destination_through_filter_project) {
     r2.output() >> r3.input();
     r3.output() >> r4.input();
 
-    auto result = find_ordered_destination(r1);
+    auto result = find_ordered_destination(r1, {});
     ASSERT_TRUE(result.end);
     EXPECT_EQ(result.end.get(), &r4);
     EXPECT_EQ(result.capabilities, (path_capability_set {
@@ -254,7 +365,7 @@ TEST_F(ordered_relation_test, destination_through_project) {
     r0.output() >> r1.input();
     r1.output() >> r2.input();
 
-    auto result = find_ordered_destination(r0);
+    auto result = find_ordered_destination(r0, {});
     ASSERT_TRUE(result.end);
     EXPECT_EQ(result.end.get(), &r2);
     EXPECT_EQ(result.capabilities, (path_capability_set {
@@ -283,7 +394,7 @@ TEST_F(ordered_relation_test, destination_from_port) {
     r1.output() >> r2.input();
     r2.output() >> r3.input();
 
-    auto result = find_ordered_destination(r1.output());
+    auto result = find_ordered_destination(r1.output(), {});
     ASSERT_TRUE(result.end);
     EXPECT_EQ(result.end.get(), &r3);
     EXPECT_EQ(result.capabilities, (path_capability_set {
@@ -317,7 +428,7 @@ TEST_F(ordered_relation_test, destination_through_join_find) {
     r1.output() >> r2.input();
     r2.output() >> r3.input();
 
-    auto result = find_ordered_destination(r0);
+    auto result = find_ordered_destination(r0, {});
     ASSERT_TRUE(result.end);
     EXPECT_EQ(result.end.get(), &r2);
     EXPECT_EQ(result.capabilities, (path_capability_set {
@@ -338,7 +449,7 @@ TEST_F(ordered_relation_test, destination_not_order_preserving) {
     r1.output() >> r2.input();
     r2.output() >> r3.input();
 
-    auto result = find_ordered_destination(r1);
+    auto result = find_ordered_destination(r1, {});
     ASSERT_TRUE(result.end);
     EXPECT_EQ(result.end.get(), &r2);
 }

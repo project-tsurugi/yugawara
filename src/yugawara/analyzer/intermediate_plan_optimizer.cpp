@@ -64,7 +64,7 @@ void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& g
     // NOTE: push_down_selections() may leave the filters whose condition is just `TRUE`,
     // and the succeeding passes like push_down_limits() treat them as the regular filters
     details::remove_redundant_conditions(graph);
-    details::push_down_limits(graph, options_.max_partial_limit_count());
+    details::push_down_limits(graph, options_.max_partial_limit_count(), options_.runtime_features());
     // FIXME: auto flow_volume = details::reorder_join(...);
     details::flow_volume_info flow_volume {};
     if (options_.runtime_features().contains(runtime_feature::index_join)) {

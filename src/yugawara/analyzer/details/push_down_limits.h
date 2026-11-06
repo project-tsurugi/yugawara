@@ -4,6 +4,8 @@
 
 #include <takatori/relation/graph.h>
 
+#include <yugawara/runtime_feature.h>
+
 namespace yugawara::analyzer::details {
 
 /**
@@ -50,8 +52,12 @@ namespace yugawara::analyzer::details {
  * @param graph the target graph
  * @param max_partial_limit_count the maximum row count of the partial limits,
  *      or `0` to disable them (including merging into the upstream `limit` over the paths above)
+ * @param features the available runtime features
  * @see collect_exchange_steps()
  */
-void push_down_limits(::takatori::relation::graph_type& graph, std::size_t max_partial_limit_count);
+void push_down_limits(
+        ::takatori::relation::graph_type& graph,
+        std::size_t max_partial_limit_count,
+        runtime_feature_set const& features);
 
 } // namespace yugawara::analyzer::details

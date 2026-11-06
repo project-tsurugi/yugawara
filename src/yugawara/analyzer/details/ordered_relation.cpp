@@ -23,14 +23,16 @@ using column_ref = std::reference_wrapper<storage::column const>;
 
 namespace {
 
-path_capability_set find_single_path_capabilities(relation::expression const& expr) {
+path_capability_set find_single_path_capabilities(
+        relation::expression const& expr,
+        path_capability_options const& options) {
     // NOTE: each order preserving operator must have exactly one input and one output
     auto&& inputs = expr.input_ports();
     auto&& outputs = expr.output_ports();
     if (inputs.size() != 1 || outputs.size() != 1) {
         return {};
     }
-    return find_path_capabilities(inputs[0], outputs[0]);
+    return find_path_capabilities(inputs[0], outputs[0], options);
 }
 
 optional_ptr<relation::expression> find_upstream(relation::expression::input_port_type& port) {
@@ -78,7 +80,9 @@ std::vector<column_ref> collect_fixed_columns(relation::scan const& scan) {
 
 } // namespace
 
-ordered_path find_ordered_source(relation::expression::input_port_type& input) {
+ordered_path find_ordered_source(
+        relation::expression::input_port_type& input,
+        path_capability_options const& options) {
     path_capability_set capabilities {
             path_capability::preserves_order,
             path_capability::at_least_one,
@@ -86,7 +90,7 @@ ordered_path find_ordered_source(relation::expression::input_port_type& input) {
     };
     auto current = find_upstream(input);
     while (current) {
-        auto found = find_single_path_capabilities(*current);
+        auto found = find_single_path_capabilities(*current, options);
         if (!found.contains(path_capability::preserves_order)) {
             break;
         }
@@ -99,11 +103,13 @@ ordered_path find_ordered_source(relation::expression::input_port_type& input) {
     };
 }
 
-ordered_path find_ordered_source(relation::intermediate::limit& expr) {
-    return find_ordered_source(expr.input());
+ordered_path find_ordered_source(relation::intermediate::limit& expr, path_capability_options const& options) {
+    return find_ordered_source(expr.input(), options);
 }
 
-ordered_path find_ordered_destination(relation::expression::output_port_type& output) {
+ordered_path find_ordered_destination(
+        relation::expression::output_port_type& output,
+        path_capability_options const& options) {
     path_capability_set capabilities {
             path_capability::preserves_order,
             path_capability::at_least_one,
@@ -111,7 +117,7 @@ ordered_path find_ordered_destination(relation::expression::output_port_type& ou
     };
     auto current = find_downstream(output);
     while (current) {
-        auto found = find_single_path_capabilities(*current);
+        auto found = find_single_path_capabilities(*current, options);
         if (!found.contains(path_capability::preserves_order)) {
             break;
         }
@@ -124,12 +130,12 @@ ordered_path find_ordered_destination(relation::expression::output_port_type& ou
     };
 }
 
-ordered_path find_ordered_destination(relation::intermediate::limit& expr) {
-    return find_ordered_destination(expr.output());
+ordered_path find_ordered_destination(relation::intermediate::limit& expr, path_capability_options const& options) {
+    return find_ordered_destination(expr.output(), options);
 }
 
-ordered_path find_ordered_destination(relation::scan& expr) {
-    return find_ordered_destination(expr.output());
+ordered_path find_ordered_destination(relation::scan& expr, path_capability_options const& options) {
+    return find_ordered_destination(expr.output(), options);
 }
 
 std::optional<std::vector<storage::details::index_key_element>> resolve_sort_keys(

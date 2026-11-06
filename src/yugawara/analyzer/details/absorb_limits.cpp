@@ -11,6 +11,7 @@
 #include <takatori/util/downcast.h>
 #include <takatori/util/optional_ptr.h>
 
+#include "make_path_capability_options.h"
 #include "path_capability.h"
 
 namespace yugawara::analyzer::details {
@@ -47,9 +48,12 @@ std::optional<std::size_t> find_target_count(relation::intermediate::limit const
  *      If the operator has two or more inputs, this walks each input which has `at_least_one`
  *      (e.g. the left input of left outer joins, or each input of union all).
  * @param expr the target limit
+ * @param options the properties of the runtime
  * @return the upstream scans, may be empty
  */
-std::vector<relation::scan*> find_source_scans(relation::intermediate::limit& expr) {
+std::vector<relation::scan*> find_source_scans(
+        relation::intermediate::limit& expr,
+        path_capability_options const& options) {
     std::vector<relation::scan*> results {};
     std::vector<relation::expression::output_port_type*> next {};
     if (auto upstream = expr.input().opposite()) {
@@ -64,7 +68,7 @@ std::vector<relation::scan*> find_source_scans(relation::intermediate::limit& ex
             continue;
         }
         for (auto&& input : owner.input_ports()) {
-            auto capabilities = find_path_capabilities(input, *upstream);
+            auto capabilities = find_path_capabilities(input, *upstream, options);
             if (!capabilities.contains(path_capability::at_least_one)) {
                 continue;
             }
@@ -79,7 +83,8 @@ std::vector<relation::scan*> find_source_scans(relation::intermediate::limit& ex
 class engine {
 public:
     explicit engine(runtime_feature_set const& features) noexcept :
-        features_ { features }
+        features_ { features },
+        capability_options_ { make_path_capability_options(features) }
     {}
 
     void process(relation::graph_type& graph) {
@@ -95,13 +100,14 @@ public:
 
 private:
     runtime_feature_set const& features_;
+    path_capability_options capability_options_;
 
-    static void absorb(relation::intermediate::limit& expr) {
+    void absorb(relation::intermediate::limit& expr) const {
         auto count = find_target_count(expr);
         if (!count) {
             return;
         }
-        for (auto* scan : find_source_scans(expr)) {
+        for (auto* scan : find_source_scans(expr, capability_options_)) {
             absorb(*scan, *count);
         }
     }

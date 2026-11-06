@@ -66,6 +66,16 @@ inline std::ostream& operator<<(std::ostream& out, path_capability value) {
 }
 
 /**
+ * @brief the properties of the runtime which affect path capabilities.
+ * @details The default values never assume anything about the runtime.
+ * @see find_path_capabilities()
+ */
+struct path_capability_options {
+    /// @brief whether or not `apply` emits rows in the order of its input rows.
+    bool apply_preserves_order { false };
+};
+
+/**
  * @brief returns the capabilities of the path from the input port to the output port.
  * @details This only knows the following paths, and returns an empty set for the others:
  *
@@ -75,7 +85,8 @@ inline std::ostream& operator<<(std::ostream& out, path_capability value) {
  *      - the left input of index joins (`join_find` and `join_scan`)
  *      - the primary output of `buffer` which can stop with the primary output
  *        (see `buffer::stop_with_primary()`)
- *      - `apply` (outer apply only, and it never preserves the row order)
+ *      - `apply` (at least one for outer apply only, and it preserves the row order only if
+ *        path_capability_options::apply_preserves_order is enabled)
  *      - each input of `intermediate::union_` (union all only, and it never preserves the row order)
  *
  *      The callers must treat the empty set as the path has no capabilities.
@@ -86,11 +97,13 @@ inline std::ostream& operator<<(std::ostream& out, path_capability value) {
  *      has the same capabilities as the regular one (see remove_redundant_conditions()).
  * @param input the input port of the operator
  * @param output the output port of the same operator
+ * @param options the properties of the runtime
  * @return the capabilities of the path
  * @return empty set if the operator is not known, or the ports do not belong to the same operator
  */
 [[nodiscard]] path_capability_set find_path_capabilities(
         ::takatori::relation::expression::input_port_type const& input,
-        ::takatori::relation::expression::output_port_type const& output);
+        ::takatori::relation::expression::output_port_type const& output,
+        path_capability_options const& options);
 
 } // namespace yugawara::analyzer::details

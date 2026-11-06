@@ -147,7 +147,7 @@ TEST_F(path_capability_test, project) {
     });
     r0.output() >> r1.input();
 
-    auto result = find_path_capabilities(r1.input(), r1.output());
+    auto result = find_path_capabilities(r1.input(), r1.output(), {});
     EXPECT_EQ(result, (path_capability_set {
             path_capability::preserves_order,
             path_capability::at_least_one,
@@ -163,7 +163,7 @@ TEST_F(path_capability_test, filter) {
     });
     r0.output() >> r1.input();
 
-    auto result = find_path_capabilities(r1.input(), r1.output());
+    auto result = find_path_capabilities(r1.input(), r1.output(), {});
     EXPECT_EQ(result, (path_capability_set {
             path_capability::preserves_order,
             path_capability::at_most_one,
@@ -179,7 +179,7 @@ TEST_F(path_capability_test, limit) {
     });
     r0.output() >> r1.input();
 
-    auto result = find_path_capabilities(r1.input(), r1.output());
+    auto result = find_path_capabilities(r1.input(), r1.output(), {});
     EXPECT_EQ(result, path_capability_set {});
 }
 
@@ -193,7 +193,7 @@ TEST_F(path_capability_test, limit_sort_keys) {
     });
     r0.output() >> r1.input();
 
-    auto result = find_path_capabilities(r1.input(), r1.output());
+    auto result = find_path_capabilities(r1.input(), r1.output(), {});
     EXPECT_EQ(result, path_capability_set {});
 }
 
@@ -207,7 +207,7 @@ TEST_F(path_capability_test, escape) {
     });
     r0.output() >> r1.input();
 
-    auto result = find_path_capabilities(r1.input(), r1.output());
+    auto result = find_path_capabilities(r1.input(), r1.output(), {});
     EXPECT_EQ(result, path_capability_set {});
 }
 
@@ -216,7 +216,7 @@ TEST_F(path_capability_test, apply_cross) {
     relation::graph_type r;
     auto&& r0 = add_apply(r, relation::apply_kind::cross);
 
-    auto result = find_path_capabilities(r0.input(), r0.output());
+    auto result = find_path_capabilities(r0.input(), r0.output(), {});
     EXPECT_EQ(result, path_capability_set {});
 }
 
@@ -225,8 +225,29 @@ TEST_F(path_capability_test, apply_outer) {
     relation::graph_type r;
     auto&& r0 = add_apply(r, relation::apply_kind::outer);
 
-    auto result = find_path_capabilities(r0.input(), r0.output());
+    auto result = find_path_capabilities(r0.input(), r0.output(), {});
     EXPECT_EQ(result, (path_capability_set {
+            path_capability::at_least_one,
+    }));
+}
+
+TEST_F(path_capability_test, apply_cross_preserves_order) {
+    relation::graph_type r;
+    auto&& r0 = add_apply(r, relation::apply_kind::cross);
+
+    auto result = find_path_capabilities(r0.input(), r0.output(), { true });
+    EXPECT_EQ(result, (path_capability_set {
+            path_capability::preserves_order,
+    }));
+}
+
+TEST_F(path_capability_test, apply_outer_preserves_order) {
+    relation::graph_type r;
+    auto&& r0 = add_apply(r, relation::apply_kind::outer);
+
+    auto result = find_path_capabilities(r0.input(), r0.output(), { true });
+    EXPECT_EQ(result, (path_capability_set {
+            path_capability::preserves_order,
             path_capability::at_least_one,
     }));
 }
@@ -249,7 +270,7 @@ TEST_F(path_capability_test, different_operators) {
     r0.output() >> r1.input();
     r1.output() >> r2.input();
 
-    auto result = find_path_capabilities(r1.input(), r2.output());
+    auto result = find_path_capabilities(r1.input(), r2.output(), {});
     EXPECT_EQ(result, path_capability_set {});
 }
 
@@ -259,12 +280,12 @@ TEST_F(path_capability_test, buffer_stop_with_primary) {
     auto&& r1 = r.insert(relation::buffer { 2, true });
     r0.output() >> r1.input();
 
-    EXPECT_EQ(find_path_capabilities(r1.input(), r1.primary_output()), (path_capability_set {
+    EXPECT_EQ(find_path_capabilities(r1.input(), r1.primary_output(), {}), (path_capability_set {
             path_capability::preserves_order,
             path_capability::at_least_one,
             path_capability::at_most_one,
     }));
-    EXPECT_EQ(find_path_capabilities(r1.input(), r1.secondary_outputs()[0]), path_capability_set {});
+    EXPECT_EQ(find_path_capabilities(r1.input(), r1.secondary_outputs()[0], {}), path_capability_set {});
 }
 
 TEST_F(path_capability_test, buffer_without_stop_with_primary) {
@@ -273,44 +294,44 @@ TEST_F(path_capability_test, buffer_without_stop_with_primary) {
     auto&& r1 = r.insert(relation::buffer { 2 });
     r0.output() >> r1.input();
 
-    EXPECT_EQ(find_path_capabilities(r1.input(), r1.primary_output()), path_capability_set {});
-    EXPECT_EQ(find_path_capabilities(r1.input(), r1.secondary_outputs()[0]), path_capability_set {});
+    EXPECT_EQ(find_path_capabilities(r1.input(), r1.primary_output(), {}), path_capability_set {});
+    EXPECT_EQ(find_path_capabilities(r1.input(), r1.secondary_outputs()[0], {}), path_capability_set {});
 }
 
 TEST_F(path_capability_test, join_inner) {
     relation::graph_type r;
     auto&& j = add_join(r, relation::join_kind::inner);
 
-    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), path_capability_set {});
-    EXPECT_EQ(find_path_capabilities(j.right(), j.output()), path_capability_set {});
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output(), {}), path_capability_set {});
+    EXPECT_EQ(find_path_capabilities(j.right(), j.output(), {}), path_capability_set {});
 }
 
 TEST_F(path_capability_test, join_left_outer) {
     relation::graph_type r;
     auto&& j = add_join(r, relation::join_kind::left_outer);
 
-    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output(), {}), (path_capability_set {
             path_capability::at_least_one,
     }));
-    EXPECT_EQ(find_path_capabilities(j.right(), j.output()), path_capability_set {});
+    EXPECT_EQ(find_path_capabilities(j.right(), j.output(), {}), path_capability_set {});
 }
 
 TEST_F(path_capability_test, join_left_outer_at_most_one) {
     relation::graph_type r;
     auto&& j = add_join(r, relation::join_kind::left_outer_at_most_one);
 
-    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output(), {}), (path_capability_set {
             path_capability::at_least_one,
             path_capability::at_most_one,
     }));
-    EXPECT_EQ(find_path_capabilities(j.right(), j.output()), path_capability_set {});
+    EXPECT_EQ(find_path_capabilities(j.right(), j.output(), {}), path_capability_set {});
 }
 
 TEST_F(path_capability_test, join_find_inner) {
     relation::graph_type r;
     auto&& j = add_join_find(r, relation::join_kind::inner);
 
-    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output(), {}), (path_capability_set {
             path_capability::preserves_order,
     }));
 }
@@ -319,7 +340,7 @@ TEST_F(path_capability_test, join_find_left_outer) {
     relation::graph_type r;
     auto&& j = add_join_find(r, relation::join_kind::left_outer);
 
-    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output(), {}), (path_capability_set {
             path_capability::preserves_order,
             path_capability::at_least_one,
     }));
@@ -329,7 +350,7 @@ TEST_F(path_capability_test, join_find_left_outer_at_most_one) {
     relation::graph_type r;
     auto&& j = add_join_find(r, relation::join_kind::left_outer_at_most_one);
 
-    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output(), {}), (path_capability_set {
             path_capability::preserves_order,
             path_capability::at_least_one,
             path_capability::at_most_one,
@@ -340,14 +361,14 @@ TEST_F(path_capability_test, join_find_full_outer) {
     relation::graph_type r;
     auto&& j = add_join_find(r, relation::join_kind::full_outer);
 
-    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), path_capability_set {});
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output(), {}), path_capability_set {});
 }
 
 TEST_F(path_capability_test, join_find_semi) {
     relation::graph_type r;
     auto&& j = add_join_find(r, relation::join_kind::semi);
 
-    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output(), {}), (path_capability_set {
             path_capability::preserves_order,
             path_capability::at_most_one,
     }));
@@ -357,7 +378,7 @@ TEST_F(path_capability_test, join_find_anti) {
     relation::graph_type r;
     auto&& j = add_join_find(r, relation::join_kind::anti);
 
-    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output(), {}), (path_capability_set {
             path_capability::preserves_order,
             path_capability::at_most_one,
     }));
@@ -367,7 +388,7 @@ TEST_F(path_capability_test, join_scan_inner) {
     relation::graph_type r;
     auto&& j = add_join_scan(r, relation::join_kind::inner);
 
-    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output(), {}), (path_capability_set {
             path_capability::preserves_order,
     }));
 }
@@ -376,7 +397,7 @@ TEST_F(path_capability_test, join_scan_left_outer) {
     relation::graph_type r;
     auto&& j = add_join_scan(r, relation::join_kind::left_outer);
 
-    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output(), {}), (path_capability_set {
             path_capability::preserves_order,
             path_capability::at_least_one,
     }));
@@ -386,7 +407,7 @@ TEST_F(path_capability_test, join_scan_left_outer_at_most_one) {
     relation::graph_type r;
     auto&& j = add_join_scan(r, relation::join_kind::left_outer_at_most_one);
 
-    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output(), {}), (path_capability_set {
             path_capability::preserves_order,
             path_capability::at_least_one,
             path_capability::at_most_one,
@@ -397,14 +418,14 @@ TEST_F(path_capability_test, join_scan_full_outer) {
     relation::graph_type r;
     auto&& j = add_join_scan(r, relation::join_kind::full_outer);
 
-    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), path_capability_set {});
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output(), {}), path_capability_set {});
 }
 
 TEST_F(path_capability_test, join_scan_semi) {
     relation::graph_type r;
     auto&& j = add_join_scan(r, relation::join_kind::semi);
 
-    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output(), {}), (path_capability_set {
             path_capability::preserves_order,
             path_capability::at_most_one,
     }));
@@ -414,7 +435,7 @@ TEST_F(path_capability_test, join_scan_anti) {
     relation::graph_type r;
     auto&& j = add_join_scan(r, relation::join_kind::anti);
 
-    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output(), {}), (path_capability_set {
             path_capability::preserves_order,
             path_capability::at_most_one,
     }));
@@ -424,28 +445,28 @@ TEST_F(path_capability_test, join_full_outer) {
     relation::graph_type r;
     auto&& j = add_join(r, relation::join_kind::full_outer);
 
-    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), path_capability_set {});
-    EXPECT_EQ(find_path_capabilities(j.right(), j.output()), path_capability_set {});
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output(), {}), path_capability_set {});
+    EXPECT_EQ(find_path_capabilities(j.right(), j.output(), {}), path_capability_set {});
 }
 
 TEST_F(path_capability_test, join_semi) {
     relation::graph_type r;
     auto&& j = add_join(r, relation::join_kind::semi);
 
-    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output(), {}), (path_capability_set {
             path_capability::at_most_one,
     }));
-    EXPECT_EQ(find_path_capabilities(j.right(), j.output()), path_capability_set {});
+    EXPECT_EQ(find_path_capabilities(j.right(), j.output(), {}), path_capability_set {});
 }
 
 TEST_F(path_capability_test, join_anti) {
     relation::graph_type r;
     auto&& j = add_join(r, relation::join_kind::anti);
 
-    EXPECT_EQ(find_path_capabilities(j.left(), j.output()), (path_capability_set {
+    EXPECT_EQ(find_path_capabilities(j.left(), j.output(), {}), (path_capability_set {
             path_capability::at_most_one,
     }));
-    EXPECT_EQ(find_path_capabilities(j.right(), j.output()), path_capability_set {});
+    EXPECT_EQ(find_path_capabilities(j.right(), j.output(), {}), path_capability_set {});
 }
 
 TEST_F(path_capability_test, union_all) {
@@ -461,10 +482,10 @@ TEST_F(path_capability_test, union_all) {
     r0.output() >> u.left();
     r1.output() >> u.right();
 
-    EXPECT_EQ(find_path_capabilities(u.left(), u.output()), (path_capability_set {
+    EXPECT_EQ(find_path_capabilities(u.left(), u.output(), {}), (path_capability_set {
             path_capability::at_least_one,
     }));
-    EXPECT_EQ(find_path_capabilities(u.right(), u.output()), (path_capability_set {
+    EXPECT_EQ(find_path_capabilities(u.right(), u.output(), {}), (path_capability_set {
             path_capability::at_least_one,
     }));
 }
@@ -482,8 +503,8 @@ TEST_F(path_capability_test, union_distinct) {
     r0.output() >> u.left();
     r1.output() >> u.right();
 
-    EXPECT_EQ(find_path_capabilities(u.left(), u.output()), path_capability_set {});
-    EXPECT_EQ(find_path_capabilities(u.right(), u.output()), path_capability_set {});
+    EXPECT_EQ(find_path_capabilities(u.left(), u.output(), {}), path_capability_set {});
+    EXPECT_EQ(find_path_capabilities(u.right(), u.output(), {}), path_capability_set {});
 }
 
 } // namespace yugawara::analyzer::details

@@ -124,7 +124,7 @@ protected:
     }
 
     void apply(relation::graph_type& r) const {
-        push_down_limits(r, max_partial_limit_count);
+        push_down_limits(r, max_partial_limit_count, {});
     }
 
     static ::takatori::util::optional_ptr<relation::intermediate::limit> upstream_limit(

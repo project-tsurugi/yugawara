@@ -18,6 +18,7 @@
 #include <takatori/util/optional_ptr.h>
 
 #include "row_slice_utils.h"
+#include "make_path_capability_options.h"
 #include "path_capability.h"
 #include "stream_variable_flow_info.h"
 
@@ -82,14 +83,15 @@ bool depends_on(relation::intermediate::limit const& expr, relation::expression 
 
 optional_ptr<relation::expression::input_port_type> find_move_destination(
         relation::intermediate::limit const& expr,
-        relation::expression::output_port_type& upstream) {
+        relation::expression::output_port_type& upstream,
+        path_capability_options const& options) {
     auto&& owner = upstream.owner();
     auto&& inputs = owner.input_ports();
     if (inputs.size() != 1) {
         return {};
     }
     auto&& input = inputs[0];
-    auto capabilities = find_path_capabilities(input, upstream);
+    auto capabilities = find_path_capabilities(input, upstream, options);
     if (!capabilities.contains(path_capability::preserves_order)
             || !capabilities.contains(path_capability::at_least_one)
             || !capabilities.contains(path_capability::at_most_one)
@@ -169,15 +171,17 @@ optional_ptr<relation::intermediate::limit> find_upstream_limit(relation::expres
 /**
  * @brief returns the farthest upstream input port where the given limit can be moved into.
  * @param expr the target limit
+ * @param options the properties of the runtime
  * @return the destination input port
  * @return empty if the limit cannot be moved
  */
 optional_ptr<relation::expression::input_port_type> find_farthest_move_destination(
-        relation::intermediate::limit& expr) {
+        relation::intermediate::limit& expr,
+        path_capability_options const& options) {
     optional_ptr<relation::expression::input_port_type> result {};
     auto current = expr.input().opposite();
     while (current) {
-        auto next = find_move_destination(expr, *current);
+        auto next = find_move_destination(expr, *current, options);
         if (!next) {
             break;
         }
@@ -189,9 +193,13 @@ optional_ptr<relation::expression::input_port_type> find_farthest_move_destinati
 
 class engine {
 public:
-    explicit engine(relation::graph_type& graph, std::size_t max_partial_limit_count) noexcept :
+    explicit engine(
+            relation::graph_type& graph,
+            std::size_t max_partial_limit_count,
+            runtime_feature_set const& features) noexcept :
         graph_ { graph },
-        max_partial_limit_count_ { max_partial_limit_count }
+        max_partial_limit_count_ { max_partial_limit_count },
+        capability_options_ { make_path_capability_options(features) }
     {}
 
     /**
@@ -204,7 +212,7 @@ public:
      */
     void process(relation::intermediate::limit& expr) {
         // NOTE: moves the limit itself over the operators which make exactly one row from each input row
-        if (auto destination = find_farthest_move_destination(expr)) {
+        if (auto destination = find_farthest_move_destination(expr, capability_options_)) {
             if (!move_to(expr, *destination)) {
                 return;
             }
@@ -246,6 +254,7 @@ private:
 
     relation::graph_type& graph_;
     std::size_t max_partial_limit_count_;
+    path_capability_options capability_options_;
     stream_variable_flow_info flow_info_ {};
 
     [[nodiscard]] static bool is_partial_limit_target(relation::intermediate::limit const& expr) {
@@ -316,14 +325,14 @@ private:
      * @param expr the union
      * @return the partial limits and their input ports, may be empty
      */
-    [[nodiscard]] static std::vector<partial_entry> find_union_entries(
+    [[nodiscard]] std::vector<partial_entry> find_union_entries(
             relation::intermediate::limit const& source,
-            relation::intermediate::union_& expr) {
+            relation::intermediate::union_& expr) const {
         // NOTE: the path capabilities only tell whether or not the rows are kept,
         // and the sort keys must be rewritten here because the union defines the new columns
         std::vector<partial_entry> results {};
         for (auto* input : { std::addressof(expr.left()), std::addressof(expr.right()) }) {
-            auto capabilities = find_path_capabilities(*input, expr.output());
+            auto capabilities = find_path_capabilities(*input, expr.output(), capability_options_);
             if (!capabilities.contains(path_capability::at_least_one)) {
                 continue;
             }
@@ -350,7 +359,7 @@ private:
         }
         std::vector<partial_entry> results {};
         for (auto&& input : owner.input_ports()) {
-            auto capabilities = find_path_capabilities(input, upstream);
+            auto capabilities = find_path_capabilities(input, upstream, capability_options_);
             if (capabilities.contains(path_capability::at_least_one) && is_available(source, input)) {
                 results.emplace_back(partial_entry {
                         std::make_unique<relation::intermediate::limit>(::takatori::util::clone_tag, source),
@@ -384,7 +393,7 @@ private:
                 if (!upstream || upstream->owner().kind() == relation::intermediate::limit::tag) {
                     break;
                 }
-                if (auto next = find_move_destination(*entry.partial, *upstream)) {
+                if (auto next = find_move_destination(*entry.partial, *upstream, capability_options_)) {
                     current = next.get();
                     continue;
                 }
@@ -421,7 +430,10 @@ private:
 
 } // namespace
 
-void push_down_limits(::takatori::relation::graph_type& graph, std::size_t max_partial_limit_count) {
+void push_down_limits(
+        ::takatori::relation::graph_type& graph,
+        std::size_t max_partial_limit_count,
+        runtime_feature_set const& features) {
     std::vector<relation::intermediate::limit*> targets {};
     relation::sort_from_upstream(graph, [&](relation::expression& expr) {
         if (expr.kind() == relation::intermediate::limit::tag) {
@@ -431,7 +443,7 @@ void push_down_limits(::takatori::relation::graph_type& graph, std::size_t max_p
             }
         }
     });
-    engine e { graph, max_partial_limit_count };
+    engine e { graph, max_partial_limit_count, features };
     // NOTE: process from downstream to upstream, so that the upstream limits are moved after shrunk
     for (auto iter = targets.rbegin(); iter != targets.rend(); ++iter) {
         e.process(**iter);

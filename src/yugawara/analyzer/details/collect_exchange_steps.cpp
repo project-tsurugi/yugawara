@@ -41,6 +41,7 @@
 
 #include "detect_join_endpoint_style.h"
 #include "row_slice_utils.h"
+#include "make_path_capability_options.h"
 #include "ordered_relation.h"
 
 namespace yugawara::analyzer::details {
@@ -84,7 +85,8 @@ public:
             step_plan_builder_options const& options) noexcept:
         source_ { source },
         destination_ { destination },
-        options_ { options }
+        options_ { options },
+        capability_options_ { make_path_capability_options(options.runtime_features()) }
     {}
 
     void operator()() {
@@ -240,6 +242,7 @@ private:
     relation::graph_type& source_;
     plan::graph_type& destination_;
     step_plan_builder_options const& options_;
+    path_capability_options capability_options_;
 
     std::vector<relation::expression*> targets_;
     std::vector<std::unique_ptr<relation::expression>> added_;
@@ -741,7 +744,7 @@ private:
         if (!expr.group_keys().empty() || has_start(expr.row_slice())) {
             return false;
         }
-        auto path = find_ordered_source(expr);
+        auto path = find_ordered_source(expr, capability_options_);
         // NOTE: the redundant limits never change their input rows
         while (path.end && path.end->kind() == relation::intermediate::limit::tag) {
             auto&& limit = unsafe_downcast<relation::intermediate::limit>(*path.end);
@@ -750,7 +753,7 @@ private:
                         && satisfies_order(limit, expr);
             }
             auto capabilities = path.capabilities;
-            path = find_ordered_source(limit);
+            path = find_ordered_source(limit, capability_options_);
             path.capabilities &= capabilities;
         }
         if (path.end && path.end->kind() == relation::scan::tag) {
@@ -888,7 +891,7 @@ private:
      */
     [[nodiscard]] ordered_upstream trace_ordered_upstream(relation::expression::input_port_type& input) {
         ordered_upstream result {};
-        auto path = find_ordered_source(input);
+        auto path = find_ordered_source(input, capability_options_);
         while (path.end && path.end->kind() == relation::intermediate::limit::tag) {
             auto&& limit = unsafe_downcast<relation::intermediate::limit>(*path.end);
             // NOTE: the redundant limits will be removed, and their input rows are directly passed to the downstream
@@ -900,7 +903,7 @@ private:
                     result.limit = limit;
                 }
             }
-            path = find_ordered_source(limit);
+            path = find_ordered_source(limit, capability_options_);
         }
         if (path.end && path.end->kind() == relation::scan::tag) {
             result.scan = unsafe_downcast<relation::scan>(*path.end);
