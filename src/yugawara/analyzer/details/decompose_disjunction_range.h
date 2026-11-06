@@ -11,9 +11,11 @@ namespace yugawara::analyzer::details {
 
 /**
  * @brief extracts value range for individual columns in disjunctive predicates.
+ * @details This appends the extracted ranges to the condition of each `filter` and each join (`intermediate::join`).
+ *     For the join conditions, this extracts the ranges from each conjunctive term of the condition.
  * @param graph the target graph
  * @note this requires the disjunction operator (conditional OR) on the top level of each filter expression.
- *     please decompose conjunction operators (conditional AND) before calling this function.
+ *     please decompose conjunction operators (conditional AND) of filters before calling this function.
  */
 void decompose_disjunction_range(::takatori::relation::graph_type& graph);
 

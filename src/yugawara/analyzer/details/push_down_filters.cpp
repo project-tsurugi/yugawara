@@ -338,25 +338,7 @@ public:
     }
 
     void operator()(relation::intermediate::aggregate& expr, mask_type&& mask) {
-        BOOST_ASSERT(work_.empty()); // NOLINT
-        work_.reserve(expr.group_keys().size());
-        for (auto&& key : expr.group_keys()) {
-            work_.emplace(key);
-        }
-        // check if each term only use the aggregate group key
-        for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
-            auto&& predicate = predicates_[i];
-            for (auto&& use : predicate.uses()) {
-                if (!work_.contains(use)) {
-                    // found use other than the group key, just flush
-                    flush(expr.output(), predicate);
-                    mask.reset(i);
-                    break;
-                }
-            }
-        }
-        work_.clear();
-        pass(expr.input(), std::move(mask));
+        process_group_like(expr, std::move(mask));
     }
 
     void operator()(relation::intermediate::distinct& expr, mask_type&& mask) {
@@ -364,7 +346,9 @@ public:
     }
 
     void operator()(relation::intermediate::limit& expr, mask_type&& mask) {
-        process_distinct_like(expr, std::move(mask));
+        // NOTE: the terms must not go over the limit unless they only use the group keys,
+        // because they change which rows are in the row slice of each group
+        process_group_like(expr, std::move(mask));
     }
 
     void operator()(relation::intermediate::union_& expr, mask_type&& mask) {
@@ -519,6 +503,29 @@ private:
             result.set(i, declared);
         }
         return result;
+    }
+
+    template<class Expr>
+    void process_group_like(Expr& expr, mask_type&& mask) {
+        BOOST_ASSERT(work_.empty()); // NOLINT
+        work_.reserve(expr.group_keys().size());
+        for (auto&& key : expr.group_keys()) {
+            work_.emplace(key);
+        }
+        // check if each term only use the group key
+        for (mask_type::size_type i = mask.find_first(); i != mask_type::npos; i = mask.find_next(i)) {
+            auto&& predicate = predicates_[i];
+            for (auto&& use : predicate.uses()) {
+                if (!work_.contains(use)) {
+                    // found use other than the group key, just flush
+                    flush(expr.output(), predicate);
+                    mask.reset(i);
+                    break;
+                }
+            }
+        }
+        work_.clear();
+        pass(expr.input(), std::move(mask));
     }
 
     template<class Expr>

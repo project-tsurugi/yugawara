@@ -5,6 +5,7 @@
 #include <takatori/relation/scan.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/emit.h>
+#include <takatori/relation/intermediate/join.h>
 
 #include <yugawara/binding/factory.h>
 #include <yugawara/storage/configurable_provider.h>
@@ -49,6 +50,54 @@ protected:
             results.push_back(std::addressof(expr.get()));
         });
         return results;
+    }
+
+    std::vector<scalar::expression const*> decompose_conjunctions(relation::intermediate::join& op) {
+        std::vector<scalar::expression const*> results {};
+        decompose_predicate(*op.condition(), [&](auto&& expr) -> void {
+            results.push_back(std::addressof(expr.get()));
+        });
+        return results;
+    }
+
+    struct join_graph {
+        relation::scan& left;
+        relation::scan& right;
+        relation::intermediate::join& join;
+    };
+
+    join_graph build_join(
+            relation::graph_type& r,
+            relation::join_kind kind,
+            descriptor::variable const& c0,
+            descriptor::variable const& d0,
+            descriptor::variable const& d1,
+            ::takatori::util::rvalue_ptr<scalar::expression> condition) {
+        auto& r0 = r.insert(relation::scan {
+                bindings(*i0),
+                {
+                        { t0c0, c0 },
+                },
+        });
+        auto& r1 = r.insert(relation::scan {
+                bindings(*i0),
+                {
+                        { t0c0, d0 },
+                        { t0c1, d1 },
+                },
+        });
+        auto& r2 = r.insert(relation::intermediate::join {
+                kind,
+                std::move(condition),
+        });
+        auto& ro = r.insert(relation::emit {
+                c0,
+                d0,
+        });
+        r0.output() >> r2.left();
+        r1.output() >> r2.right();
+        r2.output() >> ro.input();
+        return { r0, r1, r2 };
     }
 
     bool contains_expression(
@@ -717,6 +766,107 @@ TEST_F(decompose_disjunction_range_test, variable_greater_equal) {
     EXPECT_TRUE(contains_expression(terms, *origin));
     // v >= c0
     EXPECT_TRUE(contains_expression(terms, compare(varref { v }, varref { c0 }, cmp::less_equal)));
+}
+
+TEST_F(decompose_disjunction_range_test, join_condition) {
+    /*
+     * scan:r0 -     *           join:r2 - emit:ro
+     * scan:r1 -/
+     * join { d0 = 0 or d0 = 1 }
+     * -> join { (0 <= d0 and d0 <= 1) and <original> }
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto d0 = bindings.stream_variable("d0");
+    auto d1 = bindings.stream_variable("d1");
+    auto g = build_join(r, relation::join_kind::inner, c0, d0, d1, lor(
+            compare(varref { d0 }, constant(0)),
+            compare(varref { d0 }, constant(1))));
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 4);
+    auto terms = decompose_conjunctions(g.join);
+    EXPECT_EQ(terms.size(), 3) << to_string(terms);
+    EXPECT_TRUE(contains_expression(terms, lor(
+                    compare(varref { d0 }, constant(0)),
+                    compare(varref { d0 }, constant(1)))));
+    EXPECT_TRUE(contains_expression(terms, compare(constant(0), varref { d0 }, cmp::less_equal)));
+    EXPECT_TRUE(contains_expression(terms, compare(varref { d0 }, constant(1), cmp::less_equal)));
+}
+
+TEST_F(decompose_disjunction_range_test, join_condition_conjunction) {
+    /*
+     * join { c0 = d0 and (d1 = 1 or d1 = 2) }
+     * -> join { <original> and (1 <= d1 and d1 <= 2) }
+     * for all join kinds, because the ranges are implied by the original condition
+     */
+    for (auto kind : {
+            relation::join_kind::inner,
+            relation::join_kind::left_outer,
+            relation::join_kind::left_outer_at_most_one,
+            relation::join_kind::full_outer,
+            relation::join_kind::semi,
+            relation::join_kind::anti,
+    }) {
+        relation::graph_type r;
+        auto c0 = bindings.stream_variable("c0");
+        auto d0 = bindings.stream_variable("d0");
+        auto d1 = bindings.stream_variable("d1");
+        auto g = build_join(r, kind, c0, d0, d1, land(
+                compare(varref { c0 }, varref { d0 }),
+                lor(
+                        compare(varref { d1 }, constant(1)),
+                        compare(varref { d1 }, constant(2)))));
+
+        apply(r);
+
+        auto terms = decompose_conjunctions(g.join);
+        EXPECT_EQ(terms.size(), 4) << kind << " " << to_string(terms);
+        EXPECT_TRUE(contains_expression(terms, compare(varref { c0 }, varref { d0 }))) << kind;
+        EXPECT_TRUE(contains_expression(terms, lor(
+                        compare(varref { d1 }, constant(1)),
+                        compare(varref { d1 }, constant(2))))) << kind;
+        EXPECT_TRUE(contains_expression(terms, compare(constant(1), varref { d1 }, cmp::less_equal))) << kind;
+        EXPECT_TRUE(contains_expression(terms, compare(varref { d1 }, constant(2), cmp::less_equal))) << kind;
+    }
+}
+
+TEST_F(decompose_disjunction_range_test, join_condition_different_columns) {
+    /*
+     * join { c0 = 0 or d0 = 1 }
+     * -> (not changed, because each column does not appear in all disjunctive terms)
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto d0 = bindings.stream_variable("d0");
+    auto d1 = bindings.stream_variable("d1");
+    auto g = build_join(r, relation::join_kind::inner, c0, d0, d1, lor(
+            compare(varref { c0 }, constant(0)),
+            compare(varref { d0 }, constant(1))));
+
+    apply(r);
+
+    ASSERT_TRUE(g.join.condition());
+    EXPECT_EQ(*g.join.condition(), (lor(
+            compare(varref { c0 }, constant(0)),
+            compare(varref { d0 }, constant(1)))));
+}
+
+TEST_F(decompose_disjunction_range_test, join_without_condition) {
+    /*
+     * join {} (cross join)
+     * -> (not changed)
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto d0 = bindings.stream_variable("d0");
+    auto d1 = bindings.stream_variable("d1");
+    auto g = build_join(r, relation::join_kind::inner, c0, d0, d1, {});
+
+    apply(r);
+
+    EXPECT_FALSE(g.join.condition());
 }
 
 } // namespace yugawara::analyzer::details

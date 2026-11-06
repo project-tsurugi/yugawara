@@ -5,6 +5,7 @@
 #include <takatori/scalar/dispatch.h>
 
 #include <takatori/relation/filter.h>
+#include <takatori/relation/intermediate/join.h>
 
 #include <takatori/util/downcast.h>
 
@@ -193,6 +194,34 @@ private:
     }
 };
 
+std::unique_ptr<::takatori::scalar::expression> append_hints(
+        std::unique_ptr<::takatori::scalar::expression> current,
+        std::vector<std::unique_ptr<::takatori::scalar::expression>>&& hints) {
+    for (auto&& term : hints) {
+        current = std::make_unique<::takatori::scalar::binary>(
+                ::takatori::scalar::binary_operator::conditional_and,
+                std::move(current),
+                std::move(term));
+    }
+    return current;
+}
+
+void collect_conjunctive_hints(
+        ::takatori::scalar::expression const& expr,
+        std::vector<std::unique_ptr<::takatori::scalar::expression>>& results) {
+    if (expr.kind() == ::takatori::scalar::binary::tag) {
+        auto&& binary = unsafe_downcast<::takatori::scalar::binary>(expr);
+        if (binary.operator_kind() == ::takatori::scalar::binary_operator::conditional_and) {
+            collect_conjunctive_hints(binary.left(), results);
+            collect_conjunctive_hints(binary.right(), results);
+            return;
+        }
+    }
+    for (auto&& hint : decompose_disjunction_range_collect(expr)) {
+        results.emplace_back(std::move(hint));
+    }
+}
+
 } // namespace
 
 void decompose_disjunction_range(takatori::relation::graph_type& graph) {
@@ -201,14 +230,22 @@ void decompose_disjunction_range(takatori::relation::graph_type& graph) {
             auto&& filter = unsafe_downcast<takatori::relation::filter>(expr);
             auto hints = decompose_disjunction_range_collect(filter.condition());
             if (!hints.empty()) {
-                std::unique_ptr<::takatori::scalar::expression> current = filter.release_condition();
-                for (auto&& term : hints) {
-                    current = std::make_unique<::takatori::scalar::binary>(
-                            ::takatori::scalar::binary_operator::conditional_and,
-                            std::move(current),
-                            std::move(term));
-                }
-                filter.condition(std::move(current));
+                filter.condition(append_hints(filter.release_condition(), std::move(hints)));
+            }
+        } else if (expr.kind() == ::takatori::relation::intermediate::join::tag) {
+            auto&& join = unsafe_downcast<takatori::relation::intermediate::join>(expr);
+            auto condition = join.condition();
+            if (!condition) {
+                continue;
+            }
+            // NOTE: the join condition is not decomposed into individual filters (see decompose_filter()),
+            // so that this extracts the hints from each its conjunctive term.
+            // The hints are implied by the original term, so that adding them never changes the result
+            // for any kinds of joins, including outer joins.
+            std::vector<std::unique_ptr<::takatori::scalar::expression>> hints {};
+            collect_conjunctive_hints(*condition, hints);
+            if (!hints.empty()) {
+                join.condition(append_hints(join.release_condition(), std::move(hints)));
             }
         }
     }
