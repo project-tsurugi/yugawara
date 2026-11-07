@@ -10,26 +10,30 @@
 #include <vector>
 
 #include <takatori/relation/filter.h>
+#include <takatori/relation/find.h>
 #include <takatori/relation/scan.h>
 #include <takatori/relation/intermediate/limit.h>
 
 #include <takatori/scalar/expression.h>
 
+#include <takatori/util/assertion.h>
 #include <takatori/util/downcast.h>
 #include <takatori/util/optional_ptr.h>
+#include <takatori/util/sequence_view.h>
 
 #include <yugawara/binding/extract.h>
+#include <yugawara/binding/factory.h>
 
 #include <yugawara/storage/index.h>
 #include <yugawara/storage/provider.h>
 
-#include "apply_index_to_scan.h"
 #include "boolean_constants.h"
 #include "compare_index_candidates.h"
 #include "decompose_predicate.h"
 #include "estimate_index.h"
 #include "find_scan_direction.h"
 #include "ordered_relation.h"
+#include "rewrite_criteria.h"
 #include "scan_key_collector.h"
 #include "remove_orphaned_elements.h"
 
@@ -38,11 +42,75 @@ namespace yugawara::analyzer::details {
 namespace relation = ::takatori::relation;
 
 using ::takatori::util::optional_ptr;
+using ::takatori::util::sequence_view;
 using ::takatori::util::unsafe_downcast;
 
 using output_port = relation::expression::output_port_type;
 
 namespace {
+
+void rewrite_as_find(
+        relation::scan& expr,
+        storage::index const& index,
+        sequence_view<scan_key_collector::term*> terms,
+        relation::graph_type& graph) {
+    BOOST_ASSERT(terms.size() <= index.keys().size()); // NOLINT
+
+    std::vector<relation::find::key> keys {};
+    fill_search_key(index, keys, terms);
+
+    binding::factory bindings {};
+    auto&& find = graph.emplace<relation::find>(
+            bindings(index),
+            std::move(expr.columns()),
+            std::move(keys));
+
+    // reconnect
+    BOOST_ASSERT(expr.output().opposite()); // NOLINT
+    auto&& downstream = *expr.output().opposite();
+    expr.output().disconnect_all();
+    find.output().connect_to(downstream);
+}
+
+void rewrite_bounds(
+        relation::scan& expr,
+        storage::index const& index,
+        sequence_view<scan_key_collector::term*> terms) {
+    BOOST_ASSERT(terms.size() <= index.keys().size()); // NOLINT
+
+    binding::factory bindings {};
+    expr.source() = bindings(index);
+
+    fill_endpoints(index, expr.lower(), expr.upper(), terms);
+}
+
+/**
+ * @brief rewrites the scan operation to access the index of the given candidate.
+ * @details If the candidate is estimated as `find`, this creates a new `find` operation into the given graph,
+ *      and then reconnects the downstream of the scan to it.
+ *      The orphaned scan operation must be removed by the caller.
+ *
+ *      Otherwise, this replaces the source of the scan with the index, and then sets its end-points.
+ *
+ *      In both cases, this purges the terms of the candidate from their original conditions,
+ *      and replaces them with `TRUE` (see index_candidate).
+ * @param expr the target scan operation, which must not have any end-points
+ * @param candidate the index candidate, which was estimated for the target scan operation
+ * @param graph the graph to put the new operations,
+ *      which can be different from the graph of the target scan operation
+ */
+void apply_index_to_scan(
+        relation::scan& expr,
+        index_candidate& candidate,
+        relation::graph_type& graph) {
+    BOOST_ASSERT(!expr.lower() && !expr.upper()); // NOLINT
+    auto&& index = candidate.index.get();
+    if (candidate.kind == index_candidate::access_kind::find) {
+        rewrite_as_find(expr, index, candidate.terms, graph);
+        return;
+    }
+    rewrite_bounds(expr, index, candidate.terms);
+}
 
 /**
  * @brief the row order requested by the downstream `limit` of a `scan`.
