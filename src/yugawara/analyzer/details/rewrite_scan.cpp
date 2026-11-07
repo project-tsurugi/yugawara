@@ -187,6 +187,23 @@ struct order_request {
             && capabilities.contains(path_capability::at_most_one);
 }
 
+/*
+ * returns whether or not the candidate can be a scan to provide the row order.
+ * The find operations do not provide any row order, so that the candidates of find must become a range scan:
+ * we only do it for the indices that declare the order of tied entries, and then the plans for the other indices
+ * are never changed. Also, it has no meaning for the candidates that provide at most one row.
+ */
+[[nodiscard]] bool can_scan_in_order(index_candidate const& candidate) {
+    if (!candidate.scannable) {
+        return false;
+    }
+    if (candidate.kind != index_candidate::access_kind::find) {
+        return true;
+    }
+    return candidate.index.get().features().contains(storage::index_feature::ties_ordered_by_primary_key)
+            && !is_single_row(candidate);
+}
+
 /**
  * @brief how an index candidate provides the row order requested by the downstream `limit`.
  */
@@ -272,8 +289,14 @@ private:
             return;
         }
         auto [selected, decision] = select_ordered(candidates, *request);
-        apply_index_to_scan(expr, candidates[selected], work_graph_);
-        // NOTE: the candidate which provides the row order is always a scan (see decide_order()),
+        auto&& candidate = candidates[selected];
+        // NOTE: find and range scan read the same entries of the index, and only the scan provides the row order,
+        // so that whether to use find is determined here, after the index selection
+        if (decision.order != candidate_order::none) {
+            candidate.kind = index_candidate::access_kind::range_scan;
+        }
+        apply_index_to_scan(expr, candidate, work_graph_);
+        // NOTE: the candidate which provides the row order is always a scan (see above),
         // so that the target scan is still alive here
         apply_order(expr, decision);
     }
@@ -327,8 +350,7 @@ private:
     [[nodiscard]] order_decision decide_order(
             index_candidate const& candidate,
             order_request const& request) const {
-        // NOTE: find operations do not provide any row order
-        if (candidate.kind == index_candidate::access_kind::find || !candidate.scannable) {
+        if (!can_scan_in_order(candidate)) {
             return {};
         }
         auto fixed = fixed_columns(candidate);

@@ -10,6 +10,7 @@
 #include <takatori/relation/filter.h>
 #include <takatori/relation/project.h>
 #include <takatori/relation/emit.h>
+#include <takatori/relation/find.h>
 #include <takatori/relation/join_find.h>
 #include <takatori/relation/intermediate/limit.h>
 
@@ -78,9 +79,70 @@ protected:
             },
     });
 
+    // T2 with the secondary indices whose tied entries are ordered by the primary key
+    std::shared_ptr<storage::table> t3 = storages->add_table({
+            "T3",
+            {
+                    { "K", t::int4() },
+                    { "V", t::int4() },
+                    { "W", t::int4() },
+                    { "U", t::int4() },
+            },
+    });
+    descriptor::variable t3k = bindings(t3->columns()[0]);
+    descriptor::variable t3v = bindings(t3->columns()[1]);
+    descriptor::variable t3w = bindings(t3->columns()[2]);
+    descriptor::variable t3u = bindings(t3->columns()[3]);
+    std::shared_ptr<storage::index> i3 = storages->add_index({
+            t3,
+            "I3",
+            {
+                    t3->columns()[0],
+            },
+            {
+                    t3->columns()[1],
+                    t3->columns()[2],
+                    t3->columns()[3],
+            },
+            {
+                    storage::index_feature::primary,
+                    storage::index_feature::find,
+                    storage::index_feature::scan,
+                    storage::index_feature::unique,
+            },
+    });
+    std::shared_ptr<storage::index> i3v = storages->add_index({
+            t3,
+            "I3V",
+            {
+                    t3->columns()[1],
+            },
+            {},
+            {
+                    storage::index_feature::find,
+                    storage::index_feature::scan,
+                    storage::index_feature::ties_ordered_by_primary_key,
+            },
+    });
+    std::shared_ptr<storage::index> i3u = storages->add_index({
+            t3,
+            "I3U",
+            {
+                    t3->columns()[3],
+            },
+            {},
+            {
+                    storage::index_feature::find,
+                    storage::index_feature::scan,
+                    storage::index_feature::unique,
+                    storage::index_feature::ties_ordered_by_primary_key,
+            },
+    });
+
     descriptor::variable k = bindings.stream_variable("k");
     descriptor::variable v = bindings.stream_variable("v");
     descriptor::variable w = bindings.stream_variable("w");
+    descriptor::variable u = bindings.stream_variable("u");
 
     relation::scan& add_t2(relation::graph_type& r) {
         return r.insert(relation::scan {
@@ -91,6 +153,26 @@ protected:
                         { t2w, w },
                 },
         });
+    }
+
+    relation::scan& add_t3(relation::graph_type& r) {
+        return r.insert(relation::scan {
+                bindings(*i3),
+                {
+                        { t3k, k },
+                        { t3v, v },
+                        { t3w, w },
+                        { t3u, u },
+                },
+        });
+    }
+
+    static scalar::compare equals(descriptor::variable const& variable, int value) {
+        return compare(varref { variable }, constant(value), scalar::comparison_operator::equal);
+    }
+
+    static bool is_find(relation::expression::input_port_type& port) {
+        return port.opposite()->owner().kind() == relation::find::tag;
     }
 
     static relation::intermediate::limit limit(std::size_t count, descriptor::variable const& key) {
@@ -842,6 +924,213 @@ TEST_F(rewrite_scan_order_test, backward_disabled_secondary) {
     EXPECT_EQ(r0.source(), bindings(*i2));
     EXPECT_FALSE(r0.row_slice());
     EXPECT_FALSE(r0.direction());
+}
+
+TEST_F(rewrite_scan_order_test, find_without_ties) {
+    /*
+     * scan:r0{I2} - filter:r1(v = 1) - limit:r2[k, 3] - emit:r3
+     * => find:{I2V}(v = 1) - limit:r2[k, 3] - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t2(r);
+    auto&& r1 = r.insert(relation::filter { equals(v, 1) });
+    auto&& r2 = r.insert(limit(3, k));
+    auto&& r3 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    EXPECT_TRUE(is_find(r2.input()));
+}
+
+TEST_F(rewrite_scan_order_test, ties_early_stop) {
+    /*
+     * scan:r0{I3} - filter:r1(v = 1) - limit:r2[k, 3] - emit:r3
+     * => scan:r0{I3V}(v = 1)[forward, 3] - limit:r2[k, 3] - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t3(r);
+    auto&& r1 = r.insert(relation::filter { equals(v, 1) });
+    auto&& r2 = r.insert(limit(3, k));
+    auto&& r3 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_FALSE(is_find(r2.input()));
+    EXPECT_EQ(r0.source(), bindings(*i3v));
+    EXPECT_TRUE(r0.lower());
+    EXPECT_TRUE(r0.upper());
+    EXPECT_EQ(r0.row_slice(), row_slice(3));
+    EXPECT_EQ(r0.direction(), scan_direction::forward);
+}
+
+TEST_F(rewrite_scan_order_test, ties_backward) {
+    /*
+     * scan:r0{I3} - filter:r1(v = 1) - limit:r2[k DESC, 3] - emit:r3
+     * => scan:r0{I3V}(v = 1)[backward, 3] - limit:r2[k DESC, 3] - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t3(r);
+    auto&& r1 = r.insert(relation::filter { equals(v, 1) });
+    auto&& r2 = r.insert(limit_desc(3, k));
+    auto&& r3 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_FALSE(is_find(r2.input()));
+    EXPECT_EQ(r0.source(), bindings(*i3v));
+    EXPECT_EQ(r0.row_slice(), row_slice(3));
+    EXPECT_EQ(r0.direction(), scan_direction::backward);
+}
+
+TEST_F(rewrite_scan_order_test, ties_backward_disabled) {
+    /*
+     * scan:r0{I3} - filter:r1(v = 1) - limit:r2[k DESC, 3] - emit:r3
+     * => find:{I3V}(v = 1) - limit:r2[k DESC, 3] - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t3(r);
+    auto&& r1 = r.insert(relation::filter { equals(v, 1) });
+    auto&& r2 = r.insert(limit_desc(3, k));
+    auto&& r3 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r, without_backward_scan);
+
+    EXPECT_TRUE(is_find(r2.input()));
+}
+
+TEST_F(rewrite_scan_order_test, ties_order_only) {
+    /*
+     * scan:r0{I3} - filter:r1(v = 1) - limit:r2[k] - emit:r3
+     * => scan:r0{I3V}(v = 1)[forward] - limit:r2[k] - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t3(r);
+    auto&& r1 = r.insert(relation::filter { equals(v, 1) });
+    auto&& r2 = r.insert(order_only(k));
+    auto&& r3 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_FALSE(is_find(r2.input()));
+    EXPECT_EQ(r0.source(), bindings(*i3v));
+    EXPECT_FALSE(r0.row_slice());
+    EXPECT_EQ(r0.direction(), scan_direction::forward);
+}
+
+TEST_F(rewrite_scan_order_test, ties_residual) {
+    /*
+     * scan:r0{I3} - filter:r1(v = 1 AND w = 2) - limit:r2[k, 3] - emit:r3
+     * => scan:r0{I3V}(v = 1)[forward] - filter:r1(w = 2) - limit:r2[k, 3] - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t3(r);
+    auto&& r1 = r.insert(relation::filter {
+            land(equals(v, 1), equals(w, 2)),
+    });
+    auto&& r2 = r.insert(limit(3, k));
+    auto&& r3 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_FALSE(is_find(r1.input()));
+    EXPECT_EQ(r0.source(), bindings(*i3v));
+    // the scan cannot stop, because the filter may remove rows
+    EXPECT_FALSE(r0.row_slice());
+    EXPECT_EQ(r0.direction(), scan_direction::forward);
+}
+
+TEST_F(rewrite_scan_order_test, ties_fixed_sort_key) {
+    /*
+     * scan:r0{I3} - filter:r1(v = 1) - limit:r2[v, 3] - emit:r3
+     * => scan:r0{I3V}(v = 1)[forward, 3] - limit:r2[v, 3] - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t3(r);
+    auto&& r1 = r.insert(relation::filter { equals(v, 1) });
+    auto&& r2 = r.insert(limit(3, v));
+    auto&& r3 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_FALSE(is_find(r2.input()));
+    EXPECT_EQ(r0.source(), bindings(*i3v));
+    EXPECT_EQ(r0.row_slice(), row_slice(3));
+}
+
+TEST_F(rewrite_scan_order_test, ties_no_order_request) {
+    /*
+     * scan:r0{I3} - filter:r1(v = 1) - emit:r2
+     * => find:{I3V}(v = 1) - emit:r2
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t3(r);
+    auto&& r1 = r.insert(relation::filter { equals(v, 1) });
+    auto&& r2 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    apply(r);
+
+    EXPECT_TRUE(is_find(r2.input()));
+}
+
+TEST_F(rewrite_scan_order_test, ties_disabled) {
+    /*
+     * scan:r0{I3} - filter:r1(v = 1) - limit:r2[k, 3] - emit:r3
+     * => find:{I3V}(v = 1) - limit:r2[k, 3] - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t3(r);
+    auto&& r1 = r.insert(relation::filter { equals(v, 1) });
+    auto&& r2 = r.insert(limit(3, k));
+    auto&& r3 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r, {});
+
+    EXPECT_TRUE(is_find(r2.input()));
+}
+
+TEST_F(rewrite_scan_order_test, ties_single_row) {
+    /*
+     * scan:r0{I3} - filter:r1(u = 1) - limit:r2[k, 3] - emit:r3
+     * => find:{I3U}(u = 1) - limit:r2[k, 3] - emit:r3
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t3(r);
+    auto&& r1 = r.insert(relation::filter { equals(u, 1) });
+    auto&& r2 = r.insert(limit(3, k));
+    auto&& r3 = r.insert(relation::emit { k });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    EXPECT_TRUE(is_find(r2.input()));
 }
 
 TEST_F(rewrite_scan_order_test, scan_limit_only_with_residual) {
