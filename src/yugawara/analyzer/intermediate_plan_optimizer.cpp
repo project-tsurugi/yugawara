@@ -17,7 +17,7 @@
 #include "details/decompose_filter.h"
 #include "details/decompose_disjunction_range.h"
 #include "details/absorb_limits.h"
-#include "details/make_path_capability_options.h"
+#include "details/path_capability.h"
 
 namespace yugawara::analyzer {
 

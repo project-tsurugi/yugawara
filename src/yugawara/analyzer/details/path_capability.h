@@ -9,6 +9,8 @@
 
 #include <takatori/util/enum_set.h>
 
+#include <yugawara/runtime_feature.h>
+
 namespace yugawara::analyzer::details {
 
 /**
@@ -105,5 +107,16 @@ struct path_capability_options {
         ::takatori::relation::expression::input_port_type const& input,
         ::takatori::relation::expression::output_port_type const& output,
         path_capability_options const& options);
+
+/**
+ * @brief returns the options of path capabilities for the given runtime features.
+ * @param features the runtime features
+ * @return the corresponding options
+ */
+[[nodiscard]] inline path_capability_options make_path_capability_options(runtime_feature_set const& features) noexcept {
+    return path_capability_options {
+            features.contains(runtime_feature::apply_preserves_order),
+    };
+}
 
 } // namespace yugawara::analyzer::details

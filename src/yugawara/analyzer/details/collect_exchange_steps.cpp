@@ -41,7 +41,7 @@
 
 #include "detect_join_endpoint_style.h"
 #include "row_slice_utils.h"
-#include "make_path_capability_options.h"
+#include "path_capability.h"
 #include "ordered_relation.h"
 
 namespace yugawara::analyzer::details {
