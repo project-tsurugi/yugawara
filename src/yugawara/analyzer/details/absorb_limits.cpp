@@ -81,15 +81,11 @@ std::vector<relation::scan*> find_source_scans(
 
 class engine {
 public:
-    explicit engine(runtime_feature_set const& features, path_capability_options const& capability_options) noexcept :
-        features_ { features },
+    explicit engine(path_capability_options const& capability_options) noexcept :
         capability_options_ { capability_options }
     {}
 
     void process(relation::graph_type& graph) {
-        if (!features_.contains(runtime_feature::scan_limit)) {
-            return;
-        }
         for (auto&& expr : graph) {
             if (expr.kind() == relation::intermediate::limit::tag) {
                 absorb(unsafe_downcast<relation::intermediate::limit>(expr));
@@ -98,7 +94,6 @@ public:
     }
 
 private:
-    runtime_feature_set const& features_;
     path_capability_options capability_options_;
 
     void absorb(relation::intermediate::limit& expr) const {
@@ -130,9 +125,8 @@ private:
 
 void absorb_limits(
         ::takatori::relation::graph_type& graph,
-        runtime_feature_set const& features,
         path_capability_options const& capability_options) {
-    engine e { features, capability_options };
+    engine e { capability_options };
     e.process(graph);
 }
 

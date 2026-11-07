@@ -268,7 +268,9 @@ protected:
             path_capability_options const& capability_options = {}) {
         rewrite_scan(r, estimator, parameters, features, capability_options);
         remove_redundant_conditions(r);
-        absorb_limits(r, features, capability_options);
+        if (features.contains(runtime_feature::scan_limit)) {
+            absorb_limits(r, capability_options);
+        }
     }
 };
 

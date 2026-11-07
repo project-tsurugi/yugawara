@@ -88,7 +88,9 @@ void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& g
             options_.runtime_features(),
             capability_options);
     details::remove_redundant_conditions(graph);
-    details::absorb_limits(graph, options_.runtime_features(), capability_options);
+    if (options_.runtime_features().contains(runtime_feature::scan_limit)) {
+        details::absorb_limits(graph, capability_options);
+    }
 }
 
 } // namespace yugawara::analyzer

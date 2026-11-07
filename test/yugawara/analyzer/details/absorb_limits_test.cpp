@@ -187,8 +187,8 @@ protected:
         return relation::scan::row_slice_type { {}, count };
     }
 
-    void apply(relation::graph_type& r, runtime_feature_set const& features = runtime_feature_all) {
-        absorb_limits(r, features, {});
+    void apply(relation::graph_type& r) {
+        absorb_limits(r, {});
     }
 
     /**
@@ -325,23 +325,6 @@ TEST_F(absorb_limits_test, scan_count_larger) {
     apply(r);
 
     EXPECT_EQ(r0.row_slice(), row_slice(3));
-}
-
-TEST_F(absorb_limits_test, scan_limit_disabled) {
-    /*
-     * scan:r0 - limit:r1[3] - emit:r2
-     * => (not changed: runtime_feature::scan_limit is disabled)
-     */
-    relation::graph_type r;
-    auto&& r0 = add_t0(r);
-    auto&& r1 = r.insert(limit(3));
-    auto&& r2 = r.insert(relation::emit { a });
-    r0.output() >> r1.input();
-    r1.output() >> r2.input();
-
-    apply(r, { runtime_feature::ordered_scan });
-
-    EXPECT_FALSE(r0.row_slice());
 }
 
 TEST_F(absorb_limits_test, filter) {

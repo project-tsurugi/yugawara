@@ -2,8 +2,6 @@
 
 #include <takatori/relation/graph.h>
 
-#include <yugawara/runtime_feature.h>
-
 #include "path_capability.h"
 
 namespace yugawara::analyzer::details {
@@ -18,7 +16,7 @@ namespace yugawara::analyzer::details {
  *      This walks from the `limit` to upstream, only while each row of the upstream becomes one or more
  *      input rows of the `limit` (that is, the path has `at_least_one`, see find_path_capabilities()).
  *      If it reaches a `scan`, this sets the smaller one of the row counts of the `limit` and the `scan`
- *      to the `scan` (requires runtime_feature::scan_limit).
+ *      to the `scan`.
  *      The `scan` without the row count is regarded as the one with the infinite row count,
  *      and this does nothing if the `scan` has the variable row count.
  *      This never changes the index nor the direction of the `scan`.
@@ -33,8 +31,8 @@ namespace yugawara::analyzer::details {
  *      for example, if its condition is not consumed by the `scan`, or if it is just `TRUE`
  *      (see remove_redundant_conditions()).
  *      The result is still correct, but the `scan` may read more rows.
+ * @attention This must be used only if the `scan` operators can stop at the row count.
  * @param graph the target graph
- * @param features the available runtime features
  * @param capability_options the options to find the path capabilities (see find_path_capabilities())
  * @see find_path_capabilities()
  * @see push_down_limits()
@@ -42,7 +40,6 @@ namespace yugawara::analyzer::details {
  */
 void absorb_limits(
         ::takatori::relation::graph_type& graph,
-        runtime_feature_set const& features,
         path_capability_options const& capability_options);
 
 } // namespace yugawara::analyzer::details
