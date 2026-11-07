@@ -131,8 +131,7 @@ add_library(yugawara
     yugawara/analyzer/details/search_key_term.cpp
     yugawara/analyzer/details/search_key_term_builder.cpp
     yugawara/analyzer/details/scan_key_collector.cpp
-    yugawara/analyzer/details/estimate_index.cpp
-    yugawara/analyzer/details/compare_index_candidates.cpp
+    yugawara/analyzer/details/index_candidate.cpp
     yugawara/analyzer/details/rewrite_join.cpp
     yugawara/analyzer/details/collect_join_keys.cpp
     yugawara/analyzer/details/rewrite_scan.cpp

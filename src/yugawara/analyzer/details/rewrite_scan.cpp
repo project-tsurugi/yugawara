@@ -28,9 +28,8 @@
 #include <yugawara/storage/provider.h>
 
 #include "boolean_constants.h"
-#include "compare_index_candidates.h"
 #include "decompose_predicate.h"
-#include "estimate_index.h"
+#include "index_candidate.h"
 #include "find_scan_direction.h"
 #include "ordered_relation.h"
 #include "rewrite_criteria.h"

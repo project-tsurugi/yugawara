@@ -1,10 +1,86 @@
 #pragma once
 
-#include <yugawara/analyzer/index_selection_parameters.h>
+#include <functional>
+#include <vector>
 
-#include "estimate_index.h"
+#include <yugawara/analyzer/index_estimator.h>
+#include <yugawara/analyzer/index_selection_parameters.h>
+#include <yugawara/storage/index.h>
+
+#include "scan_key_collector.h"
 
 namespace yugawara::analyzer::details {
+
+/**
+ * @brief an index candidate for a scan operation.
+ * @details The terms point to the elements in the scan_key_collector which built this candidate,
+ *      so that this must not outlive it.
+ *
+ *      Applying the candidate to the operator graph purges the terms from their original conditions,
+ *      and replaces them with `TRUE` (see search_key_term::purge_*()).
+ *      The rest conditions and the orphaned operators must be handled by the caller.
+ */
+struct index_candidate {
+    /**
+     * @brief the kind of index access.
+     */
+    enum class access_kind {
+        /// @brief scans the whole entries of the index.
+        full_scan,
+
+        /// @brief scans the index entries in the range of the leading keys.
+        range_scan,
+
+        /// @brief finds the index entries whose keys are all equivalent to the search keys.
+        find,
+    };
+
+    /// @brief the target index.
+    std::reference_wrapper<storage::index const> index;
+
+    /// @brief the estimated result.
+    index_estimator::result result;
+
+    /// @brief the terms of the search key, in order of the index keys.
+    std::vector<scan_key_collector::term*> terms;
+
+    /// @brief the kind of index access.
+    access_kind kind;
+
+    /// @brief whether or not the index can be scanned (it has storage::index_feature::scan).
+    bool scannable;
+
+    /**
+     * @brief whether or not the index access is direct.
+     * @details The access is direct if the index contains all the columns to obtain,
+     *      that is, it does not refer the primary index for individual entries.
+     */
+    bool direct;
+};
+
+/**
+ * @brief estimates the index access with the collected scan key terms.
+ * @details This never modifies the operator graph nor the terms,
+ *      so that the caller can compare candidates of individual indices before applying one of them.
+ *
+ *      The resulting candidate may have no terms if the index cannot use any of them.
+ * @param collector the collector of the target scan
+ * @param index the target index
+ * @param estimator the index estimator
+ * @return the estimated candidate
+ */
+[[nodiscard]] index_candidate estimate_index(
+        scan_key_collector& collector,
+        storage::index const& index,
+        index_estimator const& estimator);
+
+/**
+ * @brief returns the index columns which have a single value in the range of the candidate.
+ * @details They are the columns of the leading equivalent terms of the candidate.
+ * @param candidate the target candidate
+ * @return the fixed columns
+ */
+[[nodiscard]] std::vector<std::reference_wrapper<storage::column const>> fixed_columns(index_candidate const& candidate);
 
 /**
  * @brief the result of comparing two index candidates.

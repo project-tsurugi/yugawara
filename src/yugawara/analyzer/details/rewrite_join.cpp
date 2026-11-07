@@ -22,8 +22,7 @@
 #include <yugawara/storage/provider.h>
 
 #include "boolean_constants.h"
-#include "compare_index_candidates.h"
-#include "estimate_index.h"
+#include "index_candidate.h"
 #include "scan_key_collector.h"
 #include "remove_orphaned_elements.h"
 #include "rewrite_criteria.h"
