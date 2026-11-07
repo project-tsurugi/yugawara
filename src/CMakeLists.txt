@@ -122,7 +122,6 @@ add_library(yugawara
     yugawara/analyzer/details/push_down_limits.cpp
     yugawara/analyzer/details/row_slice_utils.cpp
     yugawara/analyzer/details/path_capability.cpp
-    yugawara/analyzer/details/find_scan_direction.cpp
     yugawara/analyzer/details/ordered_relation.cpp
     yugawara/analyzer/details/absorb_limits.cpp
     yugawara/analyzer/details/simplify_predicate.cpp

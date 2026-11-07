@@ -30,7 +30,6 @@
 #include "boolean_constants.h"
 #include "decompose_predicate.h"
 #include "index_candidate.h"
-#include "find_scan_direction.h"
 #include "ordered_relation.h"
 #include "rewrite_criteria.h"
 #include "scan_key_collector.h"
