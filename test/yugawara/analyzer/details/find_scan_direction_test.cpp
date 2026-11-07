@@ -71,6 +71,20 @@ protected:
         });
     }
 
+    storage::index const& ties_ordered(std::initializer_list<key> keys) {
+        return *storages.add_index({
+                t0,
+                "S",
+                keys,
+                {},
+                {
+                        storage::index_feature::find,
+                        storage::index_feature::scan,
+                        storage::index_feature::ties_ordered_by_primary_key,
+                },
+        });
+    }
+
     static std::optional<scan_direction> apply(
             storage::index const& index,
             std::vector<key> const& sort_keys,
@@ -190,6 +204,62 @@ TEST_F(find_scan_direction_test, secondary_never_assume_primary_keys) {
     primary({ a });
     auto&& index = secondary({ v });
     EXPECT_FALSE(apply(index, { { v, asc }, { a, asc } }));
+}
+
+TEST_F(find_scan_direction_test, ties_primary_key_follows) {
+    primary({ a });
+    auto&& index = ties_ordered({ v });
+    EXPECT_EQ(apply(index, { v, a }), scan_direction::forward);
+}
+
+TEST_F(find_scan_direction_test, ties_reversed) {
+    primary({ a });
+    auto&& index = ties_ordered({ v });
+    EXPECT_EQ(apply(index, { { v, desc }, { a, desc } }), scan_direction::backward);
+}
+
+TEST_F(find_scan_direction_test, ties_direction_mixed) {
+    primary({ a });
+    auto&& index = ties_ordered({ v });
+    EXPECT_EQ(apply(index, { v, { a, desc } }), std::nullopt);
+}
+
+TEST_F(find_scan_direction_test, ties_descendant_primary_key) {
+    primary({ { a, desc } });
+    auto&& index = ties_ordered({ v });
+    EXPECT_EQ(apply(index, { v, { a, desc } }), scan_direction::forward);
+    EXPECT_EQ(apply(index, { { v, desc }, a }), scan_direction::backward);
+}
+
+TEST_F(find_scan_direction_test, ties_fixed_index_key) {
+    primary({ a });
+    auto&& index = ties_ordered({ v });
+    EXPECT_EQ(apply(index, { a }, { v }), scan_direction::forward);
+}
+
+TEST_F(find_scan_direction_test, ties_after_primary_key) {
+    primary({ a });
+    auto&& index = ties_ordered({ v });
+    EXPECT_EQ(apply(index, { v, a, c }), scan_direction::forward);
+}
+
+TEST_F(find_scan_direction_test, ties_primary_key_prefix) {
+    primary({ a, b });
+    auto&& index = ties_ordered({ v });
+    EXPECT_EQ(apply(index, { v, a }), scan_direction::forward);
+    EXPECT_EQ(apply(index, { v, b }), std::nullopt);
+}
+
+TEST_F(find_scan_direction_test, ties_primary_key_in_index_key) {
+    primary({ a, b });
+    auto&& index = ties_ordered({ b });
+    EXPECT_EQ(apply(index, { b, a }), scan_direction::forward);
+}
+
+TEST_F(find_scan_direction_test, ties_without_primary_index) {
+    auto&& index = ties_ordered({ v });
+    EXPECT_EQ(apply(index, { v }), scan_direction::forward);
+    EXPECT_EQ(apply(index, { v, a }), std::nullopt);
 }
 
 TEST_F(find_scan_direction_test, unique_secondary_never_omit_rest) {

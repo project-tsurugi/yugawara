@@ -4,6 +4,8 @@
 #include <vector>
 
 #include <yugawara/storage/index_feature.h>
+#include <yugawara/storage/provider.h>
+#include <yugawara/storage/table.h>
 
 namespace yugawara::analyzer::details {
 
@@ -11,6 +13,7 @@ using ::takatori::relation::scan_direction;
 using ::takatori::util::sequence_view;
 
 using column_ref = std::reference_wrapper<storage::column const>;
+using index_key = storage::details::index_key_element;
 
 namespace {
 
@@ -38,14 +41,63 @@ scan_direction scan_direction_of(
     return scan_direction::backward;
 }
 
+/**
+ * @brief the order of the entries on an index.
+ */
+struct index_order {
+    /// @brief the sort keys of the entries.
+    std::vector<index_key> keys;
+
+    /// @brief whether or not the entries that tie on all the keys are at most one.
+    bool unique;
+};
+
+/*
+ * returns the order of the entries on the given index.
+ * If the entries that tie on the index key are sorted by the primary key, the primary key columns follow the index key,
+ * except the columns already in the index key, because they have the same value in the tied entries.
+ * For example, with the secondary index (v) and the primary key (k), the entries are sorted by (v, k).
+ * The primary key is unique and never null, so that the entries that tie on the resulting keys are at most one,
+ * even if the index key has nulls.
+ */
+index_order find_index_order(storage::index const& index) {
+    auto&& index_keys = index.keys();
+    index_order result {
+            { index_keys.begin(), index_keys.end() },
+            index.features().contains(storage::index_feature::primary),
+    };
+    if (!index.features().contains(storage::index_feature::ties_ordered_by_primary_key)) {
+        return result;
+    }
+    auto&& table = index.table();
+    auto storages = table.owner();
+    if (!storages) {
+        return result;
+    }
+    auto primary = storages->find_primary_index(table);
+    if (!primary) {
+        return result;
+    }
+    for (auto&& key : primary->keys()) {
+        bool found = std::any_of(result.keys.begin(), result.keys.end(), [&](index_key const& k) {
+            return k.column() == key.column();
+        });
+        if (!found) {
+            result.keys.emplace_back(key);
+        }
+    }
+    result.unique = true;
+    return result;
+}
+
 } // namespace
 
 std::optional<scan_direction> find_scan_direction(
         storage::index const& index,
         sequence_view<storage::details::index_key_element const> sort_keys,
         sequence_view<column_ref const> fixed_columns) {
-    auto&& keys = index.keys();
-    bool unique_keys = index.features().contains(storage::index_feature::primary);
+    auto order = find_index_order(index);
+    auto&& keys = order.keys;
 
     // the index columns that are already matched with the sort keys
     std::vector<column_ref> matched {};
@@ -74,8 +126,8 @@ std::optional<scan_direction> find_scan_direction(
         if (key_index >= keys.size()) {
             /*
              * all index keys are matched or fixed, but some sort keys still remain.
-             * If the index is the primary index, the rows that tie on the preceding sort keys are at most one,
-             * because the primary key is unique and never null.
+             * If the order of the index is unique, the rows that tie on the preceding sort keys are at most one,
+             * because the primary key is unique and never null (see find_index_order()).
              * Then, the order of the rows is already determined, and the rest of the sort keys never change it.
              * For example, with the primary key (a, b), "WHERE a = 1 ORDER BY b, c" ignores the sort key "c".
              *
@@ -85,10 +137,10 @@ std::optional<scan_direction> find_scan_direction(
              *   and the index does not order them by "w".
              * - unique index: the rows (k=1, v=NULL, w=9) and (k=2, v=NULL, w=1) also tie on "v",
              *   because the unique index allows two or more nulls.
-             * Also, "ORDER BY v, k" is not satisfied here, because the index never guarantees that
-             * the primary keys follow its keys, even if the current implementation does so.
+             * Also, "ORDER BY v, k" is not satisfied here, unless the index declares that the rows that tie on
+             * its keys are sorted by the primary key, even if the current implementation does so.
              */
-            if (unique_keys) {
+            if (order.unique) {
                 break;
             }
             return {};

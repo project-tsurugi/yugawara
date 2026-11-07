@@ -47,6 +47,15 @@ enum class index_feature {
      *          it allows duplicated keys while transaction is running
      */
     unique_constraint,
+
+    /**
+     * @brief the entries that have the same index key are sorted by the primary key.
+     * @details This only declares the order of the entries:
+     *   it does not mean that the primary key columns can be used as the search keys of this index.
+     *   The entries are sorted by the primary key with its own sort directions, and scanning the index backward
+     *   also reverses this order.
+     */
+    ties_ordered_by_primary_key,
 };
 
 /**
@@ -55,7 +64,7 @@ enum class index_feature {
 using index_feature_set = ::takatori::util::enum_set<
         index_feature,
         index_feature::primary,
-        index_feature::unique_constraint>;
+        index_feature::ties_ordered_by_primary_key>;
 
 /**
  * @brief returns string representation of the value.
@@ -71,6 +80,7 @@ inline constexpr std::string_view to_string_view(index_feature value) noexcept {
         case kind::scan: return "scan"sv;
         case kind::unique: return "unique"sv;
         case kind::unique_constraint: return "unique_constraint"sv;
+        case kind::ties_ordered_by_primary_key: return "ties_ordered_by_primary_key"sv;
     }
     std::abort();
 }

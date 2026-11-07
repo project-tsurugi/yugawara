@@ -21,8 +21,9 @@ namespace yugawara::analyzer::details {
  *      all the same as the index keys (forward), or all reversed from them (backward).
  *      If the index is a primary index and all its keys are matched or fixed,
  *      the rest of the sort keys are also satisfied, because the primary key is unique and never null.
- * @note This never assumes that the primary keys follow the keys of a secondary index,
- *      and never applies the above uniqueness rule to the other unique indices, because they may contain nulls.
+ * @note This assumes that the primary keys follow the keys of a secondary index, only if the index has
+ *      storage::index_feature::ties_ordered_by_primary_key. Also, this
+ *      never applies the above uniqueness rule to the other unique indices, because they may contain nulls.
  * @note If both directions satisfy the requested order (e.g. all sort keys are fixed), this returns the forward one.
  * @note This never considers whether or not the backward scan is available, so that the caller must check it.
  * @param index the target index
