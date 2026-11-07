@@ -2,13 +2,29 @@
 
 #include <takatori/relation/graph.h>
 
-#include <yugawara/runtime_feature.h>
 #include <yugawara/analyzer/index_estimator.h>
 #include <yugawara/analyzer/index_selection_parameters.h>
 
 #include "path_capability.h"
 
 namespace yugawara::analyzer::details {
+
+/**
+ * @brief the capabilities of `scan` operations, which rewrite_scan() relies on.
+ */
+struct scan_capability_options {
+    /// @brief whether or not the `scan` can read the index backward.
+    bool backward { false };
+
+    /// @brief whether or not the `scan` can stop at the row count.
+    bool row_limit { false };
+
+    /// @brief whether or not the `scan` can provide the row order.
+    bool ordered_output { false };
+
+    /// @brief whether or not the `limit` with the row count can use the row order provided by the `scan`.
+    bool ordered_limit { false };
+};
 
 /**
  * @brief rewrites `scan` operations into `scan` / `find` with suitable indices.
@@ -30,7 +46,7 @@ namespace yugawara::analyzer::details {
  * @param graph the target graph
  * @param index_estimator the index estimator
  * @param parameters the parameters to choose an index from the estimations
- * @param features the available runtime features, which decide whether the `scan` can provide the row order
+ * @param scan_capabilities the capabilities of the `scan`, which decide whether it can provide the row order
  * @param capability_options the options to find the path capabilities (see find_path_capabilities())
  * @see absorb_limits()
  */
@@ -38,7 +54,7 @@ void rewrite_scan(
         ::takatori::relation::graph_type& graph,
         class index_estimator const& index_estimator,
         index_selection_parameters const& parameters,
-        runtime_feature_set const& features,
+        scan_capability_options const& scan_capabilities,
         path_capability_options const& capability_options);
 
 } // namespace yugawara::analyzer::details

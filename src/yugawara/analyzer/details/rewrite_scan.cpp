@@ -289,11 +289,11 @@ public:
     explicit engine(
             index_estimator const& index_estimator,
             index_selection_parameters const& parameters,
-            runtime_feature_set const& features,
+            scan_capability_options const& scan_capabilities,
             path_capability_options const& capability_options) :
         index_estimator_ { index_estimator },
         parameters_ { parameters },
-        features_ { features },
+        scan_capabilities_ { scan_capabilities },
         capability_options_ { capability_options }
     {}
 
@@ -313,7 +313,7 @@ public:
 private:
     index_estimator const& index_estimator_;
     index_selection_parameters const& parameters_;
-    runtime_feature_set const& features_;
+    scan_capability_options scan_capabilities_;
     path_capability_options capability_options_;
 
     relation::graph_type work_graph_ {};
@@ -424,13 +424,13 @@ private:
         if (!direction) {
             return {};
         }
-        if (*direction == relation::scan_direction::backward && !features_.contains(runtime_feature::backward_scan)) {
+        if (*direction == relation::scan_direction::backward && !scan_capabilities_.backward) {
             return {};
         }
         // NOTE: the scan can stop at the row count, only if each row of the scan reaches the limit
         std::optional<std::size_t> count {};
         if (request.count
-                && features_.contains(runtime_feature::scan_limit)
+                && scan_capabilities_.row_limit
                 && keeps_rows(request, candidate)) {
             count = request.count;
         }
@@ -443,8 +443,8 @@ private:
         // NOTE: the limit with the row count becomes a forward exchange with ordering,
         // and the limit without the row count will be removed (see collect_exchange_steps());
         // the large row count is also set to the scan, because it never affects the index selection here
-        if (features_.contains(runtime_feature::ordered_scan)
-                && (!request.counted || features_.contains(runtime_feature::ordered_forward))) {
+        if (scan_capabilities_.ordered_output
+                && (!request.counted || scan_capabilities_.ordered_limit)) {
             return { candidate_order::ordered, direction, count };
         }
         return {};
@@ -464,9 +464,9 @@ void rewrite_scan(
         ::takatori::relation::graph_type& graph,
         class index_estimator const& index_estimator,
         index_selection_parameters const& parameters,
-        runtime_feature_set const& features,
+        scan_capability_options const& scan_capabilities,
         path_capability_options const& capability_options) {
-    engine e { index_estimator, parameters, features, capability_options };
+    engine e { index_estimator, parameters, scan_capabilities, capability_options };
     e.process(graph);
 }
 

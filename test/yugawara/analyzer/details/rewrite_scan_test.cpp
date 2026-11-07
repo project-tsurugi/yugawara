@@ -51,7 +51,7 @@ protected:
     void apply(relation::graph_type& graph) {
         parametric_index_estimator estimator {};
         index_selection_parameters parameters {};
-        rewrite_scan(graph, estimator, parameters, runtime_feature_all, {});
+        rewrite_scan(graph, estimator, parameters, { true, true, true, true }, {});
     }
 };
 

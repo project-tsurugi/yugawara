@@ -45,6 +45,15 @@ static constexpr details::collect_join_keys_feature_set compute_join_keys_featur
     return results;
 }
 
+static constexpr details::scan_capability_options compute_scan_capabilities(runtime_feature_set const& features) {
+    return details::scan_capability_options {
+            features.contains(runtime_feature::backward_scan),
+            features.contains(runtime_feature::scan_limit),
+            features.contains(runtime_feature::ordered_scan),
+            features.contains(runtime_feature::ordered_forward),
+    };
+}
+
 void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& graph) {
     details::remove_variable_aliases(
             graph,
@@ -85,7 +94,7 @@ void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& g
             graph,
             options_.index_estimator(),
             options_.index_selection_parameters(),
-            options_.runtime_features(),
+            compute_scan_capabilities(options_.runtime_features()),
             capability_options);
     details::remove_redundant_conditions(graph);
     if (options_.runtime_features().contains(runtime_feature::scan_limit)) {

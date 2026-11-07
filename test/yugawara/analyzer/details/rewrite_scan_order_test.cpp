@@ -209,11 +209,9 @@ protected:
         };
     }
 
-    static constexpr runtime_feature_set without_backward_scan {
-            runtime_feature::scan_limit,
-            runtime_feature::ordered_scan,
-            runtime_feature::ordered_forward,
-    };
+    static constexpr scan_capability_options all_capabilities { true, true, true, true };
+
+    static constexpr scan_capability_options without_backward_scan { false, true, true, true };
 
     relation::join_find& add_join_find(relation::graph_type& r, relation::join_kind kind) {
         // NOTE: joins T2 itself by its primary key
@@ -264,11 +262,11 @@ protected:
 
     void apply(
             relation::graph_type& r,
-            runtime_feature_set const& features = runtime_feature_all,
+            scan_capability_options const& scan_capabilities = all_capabilities,
             path_capability_options const& capability_options = {}) {
-        rewrite_scan(r, estimator, parameters, features, capability_options);
+        rewrite_scan(r, estimator, parameters, scan_capabilities, capability_options);
         remove_redundant_conditions(r);
-        if (features.contains(runtime_feature::scan_limit)) {
+        if (scan_capabilities.row_limit) {
             absorb_limits(r, capability_options);
         }
     }
@@ -308,7 +306,7 @@ TEST_F(rewrite_scan_order_test, early_stop_without_absorb_limits) {
     r1.output() >> r2.input();
 
     // NOTE: rewrite_scan() sets the direction and the row count which contribute to the index selection
-    rewrite_scan(r, estimator, parameters, runtime_feature_all, {});
+    rewrite_scan(r, estimator, parameters, all_capabilities, {});
 
     EXPECT_EQ(r0.source(), bindings(*i2v));
     EXPECT_EQ(r0.row_slice(), row_slice(3));
@@ -452,7 +450,7 @@ TEST_F(rewrite_scan_order_test, order_over_max_count_without_absorb_limits) {
     r1.output() >> r2.input();
 
     // NOTE: the large row count does not contribute to the index selection, but is still set to the scan
-    rewrite_scan(r, estimator, parameters, runtime_feature_all, {});
+    rewrite_scan(r, estimator, parameters, all_capabilities, {});
 
     EXPECT_EQ(r0.source(), bindings(*i2));
     EXPECT_EQ(r0.row_slice(), row_slice(11));
@@ -617,7 +615,7 @@ TEST_F(rewrite_scan_order_test, order_over_apply_outer) {
 
     path_capability_options capability_options {};
     capability_options.apply_preserves_order = true;
-    apply(r, runtime_feature_all, capability_options);
+    apply(r, all_capabilities, capability_options);
 
     EXPECT_EQ(r0.direction(), scan_direction::forward);
 }
@@ -640,7 +638,7 @@ TEST_F(rewrite_scan_order_test, order_over_apply_cross) {
 
     path_capability_options capability_options {};
     capability_options.apply_preserves_order = true;
-    apply(r, runtime_feature_all, capability_options);
+    apply(r, all_capabilities, capability_options);
 
     EXPECT_EQ(r0.direction(), scan_direction::forward);
     EXPECT_FALSE(r0.row_slice());
@@ -663,7 +661,7 @@ TEST_F(rewrite_scan_order_test, order_over_apply_output) {
 
     path_capability_options capability_options {};
     capability_options.apply_preserves_order = true;
-    apply(r, runtime_feature_all, capability_options);
+    apply(r, all_capabilities, capability_options);
 
     EXPECT_FALSE(r0.direction());
 }
@@ -741,7 +739,7 @@ TEST_F(rewrite_scan_order_test, order_only_without_absorb_limits) {
     r0.output() >> r1.input();
     r1.output() >> r2.input();
 
-    rewrite_scan(r, estimator, parameters, runtime_feature_all, {});
+    rewrite_scan(r, estimator, parameters, all_capabilities, {});
 
     EXPECT_EQ(r0.source(), bindings(*i2));
     EXPECT_FALSE(r0.row_slice());
@@ -1151,7 +1149,7 @@ TEST_F(rewrite_scan_order_test, scan_limit_only_with_residual) {
     r1.output() >> r2.input();
     r2.output() >> r3.input();
 
-    apply(r, { runtime_feature::scan_limit });
+    apply(r, scan_capability_options { false, true, false, false });
 
     EXPECT_EQ(r0.source(), bindings(*i2));
     EXPECT_FALSE(r0.direction());
