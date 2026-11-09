@@ -28,6 +28,7 @@
 #include <takatori/relation/intermediate/limit.h>
 #include <takatori/relation/intermediate/intersection.h>
 #include <takatori/relation/intermediate/difference.h>
+#include <takatori/relation/intermediate/union.h>
 #include <takatori/relation/intermediate/escape.h>
 
 #include <yugawara/binding/factory.h>
@@ -1074,6 +1075,55 @@ TEST_F(remove_unused_stream_variables_test, difference_relation) {
     EXPECT_EQ(rr.columns()[0].destination(), cr0);
     EXPECT_EQ(rr.columns()[1].source(), t1c2);
     EXPECT_EQ(rr.columns()[1].destination(), cr2);
+}
+
+TEST_F(remove_unused_stream_variables_test, union_distinct_keeps_unused_columns) {
+    /*
+     * scan:rl -\
+     *           union[distinct]:r0 - emit:ro
+     * scan:rr -/
+     */
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto cl1 = bindings.stream_variable("cl1");
+    auto cr0 = bindings.stream_variable("cr0");
+    auto cr1 = bindings.stream_variable("cr1");
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto&& rl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, cl0 },
+                    { t0c1, cl1 },
+            },
+    });
+    auto&& rr = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t1c0, cr0 },
+                    { t1c1, cr1 },
+            },
+    });
+    auto&& r0 = r.insert(relation::intermediate::union_ {
+            {
+                    { cl0, cr0, c0 },
+                    { cl1, cr1, c1 },
+            },
+            relation::set_quantifier::distinct,
+    });
+    auto&& ro = r.insert(relation::emit {
+            c0,
+    });
+    rl.output() >> r0.left();
+    rr.output() >> r0.right();
+    r0.output() >> ro.input();
+
+    apply(r);
+
+    // every column decides duplicates, even if it is unused in the downstream
+    ASSERT_EQ(r0.mappings().size(), 2);
+    EXPECT_EQ(rl.columns().size(), 2);
+    EXPECT_EQ(rr.columns().size(), 2);
 }
 
 TEST_F(remove_unused_stream_variables_test, emit) {

@@ -166,7 +166,10 @@ public:
     }
 
     void operator()(relation::intermediate::union_& expr) {
-        remove_unused_mappings(expr.mappings());
+        // UNION DISTINCT decides duplicates by all of its columns
+        if (expr.quantifier() == relation::set_quantifier::all) {
+            remove_unused_mappings(expr.mappings());
+        }
         for (auto&& mapping : expr.mappings()) {
             if (auto&& v = mapping.left()) {
                 use(*v);
