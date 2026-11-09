@@ -644,16 +644,16 @@ public:
         // NOTE: must keep both upstreams to flow parameters
     }
 
-    void operator()(relation::intermediate::intersection const& expr, inspector_task& task) {
+    void operator()(relation::intermediate::intersection const& expr, inspector_task const& task) const noexcept {
         (void) expr;
-        // keep left term because right term will be discarded
-        prune(task, 1);
+        (void) task;
+        // NOTE: must keep both upstreams, because the operation must be evaluated for each outer row
     }
 
-    void operator()(relation::intermediate::difference const& expr, inspector_task& task) {
+    void operator()(relation::intermediate::difference const& expr, inspector_task const& task) const noexcept {
         (void) expr;
-        // keep left term because right term will be discarded
-        prune(task, 1);
+        (void) task;
+        // NOTE: must keep both upstreams, because the operation must be evaluated for each outer row
     }
 
 private:
@@ -1182,23 +1182,19 @@ public:
     void process_binary_set_operator(Expr& expr, rewriter_context& context) {
         BOOST_ASSERT(context.empty());
         auto&& left_context = get_upstream_context(context, 0);
-        auto&& right_context = find_upstream_context(context, 1);
+        auto&& right_context = get_upstream_context(context, 1);
 
         auto&& pairs = expr.group_key_pairs();
         for (auto&& pair : pairs) {
             left_context.replace(pair.left());
-            if (right_context) {
-                right_context->replace(pair.right());
-            }
+            right_context.replace(pair.right());
         }
-        if (right_context) {
-            // binary operation between decorated relations
-            pairs.reserve(pairs.size() + parameters_.size());
-            for (auto&& parameter : parameters_) {
-                auto&& left_key = left_context.get(parameter);
-                auto&& right_key = right_context->get(parameter);
-                pairs.emplace_back(left_key, right_key);
-            }
+        // both inputs are decorated, so that the parameters become keys of the operation
+        pairs.reserve(pairs.size() + parameters_.size());
+        for (auto&& parameter : parameters_) {
+            auto&& left_key = left_context.get(parameter);
+            auto&& right_key = right_context.get(parameter);
+            pairs.emplace_back(left_key, right_key);
         }
 
         // inherit left context

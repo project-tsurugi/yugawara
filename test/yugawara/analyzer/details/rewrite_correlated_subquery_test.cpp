@@ -1973,7 +1973,7 @@ TEST_F(rewrite_correlated_subquery_test, intersection_left) {
     /*
      * subquery: (v0a) -> (v0p)
      *   values[c0]:r0 -\
-     *                   +- intersect[(c0, c1)] => c0
+     *                   +- intersection[(c0, c1)] => c0
      *   values[c1]:r1 -/
      */
     auto v0a = bindings.stream_variable("v0a");
@@ -2020,14 +2020,15 @@ TEST_F(rewrite_correlated_subquery_test, intersection_left) {
     /*
      * () -- project[c0:=v0p]:j0 -\
      *                             +- intersection:r2 => c0
-     *             values[c1]:r1 -/
+     *   () -- project[c1:=1]:j1 -/
+     *
+     * the right input also receives the parameter, so that the operation is evaluated for each outer row
      */
     ASSERT_EQ(query.query_graph().size(), 3);
-    ASSERT_TRUE(query.query_graph().contains(r1));
     ASSERT_TRUE(query.query_graph().contains(r2));
 
     auto&& inputs = result.inputs();
-    ASSERT_EQ(inputs.size(), 1);
+    ASSERT_EQ(inputs.size(), 2);
 
     ASSERT_EQ(inputs[0].mappings().size(), 1);
     EXPECT_EQ(inputs[0].mappings()[0].source(), v0p);
@@ -2036,21 +2037,132 @@ TEST_F(rewrite_correlated_subquery_test, intersection_left) {
     auto&& j0 = downcast<relation::project>(inputs[0].input_port().owner());
     EXPECT_FALSE(j0.input().opposite());
     EXPECT_GT(j0.output(), r2.left());
-
     ASSERT_EQ(j0.columns().size(), 1);
     EXPECT_EQ(j0.columns()[0].variable(), c0);
     EXPECT_EQ(j0.columns()[0].value(), varref(v0pm0));
 
+    ASSERT_EQ(inputs[1].mappings().size(), 1);
+    EXPECT_EQ(inputs[1].mappings()[0].source(), v0p);
+    auto&& v0pm1 = inputs[1].mappings()[0].destination();
+
+    auto&& j1 = downcast<relation::project>(inputs[1].input_port().owner());
+    EXPECT_FALSE(j1.input().opposite());
+    EXPECT_GT(j1.output(), r2.right());
+    ASSERT_EQ(j1.columns().size(), 1);
+    EXPECT_EQ(j1.columns()[0].variable(), c1);
+    EXPECT_EQ(j1.columns()[0].value(), constant(1));
+
     auto&& outputs = result.output_mappings();
     ASSERT_EQ(outputs.size(), 1);
     EXPECT_EQ(outputs[0].source(), v0p);
-    auto&& v0pmo = outputs[0].destination();
-    EXPECT_EQ(v0pmo, v0pm0);
+    EXPECT_EQ(outputs[0].destination(), v0pm0);
 
+    // the parameter must take part in the comparison, or rows of different outer rows are merged
     auto&& pairs = r2.group_key_pairs();
-    ASSERT_EQ(pairs.size(), 1);
+    ASSERT_EQ(pairs.size(), 2);
     EXPECT_EQ(pairs[0].left(), c0);
     EXPECT_EQ(pairs[0].right(), c1);
+    EXPECT_EQ(pairs[1].left(), v0pm0);
+    EXPECT_EQ(pairs[1].right(), v0pm1);
+
+    EXPECT_EQ(query.output_column(), c0);
+}
+
+TEST_F(rewrite_correlated_subquery_test, difference_left) {
+    /*
+     * subquery: (v0a) -> (v0p)
+     *   values[c0]:r0 -\
+     *                   +- difference[(c0, c1)] => c0
+     *   values[c1]:r1 -/
+     */
+    auto v0a = bindings.stream_variable("v0a");
+    auto v0p = bindings.frame_variable("v0p");
+    relation::graph_type g;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& r0 = g.insert(relation::values {
+            {
+                    c0,
+            },
+            {
+                    { varref(v0p) },
+            },
+    });
+    auto c1 = bindings.stream_variable("c1");
+    auto&& r1 = g.insert(relation::values {
+            {
+                    c1,
+            },
+            {
+                    { constant(1) },
+            },
+    });
+    auto&& r2 = g.insert(relation::intermediate::difference {
+            {
+                    { c0, c1 },
+            },
+            relation::set_quantifier::distinct,
+    });
+    r0.output() >> r2.left();
+    r1.output() >> r2.right();
+
+    extension::scalar::subquery query {
+            std::move(g),
+            {
+                    { v0a, v0p },
+            },
+            c0,
+    };
+
+    auto result = rewrite_correlated_subquery(query);
+    ASSERT_TRUE(result) << print_support(result.diagnostics());
+
+    /*
+     * () -- project[c0:=v0p]:j0 -\
+     *                             +- difference:r2 => c0
+     *   () -- project[c1:=1]:j1 -/
+     *
+     * the right input also receives the parameter, so that the operation is evaluated for each outer row
+     */
+    ASSERT_EQ(query.query_graph().size(), 3);
+    ASSERT_TRUE(query.query_graph().contains(r2));
+
+    auto&& inputs = result.inputs();
+    ASSERT_EQ(inputs.size(), 2);
+
+    ASSERT_EQ(inputs[0].mappings().size(), 1);
+    EXPECT_EQ(inputs[0].mappings()[0].source(), v0p);
+    auto&& v0pm0 = inputs[0].mappings()[0].destination();
+
+    auto&& j0 = downcast<relation::project>(inputs[0].input_port().owner());
+    EXPECT_FALSE(j0.input().opposite());
+    EXPECT_GT(j0.output(), r2.left());
+    ASSERT_EQ(j0.columns().size(), 1);
+    EXPECT_EQ(j0.columns()[0].variable(), c0);
+    EXPECT_EQ(j0.columns()[0].value(), varref(v0pm0));
+
+    ASSERT_EQ(inputs[1].mappings().size(), 1);
+    EXPECT_EQ(inputs[1].mappings()[0].source(), v0p);
+    auto&& v0pm1 = inputs[1].mappings()[0].destination();
+
+    auto&& j1 = downcast<relation::project>(inputs[1].input_port().owner());
+    EXPECT_FALSE(j1.input().opposite());
+    EXPECT_GT(j1.output(), r2.right());
+    ASSERT_EQ(j1.columns().size(), 1);
+    EXPECT_EQ(j1.columns()[0].variable(), c1);
+    EXPECT_EQ(j1.columns()[0].value(), constant(1));
+
+    auto&& outputs = result.output_mappings();
+    ASSERT_EQ(outputs.size(), 1);
+    EXPECT_EQ(outputs[0].source(), v0p);
+    EXPECT_EQ(outputs[0].destination(), v0pm0);
+
+    // the parameter must take part in the comparison, or rows of different outer rows are merged
+    auto&& pairs = r2.group_key_pairs();
+    ASSERT_EQ(pairs.size(), 2);
+    EXPECT_EQ(pairs[0].left(), c0);
+    EXPECT_EQ(pairs[0].right(), c1);
+    EXPECT_EQ(pairs[1].left(), v0pm0);
+    EXPECT_EQ(pairs[1].right(), v0pm1);
 
     EXPECT_EQ(query.output_column(), c0);
 }
