@@ -112,6 +112,7 @@ add_test_executable(yugawara/analyzer/intermediate_plan_normalizer_test.cpp)
 # optimizer
 add_test_executable(yugawara/analyzer/details/decompose_predicate_test.cpp)
 add_test_executable(yugawara/analyzer/details/remove_unused_stream_variables_test.cpp)
+add_test_executable(yugawara/analyzer/details/remove_unused_stream_variables_contract_test.cpp)
 add_test_executable(yugawara/analyzer/details/stream_variable_flow_info_test.cpp)
 add_test_executable(yugawara/analyzer/details/predicate_decomposer_test.cpp)
 add_test_executable(yugawara/analyzer/details/collect_stream_variables_test.cpp)
