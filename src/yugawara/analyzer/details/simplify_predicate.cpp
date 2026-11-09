@@ -284,10 +284,10 @@ public:
 
             case not_sure:
                 switch (right) {
-                    case constant_false_or_unknown:
+                    case constant_true_or_unknown:
                     case constant_unknown:
                         return constant_true_or_unknown;
-                    case constant_true_or_unknown:
+                    case constant_false_or_unknown:
                     case not_sure:
                         return not_sure;
                     default:

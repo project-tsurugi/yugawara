@@ -836,6 +836,20 @@ TEST_F(simplify_predicate_test, or_fv) {
     EXPECT_EQ(*expr, not_sure());
 }
 
+TEST_F(simplify_predicate_test, or_not_sure_false_or_unknown) {
+    // the result is false if both operands are false, so that it is not "true or unknown"
+    scalar::binary orig {
+            scalar::binary_operator::conditional_or,
+            not_sure(),
+            false_or_unknown(),
+    };
+    auto expr = clone_unique<scalar::expression&>(orig);
+    auto ref = make_ref(expr);
+
+    auto r = simplify_predicate(ref);
+    EXPECT_EQ(r, simplify_predicate_result::not_sure);
+}
+
 TEST_F(simplify_predicate_test, or_ut) {
     scalar::binary orig {
             scalar::binary_operator::conditional_or,
