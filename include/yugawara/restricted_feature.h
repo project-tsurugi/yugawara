@@ -131,6 +131,12 @@ enum class restricted_feature {
 
     /// @brief restrict `truncate table` statement with restart identity.
     statement_truncate_table_restart_identity,
+
+    /// @brief restrict `create foreign catalog` statement.
+    statement_create_foreign_catalog,
+
+    /// @brief restrict `drop foreign catalog` statement.
+    statement_drop_foreign_catalog,
 };
 
 /**
@@ -139,7 +145,7 @@ enum class restricted_feature {
 using restricted_feature_set = ::takatori::util::enum_set<
         restricted_feature,
         restricted_feature::relation_buffer,
-        restricted_feature::statement_truncate_table_restart_identity>;
+        restricted_feature::statement_drop_foreign_catalog>;
 
 /// @brief all scalar expressions of restricted_feature_set.
 constexpr restricted_feature_set restricted_feature_scalar_expressions {};
@@ -190,6 +196,8 @@ constexpr restricted_feature_set restricted_feature_statements {
         restricted_feature::statement_rename_column,
         restricted_feature::statement_truncate_table,
         restricted_feature::statement_truncate_table_restart_identity,
+        restricted_feature::statement_create_foreign_catalog,
+        restricted_feature::statement_drop_foreign_catalog,
 };
 
 /**
@@ -237,6 +245,8 @@ constexpr std::string_view to_string_view(restricted_feature value) noexcept {
         case kind::statement_rename_column: return "rename column statement"sv;
         case kind::statement_truncate_table: return "truncate table statement"sv;
         case kind::statement_truncate_table_restart_identity: return "truncate table statement with restart identity option"sv;
+        case kind::statement_create_foreign_catalog: return "create foreign catalog statement"sv;
+        case kind::statement_drop_foreign_catalog: return "drop foreign catalog statement"sv;
     }
     std::abort();
 }

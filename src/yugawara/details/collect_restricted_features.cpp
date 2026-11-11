@@ -96,6 +96,14 @@ public:
         }
     }
 
+    void operator()(tstatement::create_foreign_catalog const& statement) {
+        validate(restricted_feature::statement_create_foreign_catalog, statement.region());
+    }
+
+    void operator()(tstatement::drop_foreign_catalog const& statement) {
+        validate(restricted_feature::statement_drop_foreign_catalog, statement.region());
+    }
+
     void operator()(tplan::step const&) {
         // do nothing
     }

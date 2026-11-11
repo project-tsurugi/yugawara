@@ -23,6 +23,8 @@
 #include <takatori/statement/rename_index.h>
 #include <takatori/statement/rename_column.h>
 #include <takatori/statement/truncate_table.h>
+#include <takatori/statement/create_foreign_catalog.h>
+#include <takatori/statement/drop_foreign_catalog.h>
 
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/binding/factory.h>
@@ -585,6 +587,46 @@ TEST_F(collect_restricted_features_test, statement_truncate_table_restart_identi
                     {
                             ::takatori::statement::truncate_table_option_kind::restart_identity,
                     },
+            });
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, statement_create_foreign_catalog_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_create_foreign_catalog },
+            ::takatori::statement::create_foreign_catalog {
+                    "c",
+                    "s",
+            });
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::statement_create_foreign_catalog);
+}
+
+TEST_F(collect_restricted_features_test, statement_create_foreign_catalog_not_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_drop_foreign_catalog },
+            ::takatori::statement::create_foreign_catalog {
+                    "c",
+                    "s",
+            });
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, statement_drop_foreign_catalog_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_drop_foreign_catalog },
+            ::takatori::statement::drop_foreign_catalog {
+                    "c",
+            });
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::statement_drop_foreign_catalog);
+}
+
+TEST_F(collect_restricted_features_test, statement_drop_foreign_catalog_not_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_create_foreign_catalog },
+            ::takatori::statement::drop_foreign_catalog {
+                    "c",
             });
     ASSERT_EQ(result.size(), 0);
 }
