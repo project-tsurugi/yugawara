@@ -32,6 +32,8 @@
 #include <takatori/statement/rename_column.h>
 #include <takatori/statement/drop_table.h>
 #include <takatori/statement/drop_index.h>
+#include <takatori/statement/create_foreign_catalog.h>
+#include <takatori/statement/drop_foreign_catalog.h>
 #include <takatori/statement/grant_table.h>
 #include <takatori/statement/revoke_table.h>
 #include <takatori/statement/empty.h>
@@ -562,6 +564,44 @@ TEST_F(compiler_test, drop_index) {
     auto&& index = binding::extract<storage::index>(c.target());
     EXPECT_EQ(*sch, schema);
     EXPECT_EQ(*i0, index);
+}
+
+TEST_F(compiler_test, create_foreign_catalog) {
+    auto result = compiler()(options(), statement::create_foreign_catalog {
+            "remote_catalog",
+            "remote_server",
+            {
+                    statement::create_foreign_catalog_option_kind::if_catalog_not_exists,
+                    statement::create_foreign_catalog_option_kind::if_server_exists,
+            },
+    });
+    ASSERT_TRUE(result);
+    dump(result);
+
+    auto&& c = downcast<statement::create_foreign_catalog>(result.statement());
+    EXPECT_EQ(c.catalog_name(), "remote_catalog");
+    EXPECT_EQ(c.server_name(), "remote_server");
+    EXPECT_EQ(c.options(), (statement::create_foreign_catalog::option_set_type {
+            statement::create_foreign_catalog_option_kind::if_catalog_not_exists,
+            statement::create_foreign_catalog_option_kind::if_server_exists,
+    }));
+}
+
+TEST_F(compiler_test, drop_foreign_catalog) {
+    auto result = compiler()(options(), statement::drop_foreign_catalog {
+            "remote_catalog",
+            {
+                    statement::drop_foreign_catalog_option_kind::if_catalog_exists,
+            },
+    });
+    ASSERT_TRUE(result);
+    dump(result);
+
+    auto&& c = downcast<statement::drop_foreign_catalog>(result.statement());
+    EXPECT_EQ(c.catalog_name(), "remote_catalog");
+    EXPECT_EQ(c.options(), (statement::drop_foreign_catalog::option_set_type {
+            statement::drop_foreign_catalog_option_kind::if_catalog_exists,
+    }));
 }
 
 TEST_F(compiler_test, grant_table) {

@@ -1926,6 +1926,16 @@ public:
         return true;
     }
 
+    bool operator()(statement::create_foreign_catalog const& stmt) {
+        (void) stmt;
+        return true;
+    }
+
+    bool operator()(statement::drop_foreign_catalog const& stmt) {
+        (void) stmt;
+        return true;
+    }
+
     bool operator()(statement::empty const& stmt) {
         (void) stmt;
         return true;
