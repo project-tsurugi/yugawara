@@ -32,6 +32,7 @@
 #include <yugawara/restricted_feature.h>
 
 #include <yugawara/testing/utils.h>
+#include <yugawara/testing/mock_symbol_location_query.h>
 
 namespace yugawara::details {
 
@@ -57,6 +58,13 @@ protected:
     storage::column const& t0c2 = t0->columns()[2];
 
     std::shared_ptr<storage::index> i0 = storages->add_index({ t0, "I0", });
+
+    mock_symbol_location_query query {};
+
+    void locate_t0(remote::location_info::location_id_set_type locations) {
+        query.all = { 0, 7 };
+        query.tables[t0.get()] = std::move(locations);
+    }
 
     void check(diagnostic<compiler_code> const& d, restricted_feature f) {
         EXPECT_EQ(d.code(), compiler_code::unsupported_feature);
@@ -627,6 +635,105 @@ TEST_F(collect_restricted_features_test, statement_drop_foreign_catalog_not_rest
             { restricted_feature::statement_create_foreign_catalog },
             ::takatori::statement::drop_foreign_catalog {
                     "c",
+            });
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, relation_remote_symbol_restricted) {
+    locate_t0({ 7 });
+    auto result = collect_restricted_features(
+            { restricted_feature::relation_remote_symbol },
+            make_statement(make_scan({})),
+            query);
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::relation_remote_symbol);
+}
+
+TEST_F(collect_restricted_features_test, relation_remote_symbol_local) {
+    locate_t0({ 0, 7 });
+    auto result = collect_restricted_features(
+            { restricted_feature::relation_remote_symbol },
+            make_statement(make_scan({})),
+            query);
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, relation_remote_symbol_not_restricted) {
+    locate_t0({ 7 });
+    auto result = collect_restricted_features(
+            { restricted_feature::relation_buffer },
+            make_statement(make_scan({})),
+            query);
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, relation_remote_symbol_without_query) {
+    auto result = collect_restricted_features(
+            { restricted_feature::relation_remote_symbol },
+            make_statement(make_scan({})));
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, statement_remote_symbol_restricted) {
+    locate_t0({ 7 });
+    auto schema = std::make_shared<schema::declaration>("s");
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_remote_symbol },
+            ::takatori::statement::rename_table {
+                    factory(schema),
+                    factory(t0),
+                    "X",
+            },
+            query);
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::statement_remote_symbol);
+}
+
+TEST_F(collect_restricted_features_test, statement_remote_symbol_local) {
+    locate_t0({ 0, 7 });
+    auto schema = std::make_shared<schema::declaration>("s");
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_remote_symbol },
+            ::takatori::statement::rename_table {
+                    factory(schema),
+                    factory(t0),
+                    "X",
+            },
+            query);
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, statement_remote_symbol_not_restricted) {
+    locate_t0({ 7 });
+    auto schema = std::make_shared<schema::declaration>("s");
+    auto result = collect_restricted_features(
+            { restricted_feature::relation_remote_symbol },
+            ::takatori::statement::rename_table {
+                    factory(schema),
+                    factory(t0),
+                    "X",
+            },
+            query);
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, statement_remote_symbol_execute) {
+    locate_t0({ 7 });
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_remote_symbol },
+            make_statement(make_scan({})),
+            query);
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, statement_remote_symbol_without_query) {
+    auto schema = std::make_shared<schema::declaration>("s");
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_remote_symbol },
+            ::takatori::statement::rename_table {
+                    factory(schema),
+                    factory(t0),
+                    "X",
             });
     ASSERT_EQ(result.size(), 0);
 }

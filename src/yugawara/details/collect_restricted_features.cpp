@@ -1,10 +1,14 @@
 #include "collect_restricted_features.h"
 
+#include <optional>
+
 #include <takatori/relation/step/dispatch.h>
 #include <takatori/plan/dispatch.h>
 #include <takatori/statement/dispatch.h>
 
 #include <takatori/util/string_builder.h>
+
+#include "element_location.h"
 
 namespace yugawara::details {
 
@@ -12,6 +16,7 @@ namespace trelation = ::takatori::relation;
 namespace tplan = ::takatori::plan;
 namespace tstatement = ::takatori::statement;
 
+using ::takatori::util::optional_ptr;
 using ::takatori::util::string_builder;
 
 using diagnostic_type = diagnostic<compiler_code>;
@@ -31,9 +36,15 @@ public:
             | restricted_feature_relation_expressions
             ;
 
-    explicit engine(restricted_feature_set features) noexcept :
+    explicit engine(
+            restricted_feature_set features,
+            optional_ptr<remote::symbol_location_query const> query) noexcept :
         features_ { features }
-    {}
+    {
+        if (query) {
+            locations_.emplace(*query);
+        }
+    }
 
     std::vector<diagnostic_type> release() {
         return std::move(diagnostics_);
@@ -41,6 +52,9 @@ public:
 
     void process(tstatement::statement const& statement) {
         tstatement::dispatch(*this, statement);
+        if (statement.kind() != tstatement::execute::tag) {
+            validate_location(restricted_feature::statement_remote_symbol, statement);
+        }
     }
 
     void process(tplan::step const& step) {
@@ -117,6 +131,7 @@ public:
         // check relation expressions
         for (auto&& sub : step.operators()) {
             process(sub);
+            validate_location(restricted_feature::relation_remote_symbol, sub);
         }
     }
 
@@ -244,6 +259,7 @@ public:
 
 private:
     restricted_feature_set const features_; // NOLINT(*-avoid-const-or-ref-data-members) const for safety
+    std::optional<element_location> locations_ {};
     std::vector<diagnostic_type> diagnostics_ {};
 
     void process_row_slice(
@@ -264,6 +280,17 @@ private:
         }
     }
 
+    template<class T>
+    void validate_location(restricted_feature feature, T const& element) {
+        if (!locations_ || !features_.contains(feature)) {
+            return;
+        }
+        auto locations = (*locations_)(element);
+        if (locations.find(remote::location_info::local_location_id) == locations.end()) {
+            validate(feature, element.region());
+        }
+    }
+
     void validate(restricted_feature feature, takatori::document::region region) {
         if (features_.contains(feature)) {
             diagnostics_.emplace_back(
@@ -280,9 +307,11 @@ private:
 } // namespace
 
 
-std::vector<diagnostic_type>
-collect_restricted_features(restricted_feature_set features, tstatement::statement const& statement) {
-    engine e { features };
+std::vector<diagnostic_type> collect_restricted_features(
+        restricted_feature_set features,
+        tstatement::statement const& statement,
+        optional_ptr<remote::symbol_location_query const> query) {
+    engine e { features, query };
     e.process(statement);
     return e.release();
 }

@@ -4,6 +4,7 @@
 
 #include <takatori/util/assertion.h>
 #include <takatori/util/clonable.h>
+#include <takatori/util/optional_ptr.h>
 
 #include <yugawara/analyzer/expression_analyzer.h>
 #include <yugawara/analyzer/intermediate_plan_normalizer.h>
@@ -29,6 +30,7 @@ namespace plan = ::takatori::plan;
 namespace statement = ::takatori::statement;
 
 using ::takatori::util::clone_unique;
+using ::takatori::util::optional_ptr;
 
 using ::yugawara::util::either;
 
@@ -142,7 +144,10 @@ public:
             }
         }
         if (!options_.restricted_features().empty()) {
-            auto diagnostics = details::collect_restricted_features(options_.restricted_features(), *stmt);
+            auto diagnostics = details::collect_restricted_features(
+                    options_.restricted_features(),
+                    *stmt,
+                    optional_ptr<remote::symbol_location_query const> { options_.symbol_location_query().get() });
             if (!diagnostics.empty()) {
                 return result_type { std::move(diagnostics) };
             }

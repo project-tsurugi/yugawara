@@ -71,6 +71,13 @@ enum class restricted_feature {
     /// @brief restrict `scan` operator with row slice which has a variable start position or row count.
     relation_scan_row_slice_variable,
 
+    /**
+     * @brief restrict operators which refer to remote symbols.
+     * @details This restricts operators whose executable locations do not include the local location.
+     *      This feature does not restrict anything if compiler_options::symbol_location_query() is not specified.
+     */
+    relation_remote_symbol,
+
     // exchanges
 
     /// @brief restrict `aggregate` exchange.
@@ -137,6 +144,14 @@ enum class restricted_feature {
 
     /// @brief restrict `drop foreign catalog` statement.
     statement_drop_foreign_catalog,
+
+    /**
+     * @brief restrict statements (other than `execute`) which refer to remote symbols.
+     * @details This restricts statements whose executable locations do not include the local location.
+     *      This feature does not restrict anything if compiler_options::symbol_location_query() is not specified.
+     *      To restrict `execute` statements which refer to remote symbols, use relation_remote_symbol instead.
+     */
+    statement_remote_symbol,
 };
 
 /**
@@ -145,7 +160,7 @@ enum class restricted_feature {
 using restricted_feature_set = ::takatori::util::enum_set<
         restricted_feature,
         restricted_feature::relation_buffer,
-        restricted_feature::statement_drop_foreign_catalog>;
+        restricted_feature::statement_remote_symbol>;
 
 /// @brief all scalar expressions of restricted_feature_set.
 constexpr restricted_feature_set restricted_feature_scalar_expressions {};
@@ -169,6 +184,7 @@ constexpr restricted_feature_set restricted_feature_relation_expressions {
         restricted_feature::relation_scan_row_slice_start,
         restricted_feature::relation_scan_row_slice_count,
         restricted_feature::relation_scan_row_slice_variable,
+        restricted_feature::relation_remote_symbol,
 };
 
 /// @brief all exchange steps of restricted_feature_set.
@@ -198,6 +214,7 @@ constexpr restricted_feature_set restricted_feature_statements {
         restricted_feature::statement_truncate_table_restart_identity,
         restricted_feature::statement_create_foreign_catalog,
         restricted_feature::statement_drop_foreign_catalog,
+        restricted_feature::statement_remote_symbol,
 };
 
 /**
@@ -226,6 +243,7 @@ constexpr std::string_view to_string_view(restricted_feature value) noexcept {
         case kind::relation_scan_row_slice_start: return "scan operator with row slice start position"sv;
         case kind::relation_scan_row_slice_count: return "scan operator with row slice count"sv;
         case kind::relation_scan_row_slice_variable: return "scan operator with row slice variables"sv;
+        case kind::relation_remote_symbol: return "operator with remote symbols"sv;
         case kind::exchange_aggregate: return "aggregate exchange"sv;
         case kind::exchange_broadcast: return "broadcast exchange"sv;
         case kind::exchange_discard: return "discard exchange"sv;
@@ -247,6 +265,7 @@ constexpr std::string_view to_string_view(restricted_feature value) noexcept {
         case kind::statement_truncate_table_restart_identity: return "truncate table statement with restart identity option"sv;
         case kind::statement_create_foreign_catalog: return "create foreign catalog statement"sv;
         case kind::statement_drop_foreign_catalog: return "drop foreign catalog statement"sv;
+        case kind::statement_remote_symbol: return "statement with remote symbols"sv;
     }
     std::abort();
 }

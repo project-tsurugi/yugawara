@@ -1,8 +1,5 @@
 #include <yugawara/details/element_location.h>
 
-#include <map>
-#include <stdexcept>
-
 #include <gtest/gtest.h>
 
 #include <takatori/relation/scan.h>
@@ -27,6 +24,7 @@
 #include <yugawara/binding/factory.h>
 
 #include <yugawara/testing/utils.h>
+#include <yugawara/testing/mock_symbol_location_query.h>
 
 namespace yugawara::details {
 
@@ -36,40 +34,6 @@ using namespace ::yugawara::testing;
 namespace tstatement = ::takatori::statement;
 
 using location_id_set_type = element_location::location_id_set_type;
-
-namespace {
-
-class mock_symbol_location_query : public remote::symbol_location_query {
-public:
-    location_id_set_type all {};
-    std::map<storage::table const*, location_id_set_type> tables {};
-
-    [[nodiscard]] remote::location_info const& of(location_id_type) const override {
-        throw std::out_of_range("not supported");
-    }
-
-    [[nodiscard]] location_id_set_type const& available_location_ids() const override {
-        return all;
-    }
-
-    [[nodiscard]] location_id_set_type find(storage::table const& symbol) const override {
-        return tables.at(&symbol);
-    }
-
-    [[nodiscard]] location_id_set_type find(function::declaration const&) const override {
-        return all;
-    }
-
-    [[nodiscard]] location_id_set_type find(aggregate::declaration const&) const override {
-        return all;
-    }
-
-    [[nodiscard]] location_id_set_type find(variable::declaration const&) const override {
-        return all;
-    }
-};
-
-} // namespace
 
 class element_location_test : public ::testing::Test {
 protected:
