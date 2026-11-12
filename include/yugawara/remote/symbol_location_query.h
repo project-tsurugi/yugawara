@@ -47,6 +47,7 @@ public:
 
     /**
      * @brief returns the set of all available location IDs.
+     * @details The returned set must always contain location_info::local_location_id.
      * @return the set of all available location IDs
      */
     [[nodiscard]] virtual location_id_set_type const& available_location_ids() const = 0;
