@@ -11,6 +11,7 @@ add_library(yugawara
 
     # remote execution
     yugawara/remote/location_info.cpp
+    yugawara/remote/location_object_scanner.cpp
 
     # storage information
     yugawara/storage/relation.cpp
