@@ -28,6 +28,7 @@ endfunction (add_test_executable)
 add_test_executable(yugawara/compiler_test.cpp)
 add_test_executable(yugawara/details/collect_restricted_features_test.cpp)
 add_test_executable(yugawara/details/element_location_test.cpp)
+add_test_executable(yugawara/details/compute_operation_locations_test.cpp)
 
 # type system
 add_test_executable(yugawara/type/type_category_test.cpp)

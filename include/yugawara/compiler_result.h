@@ -47,10 +47,13 @@ public:
      * @brief creates a new instance.
      * @param statement the compiled statement
      * @param info the compiled information
+     * @param operation_location_query the operation location query for the compiled statement,
+     *      or empty if compiler_options::symbol_location_query() was not specified
      */
     compiler_result(
             std::unique_ptr<::takatori::statement::statement> statement,
-            info_type info) noexcept;
+            info_type info,
+            std::shared_ptr<remote::operation_location_query const> operation_location_query = {}) noexcept;
 
     /**
      * @brief creates a new instance which represents a compilation error.

@@ -16,9 +16,11 @@ using ::takatori::util::sequence_view;
 
 yugawara::compiler_result::compiler_result(
         std::unique_ptr<statement::statement> statement,
-        info_type info) noexcept :
+        info_type info,
+        std::shared_ptr<remote::operation_location_query const> operation_location_query) noexcept :
     statement_ { std::move(statement) },
-    info_ { std::move(info) }
+    info_ { std::move(info) },
+    operation_location_query_ { std::move(operation_location_query) }
 {}
 
 compiler_result::compiler_result(std::vector<diagnostic_type> diagnostics) noexcept :

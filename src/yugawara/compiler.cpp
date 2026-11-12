@@ -15,6 +15,7 @@
 #include <yugawara/storage/resolve_prototype.h>
 
 #include "details/collect_restricted_features.h"
+#include "details/compute_operation_locations.h"
 
 namespace yugawara {
 
@@ -157,7 +158,16 @@ public:
         if (expression_analyzer_.has_diagnostics()) {
             return result_type { build_error(expression_analyzer_) };
         }
-        return build_success(std::move(stmt));
+
+        std::shared_ptr<remote::operation_location_query const> operation_locations {};
+        if (auto const& query = options_.symbol_location_query()) {
+            auto locations = details::compute_operation_locations(*stmt, *query);
+            if (locations.has_error()) {
+                return result_type { std::move(locations.error()) };
+            }
+            operation_locations = std::move(locations.value());
+        }
+        return build_success(std::move(stmt), std::move(operation_locations));
     }
 
 private:
@@ -167,7 +177,9 @@ private:
     analyzer::expression_analyzer expression_analyzer_;
     type::repository type_repository_;
 
-    result_type build_success(std::unique_ptr<statement::statement> result) {
+    result_type build_success(
+            std::unique_ptr<statement::statement> result,
+            std::shared_ptr<remote::operation_location_query const> operation_locations) {
         BOOST_ASSERT(!expression_analyzer_.has_diagnostics()); // NOLINT
         return {
                 std::move(result),
@@ -175,6 +187,7 @@ private:
                         std::move(expression_mapping_),
                         std::move(variable_mapping_),
                 },
+                std::move(operation_locations),
         };
     }
 

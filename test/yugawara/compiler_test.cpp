@@ -41,6 +41,7 @@
 #include <takatori/serializer/json_printer.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/binding/extract.h>
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/variable/declaration.h>
 
@@ -50,6 +51,7 @@
 #include <yugawara/extension/relation/subquery.h>
 
 #include <yugawara/testing/utils.h>
+#include <yugawara/testing/mock_symbol_location_query.h>
 
 namespace yugawara {
 
@@ -119,6 +121,12 @@ protected:
         return iter->destination();
     }
 
+    using location_id_set_type = remote::location_info::location_id_set_type;
+
+    static bool contains_local(location_id_set_type const& locations) {
+        return locations.find(remote::location_info::local_location_id) != locations.end();
+    }
+
     static std::string diagnostics(compiler_result const& result) {
         std::ostringstream oss;
         for (auto&& d : result.diagnostics()) {
@@ -164,6 +172,200 @@ TEST_F(compiler_test, operation_location_query_absent) {
 
     auto result = compiler()(opts, std::move(r));
     ASSERT_TRUE(result);
+    EXPECT_FALSE(result.operation_location_query());
+}
+
+TEST_F(compiler_test, operation_location_query_local) {
+    auto query = std::make_shared<mock_symbol_location_query>();
+    query->all = { 0, 7 };
+    query->tables.emplace(t0.get(), location_id_set_type { 0 });
+
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+    in.output() >> out.input();
+
+    auto opts = options();
+    opts.symbol_location_query() = query;
+
+    auto result = compiler()(opts, std::move(r));
+    ASSERT_TRUE(result) << diagnostics(result);
+    ASSERT_TRUE(result.operation_location_query());
+    auto&& locations = *result.operation_location_query();
+
+    auto&& stmt = downcast<statement::execute>(result.statement());
+    for (auto&& step : stmt.execution_plan()) {
+        EXPECT_TRUE(contains_local(locations.find(step)));
+    }
+    EXPECT_TRUE(contains_local(locations.find(stmt)));
+}
+
+TEST_F(compiler_test, operation_location_query_remote_process) {
+    auto t1 = storages->add_table({
+            "T1",
+            {
+                    { "C0", t::int4() },
+                    { "C1", t::int4() },
+            },
+    });
+    auto i1 = storages->add_index({ t1, "I1", });
+
+    auto query = std::make_shared<mock_symbol_location_query>();
+    query->all = { 0, 7 };
+    query->tables.emplace(t0.get(), location_id_set_type { 0 });
+    query->tables.emplace(t1.get(), location_id_set_type { 7 });
+
+    /*
+     * SELECT T0.C0 FROM T0 JOIN T1 ON T0.C1 = T1.C1
+     * - by shuffle join: T1 is scanned in an individual process (scan -> offer)
+     */
+    relation::graph_type r;
+    auto t0_c0 = bindings.stream_variable("t0_c0");
+    auto t0_c1 = bindings.stream_variable("t0_c1");
+    auto t1_c1 = bindings.stream_variable("t1_c1");
+    auto&& in0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), t0_c0 },
+                    { bindings(t0c1), t0_c1 },
+            },
+    });
+    auto&& in1 = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1->columns()[1]), t1_c1 },
+            },
+    });
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::inner,
+            compare(varref(t0_c1), varref(t1_c1)),
+    });
+    auto&& out = r.insert(relation::emit { t0_c0 });
+    in0.output() >> join.left();
+    in1.output() >> join.right();
+    join.output() >> out.input();
+
+    auto opts = options();
+    opts.runtime_features().erase(runtime_feature::index_join);
+    opts.runtime_features().erase(runtime_feature::broadcast_exchange);
+    opts.runtime_features().erase(runtime_feature::broadcast_join_scan);
+    opts.symbol_location_query() = query;
+
+    auto result = compiler()(opts, std::move(r));
+    ASSERT_TRUE(result) << diagnostics(result);
+    ASSERT_TRUE(result.operation_location_query());
+    auto&& locations = *result.operation_location_query();
+
+    auto&& stmt = downcast<statement::execute>(result.statement());
+    std::size_t remote_processes = 0;
+    for (auto&& step : stmt.execution_plan()) {
+        if (step.kind() != plan::step_kind::process) {
+            continue;
+        }
+        bool remote = false;
+        for (auto&& expression : downcast<plan::process>(step).operators()) {
+            if (expression.kind() == relation::expression_kind::scan) {
+                auto&& index = binding::extract<storage::index>(downcast<relation::scan>(expression).source());
+                remote = remote || std::addressof(index) == i1.get();
+            }
+        }
+        if (remote) {
+            ++remote_processes;
+            EXPECT_EQ(locations.find(step), (location_id_set_type { 7 }));
+        } else {
+            EXPECT_TRUE(contains_local(locations.find(step)));
+        }
+    }
+    EXPECT_EQ(remote_processes, 1);
+}
+
+TEST_F(compiler_test, operation_location_query_empty_process) {
+    auto query = std::make_shared<mock_symbol_location_query>();
+    query->all = { 0, 7 };
+    query->tables.emplace(t0.get(), location_id_set_type { 7 });
+    query->locations.emplace(7, remote::location_info { 7, "remote" });
+
+    // scan(remote) -> emit(local)
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+    in.output() >> out.input();
+
+    auto opts = options();
+    opts.symbol_location_query() = query;
+
+    auto result = compiler()(opts, std::move(r));
+    ASSERT_FALSE(result);
+    EXPECT_TRUE(find_diagnostic(compiler_code::empty_operation_location, result)) << diagnostics(result);
+    EXPECT_FALSE(result.operation_location_query());
+}
+
+TEST_F(compiler_test, operation_location_query_empty_statement) {
+    auto t1 = storages->add_table({
+            "T1",
+            {
+                    { "C0", t::int4() },
+            },
+    });
+
+    auto query = std::make_shared<mock_symbol_location_query>();
+    query->all = { 0, 7, 8 };
+    query->tables.emplace(t0.get(), location_id_set_type { 7 });
+    query->tables.emplace(t1.get(), location_id_set_type { 8 });
+
+    auto opts = options();
+    opts.symbol_location_query() = query;
+
+    auto result = compiler()(opts, statement::grant_table {
+            {
+                    { bindings(t0), {}, {} },
+                    { bindings(t1), {}, {} },
+            },
+    });
+    ASSERT_FALSE(result);
+    EXPECT_TRUE(find_diagnostic(compiler_code::empty_operation_location, result)) << diagnostics(result);
+    EXPECT_FALSE(result.operation_location_query());
+}
+
+TEST_F(compiler_test, operation_location_query_restricted) {
+    auto query = std::make_shared<mock_symbol_location_query>();
+    query->all = { 0, 7 };
+    query->tables.emplace(t0.get(), location_id_set_type { 7 });
+
+    // scan(remote) -> emit(local)
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+    in.output() >> out.input();
+
+    auto opts = options();
+    opts.symbol_location_query() = query;
+    opts.restricted_features() += {
+            restricted_feature::relation_remote_symbol,
+    };
+
+    auto result = compiler()(opts, std::move(r));
+    ASSERT_FALSE(result);
+    EXPECT_TRUE(find_diagnostic(compiler_code::unsupported_feature, result)) << diagnostics(result);
+    EXPECT_FALSE(find_diagnostic(compiler_code::empty_operation_location, result)) << diagnostics(result);
     EXPECT_FALSE(result.operation_location_query());
 }
 
