@@ -158,6 +158,15 @@ TEST_F(compute_operation_locations_test, empty_process) {
     EXPECT_EQ(diagnostics[0].code(), compiler_code::empty_operation_location);
 }
 
+TEST_F(compute_operation_locations_test, empty_process_allowed) {
+    tstatement::execute stmt { plan::graph_type {} };
+    auto&& process = add_scan_emit(stmt.execution_plan(), *remote_index);
+
+    auto result = compute_operation_locations(stmt, query, true);
+    ASSERT_TRUE(result);
+    EXPECT_EQ((*result)->find(process), (location_id_set_type {}));
+}
+
 TEST_F(compute_operation_locations_test, statement_execute) {
     tstatement::execute stmt { plan::graph_type {} };
     auto&& graph = stmt.execution_plan();
@@ -217,6 +226,19 @@ TEST_F(compute_operation_locations_test, statement_empty) {
     auto&& diagnostics = result.error();
     ASSERT_EQ(diagnostics.size(), 1);
     EXPECT_EQ(diagnostics[0].code(), compiler_code::empty_operation_location);
+}
+
+TEST_F(compute_operation_locations_test, statement_empty_allowed) {
+    tstatement::grant_table stmt {
+            {
+                    { factory(remote_table), {}, {} },
+                    { factory(other_remote_table), {}, {} },
+            },
+    };
+
+    auto result = compute_operation_locations(stmt, query, true);
+    ASSERT_TRUE(result);
+    EXPECT_EQ((*result)->find(stmt), (location_id_set_type {}));
 }
 
 TEST_F(compute_operation_locations_test, statement_execute_empty) {

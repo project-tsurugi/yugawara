@@ -312,6 +312,68 @@ TEST_F(compiler_test, operation_location_query_empty_process) {
     EXPECT_FALSE(result.operation_location_query());
 }
 
+TEST_F(compiler_test, operation_location_query_allow_empty) {
+    auto query = std::make_shared<mock_symbol_location_query>();
+    query->all = { 0, 7 };
+    query->tables.emplace(t0.get(), location_id_set_type { 7 });
+
+    // scan(remote) -> emit(local)
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+    in.output() >> out.input();
+
+    auto opts = options();
+    opts.symbol_location_query() = query;
+    opts.allow_empty_operation_location() = true;
+
+    auto result = compiler()(opts, std::move(r));
+    ASSERT_TRUE(result) << diagnostics(result);
+    ASSERT_TRUE(result.operation_location_query());
+    auto&& locations = *result.operation_location_query();
+
+    auto&& stmt = downcast<statement::execute>(result.statement());
+    ASSERT_EQ(stmt.execution_plan().size(), 1);
+    for (auto&& step : stmt.execution_plan()) {
+        EXPECT_EQ(locations.find(step), (location_id_set_type {}));
+    }
+}
+
+TEST_F(compiler_test, operation_location_query_allow_empty_restricted) {
+    auto query = std::make_shared<mock_symbol_location_query>();
+    query->all = { 0, 7 };
+    query->tables.emplace(t0.get(), location_id_set_type { 7 });
+
+    // scan(remote) -> emit(local)
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+    in.output() >> out.input();
+
+    auto opts = options();
+    opts.symbol_location_query() = query;
+    opts.allow_empty_operation_location() = true;
+    opts.restricted_features() += {
+            restricted_feature::relation_remote_symbol,
+    };
+
+    auto result = compiler()(opts, std::move(r));
+    ASSERT_FALSE(result);
+    EXPECT_TRUE(find_diagnostic(compiler_code::unsupported_feature, result)) << diagnostics(result);
+}
+
 TEST_F(compiler_test, operation_location_query_empty_statement) {
     auto t1 = storages->add_table({
             "T1",

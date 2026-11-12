@@ -64,9 +64,10 @@ private:
 
 class engine {
 public:
-    explicit engine(remote::symbol_location_query const& query) noexcept :
+    engine(remote::symbol_location_query const& query, bool allow_empty) noexcept :
         query_ { query },
-        locations_ { query }
+        locations_ { query },
+        allow_empty_ { allow_empty }
     {}
 
     [[nodiscard]] result_type process(tstatement::statement const& statement) {
@@ -74,7 +75,7 @@ public:
         if (statement.kind() == tstatement::execute::tag) {
             for (auto&& step : unsafe_downcast<tstatement::execute>(statement).execution_plan()) {
                 auto step_locations = locations_(step);
-                if (step_locations.empty()) {
+                if (step_locations.empty() && !allow_empty_) {
                     report_empty(step);
                 }
                 steps.emplace(std::addressof(step), std::move(step_locations));
@@ -82,7 +83,7 @@ public:
         }
         auto statement_locations = locations_(statement);
         // NOTE: `execute` statements may be empty, because their steps can be executed in different locations
-        if (statement.kind() != tstatement::execute::tag && statement_locations.empty()) {
+        if (statement.kind() != tstatement::execute::tag && statement_locations.empty() && !allow_empty_) {
             report_empty(statement);
         }
         if (!diagnostics_.empty()) {
@@ -98,6 +99,7 @@ public:
 private:
     remote::symbol_location_query const& query_;
     element_location locations_;
+    bool allow_empty_;
     std::vector<diagnostic_type> diagnostics_ {};
 
     void report_empty(tplan::step const& step) {
@@ -179,8 +181,9 @@ private:
 
 result_type compute_operation_locations(
         tstatement::statement const& statement,
-        remote::symbol_location_query const& query) {
-    engine e { query };
+        remote::symbol_location_query const& query,
+        bool allow_empty) {
+    engine e { query, allow_empty };
     return e.process(statement);
 }
 

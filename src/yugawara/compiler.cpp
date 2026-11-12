@@ -161,7 +161,10 @@ public:
 
         std::shared_ptr<remote::operation_location_query const> operation_locations {};
         if (auto const& query = options_.symbol_location_query()) {
-            auto locations = details::compute_operation_locations(*stmt, *query);
+            auto locations = details::compute_operation_locations(
+                    *stmt,
+                    *query,
+                    options_.allow_empty_operation_location());
             if (locations.has_error()) {
                 return result_type { std::move(locations.error()) };
             }

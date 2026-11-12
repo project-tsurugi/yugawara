@@ -52,6 +52,12 @@ public:
     static constexpr std::size_t default_max_partial_limit_count = 1000;
 
     /**
+     * @brief the default value for allowing operations which cannot be executed in any locations.
+     * @see allow_empty_operation_location()
+     */
+    static constexpr bool default_allow_empty_operation_location = false;
+
+    /**
      * @brief creates a new instance with default options.
      * @param storage_processor the storage element prototype processor for accepting storage element definitions
      * @param index_estimator the index estimator for index selection
@@ -177,6 +183,22 @@ public:
     /// @copydoc symbol_location_query()
     [[nodiscard]] ::takatori::util::maybe_shared_ptr<remote::symbol_location_query const> const& symbol_location_query() const noexcept;
 
+    /**
+     * @brief returns whether to allow operations which cannot be executed in any locations.
+     * @details If this is enabled, the compiler does not report compiler_code::empty_operation_location,
+     *      and the operation location query just returns empty sets for such operations.
+     *      This is mainly for inspecting the compiled plans, and the SQL execution engine should not enable it.
+     *      Note that restricted_features() are still effective even if this is enabled.
+     *      This does nothing if symbol_location_query() is not specified.
+     * @return true if such operations are allowed
+     * @return false otherwise
+     * @see compiler_result::operation_location_query()
+     */
+    [[nodiscard]] bool& allow_empty_operation_location() noexcept;
+
+    /// @copydoc allow_empty_operation_location()
+    [[nodiscard]] bool allow_empty_operation_location() const noexcept;
+
 private:
     runtime_feature_set runtime_features_ { default_runtime_features };
     restricted_feature_set restricted_features_ { default_restricted_features };
@@ -188,6 +210,7 @@ private:
     bool enable_external_variable_inlining_ { default_enable_external_variable_inlining };
     std::size_t max_partial_limit_count_ { default_max_partial_limit_count };
     ::takatori::util::maybe_shared_ptr<remote::symbol_location_query const> symbol_location_query_ {};
+    bool allow_empty_operation_location_ { default_allow_empty_operation_location };
 };
 
 } // namespace yugawara
