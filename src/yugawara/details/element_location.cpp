@@ -45,6 +45,15 @@ location_id_set_type local_location() {
     return { remote::location_info::local_location_id };
 }
 
+void intersect(location_id_set_type& target, location_id_set_type const& other) {
+    location_id_set_type intersection {};
+    std::set_intersection(
+            target.begin(), target.end(),
+            other.begin(), other.end(),
+            std::inserter(intersection, intersection.end()));
+    target = std::move(intersection);
+}
+
 class location_intersection {
 public:
     explicit location_intersection(remote::symbol_location_query const& query) :
@@ -57,7 +66,7 @@ public:
             add(index->table());
             return;
         }
-        intersect(local_location());
+        intersect(result_, local_location());
     }
 
     void add(descriptor::storage const& descriptor) {
@@ -65,7 +74,7 @@ public:
             add(*table);
             return;
         }
-        intersect(local_location());
+        intersect(result_, local_location());
     }
 
     template<class T>
@@ -84,16 +93,7 @@ private:
     location_id_set_type result_;
 
     void add(storage::table const& table) {
-        intersect(query_.find(table));
-    }
-
-    void intersect(location_id_set_type const& locations) {
-        location_id_set_type intersection {};
-        std::set_intersection(
-                result_.begin(), result_.end(),
-                locations.begin(), locations.end(),
-                std::inserter(intersection, intersection.end()));
-        result_ = std::move(intersection);
+        intersect(result_, query_.find(table));
     }
 };
 
@@ -133,6 +133,21 @@ location_id_set_type element_location::operator()(trelation::expression const& e
     return std::move(result).release();
 }
 
+location_id_set_type element_location::operator()(tplan::step const& step) const {
+    if (step.kind() == tplan::process::tag) {
+        return (*this)(unsafe_downcast<tplan::process>(step));
+    }
+    return (*this)(unsafe_downcast<tplan::exchange>(step));
+}
+
+location_id_set_type element_location::operator()(tplan::process const& step) const {
+    auto result = all();
+    for (auto&& expression : step.operators()) {
+        intersect(result, (*this)(expression));
+    }
+    return result;
+}
+
 location_id_set_type element_location::operator()(tplan::exchange const&) const {
     return local_location();
 }
@@ -140,9 +155,13 @@ location_id_set_type element_location::operator()(tplan::exchange const&) const 
 location_id_set_type element_location::operator()(tstatement::statement const& statement) const {
     location_intersection result { query_ };
     switch (statement.kind()) {
-        case tstatement::execute::tag:
-            // FIXME: provisional - this should be the intersection of the locations of its steps
-            return all();
+        case tstatement::execute::tag: {
+            auto locations = all();
+            for (auto&& step : unsafe_downcast<tstatement::execute>(statement).execution_plan()) {
+                intersect(locations, (*this)(step));
+            }
+            return locations;
+        }
         case tstatement::write::tag:
             result.add(unsafe_downcast<tstatement::write>(statement).destination());
             break;

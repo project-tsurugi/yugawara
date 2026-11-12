@@ -11,6 +11,7 @@
 #include <takatori/relation/emit.h>
 #include <takatori/relation/step/offer.h>
 
+#include <takatori/plan/process.h>
 #include <takatori/plan/forward.h>
 #include <takatori/plan/broadcast.h>
 
@@ -87,6 +88,24 @@ protected:
     relation::scan make_scan(storage::index const& index) {
         return relation::scan { factory(index), {} };
     }
+
+    // scan -> offer
+    plan::process& add_scan_offer(plan::graph_type& graph, storage::index const& index, plan::exchange const& destination) {
+        auto&& process = graph.insert(plan::process {});
+        auto&& scan = process.operators().insert(make_scan(index));
+        auto&& offer = process.operators().insert(relation::step::offer { factory(destination), {} });
+        scan.output() >> offer.input();
+        return process;
+    }
+
+    // scan -> emit
+    plan::process& add_scan_emit(plan::graph_type& graph, storage::index const& index) {
+        auto&& process = graph.insert(plan::process {});
+        auto&& scan = process.operators().insert(make_scan(index));
+        auto&& emit = process.operators().insert(relation::emit { std::vector<relation::emit::column> {} });
+        scan.output() >> emit.input();
+        return process;
+    }
 };
 
 TEST_F(element_location_test, scan) {
@@ -154,9 +173,47 @@ TEST_F(element_location_test, exchange) {
     EXPECT_EQ(locations(exchange), (location_id_set_type { 0 }));
 }
 
+TEST_F(element_location_test, process) {
+    plan::graph_type graph {};
+    auto&& exchange = graph.insert(plan::forward {});
+    auto&& process = add_scan_offer(graph, *remote_index, exchange);
+    EXPECT_EQ(locations(process), (location_id_set_type { 7 }));
+}
+
+TEST_F(element_location_test, process_local) {
+    plan::graph_type graph {};
+    auto&& process = add_scan_emit(graph, *shared_index);
+    EXPECT_EQ(locations(process), (location_id_set_type { 0 }));
+}
+
+TEST_F(element_location_test, process_empty) {
+    plan::graph_type graph {};
+    auto&& process = add_scan_emit(graph, *remote_index);
+    EXPECT_EQ(locations(process), (location_id_set_type {}));
+}
+
+TEST_F(element_location_test, step) {
+    plan::graph_type graph {};
+    auto&& exchange = graph.insert(plan::forward {});
+    auto&& process = add_scan_offer(graph, *remote_index, exchange);
+    EXPECT_EQ(locations(static_cast<plan::step const&>(process)), (location_id_set_type { 7 }));
+    EXPECT_EQ(locations(static_cast<plan::step const&>(exchange)), (location_id_set_type { 0 }));
+}
+
 TEST_F(element_location_test, statement_execute) {
     tstatement::execute stmt { plan::graph_type {} };
-    EXPECT_EQ(locations(stmt), (location_id_set_type { 0, 7, 8 }));
+    auto&& graph = stmt.execution_plan();
+    auto&& exchange = graph.insert(plan::forward {});
+    add_scan_offer(graph, *shared_index, exchange);
+    EXPECT_EQ(locations(stmt), (location_id_set_type { 0 }));
+}
+
+TEST_F(element_location_test, statement_execute_remote) {
+    tstatement::execute stmt { plan::graph_type {} };
+    auto&& graph = stmt.execution_plan();
+    auto&& exchange = graph.insert(plan::forward {});
+    add_scan_offer(graph, *remote_index, exchange);
+    EXPECT_EQ(locations(stmt), (location_id_set_type {}));
 }
 
 TEST_F(element_location_test, statement_write) {
