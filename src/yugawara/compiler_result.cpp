@@ -61,6 +61,10 @@ info_type const& compiler_result::info() const noexcept {
     return info_;
 }
 
+std::shared_ptr<remote::operation_location_query const> const& compiler_result::operation_location_query() const noexcept {
+    return operation_location_query_;
+}
+
 sequence_view<diagnostic_type const> compiler_result::diagnostics() const noexcept {
     return diagnostics_;
 }

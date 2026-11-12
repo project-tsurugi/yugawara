@@ -15,6 +15,7 @@
 #include <yugawara/serializer/object_scanner.h>
 #include <yugawara/analyzer/expression_mapping.h>
 #include <yugawara/analyzer/variable_mapping.h>
+#include <yugawara/remote/operation_location_query.h>
 
 #include "diagnostic.h"
 #include "compiler_code.h"
@@ -107,6 +108,18 @@ public:
     [[nodiscard]] info_type const& info() const noexcept;
 
     /**
+     * @brief returns an operation location query to detect where each operation can be executed.
+     * @details This is available only if compiler_options::symbol_location_query() was specified.
+     *      The query accepts only the operations in the compiled statement,
+     *      and it does not refer to the statement, so that it is still available after release_statement().
+     * @return the operation location query
+     * @return empty if compiler_options::symbol_location_query() was not specified
+     * @return empty if this compilation was failed
+     * @see compiler_options::symbol_location_query()
+     */
+    [[nodiscard]] std::shared_ptr<remote::operation_location_query const> const& operation_location_query() const noexcept;
+
+    /**
      * @brief returns the diagnostic information.
      * @return the diagnostic information of the compiled result.
      */
@@ -134,6 +147,7 @@ private:
     // successfully information
     std::unique_ptr<::takatori::statement::statement> statement_ {};
     info_type info_ {};
+    std::shared_ptr<remote::operation_location_query const> operation_location_query_ {};
 
     // erroneous information
     std::vector<diagnostic_type> diagnostics_ {};

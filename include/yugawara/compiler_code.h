@@ -26,6 +26,8 @@ enum class compiler_code {
     inconsistent_elements,
     /// @brief the function type is not allowed in this context.
     inconsistent_function_type,
+    /// @brief there are no locations where the operation can be executed.
+    empty_operation_location,
 };
 
 /**
@@ -45,6 +47,7 @@ inline constexpr std::string_view to_string_view(compiler_code value) noexcept {
         case kind::unresolved_variable: return "unresolved_variable"sv;
         case kind::inconsistent_elements: return "inconsistent_elements"sv;
         case kind::inconsistent_function_type: return "inconsistent_function_type"sv;
+        case kind::empty_operation_location: return "empty_operation_location"sv;
     }
     std::abort();
 }

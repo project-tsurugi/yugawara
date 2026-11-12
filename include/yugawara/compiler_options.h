@@ -9,6 +9,7 @@
 #include <yugawara/analyzer/index_estimator.h>
 #include <yugawara/analyzer/index_selection_parameters.h>
 #include <yugawara/storage/prototype_processor.h>
+#include <yugawara/remote/symbol_location_query.h>
 
 #include "runtime_feature.h"
 #include "restricted_feature.h"
@@ -163,6 +164,19 @@ public:
     /// @copydoc max_partial_limit_count()
     [[nodiscard]] std::size_t max_partial_limit_count() const noexcept;
 
+    /**
+     * @brief returns a symbol location query to detect where each symbol is defined.
+     * @details If this is not specified, the compiler does not compute the locations of operations,
+     *      and the compilation result does not provide an operation location query.
+     * @return the symbol location query
+     * @return empty if the symbol location query is not specified
+     * @see compiler_result::operation_location_query()
+     */
+    [[nodiscard]] ::takatori::util::maybe_shared_ptr<remote::symbol_location_query const>& symbol_location_query() noexcept;
+
+    /// @copydoc symbol_location_query()
+    [[nodiscard]] ::takatori::util::maybe_shared_ptr<remote::symbol_location_query const> const& symbol_location_query() const noexcept;
+
 private:
     runtime_feature_set runtime_features_ { default_runtime_features };
     restricted_feature_set restricted_features_ { default_restricted_features };
@@ -173,6 +187,7 @@ private:
     bool enable_disjunction_range_hinting_ { default_enable_disjunction_range_hinting };
     bool enable_external_variable_inlining_ { default_enable_external_variable_inlining };
     std::size_t max_partial_limit_count_ { default_max_partial_limit_count };
+    ::takatori::util::maybe_shared_ptr<remote::symbol_location_query const> symbol_location_query_ {};
 };
 
 } // namespace yugawara

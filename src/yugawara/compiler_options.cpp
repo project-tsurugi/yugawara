@@ -88,4 +88,12 @@ std::size_t compiler_options::max_partial_limit_count() const noexcept {
     return max_partial_limit_count_;
 }
 
+maybe_shared_ptr<remote::symbol_location_query const>& compiler_options::symbol_location_query() noexcept {
+    return symbol_location_query_;
+}
+
+maybe_shared_ptr<remote::symbol_location_query const> const& compiler_options::symbol_location_query() const noexcept {
+    return symbol_location_query_;
+}
+
 } // namespace yugawara

@@ -147,6 +147,26 @@ protected:
     }
 };
 
+TEST_F(compiler_test, operation_location_query_absent) {
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+    in.output() >> out.input();
+
+    auto opts = options();
+    ASSERT_FALSE(opts.symbol_location_query());
+
+    auto result = compiler()(opts, std::move(r));
+    ASSERT_TRUE(result);
+    EXPECT_FALSE(result.operation_location_query());
+}
+
 TEST_F(compiler_test, graph_emit) {
     relation::graph_type r;
     auto c0 = bindings.stream_variable("c0");

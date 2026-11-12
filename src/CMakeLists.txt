@@ -7,6 +7,9 @@ add_library(yugawara
     yugawara/compiler_result.cpp
     yugawara/details/collect_restricted_features.cpp
 
+    # remote execution
+    yugawara/remote/location_info.cpp
+
     # storage information
     yugawara/storage/relation.cpp
     yugawara/storage/table.cpp
