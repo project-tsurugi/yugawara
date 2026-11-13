@@ -38,6 +38,7 @@
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/extension/relation/fence.h>
 
 #include "detect_join_endpoint_style.h"
 #include "row_slice_utils.h"
@@ -114,6 +115,20 @@ public:
                 << "other than step plan operator will remain: "
                 << expr
                 << string_builder::to_string));
+    }
+
+    void operator()(relation::intermediate::extension& expr) {
+        if (expr.extension_id() == extension::relation::fence::extension_tag) {
+            auto&& fence = unsafe_downcast<extension::relation::fence>(expr);
+            if (redundant_fences_.contains(std::addressof(fence))) {
+                remove_fence(fence);
+                return;
+            }
+            process_fence(fence);
+            return;
+        }
+        // fallback to the default behavior for unknown extensions
+        operator()(static_cast<relation::expression&>(expr));
     }
 
     void operator()(relation::intermediate::join& expr) {
@@ -248,6 +263,7 @@ private:
     std::vector<std::unique_ptr<relation::expression>> added_;
     ::tsl::hopscotch_map<relation::intermediate::limit const*, plan::forward::ordering_type> ordered_limits_ {};
     ::tsl::hopscotch_set<relation::intermediate::limit const*> redundant_limits_ {};
+    ::tsl::hopscotch_set<extension::relation::fence const*> redundant_fences_ {};
 
     template<class T>
     [[nodiscard]] std::vector<T> empty() const noexcept {
@@ -596,6 +612,10 @@ private:
                 decide_emit(unsafe_downcast<relation::emit>(expr));
                 // NOTE: emit only controls `preserve_output` of the upstream limits, and is never rewritten itself
                 return;
+            case relation::intermediate::extension::tag:
+                decide_extension(unsafe_downcast<relation::intermediate::extension>(expr));
+                targets_.emplace_back(std::addressof(expr));
+                return;
             default:
                 if (!relation::is_available_in_step_plan(expr.kind())) {
                     targets_.emplace_back(std::addressof(expr));
@@ -919,6 +939,64 @@ private:
         auto iter = ordered_limits_.find(std::addressof(expr));
         BOOST_ASSERT(iter != ordered_limits_.end()); // NOLINT
         iter.value().insert(plan::forward_ordering::preserve_output);
+    }
+
+    /**
+     * @brief decides how to rewrite the given extension operator.
+     * @details A fence becomes a forward exchange, or is just removed if its upstream is also a fence,
+     *      because the consecutive fences must be merged into a single exchange.
+     * @param expr the target extension operator
+     */
+    void decide_extension(relation::intermediate::extension const& expr) {
+        if (expr.extension_id() != extension::relation::fence::extension_tag) {
+            return;
+        }
+        auto&& fence = unsafe_downcast<extension::relation::fence>(expr);
+        if (auto upstream = fence.input().opposite()) {
+            auto&& owner = upstream->owner();
+            if (owner.kind() == relation::intermediate::extension::tag
+                    && unsafe_downcast<relation::intermediate::extension>(owner).extension_id()
+                            == extension::relation::fence::extension_tag) {
+                redundant_fences_.emplace(std::addressof(fence));
+            }
+        }
+    }
+
+    void process_fence(extension::relation::fence& expr) {
+        /*
+         * .. - fence - ..
+         * =>
+         * .. - offer - [forward] - take_flat - ..
+         */
+        auto&& exchange = destination_.emplace<plan::forward>(plan::forward::row_slice_type {});
+        auto&& offer = add_offer(exchange);
+
+        auto&& take = add<relation::step::take_flat>(
+                to_descriptor(exchange),
+                empty<relation::step::take_flat::column>());
+
+        migrate(expr.input(), offer.input());
+        migrate(expr.output(), take.output());
+
+        source_.erase(expr);
+    }
+
+    void remove_fence(extension::relation::fence& expr) {
+        /*
+         * .. - fence - fence{redundant} - ..
+         * =>
+         * .. - fence - ..
+         */
+        auto upstream = expr.input().opposite();
+        auto downstream = expr.output().opposite();
+        if (!upstream || !downstream) {
+            throw_exception(std::domain_error(string_builder {}
+                    << "disconnected fence: "
+                    << expr
+                    << string_builder::to_string));
+        }
+        upstream->reconnect_to(*downstream);
+        source_.erase(expr);
     }
 
     void remove_limit(relation::intermediate::limit& expr) {

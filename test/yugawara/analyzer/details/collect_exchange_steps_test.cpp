@@ -34,6 +34,7 @@
 #include <takatori/plan/broadcast.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/extension/relation/fence.h>
 #include <yugawara/type/repository.h>
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/aggregate/configurable_provider.h>
@@ -1514,6 +1515,92 @@ TEST_F(collect_exchange_steps_test, limit_flat) {
     EXPECT_EQ(r4.source(), r3.destination());
 
     ASSERT_EQ(e0.row_slice(), (relation::details::row_slice { {}, 10 }));
+}
+
+TEST_F(collect_exchange_steps_test, fence) {
+    /*
+     * scan:r0 - fence:r1 - emit:r2
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+            },
+    });
+    auto& r1 = r.insert(extension::relation::fence { 7, 0 });
+    auto& r2 = r.insert(relation::emit {
+            c0,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+
+    /*
+     * scan:r0 - offer:r3 - [forward] - take_flat:r4 - emit:r2
+     */
+    details::collect_exchange_steps(r, p, options);
+    ASSERT_EQ(r.size(), 4);
+    EXPECT_TRUE(r.contains(r0));
+    EXPECT_TRUE(r.contains(r2));
+
+    auto&& r3 = next<offer>(r0.output());
+    auto&& r4 = next<relation::step::take_flat>(r2.input());
+
+    auto&& e0 = resolve<plan::forward>(r3.destination());
+
+    ASSERT_EQ(p.size(), 1);
+    EXPECT_TRUE(p.contains(e0));
+
+    EXPECT_EQ(r4.source(), r3.destination());
+
+    EXPECT_FALSE(e0.row_slice());
+}
+
+TEST_F(collect_exchange_steps_test, fence_consecutive) {
+    /*
+     * scan:r0 - fence:r1 - fence:r2 - emit:r3
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+            },
+    });
+    auto& r1 = r.insert(extension::relation::fence { 7, 8 });
+    auto& r2 = r.insert(extension::relation::fence { 8, 0 });
+    auto& r3 = r.insert(relation::emit {
+            c0,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    details::step_plan_builder_options options;
+    plan::graph_type p;
+
+    /*
+     * scan:r0 - offer:r4 - [forward] - take_flat:r5 - emit:r3
+     */
+    details::collect_exchange_steps(r, p, options);
+    ASSERT_EQ(r.size(), 4);
+    EXPECT_TRUE(r.contains(r0));
+    EXPECT_TRUE(r.contains(r3));
+
+    auto&& r4 = next<offer>(r0.output());
+    auto&& r5 = next<relation::step::take_flat>(r3.input());
+
+    auto&& e0 = resolve<plan::forward>(r4.destination());
+
+    ASSERT_EQ(p.size(), 1);
+    EXPECT_TRUE(p.contains(e0));
+
+    EXPECT_EQ(r5.source(), r4.destination());
 }
 
 TEST_F(collect_exchange_steps_test, limit_group) {
