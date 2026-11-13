@@ -7,6 +7,8 @@
 #include <takatori/util/optional_ptr.h>
 #include <takatori/util/string_builder.h>
 
+#include <yugawara/extension/relation/fence.h>
+
 namespace yugawara::analyzer::details {
 
 namespace descriptor = ::takatori::descriptor;
@@ -158,6 +160,16 @@ public:
     void operator()(relation::intermediate::escape const& expr) {
         declare_mappings(expr, expr.mappings());
         done(expr);
+    }
+
+    void operator()(relation::intermediate::extension const& expr) {
+        if (expr.extension_id() == extension::relation::fence::extension_tag) {
+            // no declarations
+            // continue
+            return;
+        }
+        // fallback to the default behavior for unknown extensions
+        operator()(static_cast<relation::expression const&>(expr));
     }
 
 private:

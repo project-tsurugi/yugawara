@@ -31,6 +31,7 @@
 #include <takatori/relation/intermediate/escape.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/extension/relation/fence.h>
 #include <yugawara/type/repository.h>
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/aggregate/configurable_provider.h>
@@ -864,6 +865,36 @@ TEST_F(stream_variable_flow_info_test, escape) {
     EXPECT_EQ(entry->originator(), r1);
     EXPECT_EQ(entry->find(x1), r1);
     EXPECT_EQ(entry->find(x2), r1);
+}
+
+TEST_F(stream_variable_flow_info_test, fence) {
+    /*
+     * scan:r0 - fence:r1 - ...
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+                    { t0c2, c2 },
+            },
+    });
+    auto&& r1 = r.insert(extension::relation::fence { 7, 0 });
+    r0.output() >> r1.input();
+
+    auto&& input = connect(r1.output());
+
+    stream_variable_flow_info info;
+    auto&& entry = info.find(c0, input);
+    ASSERT_TRUE(entry);
+
+    EXPECT_EQ(entry->originator(), r0);
+    EXPECT_EQ(entry->find(c1), r0);
+    EXPECT_EQ(entry->find(c2), r0);
 }
 
 } // namespace yugawara::analyzer::details
