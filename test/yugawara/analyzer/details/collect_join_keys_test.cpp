@@ -13,6 +13,7 @@
 #include <takatori/relation/intermediate/join.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/extension/relation/fence.h>
 #include <yugawara/storage/configurable_provider.h>
 
 #include <yugawara/analyzer/details/remove_redundant_conditions.h>
@@ -582,6 +583,60 @@ TEST_F(collect_join_keys_test, cogroup_suppress_broadcast) {
     EXPECT_EQ(join.upper().keys()[0].value(), varref(cl0));
 
     EXPECT_EQ(join.condition(), compare(varref(cr0), constant(0), cmp::equal));
+}
+
+TEST_F(collect_join_keys_test, cogroup_over_fence) {
+    /*
+     * scan:inl - fence:fl -\
+     *                       join - emit
+     * scan:inr - fence:fr -/
+     */
+    relation::graph_type r;
+    auto cl0 = bindings.stream_variable("cl0");
+    auto&& inl = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), cl0 },
+            },
+    });
+    auto cr0 = bindings.stream_variable("cr0");
+    auto&& inr = r.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), cr0 },
+            },
+    });
+    auto&& fl = r.insert(extension::relation::fence { 7, 0 });
+    auto&& fr = r.insert(extension::relation::fence { 8, 0 });
+    auto&& join = r.insert(relation::intermediate::join {
+            relation::join_kind::inner,
+            compare(cl0, cr0),
+    });
+
+    auto&& out = r.insert(relation::emit { cl0, cr0 });
+    inl.output() >> fl.input();
+    inr.output() >> fr.input();
+    fl.output() >> join.left();
+    fr.output() >> join.right();
+    join.output() >> out.input();
+
+    apply(r);
+    EXPECT_GT(inl.output(), fl.input());
+    EXPECT_GT(inr.output(), fr.input());
+    EXPECT_GT(fl.output(), join.left());
+    EXPECT_GT(fr.output(), join.right());
+
+    EXPECT_EQ(join.lower().kind(), endpoint_kind::prefixed_inclusive);
+    ASSERT_EQ(join.lower().keys().size(), 1);
+    EXPECT_EQ(join.lower().keys()[0].variable(), cr0);
+    EXPECT_EQ(join.lower().keys()[0].value(), varref(cl0));
+
+    EXPECT_EQ(join.upper().kind(), endpoint_kind::prefixed_inclusive);
+    ASSERT_EQ(join.upper().keys().size(), 1);
+    EXPECT_EQ(join.upper().keys()[0].variable(), cr0);
+    EXPECT_EQ(join.upper().keys()[0].value(), varref(cl0));
+
+    EXPECT_EQ(join.condition(), nullptr);
 }
 
 } // namespace yugawara::analyzer::details
