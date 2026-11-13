@@ -21,6 +21,7 @@
 #include <takatori/relation/intermediate/union.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/extension/relation/fence.h>
 #include <yugawara/storage/configurable_provider.h>
 
 #include <yugawara/testing/utils.h>
@@ -1830,6 +1831,64 @@ TEST_F(push_down_limits_test, union_all_partial_merge_over_max_partial_limit_cou
     EXPECT_EQ(r1.row_slice(), row_slice(3));
     EXPECT_GT(r2.output(), r3.right());
     EXPECT_GT(r3.output(), r4.input());
+}
+
+TEST_F(push_down_limits_test, fence) {
+    /*
+     * scan:r0 - project:r1 - fence:r2 - limit:r3 - emit:r4
+     * =>
+     * (no changes: limit must not go over the fence)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r1 = r.insert(relation::project {
+            relation::project::column { x0, plus(c0, 1) },
+    });
+    auto&& r2 = r.insert(extension::relation::fence { 7, 0 });
+    auto&& r3 = r.insert(limit());
+    auto&& r4 = r.insert(relation::emit { x0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(r0.output(), r1.input());
+    EXPECT_GT(r1.output(), r2.input());
+    EXPECT_GT(r2.output(), r3.input());
+    EXPECT_GT(r3.output(), r4.input());
+}
+
+TEST_F(push_down_limits_test, fence_downstream) {
+    /*
+     * scan:r0 - fence:r1 - project:r2 - limit:r3 - emit:r4
+     * =>
+     * scan:r0 - fence:r1 - limit:r3 - project:r2 - emit:r4
+     */
+    relation::graph_type r;
+    auto&& r0 = add_scan(r);
+    auto&& r1 = r.insert(extension::relation::fence { 7, 0 });
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r2 = r.insert(relation::project {
+            relation::project::column { x0, plus(c0, 1) },
+    });
+    auto&& r3 = r.insert(limit());
+    auto&& r4 = r.insert(relation::emit { x0 });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+    r3.output() >> r4.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(r0.output(), r1.input());
+    EXPECT_GT(r1.output(), r3.input());
+    EXPECT_GT(r3.output(), r2.input());
+    EXPECT_GT(r2.output(), r4.input());
 }
 
 } // namespace yugawara::analyzer::details
