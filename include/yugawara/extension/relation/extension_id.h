@@ -25,6 +25,9 @@ enum extension_id : ::takatori::relation::intermediate::extension::extension_id_
     /// @brief pseudo subquery expression.
     subquery_id,
 
+    /// @brief pseudo boundary of the execution locations.
+    fence_id,
+
     /// @brief the minimum unused ID.
     min_unused_id,
 };
@@ -50,6 +53,7 @@ constexpr std::string_view to_string_view(extension_id value) noexcept {
     switch (value) {
         case error_id: return "error"sv;
         case subquery_id: return "subquery"sv;
+        case fence_id: return "fence"sv;
         default: return "(unknown extension kind)"sv;
     }
 }

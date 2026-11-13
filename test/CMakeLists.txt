@@ -81,6 +81,7 @@ add_test_executable(yugawara/extension/scalar/scalar_subquery_test.cpp)
 add_test_executable(yugawara/extension/scalar/scalar_exists_test.cpp)
 add_test_executable(yugawara/extension/scalar/scalar_quantified_compare_test.cpp)
 add_test_executable(yugawara/extension/relation/relation_subquery_test.cpp)
+add_test_executable(yugawara/extension/relation/relation_fence_test.cpp)
 
 # analyzer
 add_test_executable(yugawara/analyzer/expression_analyzer_scalar_test.cpp)

@@ -74,6 +74,7 @@ add_library(yugawara
     yugawara/extension/scalar/exists.cpp
     yugawara/extension/scalar/quantified_compare.cpp
     yugawara/extension/relation/subquery.cpp
+    yugawara/extension/relation/fence.cpp
 
     # analyzer
     yugawara/analyzer/expression_mapping.cpp

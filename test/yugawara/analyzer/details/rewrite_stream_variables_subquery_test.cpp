@@ -16,6 +16,7 @@
 #include <takatori/relation/intermediate/escape.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/extension/relation/fence.h>
 
 #include <yugawara/testing/utils.h>
 
@@ -59,6 +60,44 @@ TEST_F(rewrite_stream_variables_subquery_test, simple) {
 
     ASSERT_EQ(r0.columns().size(), 1);
     EXPECT_EQ(r0.columns()[0], c0m);
+}
+
+TEST_F(rewrite_stream_variables_subquery_test, fence) {
+    /*
+     * values:r0 - fence:r1 -*
+     */
+    relation::graph_type g0;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& r0 = g0.insert(relation::values {
+            {
+                    c0,
+            },
+            {},
+    });
+    auto&& r1 = g0.insert(extension::relation::fence { 7, 0 });
+    r0.output() >> r1.input();
+
+    auto s0 = bindings.stream_variable("s0");
+    extension::relation::subquery q0 {
+            std::move(g0),
+            {
+                    { c0, s0 },
+            },
+    };
+
+    rewrite_stream_variables(q0);
+
+    auto c0m = q0.mappings()[0].source();
+    EXPECT_NE(c0m, c0);
+
+    EXPECT_EQ(q0.mappings()[0].destination(), s0);
+
+    ASSERT_EQ(r0.columns().size(), 1);
+    EXPECT_EQ(r0.columns()[0], c0m);
+
+    EXPECT_GT(r0.output(), r1.input());
+    EXPECT_EQ(r1.upstream(), 7);
+    EXPECT_EQ(r1.downstream(), 0);
 }
 
 TEST_F(rewrite_stream_variables_subquery_test, join) {

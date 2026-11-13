@@ -319,6 +319,10 @@ public:
                     operator()(unsafe_downcast<extension::relation::subquery>(expr));
                     return;
 
+                case extension::relation::fence_id:
+                    // no column references
+                    return;
+
                 case extension::relation::error_id:
                 case extension::relation::min_unused_id:
                     // unknown compiler extension
