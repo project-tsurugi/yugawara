@@ -8,6 +8,7 @@ add_library(yugawara
     yugawara/details/collect_restricted_features.cpp
     yugawara/details/element_location.cpp
     yugawara/details/compute_operation_locations.cpp
+    yugawara/details/decide_operator_locations.cpp
 
     # remote execution
     yugawara/remote/location_info.cpp
