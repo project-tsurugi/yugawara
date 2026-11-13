@@ -14,7 +14,10 @@
 #include <takatori/relation/intermediate/dispatch.h>
 
 #include <takatori/util/exception.h>
+#include <takatori/util/downcast.h>
 #include <takatori/util/string_builder.h>
+
+#include <yugawara/extension/relation/fence.h>
 
 #include "boolean_constants.h"
 #include "decompose_predicate.h"
@@ -442,7 +445,14 @@ public:
                 << string_builder::to_string));
     }
 
-    void operator()(relation::intermediate::extension& expr, term_list const&) {
+    void operator()(relation::intermediate::extension& expr, term_list incoming) {
+        if (expr.extension_id() == extension::relation::fence::extension_tag) {
+            // selection cannot push over fence
+            auto&& fence = ::takatori::util::unsafe_downcast<extension::relation::fence>(expr);
+            place_downstream(fence.output(), std::move(incoming));
+            forward(fence.input(), {});
+            return;
+        }
         throw_exception(std::domain_error(string_builder {}
                 << "unsupported operator: "
                 << expr

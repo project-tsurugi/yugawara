@@ -35,6 +35,7 @@
 #include <takatori/util/downcast.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/extension/relation/fence.h>
 #include <yugawara/type/repository.h>
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/aggregate/configurable_provider.h>
@@ -3293,6 +3294,76 @@ TEST_F(push_down_filters_test, escape) {
 
     EXPECT_EQ(f0.condition(), compare(varref(x0), constant(0)));
     EXPECT_EQ(rf.condition(), boolean(true));
+}
+
+TEST_F(push_down_filters_test, fence) {
+    /*
+     * scan:r0 - fence:r1 - filter:rf - ...
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+                    { t0c2, c2 },
+            },
+    });
+    auto&& r1 = r.insert(extension::relation::fence { 7, 0 });
+    auto&& rf = r.insert(relation::filter {
+            compare(varref(c0), constant(0)),
+    });
+    r0.output() >> r1.input();
+    r1.output() >> rf.input();
+
+    connect(rf.output());
+    apply(r);
+
+    // the filter must not go over the fence
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(r0.output(), r1.input());
+    auto&& f0 = next<relation::filter>(r1.output());
+    EXPECT_GT(f0.output(), rf.input());
+
+    EXPECT_EQ(f0.condition(), compare(varref(c0), constant(0)));
+    EXPECT_EQ(rf.condition(), boolean(true));
+}
+
+TEST_F(push_down_filters_test, fence_upstream) {
+    /*
+     * scan:r0 - filter:rf - fence:r1 - ...
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+                    { t0c2, c2 },
+            },
+    });
+    auto&& rf = r.insert(relation::filter {
+            compare(varref(c0), constant(0)),
+    });
+    auto&& r1 = r.insert(extension::relation::fence { 0, 7 });
+    r0.output() >> rf.input();
+    rf.output() >> r1.input();
+
+    connect(r1.output());
+    apply(r);
+
+    // the filter stays in the upstream of the fence
+    auto&& f0 = next<relation::filter>(r0.output());
+    EXPECT_EQ(f0.condition(), compare(varref(c0), constant(0)));
+    EXPECT_EQ(r1.input().opposite()->owner().kind(), relation::filter::tag);
+    ASSERT_TRUE(r1.output().opposite());
+    EXPECT_EQ(r1.output().opposite()->owner().kind(), relation::emit::tag);
 }
 
 } // namespace yugawara::analyzer::details
