@@ -30,6 +30,9 @@ void extension_relation_property_scanner::process(::takatori::relation::intermed
         case subquery::extension_tag:
             properties(unsafe_downcast<subquery>(element));
             break;
+        case fence::extension_tag:
+            properties(unsafe_downcast<fence>(element));
+            break;
         default:
             // no more information
             break;
@@ -62,6 +65,26 @@ void extension_relation_property_scanner::properties(extension::relation::subque
     acceptor_.property_begin("is_clone"sv);
     acceptor_.boolean(element.is_clone());
     acceptor_.property_end();
+}
+
+void extension_relation_property_scanner::properties(extension::relation::fence const& element) {
+    acceptor_.property_begin("upstream"sv);
+    accept_location(element.upstream());
+    acceptor_.property_end();
+
+    acceptor_.property_begin("downstream"sv);
+    accept_location(element.downstream());
+    acceptor_.property_end();
+}
+
+void extension_relation_property_scanner::accept_location(remote::location_info::location_id_type location_id) {
+    acceptor_.struct_begin();
+
+    acceptor_.property_begin("location_id"sv);
+    acceptor_.unsigned_integer(location_id);
+    acceptor_.property_end();
+
+    acceptor_.struct_end();
 }
 
 template <class T>

@@ -32,6 +32,7 @@
 #include <yugawara/extension/scalar/exists.h>
 #include <yugawara/extension/scalar/quantified_compare.h>
 #include <yugawara/extension/relation/subquery.h>
+#include <yugawara/extension/relation/fence.h>
 
 namespace yugawara::serializer {
 
@@ -546,6 +547,10 @@ TEST_F(object_scanner_test, extension_relation_subquery) {
                     },
             },
     });
+}
+
+TEST_F(object_scanner_test, extension_relation_fence) {
+    print(extension::relation::fence { 7, 0 });
 }
 
 } // namespace yugawara::serializer

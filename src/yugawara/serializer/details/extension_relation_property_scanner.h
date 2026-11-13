@@ -6,6 +6,7 @@
 #include <takatori/serializer/object_scanner.h>
 
 #include <yugawara/extension/relation/subquery.h>
+#include <yugawara/extension/relation/fence.h>
 
 namespace yugawara::serializer::details {
 
@@ -22,6 +23,9 @@ private:
     ::takatori::serializer::object_acceptor& acceptor_;
 
     void properties(extension::relation::subquery const& element);
+    void properties(extension::relation::fence const& element);
+
+    void accept_location(remote::location_info::location_id_type location_id);
 
     template<class T>
     void accept(::takatori::util::optional_ptr<T const> element);
