@@ -24,6 +24,7 @@
 #include <takatori/util/downcast.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/extension/relation/fence.h>
 #include <yugawara/function/declaration.h>
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/variable/declaration.h>
@@ -1178,6 +1179,85 @@ TEST_F(intermediate_plan_optimizer_test, between) {
         EXPECT_EQ(f1.condition(), compare(varref(c0), constant(100), comparison_operator::less_equal));
         EXPECT_EQ(f2.condition(), compare(constant(0), varref(c0), comparison_operator::less_equal));
     }
+}
+
+TEST_F(intermediate_plan_optimizer_test, fence) {
+    /*
+     * scan:in - fence:fe - project:project - filter:filter - limit:limit - emit:out
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+                    { bindings(t0c1), c1 },
+                    { bindings(t0c2), c2 },
+            },
+    });
+    auto&& fe = r.insert(extension::relation::fence { 7, 0 });
+    auto a0 = bindings.stream_variable("a0");
+    auto&& project = r.insert(relation::project {
+            relation::project::column {
+                    a0,
+                    scalar::variable_reference { c0 },
+            },
+    });
+    auto&& filter = r.insert(relation::filter {
+            compare(varref(a0), constant(0)),
+    });
+    auto&& limit = r.insert(relation::intermediate::limit {
+            std::vector<descriptor::variable> {},
+            std::vector<relation::intermediate::limit::sort_key> {},
+            relation::intermediate::limit::row_slice_type { {}, 3 },
+    });
+    auto&& out = r.insert(relation::emit { a0 });
+    in.output() >> fe.input();
+    fe.output() >> project.input();
+    project.output() >> filter.input();
+    filter.output() >> limit.input();
+    limit.output() >> out.input();
+    storages->add_index({
+            t0, "x0",
+            { t0c0 },
+    });
+
+    intermediate_plan_optimizer optimizer { options() };
+    optimizer(r);
+
+    // the fence remains, and the scan is still just before the fence
+    ASSERT_TRUE(r.contains(fe));
+    ASSERT_TRUE(fe.input().opposite());
+    auto&& scan = fe.input().opposite()->owner();
+    ASSERT_EQ(scan.kind(), relation::scan::tag);
+    auto&& rscan = ::takatori::util::unsafe_downcast<relation::scan>(scan);
+    EXPECT_EQ(rscan.lower().kind(), relation::endpoint_kind::unbound);
+    EXPECT_EQ(rscan.upper().kind(), relation::endpoint_kind::unbound);
+    EXPECT_FALSE(rscan.row_slice());
+
+    // the filter and the limit stay in the downstream of the fence
+    bool saw_filter = false;
+    bool saw_limit = false;
+    for (::takatori::util::optional_ptr current { fe.output().opposite() }; current;) {
+        auto&& owner = current->owner();
+        if (owner.kind() == relation::filter::tag) {
+            saw_filter = true;
+            EXPECT_EQ(
+                    ::takatori::util::unsafe_downcast<relation::filter>(owner).condition(),
+                    compare(varref(c0), constant(0)));
+        }
+        if (owner.kind() == relation::intermediate::limit::tag) {
+            saw_limit = true;
+        }
+        if (owner.output_ports().empty()) {
+            break;
+        }
+        current = owner.output_ports()[0].opposite();
+    }
+    EXPECT_TRUE(saw_filter);
+    EXPECT_TRUE(saw_limit);
 }
 
 } // namespace yugawara::analyzer
