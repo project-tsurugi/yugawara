@@ -558,6 +558,36 @@ TEST_F(compiler_test, operation_location_query_restricted) {
     EXPECT_FALSE(result.operation_location_query());
 }
 
+TEST_F(compiler_test, operation_location_query_restricted_empty_table) {
+    auto query = std::make_shared<mock_symbol_location_query>();
+    query->all = { 0, 7 };
+    query->tables.emplace(t0.get(), location_id_set_type {});
+
+    // scan(nowhere) -> emit(local): either unsupported_feature or empty_operation_location is reported
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+    in.output() >> out.input();
+
+    auto opts = options();
+    opts.symbol_location_query() = query;
+    opts.restricted_features() += {
+            restricted_feature::relation_remote_symbol,
+    };
+
+    auto result = compiler()(opts, std::move(r));
+    ASSERT_FALSE(result);
+    EXPECT_TRUE(find_diagnostic(compiler_code::unsupported_feature, result)
+            || find_diagnostic(compiler_code::empty_operation_location, result)) << diagnostics(result);
+    EXPECT_FALSE(result.operation_location_query());
+}
+
 TEST_F(compiler_test, graph_emit) {
     relation::graph_type r;
     auto c0 = bindings.stream_variable("c0");
