@@ -16,6 +16,7 @@
 
 #include "details/collect_restricted_features.h"
 #include "details/compute_operation_locations.h"
+#include "details/insert_fences.h"
 
 namespace yugawara {
 
@@ -125,6 +126,14 @@ public:
 
         if (auto diagnostics = do_normalize(plan); !diagnostics.empty()) {
             return result_type { std::move(diagnostics) };
+        }
+        if (auto const& query = options_.symbol_location_query()) {
+            // NOTE: fences must be placed before optimization, to prevent moving operators across the locations
+            auto diagnostics = details::insert_fences(plan, *query);
+            if (!diagnostics.empty() && !options_.allow_empty_operation_location()) {
+                return result_type { std::move(diagnostics) };
+            }
+            // NOTE: if empty locations are allowed, continues without fences, as if the locations were ignored
         }
         do_optimize(plan);
         auto steps = do_plan(std::move(plan));

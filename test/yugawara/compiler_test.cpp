@@ -22,6 +22,8 @@
 #include <takatori/relation/step/join.h>
 
 #include <takatori/plan/group.h>
+#include <takatori/plan/process.h>
+#include <takatori/plan/forward.h>
 
 #include <takatori/statement/execute.h>
 #include <takatori/statement/write.h>
@@ -291,7 +293,68 @@ TEST_F(compiler_test, operation_location_query_empty_process) {
     query->tables.emplace(t0.get(), location_id_set_type { 7 });
     query->locations.emplace(7, remote::location_info { 7, "remote" });
 
-    // scan(remote) -> emit(local)
+    // [scan(remote) -> emit(local)]: built as a step plan, so that no fences are inserted
+    plan::graph_type p;
+    auto&& p0 = p.insert(plan::process {});
+    auto c0 = bindings.stream_variable("c0");
+    auto&& in = p0.operators().insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    auto&& out = p0.operators().insert(relation::emit { c0 });
+    in.output() >> out.input();
+
+    auto opts = options();
+    opts.symbol_location_query() = query;
+
+    auto result = compiler()(opts, statement::execute { std::move(p) });
+    ASSERT_FALSE(result);
+    EXPECT_TRUE(find_diagnostic(compiler_code::empty_operation_location, result)) << diagnostics(result);
+    EXPECT_FALSE(result.operation_location_query());
+}
+
+TEST_F(compiler_test, operation_location_query_allow_empty) {
+    auto query = std::make_shared<mock_symbol_location_query>();
+    query->all = { 0, 7 };
+    query->tables.emplace(t0.get(), location_id_set_type { 7 });
+
+    // [scan(remote) -> emit(local)]: built as a step plan, so that no fences are inserted
+    plan::graph_type p;
+    auto&& p0 = p.insert(plan::process {});
+    auto c0 = bindings.stream_variable("c0");
+    auto&& in = p0.operators().insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    auto&& out = p0.operators().insert(relation::emit { c0 });
+    in.output() >> out.input();
+
+    auto opts = options();
+    opts.symbol_location_query() = query;
+    opts.allow_empty_operation_location() = true;
+
+    auto result = compiler()(opts, statement::execute { std::move(p) });
+    ASSERT_TRUE(result) << diagnostics(result);
+    ASSERT_TRUE(result.operation_location_query());
+    auto&& locations = *result.operation_location_query();
+
+    auto&& stmt = downcast<statement::execute>(result.statement());
+    ASSERT_EQ(stmt.execution_plan().size(), 1);
+    for (auto&& step : stmt.execution_plan()) {
+        EXPECT_EQ(locations.find(step), (location_id_set_type {}));
+    }
+}
+
+TEST_F(compiler_test, operation_location_query_empty_table) {
+    auto query = std::make_shared<mock_symbol_location_query>();
+    query->all = { 0, 7 };
+    query->tables.emplace(t0.get(), location_id_set_type {});
+
+    // scan(nowhere) -> emit(local): fences cannot separate the scan which cannot be executed in any locations
     relation::graph_type r;
     auto c0 = bindings.stream_variable("c0");
     auto&& in = r.insert(relation::scan {
@@ -312,12 +375,12 @@ TEST_F(compiler_test, operation_location_query_empty_process) {
     EXPECT_FALSE(result.operation_location_query());
 }
 
-TEST_F(compiler_test, operation_location_query_allow_empty) {
+TEST_F(compiler_test, operation_location_query_empty_table_allowed) {
     auto query = std::make_shared<mock_symbol_location_query>();
     query->all = { 0, 7 };
-    query->tables.emplace(t0.get(), location_id_set_type { 7 });
+    query->tables.emplace(t0.get(), location_id_set_type {});
 
-    // scan(remote) -> emit(local)
+    // scan(nowhere) -> emit(local)
     relation::graph_type r;
     auto c0 = bindings.stream_variable("c0");
     auto&& in = r.insert(relation::scan {
@@ -343,6 +406,70 @@ TEST_F(compiler_test, operation_location_query_allow_empty) {
     for (auto&& step : stmt.execution_plan()) {
         EXPECT_EQ(locations.find(step), (location_id_set_type {}));
     }
+}
+
+TEST_F(compiler_test, operation_location_query_fence) {
+    auto query = std::make_shared<mock_symbol_location_query>();
+    query->all = { 0, 7 };
+    query->tables.emplace(t0.get(), location_id_set_type { 7 });
+
+    /*
+     * scan(remote) -> filter -> emit
+     * =>
+     * [scan(remote) -> offer] -> forward -> [take_flat -> filter -> emit]
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+                    { bindings(t0c1), c1 },
+            },
+    });
+    auto&& filter = r.insert(relation::filter {
+            compare(varref(c1), constant(1)),
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+    in.output() >> filter.input();
+    filter.output() >> out.input();
+
+    auto opts = options();
+    opts.symbol_location_query() = query;
+
+    auto result = compiler()(opts, std::move(r));
+    ASSERT_TRUE(result) << diagnostics(result);
+    ASSERT_TRUE(result.operation_location_query());
+    auto&& locations = *result.operation_location_query();
+
+    auto&& stmt = downcast<statement::execute>(result.statement());
+    std::size_t processes = 0;
+    std::size_t exchanges = 0;
+    for (auto&& step : stmt.execution_plan()) {
+        if (step.kind() != plan::step_kind::process) {
+            ++exchanges;
+            EXPECT_EQ(step.kind(), plan::step_kind::forward);
+            continue;
+        }
+        ++processes;
+        auto&& operators = downcast<plan::process>(step).operators();
+        bool remote = false;
+        for (auto&& expression : operators) {
+            // no fences remain
+            EXPECT_NE(expression.kind(), relation::expression_kind::extension);
+            remote = remote || expression.kind() == relation::expression_kind::scan;
+        }
+        if (remote) {
+            // the remote process only contains the scan and the offer: the filter does not go over the fence
+            EXPECT_EQ(operators.size(), 2);
+            EXPECT_EQ(locations.find(step), (location_id_set_type { 7 }));
+        } else {
+            EXPECT_EQ(locations.find(step), (location_id_set_type { 0 }));
+        }
+    }
+    EXPECT_EQ(processes, 2);
+    EXPECT_EQ(exchanges, 1);
 }
 
 TEST_F(compiler_test, operation_location_query_allow_empty_restricted) {
