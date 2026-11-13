@@ -12,6 +12,7 @@
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/extract.h>
+#include <yugawara/extension/relation/fence.h>
 
 namespace yugawara::analyzer::details {
 
@@ -216,6 +217,10 @@ public:
     }
 
     void operator()(relation::intermediate::extension const& expr) const {
+        if (expr.extension_id() == extension::relation::fence::extension_tag) {
+            // no-op because fence does not refer any variables
+            return;
+        }
         throw_exception(std::domain_error(string_builder {}
                 << "unsupported relation expression: "
                 << expr

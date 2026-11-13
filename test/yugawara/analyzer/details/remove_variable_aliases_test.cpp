@@ -34,6 +34,7 @@
 #include <yugawara/binding/factory.h>
 #include <yugawara/aggregate/declaration.h>
 #include <yugawara/extension/relation/subquery.h>
+#include <yugawara/extension/relation/fence.h>
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/variable/declaration.h>
 
@@ -1411,6 +1412,55 @@ TEST_F(remove_variable_aliases_test, subquery) {
     r0.output() >> ro.input();
 
     EXPECT_THROW(apply(p), std::logic_error);
+}
+
+TEST_F(remove_variable_aliases_test, fence) {
+    /*
+     * values:r0 - project:r1 - fence:r2 - filter:r3 - emit:ro
+     */
+    relation::graph_type p;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = p.insert(relation::values {
+            { c0, c1, c2, },
+            {
+                    { constant(0), constant(1), constant(2), },
+                    { constant(3), constant(4), constant(5), },
+            },
+    });
+    auto a0 = bindings.stream_variable("a0");
+    auto a1 = bindings.stream_variable("a1");
+    auto a2 = bindings.stream_variable("a2");
+    auto&& r1 = p.insert(relation::project {
+            relation::project::column { a0, scalar::variable_reference { c0 } },
+            relation::project::column { a1, scalar::variable_reference { c1 } },
+            relation::project::column { a2, scalar::variable_reference { c2 } },
+    });
+    auto&& r2 = p.insert(extension::relation::fence { 7, 0 });
+    auto&& r3 = p.insert(relation::filter {
+            compare(a0, a1),
+    });
+    auto&& ro = p.insert(relation::emit {
+            a2,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+    r3.output() >> ro.input();
+
+    apply(p);
+
+    ASSERT_EQ(r1.columns().size(), 0);
+
+    ASSERT_TRUE(p.contains(r2));
+    EXPECT_EQ(r2.upstream(), 7);
+    EXPECT_EQ(r2.downstream(), 0);
+
+    EXPECT_EQ(r3.condition(), compare(c0, c1));
+
+    ASSERT_EQ(ro.columns().size(), 1);
+    EXPECT_EQ(ro.columns()[0].source(), c2);
 }
 
 TEST_F(remove_variable_aliases_test, external_variable_keep) {
