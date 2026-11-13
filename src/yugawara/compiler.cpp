@@ -129,6 +129,7 @@ public:
         }
         if (auto const& query = options_.symbol_location_query()) {
             // NOTE: fences must be placed before optimization, to prevent moving operators across the locations
+            // TODO: reconsider where to insert fences (e.g., intermediate_plan_normalizer or intermediate_plan_optimizer)
             auto diagnostics = details::insert_fences(plan, *query);
             if (!diagnostics.empty() && !options_.allow_empty_operation_location()) {
                 return result_type { std::move(diagnostics) };
