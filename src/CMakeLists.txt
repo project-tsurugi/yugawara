@@ -9,6 +9,7 @@ add_library(yugawara
     yugawara/details/element_location.cpp
     yugawara/details/compute_operation_locations.cpp
     yugawara/details/decide_operator_locations.cpp
+    yugawara/details/insert_fences.cpp
 
     # remote execution
     yugawara/remote/location_info.cpp
