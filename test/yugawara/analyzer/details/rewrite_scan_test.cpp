@@ -9,6 +9,7 @@
 #include <takatori/relation/emit.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/extension/relation/fence.h>
 #include <yugawara/storage/configurable_provider.h>
 
 #include <yugawara/analyzer/parametric_index_estimator.h>
@@ -493,6 +494,50 @@ TEST_F(rewrite_scan_test, scores) {
 
     auto&& result = next<relation::scan>(f0.input());
     EXPECT_EQ(result.source(), bindings(*si));
+}
+
+TEST_F(rewrite_scan_test, fence) {
+    /*
+     * scan:in - fence:fe - filter:f0 - emit:out
+     * =>
+     * (the scan must not absorb the filter over the fence)
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+                    { bindings(t0c1), c1 },
+            },
+    });
+    auto&& fe = r.insert(extension::relation::fence { 7, 0 });
+    auto&& out = r.insert(relation::emit { c0 });
+    auto&& f0 = r.insert(relation::filter {
+            compare(varref(c0), constant(0)),
+    });
+    in.output() >> fe.input();
+    fe.output() >> f0.input();
+    f0.output() >> out.input();
+
+    auto x0 = storages.add_index(storage::index {
+            t0,
+            "x0",
+            {
+                    t0->columns()[0],
+            },
+    });
+    (void) x0;
+    apply(r);
+
+    ASSERT_EQ(r.size(), 4);
+    EXPECT_GT(fe.output(), f0.input());
+    EXPECT_EQ(f0.condition(), compare(varref(c0), constant(0)));
+
+    auto&& result = next<relation::scan>(fe.input());
+    EXPECT_EQ(result.lower().kind(), relation::endpoint_kind::unbound);
+    EXPECT_EQ(result.upper().kind(), relation::endpoint_kind::unbound);
 }
 
 } // namespace yugawara::analyzer::details
