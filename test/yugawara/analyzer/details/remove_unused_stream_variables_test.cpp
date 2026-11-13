@@ -32,6 +32,7 @@
 #include <takatori/relation/intermediate/escape.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/extension/relation/fence.h>
 #include <yugawara/type/repository.h>
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/aggregate/configurable_provider.h>
@@ -668,6 +669,54 @@ TEST_F(remove_unused_stream_variables_test, buffer) {
     EXPECT_EQ(r0.columns()[1].source(), t0c2);
     EXPECT_EQ(r0.columns()[0].destination(), c1);
     EXPECT_EQ(r0.columns()[1].destination(), c2);
+}
+
+TEST_F(remove_unused_stream_variables_test, fence) {
+    /*
+     * scan:r0 - fence:r1 - filter:r2 - emit:ro
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto c2 = bindings.stream_variable("c2");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+                    { t0c1, c1 },
+                    { t0c2, c2 },
+            },
+    });
+    auto&& r1 = r.insert(extension::relation::fence { 7, 0 });
+    auto&& r2 = r.insert(relation::filter {
+            scalar::compare {
+                    scalar::comparison_operator::equal,
+                    scalar::variable_reference { c1 },
+                    constant(),
+            },
+    });
+    auto&& ro = r.insert(relation::emit {
+            c2,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> ro.input();
+
+    apply(r);
+
+    // scan
+    ASSERT_EQ(r0.columns().size(), 2);
+    EXPECT_EQ(r0.columns()[0].source(), t0c1);
+    EXPECT_EQ(r0.columns()[1].source(), t0c2);
+    EXPECT_EQ(r0.columns()[0].destination(), c1);
+    EXPECT_EQ(r0.columns()[1].destination(), c2);
+
+    // fence
+    ASSERT_TRUE(r.contains(r1));
+    ASSERT_TRUE(r1.input().opposite());
+    EXPECT_EQ(r1.input().opposite()->owner(), r0);
+    ASSERT_TRUE(r1.output().opposite());
+    EXPECT_EQ(r1.output().opposite()->owner(), r2);
 }
 
 TEST_F(remove_unused_stream_variables_test, identify_keep) {

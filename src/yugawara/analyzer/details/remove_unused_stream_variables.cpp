@@ -12,6 +12,7 @@
 #include <takatori/util/string_builder.h>
 
 #include <yugawara/binding/extract.h>
+#include <yugawara/extension/relation/fence.h>
 
 namespace yugawara::analyzer::details {
 
@@ -200,6 +201,15 @@ public:
     void operator()(relation::intermediate::escape& expr) {
         remove_unused_mappings(expr.mappings());
         touch_mappings(expr.mappings());
+    }
+
+    void operator()(relation::intermediate::extension const& expr) {
+        if (expr.extension_id() == extension::relation::fence::extension_tag) {
+            // no use/defs
+            return;
+        }
+        // fallback to the default behavior for unknown extensions
+        operator()(static_cast<relation::expression const&>(expr));
     }
 
     // scalar expressions
