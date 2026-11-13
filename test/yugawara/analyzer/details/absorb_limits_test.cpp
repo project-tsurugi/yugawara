@@ -17,6 +17,7 @@
 #include <takatori/relation/intermediate/union.h>
 
 #include <yugawara/binding/factory.h>
+#include <yugawara/extension/relation/fence.h>
 #include <yugawara/storage/configurable_provider.h>
 
 
@@ -755,6 +756,28 @@ TEST_F(absorb_limits_test, union_all_smaller_count) {
 
     EXPECT_EQ(r0.row_slice(), row_slice(2));
     EXPECT_EQ(r1.row_slice(), row_slice(1));
+}
+
+TEST_F(absorb_limits_test, fence) {
+    /*
+     * scan:r0 - fence:r1 - limit:r2 - emit:r3
+     * => (not changed: the scan must not absorb the limit over the fence)
+     */
+    relation::graph_type r;
+    auto&& r0 = add_t0(r);
+    auto&& r1 = r.insert(extension::relation::fence { 7, 0 });
+    auto&& r2 = r.insert(limit(3));
+    auto&& r3 = r.insert(relation::emit { a });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 4);
+    EXPECT_GT(r0.output(), r1.input());
+    EXPECT_GT(r1.output(), r2.input());
+    EXPECT_FALSE(r0.row_slice());
 }
 
 } // namespace yugawara::analyzer::details
