@@ -17,7 +17,7 @@ namespace yugawara::details {
  *      - elements which may refer to tables: the intersection of the locations of the referred relations,
  *        where the location of each table index is the location of its table,
  *        and the location of the other relations (e.g. exchanges) is only the local location
- *      - elements which never restrict the location (`offer` operator):
+ *      - elements which never restrict the location (`offer`, `take_flat`, `take_group`, and `take_cogroup` operators):
  *        all available locations
  *      - process: the intersection of the locations of its operators
  *      - `execute` statement: the intersection of the locations of its steps

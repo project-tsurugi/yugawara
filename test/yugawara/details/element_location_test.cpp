@@ -10,10 +10,14 @@
 #include <takatori/relation/filter.h>
 #include <takatori/relation/emit.h>
 #include <takatori/relation/step/offer.h>
+#include <takatori/relation/step/take_flat.h>
+#include <takatori/relation/step/take_group.h>
+#include <takatori/relation/step/take_cogroup.h>
 
 #include <takatori/plan/process.h>
 #include <takatori/plan/forward.h>
 #include <takatori/plan/broadcast.h>
+#include <takatori/plan/group.h>
 
 #include <takatori/statement/execute.h>
 #include <takatori/statement/write.h>
@@ -156,6 +160,36 @@ TEST_F(element_location_test, offer) {
     plan::forward exchange {};
     relation::step::offer expr { factory(exchange), {} };
     EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, take_flat) {
+    plan::forward exchange {};
+    relation::step::take_flat expr { factory(exchange), {} };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, take_group) {
+    plan::group exchange {};
+    relation::step::take_group expr { factory(exchange), {} };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, take_cogroup) {
+    plan::group exchange {};
+    relation::step::take_cogroup expr {
+            { factory(exchange) },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, process_take_write) {
+    plan::graph_type graph {};
+    auto&& exchange = graph.insert(plan::forward {});
+    auto&& process = graph.insert(plan::process {});
+    auto&& take = process.operators().insert(relation::step::take_flat { factory(exchange), {} });
+    auto&& write = process.operators().insert(relation::write { relation::write_kind::insert, factory(*remote_index), {}, {} });
+    take.output() >> write.input();
+    EXPECT_EQ(locations(process), (location_id_set_type { 7 }));
 }
 
 TEST_F(element_location_test, other_operator) {

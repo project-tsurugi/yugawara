@@ -10,6 +10,9 @@
 #include <takatori/relation/join_scan.h>
 #include <takatori/relation/write.h>
 #include <takatori/relation/step/offer.h>
+#include <takatori/relation/step/take_flat.h>
+#include <takatori/relation/step/take_group.h>
+#include <takatori/relation/step/take_cogroup.h>
 
 #include <takatori/statement/execute.h>
 #include <takatori/statement/write.h>
@@ -126,6 +129,9 @@ location_id_set_type element_location::operator()(trelation::expression const& e
             result.add(unsafe_downcast<trelation::write>(expression).destination());
             break;
         case trelation::step::offer::tag:
+        case trelation::step::take_flat::tag:
+        case trelation::step::take_group::tag:
+        case trelation::step::take_cogroup::tag:
             return all();
         default:
             return local_location();
