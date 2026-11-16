@@ -13,7 +13,7 @@ namespace yugawara::remote {
 
 /**
  * @brief options about the executable locations of operations.
- * @details This is a sub-option of compiler_options.
+ * @details This is a sub-option of compiler_options, and is available via compiler_options::location_options().
  *      The allow lists in this object declare which kinds of execution elements can be executed in locations
  *      other than the local location.
  *      Each allow list contains all kinds by default (universe), that is, the compiler assumes that

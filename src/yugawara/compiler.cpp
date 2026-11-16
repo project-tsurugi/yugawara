@@ -128,11 +128,11 @@ public:
         if (auto diagnostics = do_normalize(plan); !diagnostics.empty()) {
             return result_type { std::move(diagnostics) };
         }
-        if (auto const& query = options_.symbol_location_query()) {
+        if (auto const& query = options_.location_options().symbol_location_query()) {
             // NOTE: fences must be placed before optimization, to prevent moving operators across the locations
             // TODO: reconsider where to insert fences (e.g., intermediate_plan_normalizer or intermediate_plan_optimizer)
             auto diagnostics = remote::details::insert_fences(plan, *query);
-            if (!diagnostics.empty() && !options_.allow_empty_operation_location()) {
+            if (!diagnostics.empty() && !options_.location_options().allow_empty_operation_location()) {
                 return result_type { std::move(diagnostics) };
             }
             // NOTE: if empty locations are allowed, continues without fences, as if the locations were ignored
@@ -159,7 +159,7 @@ public:
             auto diagnostics = details::collect_restricted_features(
                     options_.restricted_features(),
                     *stmt,
-                    optional_ptr<remote::symbol_location_query const> { options_.symbol_location_query().get() });
+                    optional_ptr<remote::symbol_location_query const> { options_.location_options().symbol_location_query().get() });
             if (!diagnostics.empty()) {
                 return result_type { std::move(diagnostics) };
             }
@@ -171,11 +171,11 @@ public:
         }
 
         std::shared_ptr<remote::operation_location_query const> operation_locations {};
-        if (auto const& query = options_.symbol_location_query()) {
+        if (auto const& query = options_.location_options().symbol_location_query()) {
             auto locations = remote::details::compute_operation_locations(
                     *stmt,
                     *query,
-                    options_.allow_empty_operation_location());
+                    options_.location_options().allow_empty_operation_location());
             if (locations.has_error()) {
                 return result_type { std::move(locations.error()) };
             }

@@ -5,6 +5,8 @@
 
 #include <gtest/gtest.h>
 
+#include <yugawara/compiler_options.h>
+
 #include <yugawara/testing/mock_symbol_location_query.h>
 
 namespace yugawara::remote {
@@ -83,6 +85,56 @@ TEST_F(location_options_test, copy) {
 
     copy.remote_step_kinds().insert(::takatori::plan::step_kind::process);
     EXPECT_TRUE(options.remote_step_kinds().empty());
+}
+
+TEST_F(location_options_test, compiler_options_defaults) {
+    compiler_options options {};
+    auto&& sub = options.location_options();
+    EXPECT_FALSE(sub.symbol_location_query());
+    EXPECT_FALSE(sub.allow_empty_operation_location());
+    EXPECT_EQ(sub.remote_relation_expression_kinds(), location_options::default_remote_relation_expression_kinds);
+    EXPECT_EQ(sub.remote_scalar_expression_kinds(), location_options::default_remote_scalar_expression_kinds);
+    EXPECT_EQ(sub.remote_step_kinds(), location_options::default_remote_step_kinds);
+    EXPECT_EQ(sub.remote_statement_kinds(), location_options::default_remote_statement_kinds);
+    EXPECT_EQ(compiler_options::default_allow_empty_operation_location, location_options::default_allow_empty_operation_location);
+}
+
+TEST_F(location_options_test, compiler_options_redirect_old_to_new) {
+    auto query = std::make_shared<mock_symbol_location_query>();
+    compiler_options options {};
+    options.symbol_location_query() = query;
+    options.allow_empty_operation_location() = true;
+
+    auto const& view = options;
+    EXPECT_EQ(view.location_options().symbol_location_query().get(), query.get());
+    EXPECT_TRUE(view.location_options().allow_empty_operation_location());
+}
+
+TEST_F(location_options_test, compiler_options_redirect_new_to_old) {
+    auto query = std::make_shared<mock_symbol_location_query>();
+    compiler_options options {};
+    options.location_options().symbol_location_query() = query;
+    options.location_options().allow_empty_operation_location() = true;
+
+    auto const& view = options;
+    EXPECT_EQ(view.symbol_location_query().get(), query.get());
+    EXPECT_TRUE(view.allow_empty_operation_location());
+    EXPECT_EQ(&options.symbol_location_query(), &options.location_options().symbol_location_query());
+    EXPECT_EQ(&options.allow_empty_operation_location(), &options.location_options().allow_empty_operation_location());
+}
+
+TEST_F(location_options_test, compiler_options_copy) {
+    auto query = std::make_shared<mock_symbol_location_query>();
+    compiler_options options {};
+    options.location_options().symbol_location_query() = query;
+    options.location_options().remote_step_kinds().clear();
+
+    compiler_options copy { options };
+    EXPECT_EQ(copy.location_options().symbol_location_query().get(), query.get());
+    EXPECT_TRUE(copy.location_options().remote_step_kinds().empty());
+
+    copy.location_options().remote_step_kinds().insert(::takatori::plan::step_kind::process);
+    EXPECT_TRUE(options.location_options().remote_step_kinds().empty());
 }
 
 } // namespace yugawara::remote

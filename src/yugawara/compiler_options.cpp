@@ -88,20 +88,28 @@ std::size_t compiler_options::max_partial_limit_count() const noexcept {
     return max_partial_limit_count_;
 }
 
+remote::location_options& compiler_options::location_options() noexcept {
+    return location_options_;
+}
+
+remote::location_options const& compiler_options::location_options() const noexcept {
+    return location_options_;
+}
+
 maybe_shared_ptr<remote::symbol_location_query const>& compiler_options::symbol_location_query() noexcept {
-    return symbol_location_query_;
+    return location_options_.symbol_location_query();
 }
 
 maybe_shared_ptr<remote::symbol_location_query const> const& compiler_options::symbol_location_query() const noexcept {
-    return symbol_location_query_;
+    return location_options_.symbol_location_query();
 }
 
 bool& compiler_options::allow_empty_operation_location() noexcept {
-    return allow_empty_operation_location_;
+    return location_options_.allow_empty_operation_location();
 }
 
 bool compiler_options::allow_empty_operation_location() const noexcept {
-    return allow_empty_operation_location_;
+    return location_options_.allow_empty_operation_location();
 }
 
 } // namespace yugawara

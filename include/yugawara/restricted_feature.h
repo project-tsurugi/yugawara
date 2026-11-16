@@ -74,7 +74,7 @@ enum class restricted_feature {
     /**
      * @brief restrict operators which refer to remote symbols.
      * @details This restricts operators whose executable locations do not include the local location.
-     *      This feature does not restrict anything if compiler_options::symbol_location_query() is not specified.
+     *      This feature does not restrict anything if remote::location_options::symbol_location_query() is not specified.
      */
     relation_remote_symbol,
 
@@ -148,7 +148,7 @@ enum class restricted_feature {
     /**
      * @brief restrict statements (other than `execute`) which refer to remote symbols.
      * @details This restricts statements whose executable locations do not include the local location.
-     *      This feature does not restrict anything if compiler_options::symbol_location_query() is not specified.
+     *      This feature does not restrict anything if remote::location_options::symbol_location_query() is not specified.
      *      To restrict `execute` statements which refer to remote symbols, use relation_remote_symbol instead.
      */
     statement_remote_symbol,

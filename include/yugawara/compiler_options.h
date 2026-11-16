@@ -10,6 +10,7 @@
 #include <yugawara/analyzer/index_selection_parameters.h>
 #include <yugawara/storage/prototype_processor.h>
 #include <yugawara/remote/symbol_location_query.h>
+#include <yugawara/remote/location_options.h>
 
 #include "runtime_feature.h"
 #include "restricted_feature.h"
@@ -54,8 +55,9 @@ public:
     /**
      * @brief the default value for allowing operations which cannot be executed in any locations.
      * @see allow_empty_operation_location()
+     * @deprecated use remote::location_options::default_allow_empty_operation_location instead
      */
-    static constexpr bool default_allow_empty_operation_location = false;
+    static constexpr bool default_allow_empty_operation_location = remote::location_options::default_allow_empty_operation_location;
 
     /**
      * @brief creates a new instance with default options.
@@ -171,12 +173,21 @@ public:
     [[nodiscard]] std::size_t max_partial_limit_count() const noexcept;
 
     /**
+     * @brief returns the options about the executable locations of operations.
+     * @return the location options
+     */
+    [[nodiscard]] remote::location_options& location_options() noexcept;
+
+    /// @copydoc location_options()
+    [[nodiscard]] remote::location_options const& location_options() const noexcept;
+
+    /**
      * @brief returns a symbol location query to detect where each symbol is defined.
-     * @details If this is not specified, the compiler does not compute the locations of operations,
-     *      and the compilation result does not provide an operation location query.
+     * @details This is an alias of location_options().symbol_location_query().
      * @return the symbol location query
      * @return empty if the symbol location query is not specified
-     * @see compiler_result::operation_location_query()
+     * @deprecated use location_options().symbol_location_query() instead
+     * @see remote::location_options::symbol_location_query()
      */
     [[nodiscard]] ::takatori::util::maybe_shared_ptr<remote::symbol_location_query const>& symbol_location_query() noexcept;
 
@@ -185,14 +196,11 @@ public:
 
     /**
      * @brief returns whether to allow operations which cannot be executed in any locations.
-     * @details If this is enabled, the compiler does not report compiler_code::empty_operation_location,
-     *      and the operation location query just returns empty sets for such operations.
-     *      This is mainly for inspecting the compiled plans, and the SQL execution engine should not enable it.
-     *      Note that restricted_features() are still effective even if this is enabled.
-     *      This does nothing if symbol_location_query() is not specified.
+     * @details This is an alias of location_options().allow_empty_operation_location().
      * @return true if such operations are allowed
      * @return false otherwise
-     * @see compiler_result::operation_location_query()
+     * @deprecated use location_options().allow_empty_operation_location() instead
+     * @see remote::location_options::allow_empty_operation_location()
      */
     [[nodiscard]] bool& allow_empty_operation_location() noexcept;
 
@@ -209,8 +217,7 @@ private:
     bool enable_disjunction_range_hinting_ { default_enable_disjunction_range_hinting };
     bool enable_external_variable_inlining_ { default_enable_external_variable_inlining };
     std::size_t max_partial_limit_count_ { default_max_partial_limit_count };
-    ::takatori::util::maybe_shared_ptr<remote::symbol_location_query const> symbol_location_query_ {};
-    bool allow_empty_operation_location_ { default_allow_empty_operation_location };
+    remote::location_options location_options_ {};
 };
 
 } // namespace yugawara

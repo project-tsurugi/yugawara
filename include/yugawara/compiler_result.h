@@ -48,7 +48,7 @@ public:
      * @param statement the compiled statement
      * @param info the compiled information
      * @param operation_location_query the operation location query for the compiled statement,
-     *      or empty if compiler_options::symbol_location_query() was not specified
+     *      or empty if remote::location_options::symbol_location_query() was not specified
      */
     compiler_result(
             std::unique_ptr<::takatori::statement::statement> statement,
@@ -112,13 +112,13 @@ public:
 
     /**
      * @brief returns an operation location query to detect where each operation can be executed.
-     * @details This is available only if compiler_options::symbol_location_query() was specified.
+     * @details This is available only if remote::location_options::symbol_location_query() was specified.
      *      The query accepts only the operations in the compiled statement,
      *      and it does not refer to the statement, so that it is still available after release_statement().
      * @return the operation location query
-     * @return empty if compiler_options::symbol_location_query() was not specified
+     * @return empty if remote::location_options::symbol_location_query() was not specified
      * @return empty if this compilation was failed
-     * @see compiler_options::symbol_location_query()
+     * @see remote::location_options::symbol_location_query()
      */
     [[nodiscard]] std::shared_ptr<remote::operation_location_query const> const& operation_location_query() const noexcept;
 
