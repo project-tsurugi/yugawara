@@ -470,6 +470,31 @@ TEST_F(element_location_test, statement_write) {
     EXPECT_EQ(locations(stmt), (location_id_set_type { 7 }));
 }
 
+TEST_F(element_location_test, statement_write_tuples) {
+    auto func = std::make_shared<function::declaration>(function::declaration {
+            function::declaration::minimum_builtin_function_id + 1,
+            "f",
+            ::takatori::type::int4 {},
+            {},
+    });
+    query.functions.emplace(func.get(), location_id_set_type { 0, 7 });
+    tstatement::write stmt {
+            tstatement::write_kind::insert,
+            factory(*remote_index),
+            {
+                    factory(remote_table->columns()[0]),
+            },
+            {
+                    { constant(1) },
+                    { scalar::function_call { factory(func), {} } },
+            },
+    };
+    EXPECT_EQ(locations(stmt), (location_id_set_type { 7 }));
+
+    query.functions[func.get()] = location_id_set_type { 0 };
+    EXPECT_EQ(locations(stmt), (location_id_set_type {}));
+}
+
 TEST_F(element_location_test, statement_drop_table) {
     auto schema = std::make_shared<schema::declaration>("s");
     tstatement::drop_table stmt {

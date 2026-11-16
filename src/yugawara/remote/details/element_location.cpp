@@ -282,9 +282,16 @@ location_id_set_type element_location::operator()(tstatement::statement const& s
             }
             return locations;
         }
-        case tstatement::write::tag:
-            result.add(unsafe_downcast<tstatement::write>(statement).destination());
+        case tstatement::write::tag: {
+            auto&& write = unsafe_downcast<tstatement::write>(statement);
+            result.add(write.destination());
+            for (auto&& tuple : write.tuples()) {
+                for (auto&& element : tuple.elements()) {
+                    result.add((*this)(element));
+                }
+            }
             break;
+        }
         case tstatement::drop_table::tag:
             result.add(unsafe_downcast<tstatement::drop_table>(statement).target());
             break;

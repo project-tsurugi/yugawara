@@ -28,6 +28,8 @@ namespace yugawara::remote::details {
  *
  *      The locations of `scan` and `find` operators are also restricted to the locations where
  *      their search keys can be evaluated, and the locations of the variables in the row slice of `scan`.
+ *      Similarly, the locations of `write` statements are restricted to the locations where
+ *      all elements of their tuples can be evaluated.
  *
  *      Additionally, the locations of each operator are restricted to the local location
  *      if its kind is not in remote::location_options::remote_relation_expression_kinds().
