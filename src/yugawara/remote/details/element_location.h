@@ -24,6 +24,9 @@ namespace yugawara::remote::details {
  *      - `execute` statement: the intersection of the locations of its steps
  *      - other elements: the local location only
  *
+ *      Additionally, the locations of each operator are restricted to the local location
+ *      if its kind is not in remote::location_options::remote_relation_expression_kinds().
+ *
  *      Note that this does not consider symbols in scalar expressions.
  */
 class element_location {

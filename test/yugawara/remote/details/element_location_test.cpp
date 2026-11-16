@@ -197,6 +197,41 @@ TEST_F(element_location_test, process_take_write) {
     EXPECT_EQ(locations(process), (location_id_set_type { 7 }));
 }
 
+TEST_F(element_location_test, scan_kind_not_remote) {
+    options.remote_relation_expression_kinds().erase(relation::expression_kind::scan);
+    EXPECT_EQ(locations(make_scan(*remote_index)), (location_id_set_type {}));
+    EXPECT_EQ(locations(make_scan(*shared_index)), (location_id_set_type { 0 }));
+    EXPECT_EQ(locations(make_scan(*local_index)), (location_id_set_type { 0 }));
+}
+
+TEST_F(element_location_test, write_kind_not_remote) {
+    options.remote_relation_expression_kinds().erase(relation::expression_kind::write);
+    relation::write expr { relation::write_kind::insert, factory(*remote_index), {}, {} };
+    EXPECT_EQ(locations(expr), (location_id_set_type {}));
+}
+
+TEST_F(element_location_test, offer_kind_not_remote) {
+    options.remote_relation_expression_kinds().erase(relation::expression_kind::offer);
+    plan::forward exchange {};
+    relation::step::offer expr { factory(exchange), {} };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0 }));
+}
+
+TEST_F(element_location_test, take_flat_kind_not_remote) {
+    options.remote_relation_expression_kinds().erase(relation::expression_kind::take_flat);
+    plan::forward exchange {};
+    relation::step::take_flat expr { factory(exchange), {} };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0 }));
+}
+
+TEST_F(element_location_test, process_kind_not_remote) {
+    options.remote_relation_expression_kinds().erase(relation::expression_kind::offer);
+    plan::graph_type graph {};
+    auto&& exchange = graph.insert(plan::forward {});
+    auto&& process = add_scan_offer(graph, *remote_index, exchange);
+    EXPECT_EQ(locations(process), (location_id_set_type {}));
+}
+
 TEST_F(element_location_test, other_operator) {
     relation::filter expr { constant() };
     EXPECT_EQ(locations(expr), (location_id_set_type { 0 }));

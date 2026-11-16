@@ -119,6 +119,7 @@ location_id_set_type element_location::all() const {
 }
 
 location_id_set_type element_location::operator()(trelation::expression const& expression) const {
+    bool const remote = options_.remote_relation_expression_kinds().contains(expression.kind());
     location_intersection result { query_ };
     switch (expression.kind()) {
         case trelation::scan::tag:
@@ -136,15 +137,20 @@ location_id_set_type element_location::operator()(trelation::expression const& e
         case trelation::write::tag:
             result.add(unsafe_downcast<trelation::write>(expression).destination());
             break;
+        // operators which never restrict the location
         case trelation::step::offer::tag:
         case trelation::step::take_flat::tag:
         case trelation::step::take_group::tag:
         case trelation::step::take_cogroup::tag:
-            return all();
+            break;
         default:
             return local_location();
     }
-    return std::move(result).release();
+    auto locations = std::move(result).release();
+    if (!remote) {
+        intersect(locations, local_location());
+    }
+    return locations;
 }
 
 location_id_set_type element_location::operator()(tplan::step const& step) const {
