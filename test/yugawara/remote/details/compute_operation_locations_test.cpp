@@ -2,10 +2,15 @@
 
 #include <algorithm>
 #include <iterator>
+#include <memory>
 
 #include <gtest/gtest.h>
 
+#include <takatori/document/basic_document.h>
+#include <takatori/document/region.h>
+
 #include <takatori/relation/scan.h>
+#include <takatori/relation/join_find.h>
 #include <takatori/relation/emit.h>
 #include <takatori/relation/step/offer.h>
 #include <takatori/relation/step/take_flat.h>
@@ -156,6 +161,38 @@ TEST_F(compute_operation_locations_test, empty_process) {
     auto&& diagnostics = result.error();
     ASSERT_EQ(diagnostics.size(), 1);
     EXPECT_EQ(diagnostics[0].code(), compiler_code::empty_operation_location);
+}
+
+TEST_F(compute_operation_locations_test, empty_process_region_from_operator_with_region) {
+    ::takatori::document::basic_document doc {
+            "testing.sql",
+            "SELECT * FROM R",
+    };
+    ::takatori::document::region known_region { doc, 14, 15 };
+
+    // [scan(remote) -> join_find(remote) -> emit]: the upstream scan has no region,
+    // like operators introduced by optimizations
+    tstatement::execute stmt { plan::graph_type {} };
+    auto&& process = stmt.execution_plan().insert(plan::process {});
+    auto&& scan = process.operators().insert(relation::scan { factory(*remote_index), {} });
+    auto&& join = process.operators().insert(relation::join_find {
+            relation::join_kind::inner,
+            factory(*remote_index),
+            std::vector<relation::join_find::column> {},
+            std::vector<relation::join_find::key> {},
+            {},
+    });
+    auto&& emit = process.operators().insert(relation::emit { std::vector<relation::emit::column> {} });
+    scan.output() >> join.left();
+    join.output() >> emit.input();
+    join.region() = known_region;
+
+    auto result = compute_operation_locations(stmt, query);
+    ASSERT_FALSE(result);
+    auto&& diagnostics = result.error();
+    ASSERT_EQ(diagnostics.size(), 1);
+    EXPECT_EQ(diagnostics[0].code(), compiler_code::empty_operation_location);
+    EXPECT_EQ(diagnostics[0].location(), known_region);
 }
 
 TEST_F(compute_operation_locations_test, empty_process_allowed) {

@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <utility>
 
+#include <takatori/relation/graph.h>
 #include <takatori/plan/process.h>
 #include <takatori/statement/execute.h>
 
@@ -124,20 +125,24 @@ private:
                 << "operators which cannot be executed in the local location: ";
         ::takatori::document::region region {};
         bool first = true;
-        for (auto&& expression : process.operators()) {
+        // NOTE: lists the operators from upstream, so that the message and the region do not depend on
+        // the iteration order of the operator graph, as long as the operators are on a single path
+        ::takatori::relation::sort_from_upstream(process.operators(), [&](::takatori::relation::expression const& expression) {
             auto locations = locations_(expression);
             if (locations.find(remote::location_info::local_location_id) != locations.end()) {
-                continue;
+                return;
             }
-            if (first) {
+            // NOTE: operators introduced by optimizations may not have their regions
+            if (!region) {
                 region = expression.region();
-            } else {
+            }
+            if (!first) {
                 builder << ", ";
             }
             builder << expression.kind() << " ";
             print_locations(builder, locations);
             first = false;
-        }
+        });
         diagnostics_.emplace_back(
                 compiler_code::empty_operation_location,
                 builder << string_builder::to_string,
