@@ -14,9 +14,10 @@
 #include <yugawara/storage/basic_prototype_processor.h>
 #include <yugawara/storage/resolve_prototype.h>
 
+#include <yugawara/remote/details/compute_operation_locations.h>
+#include <yugawara/remote/details/insert_fences.h>
+
 #include "details/collect_restricted_features.h"
-#include "details/compute_operation_locations.h"
-#include "details/insert_fences.h"
 
 namespace yugawara {
 
@@ -130,7 +131,7 @@ public:
         if (auto const& query = options_.symbol_location_query()) {
             // NOTE: fences must be placed before optimization, to prevent moving operators across the locations
             // TODO: reconsider where to insert fences (e.g., intermediate_plan_normalizer or intermediate_plan_optimizer)
-            auto diagnostics = details::insert_fences(plan, *query);
+            auto diagnostics = remote::details::insert_fences(plan, *query);
             if (!diagnostics.empty() && !options_.allow_empty_operation_location()) {
                 return result_type { std::move(diagnostics) };
             }
@@ -171,7 +172,7 @@ public:
 
         std::shared_ptr<remote::operation_location_query const> operation_locations {};
         if (auto const& query = options_.symbol_location_query()) {
-            auto locations = details::compute_operation_locations(
+            auto locations = remote::details::compute_operation_locations(
                     *stmt,
                     *query,
                     options_.allow_empty_operation_location());

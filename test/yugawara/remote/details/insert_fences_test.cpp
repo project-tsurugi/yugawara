@@ -1,4 +1,4 @@
-#include <yugawara/details/insert_fences.h>
+#include <yugawara/remote/details/insert_fences.h>
 
 #include <gtest/gtest.h>
 
@@ -19,7 +19,7 @@
 #include <yugawara/testing/utils.h>
 #include <yugawara/testing/mock_symbol_location_query.h>
 
-namespace yugawara::details {
+namespace yugawara::remote::details {
 
 // import test utils
 using namespace ::yugawara::testing;
@@ -280,4 +280,4 @@ TEST_F(insert_fences_test, nowhere_join) {
     EXPECT_GT(join.output(), emit.input());
 }
 
-} // namespace yugawara::details
+} // namespace yugawara::remote::details

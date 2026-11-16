@@ -5,7 +5,7 @@
 
 #include "element_location.h"
 
-namespace yugawara::details {
+namespace yugawara::remote::details {
 
 namespace trelation = ::takatori::relation;
 
@@ -64,4 +64,4 @@ operator_location_map decide_operator_locations(
     return results;
 }
 
-} // namespace yugawara::details
+} // namespace yugawara::remote::details

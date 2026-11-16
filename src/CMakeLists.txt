@@ -6,14 +6,14 @@ add_library(yugawara
     yugawara/compiled_info.cpp
     yugawara/compiler_result.cpp
     yugawara/details/collect_restricted_features.cpp
-    yugawara/details/element_location.cpp
-    yugawara/details/compute_operation_locations.cpp
-    yugawara/details/decide_operator_locations.cpp
-    yugawara/details/insert_fences.cpp
 
     # remote execution
     yugawara/remote/location_info.cpp
     yugawara/remote/location_object_scanner.cpp
+    yugawara/remote/details/element_location.cpp
+    yugawara/remote/details/compute_operation_locations.cpp
+    yugawara/remote/details/decide_operator_locations.cpp
+    yugawara/remote/details/insert_fences.cpp
 
     # storage information
     yugawara/storage/relation.cpp

@@ -1,4 +1,4 @@
-#include <yugawara/details/compute_operation_locations.h>
+#include <yugawara/remote/details/compute_operation_locations.h>
 
 #include <algorithm>
 #include <iterator>
@@ -23,7 +23,7 @@
 #include <yugawara/testing/utils.h>
 #include <yugawara/testing/mock_symbol_location_query.h>
 
-namespace yugawara::details {
+namespace yugawara::remote::details {
 
 // import test utils
 using namespace ::yugawara::testing;
@@ -253,4 +253,4 @@ TEST_F(compute_operation_locations_test, statement_execute_empty) {
     EXPECT_EQ((*result)->find(stmt), (location_id_set_type {}));
 }
 
-} // namespace yugawara::details
+} // namespace yugawara::remote::details

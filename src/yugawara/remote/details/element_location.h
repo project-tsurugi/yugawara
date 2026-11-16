@@ -8,7 +8,7 @@
 
 #include <yugawara/remote/symbol_location_query.h>
 
-namespace yugawara::details {
+namespace yugawara::remote::details {
 
 /**
  * @brief computes the locations where each element of compiled statements can be executed.
@@ -81,4 +81,4 @@ private:
     remote::symbol_location_query const& query_;
 };
 
-} // namespace yugawara::details
+} // namespace yugawara::remote::details

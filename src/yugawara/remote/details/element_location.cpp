@@ -31,7 +31,7 @@
 #include <yugawara/binding/extract.h>
 #include <yugawara/storage/index.h>
 
-namespace yugawara::details {
+namespace yugawara::remote::details {
 
 namespace descriptor = ::takatori::descriptor;
 namespace trelation = ::takatori::relation;
@@ -204,4 +204,4 @@ location_id_set_type element_location::operator()(tstatement::statement const& s
     return std::move(result).release();
 }
 
-} // namespace yugawara::details
+} // namespace yugawara::remote::details

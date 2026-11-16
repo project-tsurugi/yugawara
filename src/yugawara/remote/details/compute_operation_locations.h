@@ -11,7 +11,7 @@
 #include <yugawara/remote/symbol_location_query.h>
 #include <yugawara/util/either.h>
 
-namespace yugawara::details {
+namespace yugawara::remote::details {
 
 /**
  * @brief computes the locations where each operation in the given statement can be executed.
@@ -34,4 +34,4 @@ compute_operation_locations(
         remote::symbol_location_query const& query,
         bool allow_empty = false);
 
-} // namespace yugawara::details
+} // namespace yugawara::remote::details

@@ -27,10 +27,10 @@ endfunction (add_test_executable)
 # root
 add_test_executable(yugawara/compiler_test.cpp)
 add_test_executable(yugawara/details/collect_restricted_features_test.cpp)
-add_test_executable(yugawara/details/element_location_test.cpp)
-add_test_executable(yugawara/details/compute_operation_locations_test.cpp)
-add_test_executable(yugawara/details/decide_operator_locations_test.cpp)
-add_test_executable(yugawara/details/insert_fences_test.cpp)
+add_test_executable(yugawara/remote/details/element_location_test.cpp)
+add_test_executable(yugawara/remote/details/compute_operation_locations_test.cpp)
+add_test_executable(yugawara/remote/details/decide_operator_locations_test.cpp)
+add_test_executable(yugawara/remote/details/insert_fences_test.cpp)
 add_test_executable(yugawara/remote/location_object_scanner_test.cpp)
 
 # type system

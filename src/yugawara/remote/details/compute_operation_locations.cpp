@@ -12,7 +12,7 @@
 
 #include "element_location.h"
 
-namespace yugawara::details {
+namespace yugawara::remote::details {
 
 namespace tplan = ::takatori::plan;
 namespace tstatement = ::takatori::statement;
@@ -187,4 +187,4 @@ result_type compute_operation_locations(
     return e.process(statement);
 }
 
-} // namespace yugawara::details
+} // namespace yugawara::remote::details

@@ -1,4 +1,4 @@
-#include <yugawara/details/decide_operator_locations.h>
+#include <yugawara/remote/details/decide_operator_locations.h>
 
 #include <gtest/gtest.h>
 
@@ -18,7 +18,7 @@
 #include <yugawara/testing/utils.h>
 #include <yugawara/testing/mock_symbol_location_query.h>
 
-namespace yugawara::details {
+namespace yugawara::remote::details {
 
 // import test utils
 using namespace ::yugawara::testing;
@@ -213,4 +213,4 @@ TEST_F(decide_operator_locations_test, nowhere) {
     EXPECT_EQ(location_of(locations, emit), 0);
 }
 
-} // namespace yugawara::details
+} // namespace yugawara::remote::details

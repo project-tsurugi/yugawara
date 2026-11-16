@@ -10,7 +10,7 @@
 #include <yugawara/remote/location_info.h>
 #include <yugawara/remote/symbol_location_query.h>
 
-namespace yugawara::details {
+namespace yugawara::remote::details {
 
 /**
  * @brief the result type of decide_operator_locations().
@@ -43,4 +43,4 @@ using operator_location_map = ::tsl::hopscotch_map<
         ::takatori::relation::graph_type const& graph,
         remote::symbol_location_query const& query);
 
-} // namespace yugawara::details
+} // namespace yugawara::remote::details

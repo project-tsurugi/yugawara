@@ -6,7 +6,7 @@
 
 #include "decide_operator_locations.h"
 
-namespace yugawara::details {
+namespace yugawara::remote::details {
 
 namespace trelation = ::takatori::relation;
 
@@ -90,4 +90,4 @@ std::vector<diagnostic_type> insert_fences(
     return {};
 }
 
-} // namespace yugawara::details
+} // namespace yugawara::remote::details

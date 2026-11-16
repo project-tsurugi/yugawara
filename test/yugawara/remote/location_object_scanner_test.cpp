@@ -20,7 +20,7 @@
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/binding/factory.h>
 
-#include <yugawara/details/compute_operation_locations.h>
+#include <yugawara/remote/details/compute_operation_locations.h>
 
 #include <yugawara/testing/utils.h>
 #include <yugawara/testing/mock_symbol_location_query.h>

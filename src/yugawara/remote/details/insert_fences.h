@@ -8,7 +8,7 @@
 #include <yugawara/diagnostic.h>
 #include <yugawara/remote/symbol_location_query.h>
 
-namespace yugawara::details {
+namespace yugawara::remote::details {
 
 /**
  * @brief inserts fences into the boundaries of the execution locations in the given intermediate execution plan.
@@ -30,4 +30,4 @@ namespace yugawara::details {
         ::takatori::relation::graph_type& graph,
         remote::symbol_location_query const& query);
 
-} // namespace yugawara::details
+} // namespace yugawara::remote::details

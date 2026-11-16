@@ -1,4 +1,4 @@
-#include <yugawara/details/element_location.h>
+#include <yugawara/remote/details/element_location.h>
 
 #include <gtest/gtest.h>
 
@@ -31,7 +31,7 @@
 #include <yugawara/testing/utils.h>
 #include <yugawara/testing/mock_symbol_location_query.h>
 
-namespace yugawara::details {
+namespace yugawara::remote::details {
 
 // import test utils
 using namespace ::yugawara::testing;
@@ -294,4 +294,4 @@ TEST_F(element_location_test, statement_without_tables) {
     EXPECT_EQ(locations(stmt), (location_id_set_type { 0 }));
 }
 
-} // namespace yugawara::details
+} // namespace yugawara::remote::details

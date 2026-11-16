@@ -8,7 +8,7 @@
 
 #include <takatori/util/string_builder.h>
 
-#include "element_location.h"
+#include <yugawara/remote/details/element_location.h>
 
 namespace yugawara::details {
 
@@ -259,7 +259,7 @@ public:
 
 private:
     restricted_feature_set const features_; // NOLINT(*-avoid-const-or-ref-data-members) const for safety
-    std::optional<element_location> locations_ {};
+    std::optional<remote::details::element_location> locations_ {};
     std::vector<diagnostic_type> diagnostics_ {};
 
     void process_row_slice(
