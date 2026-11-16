@@ -25,6 +25,9 @@
 #include <takatori/relation/step/take_flat.h>
 #include <takatori/relation/step/take_group.h>
 #include <takatori/relation/step/take_cogroup.h>
+#include <takatori/relation/expression_kind.h>
+#include <takatori/relation/intermediate/dispatch.h>
+#include <takatori/relation/step/dispatch.h>
 
 #include <takatori/scalar/function_call.h>
 #include <takatori/scalar/variable_reference.h>
@@ -84,11 +87,16 @@ void intersect(location_id_set_type& target, location_id_set_type const& other) 
     target = std::move(intersection);
 }
 
-class location_intersection {
+/**
+ * @brief accepts constraints of locations, and provides the locations which satisfy all of them.
+ * @details The constraints are the referred symbols (e.g. tables), the locations of scalar expressions,
+ *      and the local location.
+ */
+class location_constraints {
 public:
-    explicit location_intersection(remote::symbol_location_query const& query) :
+    explicit location_constraints(remote::symbol_location_query const& query) :
         query_ { query },
-        result_ { query.available_location_ids() }
+        locations_ { query.available_location_ids() }
     {}
 
     void add(descriptor::relation const& descriptor) {
@@ -96,7 +104,7 @@ public:
             add(index->table());
             return;
         }
-        intersect(result_, local_location());
+        intersect(locations_, local_location());
     }
 
     void add(descriptor::storage const& descriptor) {
@@ -104,15 +112,15 @@ public:
             add(*table);
             return;
         }
-        intersect(result_, local_location());
+        intersect(locations_, local_location());
     }
 
-    void add_local() {
-        intersect(result_, local_location());
+    void restrict_to_local() {
+        intersect(locations_, local_location());
     }
 
     void add(location_id_set_type const& locations) {
-        intersect(result_, locations);
+        intersect(locations_, locations);
     }
 
     template<class T>
@@ -122,49 +130,143 @@ public:
         }
     }
 
+    /**
+     * @brief returns the locations which satisfy all the given constraints.
+     * @return the intersection of the available locations and the given constraints
+     */
     [[nodiscard]] location_id_set_type release() && {
-        return std::move(result_);
+        return std::move(locations_);
     }
 
 private:
     remote::symbol_location_query const& query_;
-    location_id_set_type result_;
+    location_id_set_type locations_;
 
     void add(storage::table const& table) {
-        intersect(result_, query_.find(table));
+        intersect(locations_, query_.find(table));
     }
 };
 
-template<class Keys, class Evaluate>
-void add_keys(location_intersection& target, Keys const& keys, Evaluate const& evaluate) {
-    for (auto&& key : keys) {
-        target.add(evaluate(key.value()));
-    }
-}
-
-template<class Value>
-void add_constant_value(
-        location_intersection& target,
-        Value const& value,
-        remote::symbol_location_query const& query) {
-    if (!value.has_variable()) {
-        return;
-    }
-    if (auto variable = binding::extract_if<variable::declaration>(value.variable())) {
-        target.add(query.find(*variable));
-    }
-}
-
-class scalar_location_collector {
+/**
+ * @brief decomposes an operator or a scalar expression, and collects its constraints of locations.
+ * @details Each operator is restricted by the symbols it refers, and by the scalar expressions in it.
+ *      The operators not listed here may have scalar expressions or symbols not inspected here,
+ *      so that they are restricted to the local location.
+ */
+class location_collector {
 public:
-    explicit scalar_location_collector(
-            remote::location_options::scalar_expression_kind_set const& kinds,
+    explicit location_collector(
+            remote::location_options::scalar_expression_kind_set const& scalar_kinds,
             remote::symbol_location_query const& query,
-            location_id_set_type& result) noexcept :
-        kinds_ { kinds },
+            location_constraints& constraints) noexcept :
+        scalar_kinds_ { scalar_kinds },
         query_ { query },
-        result_ { result }
+        constraints_ { constraints }
     {}
+
+    // operators
+
+    void operator()(trelation::expression const& expression) {
+        (void) expression;
+        // NOTE: the scalar expressions and symbols in the other operators are not inspected yet
+        constraints_.restrict_to_local();
+    }
+
+    void operator()(trelation::scan const& expression) {
+        constraints_.add(expression.source());
+        add_keys(expression.lower().keys());
+        add_keys(expression.upper().keys());
+        add_constant_value(expression.row_slice().start());
+        add_constant_value(expression.row_slice().count());
+    }
+
+    void operator()(trelation::find const& expression) {
+        constraints_.add(expression.source());
+        add_keys(expression.keys());
+    }
+
+    void operator()(trelation::join_find const& expression) {
+        // NOTE: the join keys and conditions are not inspected yet
+        constraints_.add(expression.source());
+        constraints_.restrict_to_local();
+    }
+
+    void operator()(trelation::join_scan const& expression) {
+        // NOTE: the join keys and conditions are not inspected yet
+        constraints_.add(expression.source());
+        constraints_.restrict_to_local();
+    }
+
+    void operator()(trelation::write const& expression) {
+        constraints_.add(expression.destination());
+    }
+
+    void operator()(trelation::filter const& expression) {
+        tscalar::walk(*this, expression.condition());
+    }
+
+    // operators which never have scalar expressions nor symbols
+    void operator()(trelation::buffer const& expression) noexcept {
+        (void) expression;
+    }
+
+    void operator()(trelation::identify const& expression) noexcept {
+        (void) expression;
+    }
+
+    void operator()(trelation::emit const& expression) noexcept {
+        (void) expression;
+    }
+
+    void operator()(trelation::intermediate::distinct const& expression) noexcept {
+        (void) expression;
+    }
+
+    void operator()(trelation::intermediate::union_ const& expression) noexcept {
+        (void) expression;
+    }
+
+    void operator()(trelation::intermediate::intersection const& expression) noexcept {
+        (void) expression;
+    }
+
+    void operator()(trelation::intermediate::difference const& expression) noexcept {
+        (void) expression;
+    }
+
+    void operator()(trelation::intermediate::escape const& expression) noexcept {
+        (void) expression;
+    }
+
+    void operator()(trelation::step::intersection const& expression) noexcept {
+        (void) expression;
+    }
+
+    void operator()(trelation::step::difference const& expression) noexcept {
+        (void) expression;
+    }
+
+    void operator()(trelation::step::flatten const& expression) noexcept {
+        (void) expression;
+    }
+
+    void operator()(trelation::step::offer const& expression) noexcept {
+        (void) expression;
+    }
+
+    void operator()(trelation::step::take_flat const& expression) noexcept {
+        (void) expression;
+    }
+
+    void operator()(trelation::step::take_group const& expression) noexcept {
+        (void) expression;
+    }
+
+    void operator()(trelation::step::take_cogroup const& expression) noexcept {
+        (void) expression;
+    }
+
+    // scalar expressions
 
     void operator()(tscalar::expression const& expression) {
         check_kind(expression);
@@ -173,32 +275,50 @@ public:
     void operator()(tscalar::function_call const& expression) {
         check_kind(expression);
         if (auto function = binding::extract_if<function::declaration>(expression.function())) {
-            intersect(result_, query_.find(*function));
+            constraints_.add(query_.find(*function));
             return;
         }
-        intersect(result_, local_location());
+        constraints_.restrict_to_local();
     }
 
     void operator()(tscalar::variable_reference const& expression) {
         check_kind(expression);
         if (auto variable = binding::extract_if<variable::declaration>(expression.variable())) {
-            intersect(result_, query_.find(*variable));
+            constraints_.add(query_.find(*variable));
         }
     }
 
-    void operator()(tscalar::extension const&) {
+    void operator()(tscalar::extension const& expression) {
+        (void) expression;
         // NOTE: the contents of extensions are not inspected
-        intersect(result_, local_location());
+        constraints_.restrict_to_local();
     }
 
 private:
-    remote::location_options::scalar_expression_kind_set const& kinds_;
+    remote::location_options::scalar_expression_kind_set const& scalar_kinds_;
     remote::symbol_location_query const& query_;
-    location_id_set_type& result_;
+    location_constraints& constraints_;
 
     void check_kind(tscalar::expression const& expression) {
-        if (!kinds_.contains(expression.kind())) {
-            intersect(result_, local_location());
+        if (!scalar_kinds_.contains(expression.kind())) {
+            constraints_.restrict_to_local();
+        }
+    }
+
+    template<class Keys>
+    void add_keys(Keys const& keys) {
+        for (auto&& key : keys) {
+            tscalar::walk(*this, key.value());
+        }
+    }
+
+    template<class Value>
+    void add_constant_value(Value const& value) {
+        if (!value.has_variable()) {
+            return;
+        }
+        if (auto variable = binding::extract_if<variable::declaration>(value.variable())) {
+            constraints_.add(query_.find(*variable));
         }
     }
 };
@@ -215,69 +335,22 @@ location_id_set_type element_location::all() const {
 }
 
 location_id_set_type element_location::operator()(tscalar::expression const& expression) const {
-    auto result = all();
-    scalar_location_collector collector { options_.remote_scalar_expression_kinds(), query_, result };
+    location_constraints constraints { query_ };
+    location_collector collector { options_.remote_scalar_expression_kinds(), query_, constraints };
     tscalar::walk(collector, expression);
-    return result;
+    return std::move(constraints).release();
 }
 
 location_id_set_type element_location::operator()(trelation::expression const& expression) const {
-    bool const remote = options_.remote_relation_expression_kinds().contains(expression.kind());
-    location_intersection result { query_ };
-    switch (expression.kind()) {
-        case trelation::scan::tag: {
-            auto&& scan = unsafe_downcast<trelation::scan>(expression);
-            result.add(scan.source());
-            add_keys(result, scan.lower().keys(), *this);
-            add_keys(result, scan.upper().keys(), *this);
-            add_constant_value(result, scan.row_slice().start(), query_);
-            add_constant_value(result, scan.row_slice().count(), query_);
-            break;
-        }
-        case trelation::find::tag: {
-            auto&& find = unsafe_downcast<trelation::find>(expression);
-            result.add(find.source());
-            add_keys(result, find.keys(), *this);
-            break;
-        }
-        case trelation::join_find::tag:
-            // NOTE: the join keys and conditions are not inspected yet
-            result.add(unsafe_downcast<trelation::join_find>(expression).source());
-            result.add_local();
-            break;
-        case trelation::join_scan::tag:
-            // NOTE: the join keys and conditions are not inspected yet
-            result.add(unsafe_downcast<trelation::join_scan>(expression).source());
-            result.add_local();
-            break;
-        case trelation::write::tag:
-            result.add(unsafe_downcast<trelation::write>(expression).destination());
-            break;
-        // operators which never have scalar expressions nor symbols
-        case trelation::buffer::tag:
-        case trelation::identify::tag:
-        case trelation::intermediate::distinct::tag:
-        case trelation::intermediate::union_::tag:
-        case trelation::intermediate::intersection::tag:
-        case trelation::intermediate::difference::tag:
-        case trelation::emit::tag:
-        case trelation::intermediate::escape::tag:
-        case trelation::step::intersection::tag:
-        case trelation::step::difference::tag:
-        case trelation::step::flatten::tag:
-        case trelation::step::offer::tag:
-        case trelation::step::take_flat::tag:
-        case trelation::step::take_group::tag:
-        case trelation::step::take_cogroup::tag:
-            break;
-        case trelation::filter::tag:
-            result.add((*this)(unsafe_downcast<trelation::filter>(expression).condition()));
-            break;
-        default:
-            return local_location();
+    location_constraints constraints { query_ };
+    location_collector collector { options_.remote_scalar_expression_kinds(), query_, constraints };
+    if (trelation::is_available_in_intermediate_plan(expression.kind())) {
+        trelation::intermediate::dispatch(collector, expression);
+    } else {
+        trelation::step::dispatch(collector, expression);
     }
-    auto locations = std::move(result).release();
-    if (!remote) {
+    auto locations = std::move(constraints).release();
+    if (!options_.remote_relation_expression_kinds().contains(expression.kind())) {
         intersect(locations, local_location());
     }
     return locations;
@@ -303,7 +376,7 @@ location_id_set_type element_location::operator()(tplan::exchange const&) const 
 }
 
 location_id_set_type element_location::operator()(tstatement::statement const& statement) const {
-    location_intersection result { query_ };
+    location_constraints constraints { query_ };
     switch (statement.kind()) {
         case tstatement::execute::tag: {
             auto locations = all();
@@ -314,45 +387,45 @@ location_id_set_type element_location::operator()(tstatement::statement const& s
         }
         case tstatement::write::tag: {
             auto&& write = unsafe_downcast<tstatement::write>(statement);
-            result.add(write.destination());
+            constraints.add(write.destination());
             for (auto&& tuple : write.tuples()) {
                 for (auto&& element : tuple.elements()) {
-                    result.add((*this)(element));
+                    constraints.add((*this)(element));
                 }
             }
             break;
         }
         case tstatement::drop_table::tag:
-            result.add(unsafe_downcast<tstatement::drop_table>(statement).target());
+            constraints.add(unsafe_downcast<tstatement::drop_table>(statement).target());
             break;
         case tstatement::rename_table::tag:
-            result.add(unsafe_downcast<tstatement::rename_table>(statement).target());
+            constraints.add(unsafe_downcast<tstatement::rename_table>(statement).target());
             break;
         case tstatement::rename_column::tag:
-            result.add(unsafe_downcast<tstatement::rename_column>(statement).table());
+            constraints.add(unsafe_downcast<tstatement::rename_column>(statement).table());
             break;
         case tstatement::create_index::tag:
-            result.add(unsafe_downcast<tstatement::create_index>(statement).definition());
+            constraints.add(unsafe_downcast<tstatement::create_index>(statement).definition());
             break;
         case tstatement::drop_index::tag:
-            result.add(unsafe_downcast<tstatement::drop_index>(statement).target());
+            constraints.add(unsafe_downcast<tstatement::drop_index>(statement).target());
             break;
         case tstatement::rename_index::tag:
-            result.add(unsafe_downcast<tstatement::rename_index>(statement).target());
+            constraints.add(unsafe_downcast<tstatement::rename_index>(statement).target());
             break;
         case tstatement::truncate_table::tag:
-            result.add(unsafe_downcast<tstatement::truncate_table>(statement).target());
+            constraints.add(unsafe_downcast<tstatement::truncate_table>(statement).target());
             break;
         case tstatement::grant_table::tag:
-            result.add_privilege_elements(unsafe_downcast<tstatement::grant_table>(statement));
+            constraints.add_privilege_elements(unsafe_downcast<tstatement::grant_table>(statement));
             break;
         case tstatement::revoke_table::tag:
-            result.add_privilege_elements(unsafe_downcast<tstatement::revoke_table>(statement));
+            constraints.add_privilege_elements(unsafe_downcast<tstatement::revoke_table>(statement));
             break;
         default:
             return local_location();
     }
-    return std::move(result).release();
+    return std::move(constraints).release();
 }
 
 } // namespace yugawara::remote::details
