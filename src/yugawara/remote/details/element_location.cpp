@@ -120,6 +120,26 @@ private:
     }
 };
 
+template<class Keys, class Evaluate>
+void add_keys(location_intersection& target, Keys const& keys, Evaluate const& evaluate) {
+    for (auto&& key : keys) {
+        target.add(evaluate(key.value()));
+    }
+}
+
+template<class Value>
+void add_constant_value(
+        location_intersection& target,
+        Value const& value,
+        remote::symbol_location_query const& query) {
+    if (!value.has_variable()) {
+        return;
+    }
+    if (auto variable = binding::extract_if<variable::declaration>(value.variable())) {
+        target.add(query.find(*variable));
+    }
+}
+
 class scalar_location_collector {
 public:
     explicit scalar_location_collector(
@@ -190,12 +210,21 @@ location_id_set_type element_location::operator()(trelation::expression const& e
     bool const remote = options_.remote_relation_expression_kinds().contains(expression.kind());
     location_intersection result { query_ };
     switch (expression.kind()) {
-        case trelation::scan::tag:
-            result.add(unsafe_downcast<trelation::scan>(expression).source());
+        case trelation::scan::tag: {
+            auto&& scan = unsafe_downcast<trelation::scan>(expression);
+            result.add(scan.source());
+            add_keys(result, scan.lower().keys(), *this);
+            add_keys(result, scan.upper().keys(), *this);
+            add_constant_value(result, scan.row_slice().start(), query_);
+            add_constant_value(result, scan.row_slice().count(), query_);
             break;
-        case trelation::find::tag:
-            result.add(unsafe_downcast<trelation::find>(expression).source());
+        }
+        case trelation::find::tag: {
+            auto&& find = unsafe_downcast<trelation::find>(expression);
+            result.add(find.source());
+            add_keys(result, find.keys(), *this);
             break;
+        }
         case trelation::join_find::tag:
             result.add(unsafe_downcast<trelation::join_find>(expression).source());
             break;

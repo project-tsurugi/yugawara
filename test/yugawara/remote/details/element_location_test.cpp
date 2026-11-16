@@ -137,9 +137,80 @@ TEST_F(element_location_test, scan_multiple_locations) {
     EXPECT_EQ(locations(make_scan(*shared_index)), (location_id_set_type { 0, 7 }));
 }
 
+TEST_F(element_location_test, scan_keys) {
+    auto func = std::make_shared<function::declaration>(function::declaration {
+            function::declaration::minimum_builtin_function_id + 1,
+            "f",
+            ::takatori::type::int4 {},
+            {},
+    });
+    query.functions.emplace(func.get(), location_id_set_type { 0, 7 });
+    relation::scan expr {
+            factory(*remote_index),
+            {},
+            relation::scan::endpoint {
+                    relation::scan::key { factory(remote_table->columns()[0]), constant() },
+                    relation::endpoint_kind::inclusive,
+            },
+            relation::scan::endpoint {
+                    relation::scan::key {
+                            factory(remote_table->columns()[0]),
+                            scalar::function_call { factory(func), {} },
+                    },
+                    relation::endpoint_kind::inclusive,
+            },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 7 }));
+
+    query.functions[func.get()] = location_id_set_type { 0 };
+    EXPECT_EQ(locations(expr), (location_id_set_type {}));
+}
+
+TEST_F(element_location_test, scan_row_slice) {
+    auto decl = std::make_shared<variable::declaration>(variable::declaration {
+            "p",
+            ::takatori::type::int8 {},
+    });
+    query.variables.emplace(decl.get(), location_id_set_type { 0, 7 });
+    relation::scan expr {
+            factory(*remote_index),
+            {},
+            {},
+            {},
+            {},
+            relation::scan::row_slice_type { {}, factory.external_variable(decl) },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 7 }));
+
+    query.variables[decl.get()] = location_id_set_type { 0 };
+    EXPECT_EQ(locations(expr), (location_id_set_type {}));
+}
+
 TEST_F(element_location_test, find) {
     relation::find expr { factory(*remote_index), {}, {} };
     EXPECT_EQ(locations(expr), (location_id_set_type { 7 }));
+}
+
+TEST_F(element_location_test, find_keys) {
+    auto decl = std::make_shared<variable::declaration>(variable::declaration {
+            "p",
+            ::takatori::type::int4 {},
+    });
+    query.variables.emplace(decl.get(), location_id_set_type { 0, 7 });
+    relation::find expr {
+            factory(*remote_index),
+            {},
+            {
+                    relation::find::key {
+                            factory(remote_table->columns()[0]),
+                            scalar::variable_reference { factory.external_variable(decl) },
+                    },
+            },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 7 }));
+
+    query.variables[decl.get()] = location_id_set_type { 0 };
+    EXPECT_EQ(locations(expr), (location_id_set_type {}));
 }
 
 TEST_F(element_location_test, join_find) {

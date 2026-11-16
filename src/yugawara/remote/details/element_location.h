@@ -26,10 +26,13 @@ namespace yugawara::remote::details {
  *      - `execute` statement: the intersection of the locations of its steps
  *      - other elements: the local location only
  *
+ *      The locations of `scan` and `find` operators are also restricted to the locations where
+ *      their search keys can be evaluated, and the locations of the variables in the row slice of `scan`.
+ *
  *      Additionally, the locations of each operator are restricted to the local location
  *      if its kind is not in remote::location_options::remote_relation_expression_kinds().
  *
- *      Note that this inspects scalar expressions only in the conditions of `filter` operators.
+ *      Note that this inspects scalar expressions only in the elements described above.
  */
 class element_location {
 public:
