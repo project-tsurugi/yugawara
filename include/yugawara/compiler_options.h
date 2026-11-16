@@ -53,13 +53,6 @@ public:
     static constexpr std::size_t default_max_partial_limit_count = 1000;
 
     /**
-     * @brief the default value for allowing operations which cannot be executed in any locations.
-     * @see allow_empty_operation_location()
-     * @deprecated use remote::location_options::default_allow_empty_operation_location instead
-     */
-    static constexpr bool default_allow_empty_operation_location = remote::location_options::default_allow_empty_operation_location;
-
-    /**
      * @brief creates a new instance with default options.
      * @param storage_processor the storage element prototype processor for accepting storage element definitions
      * @param index_estimator the index estimator for index selection
@@ -193,19 +186,6 @@ public:
 
     /// @copydoc symbol_location_query()
     [[nodiscard]] ::takatori::util::maybe_shared_ptr<remote::symbol_location_query const> const& symbol_location_query() const noexcept;
-
-    /**
-     * @brief returns whether to allow operations which cannot be executed in any locations.
-     * @details This is an alias of location_options().allow_empty_operation_location().
-     * @return true if such operations are allowed
-     * @return false otherwise
-     * @deprecated use location_options().allow_empty_operation_location() instead
-     * @see remote::location_options::allow_empty_operation_location()
-     */
-    [[nodiscard]] bool& allow_empty_operation_location() noexcept;
-
-    /// @copydoc allow_empty_operation_location()
-    [[nodiscard]] bool allow_empty_operation_location() const noexcept;
 
 private:
     runtime_feature_set runtime_features_ { default_runtime_features };

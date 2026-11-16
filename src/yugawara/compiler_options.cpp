@@ -104,12 +104,4 @@ maybe_shared_ptr<remote::symbol_location_query const> const& compiler_options::s
     return location_options_.symbol_location_query();
 }
 
-bool& compiler_options::allow_empty_operation_location() noexcept {
-    return location_options_.allow_empty_operation_location();
-}
-
-bool compiler_options::allow_empty_operation_location() const noexcept {
-    return location_options_.allow_empty_operation_location();
-}
-
 } // namespace yugawara

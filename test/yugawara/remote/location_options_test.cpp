@@ -96,31 +96,25 @@ TEST_F(location_options_test, compiler_options_defaults) {
     EXPECT_EQ(sub.remote_scalar_expression_kinds(), location_options::default_remote_scalar_expression_kinds);
     EXPECT_EQ(sub.remote_step_kinds(), location_options::default_remote_step_kinds);
     EXPECT_EQ(sub.remote_statement_kinds(), location_options::default_remote_statement_kinds);
-    EXPECT_EQ(compiler_options::default_allow_empty_operation_location, location_options::default_allow_empty_operation_location);
 }
 
 TEST_F(location_options_test, compiler_options_redirect_old_to_new) {
     auto query = std::make_shared<mock_symbol_location_query>();
     compiler_options options {};
     options.symbol_location_query() = query;
-    options.allow_empty_operation_location() = true;
 
     auto const& view = options;
     EXPECT_EQ(view.location_options().symbol_location_query().get(), query.get());
-    EXPECT_TRUE(view.location_options().allow_empty_operation_location());
 }
 
 TEST_F(location_options_test, compiler_options_redirect_new_to_old) {
     auto query = std::make_shared<mock_symbol_location_query>();
     compiler_options options {};
     options.location_options().symbol_location_query() = query;
-    options.location_options().allow_empty_operation_location() = true;
 
     auto const& view = options;
     EXPECT_EQ(view.symbol_location_query().get(), query.get());
-    EXPECT_TRUE(view.allow_empty_operation_location());
     EXPECT_EQ(&options.symbol_location_query(), &options.location_options().symbol_location_query());
-    EXPECT_EQ(&options.allow_empty_operation_location(), &options.location_options().allow_empty_operation_location());
 }
 
 TEST_F(location_options_test, compiler_options_copy) {

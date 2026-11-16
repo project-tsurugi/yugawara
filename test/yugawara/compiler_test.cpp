@@ -336,7 +336,7 @@ TEST_F(compiler_test, operation_location_query_allow_empty) {
 
     auto opts = options();
     opts.symbol_location_query() = query;
-    opts.allow_empty_operation_location() = true;
+    opts.location_options().allow_empty_operation_location() = true;
     opts.location_options().remote_relation_expression_kinds().erase(relation::expression_kind::emit);
 
     auto result = compiler()(opts, statement::execute { std::move(p) });
@@ -396,7 +396,7 @@ TEST_F(compiler_test, operation_location_query_empty_table_allowed) {
 
     auto opts = options();
     opts.symbol_location_query() = query;
-    opts.allow_empty_operation_location() = true;
+    opts.location_options().allow_empty_operation_location() = true;
 
     auto result = compiler()(opts, std::move(r));
     ASSERT_TRUE(result) << diagnostics(result);
@@ -495,7 +495,7 @@ TEST_F(compiler_test, operation_location_query_allow_empty_restricted) {
 
     auto opts = options();
     opts.symbol_location_query() = query;
-    opts.allow_empty_operation_location() = true;
+    opts.location_options().allow_empty_operation_location() = true;
     opts.restricted_features() += {
             restricted_feature::relation_remote_symbol,
     };
