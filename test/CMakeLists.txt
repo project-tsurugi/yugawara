@@ -32,6 +32,7 @@ add_test_executable(yugawara/remote/details/compute_operation_locations_test.cpp
 add_test_executable(yugawara/remote/details/decide_operator_locations_test.cpp)
 add_test_executable(yugawara/remote/details/insert_fences_test.cpp)
 add_test_executable(yugawara/remote/location_object_scanner_test.cpp)
+add_test_executable(yugawara/remote/location_options_test.cpp)
 
 # type system
 add_test_executable(yugawara/type/type_category_test.cpp)

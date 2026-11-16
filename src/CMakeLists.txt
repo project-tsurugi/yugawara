@@ -10,6 +10,7 @@ add_library(yugawara
     # remote execution
     yugawara/remote/location_info.cpp
     yugawara/remote/location_object_scanner.cpp
+    yugawara/remote/location_options.cpp
     yugawara/remote/details/element_location.cpp
     yugawara/remote/details/compute_operation_locations.cpp
     yugawara/remote/details/decide_operator_locations.cpp
