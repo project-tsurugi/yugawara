@@ -19,9 +19,12 @@ namespace yugawara::remote::details {
  *      - elements which may refer to tables: the intersection of the locations of the referred relations,
  *        where the location of each table index is the location of its table,
  *        and the location of the other relations (e.g. exchanges) is only the local location
- *      - elements which never restrict the location (`offer`, `take_flat`, `take_group`, and `take_cogroup` operators):
- *        all available locations
+ *      - operators which never have scalar expressions nor symbols
+ *        (e.g. `emit`, `buffer`, `offer`, and `take_flat`): all available locations
  *      - `filter` operators: the locations where their conditions can be evaluated
+ *      - the other operators which may have scalar expressions or symbols not inspected here
+ *        (e.g. `project`, `values`, `aggregate`, `join_find`, and `join_scan`):
+ *        restricted to the local location
  *      - process: the intersection of the locations of its operators
  *      - `execute` statement: the intersection of the locations of its steps
  *      - other elements: the local location only
@@ -33,8 +36,6 @@ namespace yugawara::remote::details {
  *
  *      Additionally, the locations of each operator are restricted to the local location
  *      if its kind is not in remote::location_options::remote_relation_expression_kinds().
- *
- *      Note that this inspects scalar expressions only in the elements described above.
  */
 class element_location {
 public:

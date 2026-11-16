@@ -308,6 +308,7 @@ TEST_F(compiler_test, operation_location_query_empty_process) {
 
     auto opts = options();
     opts.symbol_location_query() = query;
+    opts.location_options().remote_relation_expression_kinds().erase(relation::expression_kind::emit);
 
     auto result = compiler()(opts, statement::execute { std::move(p) });
     ASSERT_FALSE(result);
@@ -336,6 +337,7 @@ TEST_F(compiler_test, operation_location_query_allow_empty) {
     auto opts = options();
     opts.symbol_location_query() = query;
     opts.allow_empty_operation_location() = true;
+    opts.location_options().remote_relation_expression_kinds().erase(relation::expression_kind::emit);
 
     auto result = compiler()(opts, statement::execute { std::move(p) });
     ASSERT_TRUE(result) << diagnostics(result);
@@ -465,7 +467,9 @@ TEST_F(compiler_test, operation_location_query_fence) {
             EXPECT_EQ(operators.size(), 2);
             EXPECT_EQ(locations.find(step), (location_id_set_type { 7 }));
         } else {
-            EXPECT_EQ(locations.find(step), (location_id_set_type { 0 }));
+            // the other process can be executed in the local location
+            auto step_locations = locations.find(step);
+            EXPECT_NE(step_locations.find(remote::location_info::local_location_id), step_locations.end());
         }
     }
     EXPECT_EQ(processes, 2);

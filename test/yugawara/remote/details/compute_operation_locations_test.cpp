@@ -154,6 +154,7 @@ TEST_F(compute_operation_locations_test, shared_table_process) {
 }
 
 TEST_F(compute_operation_locations_test, empty_process) {
+    options.remote_relation_expression_kinds().erase(relation::expression_kind::emit);
     tstatement::execute stmt { plan::graph_type {} };
     add_scan_emit(stmt.execution_plan(), *remote_index);
 
@@ -197,6 +198,7 @@ TEST_F(compute_operation_locations_test, empty_process_region_from_operator_with
 }
 
 TEST_F(compute_operation_locations_test, empty_process_allowed) {
+    options.remote_relation_expression_kinds().erase(relation::expression_kind::emit);
     tstatement::execute stmt { plan::graph_type {} };
     auto&& process = add_scan_emit(stmt.execution_plan(), *remote_index);
 

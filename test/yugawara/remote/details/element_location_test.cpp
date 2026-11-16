@@ -215,7 +215,7 @@ TEST_F(element_location_test, find_keys) {
 
 TEST_F(element_location_test, join_find) {
     relation::join_find expr { relation::join_kind::inner, factory(*remote_index), {}, {} };
-    EXPECT_EQ(locations(expr), (location_id_set_type { 7 }));
+    EXPECT_EQ(locations(expr), (location_id_set_type {}));
 }
 
 TEST_F(element_location_test, join_find_exchange) {
@@ -226,7 +226,7 @@ TEST_F(element_location_test, join_find_exchange) {
 
 TEST_F(element_location_test, join_scan) {
     relation::join_scan expr { relation::join_kind::inner, factory(*remote_index), {}, {}, {} };
-    EXPECT_EQ(locations(expr), (location_id_set_type { 7 }));
+    EXPECT_EQ(locations(expr), (location_id_set_type {}));
 }
 
 TEST_F(element_location_test, join_scan_exchange) {
@@ -402,13 +402,18 @@ TEST_F(element_location_test, filter_condition_kind_not_remote) {
     EXPECT_EQ(locations(expr), (location_id_set_type { 0 }));
 }
 
-TEST_F(element_location_test, other_operator) {
-    relation::values expr { {}, {} };
+TEST_F(element_location_test, emit) {
+    relation::emit expr { std::vector<relation::emit::column> {} };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, join_find_local) {
+    relation::join_find expr { relation::join_kind::inner, factory(*local_index), {}, {} };
     EXPECT_EQ(locations(expr), (location_id_set_type { 0 }));
 }
 
-TEST_F(element_location_test, emit) {
-    relation::emit expr { std::vector<relation::emit::column> {} };
+TEST_F(element_location_test, operator_with_expressions) {
+    relation::values expr { {}, {} };
     EXPECT_EQ(locations(expr), (location_id_set_type { 0 }));
 }
 
@@ -425,12 +430,14 @@ TEST_F(element_location_test, process) {
 }
 
 TEST_F(element_location_test, process_local) {
+    options.remote_relation_expression_kinds().erase(relation::expression_kind::emit);
     plan::graph_type graph {};
     auto&& process = add_scan_emit(graph, *shared_index);
     EXPECT_EQ(locations(process), (location_id_set_type { 0 }));
 }
 
 TEST_F(element_location_test, process_empty) {
+    options.remote_relation_expression_kinds().erase(relation::expression_kind::emit);
     plan::graph_type graph {};
     auto&& process = add_scan_emit(graph, *remote_index);
     EXPECT_EQ(locations(process), (location_id_set_type {}));

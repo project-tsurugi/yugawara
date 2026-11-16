@@ -5,6 +5,17 @@
 #include <utility>
 
 #include <takatori/relation/filter.h>
+#include <takatori/relation/buffer.h>
+#include <takatori/relation/identify.h>
+#include <takatori/relation/emit.h>
+#include <takatori/relation/intermediate/distinct.h>
+#include <takatori/relation/intermediate/union.h>
+#include <takatori/relation/intermediate/intersection.h>
+#include <takatori/relation/intermediate/difference.h>
+#include <takatori/relation/intermediate/escape.h>
+#include <takatori/relation/step/intersection.h>
+#include <takatori/relation/step/difference.h>
+#include <takatori/relation/step/flatten.h>
 #include <takatori/relation/scan.h>
 #include <takatori/relation/find.h>
 #include <takatori/relation/join_find.h>
@@ -93,6 +104,10 @@ public:
             add(*table);
             return;
         }
+        intersect(result_, local_location());
+    }
+
+    void add_local() {
         intersect(result_, local_location());
     }
 
@@ -226,15 +241,30 @@ location_id_set_type element_location::operator()(trelation::expression const& e
             break;
         }
         case trelation::join_find::tag:
+            // NOTE: the join keys and conditions are not inspected yet
             result.add(unsafe_downcast<trelation::join_find>(expression).source());
+            result.add_local();
             break;
         case trelation::join_scan::tag:
+            // NOTE: the join keys and conditions are not inspected yet
             result.add(unsafe_downcast<trelation::join_scan>(expression).source());
+            result.add_local();
             break;
         case trelation::write::tag:
             result.add(unsafe_downcast<trelation::write>(expression).destination());
             break;
-        // operators which never restrict the location
+        // operators which never have scalar expressions nor symbols
+        case trelation::buffer::tag:
+        case trelation::identify::tag:
+        case trelation::intermediate::distinct::tag:
+        case trelation::intermediate::union_::tag:
+        case trelation::intermediate::intersection::tag:
+        case trelation::intermediate::difference::tag:
+        case trelation::emit::tag:
+        case trelation::intermediate::escape::tag:
+        case trelation::step::intersection::tag:
+        case trelation::step::difference::tag:
+        case trelation::step::flatten::tag:
         case trelation::step::offer::tag:
         case trelation::step::take_flat::tag:
         case trelation::step::take_group::tag:
