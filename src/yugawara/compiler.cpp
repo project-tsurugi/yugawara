@@ -4,7 +4,6 @@
 
 #include <takatori/util/assertion.h>
 #include <takatori/util/clonable.h>
-#include <takatori/util/optional_ptr.h>
 
 #include <yugawara/analyzer/expression_analyzer.h>
 #include <yugawara/analyzer/intermediate_plan_normalizer.h>
@@ -33,7 +32,6 @@ namespace plan = ::takatori::plan;
 namespace statement = ::takatori::statement;
 
 using ::takatori::util::clone_unique;
-using ::takatori::util::optional_ptr;
 
 using ::yugawara::util::either;
 
@@ -128,10 +126,10 @@ public:
         if (auto diagnostics = do_normalize(plan); !diagnostics.empty()) {
             return result_type { std::move(diagnostics) };
         }
-        if (auto const& query = options_.location_options().symbol_location_query()) {
+        if (options_.location_options().symbol_location_query()) {
             // NOTE: fences must be placed before optimization, to prevent moving operators across the locations
             // TODO: reconsider where to insert fences (e.g., intermediate_plan_normalizer or intermediate_plan_optimizer)
-            auto diagnostics = remote::details::insert_fences(plan, *query);
+            auto diagnostics = remote::details::insert_fences(plan, options_.location_options());
             if (!diagnostics.empty() && !options_.location_options().allow_empty_operation_location()) {
                 return result_type { std::move(diagnostics) };
             }
@@ -159,7 +157,7 @@ public:
             auto diagnostics = details::collect_restricted_features(
                     options_.restricted_features(),
                     *stmt,
-                    optional_ptr<remote::symbol_location_query const> { options_.location_options().symbol_location_query().get() });
+                    options_.location_options());
             if (!diagnostics.empty()) {
                 return result_type { std::move(diagnostics) };
             }
@@ -171,11 +169,10 @@ public:
         }
 
         std::shared_ptr<remote::operation_location_query const> operation_locations {};
-        if (auto const& query = options_.location_options().symbol_location_query()) {
+        if (options_.location_options().symbol_location_query()) {
             auto locations = remote::details::compute_operation_locations(
                     *stmt,
-                    *query,
-                    options_.location_options().allow_empty_operation_location());
+                    options_.location_options());
             if (locations.has_error()) {
                 return result_type { std::move(locations.error()) };
             }

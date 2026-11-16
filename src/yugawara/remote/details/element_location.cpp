@@ -26,6 +26,8 @@
 #include <takatori/statement/grant_table.h>
 #include <takatori/statement/revoke_table.h>
 
+#include <boost/assert.hpp>
+
 #include <takatori/util/downcast.h>
 
 #include <yugawara/binding/extract.h>
@@ -46,6 +48,11 @@ namespace {
 
 location_id_set_type local_location() {
     return { remote::location_info::local_location_id };
+}
+
+remote::symbol_location_query const& require_query(remote::location_options const& options) noexcept {
+    BOOST_ASSERT(options.symbol_location_query()); // NOLINT
+    return *options.symbol_location_query();
 }
 
 void intersect(location_id_set_type& target, location_id_set_type const& other) {
@@ -102,8 +109,9 @@ private:
 
 } // namespace
 
-element_location::element_location(remote::symbol_location_query const& query) noexcept :
-    query_ { query }
+element_location::element_location(remote::location_options options) noexcept :
+    options_ { std::move(options) },
+    query_ { require_query(options_) }
 {}
 
 location_id_set_type element_location::all() const {

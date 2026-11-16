@@ -53,8 +53,8 @@ namespace {
 
 operator_location_map decide_operator_locations(
         trelation::graph_type const& graph,
-        remote::symbol_location_query const& query) {
-    element_location locations { query };
+        remote::location_options const& options) {
+    element_location locations { options };
     operator_location_map results {};
     results.reserve(graph.size());
     trelation::sort_from_upstream(graph, [&](trelation::expression const& expression) {

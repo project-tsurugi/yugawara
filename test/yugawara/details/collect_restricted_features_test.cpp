@@ -60,6 +60,7 @@ protected:
     std::shared_ptr<storage::index> i0 = storages->add_index({ t0, "I0", });
 
     mock_symbol_location_query query {};
+    remote::location_options options = location_options_of(query);
 
     void locate_t0(remote::location_info::location_id_set_type locations) {
         query.all = { 0, 7 };
@@ -644,7 +645,7 @@ TEST_F(collect_restricted_features_test, relation_remote_symbol_restricted) {
     auto result = collect_restricted_features(
             { restricted_feature::relation_remote_symbol },
             make_statement(make_scan({})),
-            query);
+            options);
     ASSERT_EQ(result.size(), 1);
     check(result[0], restricted_feature::relation_remote_symbol);
 }
@@ -654,7 +655,7 @@ TEST_F(collect_restricted_features_test, relation_remote_symbol_local) {
     auto result = collect_restricted_features(
             { restricted_feature::relation_remote_symbol },
             make_statement(make_scan({})),
-            query);
+            options);
     ASSERT_EQ(result.size(), 0);
 }
 
@@ -663,7 +664,7 @@ TEST_F(collect_restricted_features_test, relation_remote_symbol_not_restricted) 
     auto result = collect_restricted_features(
             { restricted_feature::relation_buffer },
             make_statement(make_scan({})),
-            query);
+            options);
     ASSERT_EQ(result.size(), 0);
 }
 
@@ -684,7 +685,7 @@ TEST_F(collect_restricted_features_test, statement_remote_symbol_restricted) {
                     factory(t0),
                     "X",
             },
-            query);
+            options);
     ASSERT_EQ(result.size(), 1);
     check(result[0], restricted_feature::statement_remote_symbol);
 }
@@ -699,7 +700,7 @@ TEST_F(collect_restricted_features_test, statement_remote_symbol_local) {
                     factory(t0),
                     "X",
             },
-            query);
+            options);
     ASSERT_EQ(result.size(), 0);
 }
 
@@ -713,7 +714,7 @@ TEST_F(collect_restricted_features_test, statement_remote_symbol_not_restricted)
                     factory(t0),
                     "X",
             },
-            query);
+            options);
     ASSERT_EQ(result.size(), 0);
 }
 
@@ -722,7 +723,7 @@ TEST_F(collect_restricted_features_test, statement_remote_symbol_execute) {
     auto result = collect_restricted_features(
             { restricted_feature::statement_remote_symbol },
             make_statement(make_scan({})),
-            query);
+            options);
     ASSERT_EQ(result.size(), 0);
 }
 

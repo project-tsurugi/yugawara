@@ -78,8 +78,13 @@ protected:
     std::shared_ptr<storage::index> shared_index = storages->add_index({ shared_table, "S", });
 
     mock_symbol_location_query query {};
+    remote::location_options options = location_options_of(query);
 
-    element_location locations { query };
+    // NOTE: element_location keeps a copy of the options, so that this creates it for each call
+    template<class T>
+    location_id_set_type locations(T const& element) const {
+        return element_location { options }(element);
+    }
 
     void SetUp() override {
         query.all = { 0, 7, 8 };

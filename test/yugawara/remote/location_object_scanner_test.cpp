@@ -92,7 +92,7 @@ TEST_F(location_object_scanner_test, simple) {
 
     tstatement::execute stmt { plan::graph_type {} };
     build(stmt);
-    auto locations = details::compute_operation_locations(stmt, *query);
+    auto locations = details::compute_operation_locations(stmt, ::yugawara::testing::location_options_of(*query));
     ASSERT_TRUE(locations);
 
     location_object_scanner scanner { {}, *locations, query };
@@ -102,7 +102,7 @@ TEST_F(location_object_scanner_test, simple) {
 TEST_F(location_object_scanner_test, without_location_names) {
     tstatement::execute stmt { plan::graph_type {} };
     build(stmt);
-    auto locations = details::compute_operation_locations(stmt, *query);
+    auto locations = details::compute_operation_locations(stmt, ::yugawara::testing::location_options_of(*query));
     ASSERT_TRUE(locations);
 
     location_object_scanner scanner { {}, *locations };

@@ -8,7 +8,7 @@
 #include <takatori/relation/graph.h>
 
 #include <yugawara/remote/location_info.h>
-#include <yugawara/remote/symbol_location_query.h>
+#include <yugawara/remote/location_options.h>
 
 namespace yugawara::remote::details {
 
@@ -36,11 +36,11 @@ using operator_location_map = ::tsl::hopscotch_map<
  *
  *      This does not modify the given plan.
  * @param graph the target intermediate execution plan
- * @param query the symbol location query
+ * @param options the location options, which must have a symbol location query
  * @return the location of each operator in the plan
  */
 [[nodiscard]] operator_location_map decide_operator_locations(
         ::takatori::relation::graph_type const& graph,
-        remote::symbol_location_query const& query);
+        remote::location_options const& options);
 
 } // namespace yugawara::remote::details

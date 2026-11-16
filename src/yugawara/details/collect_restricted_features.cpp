@@ -1,6 +1,7 @@
 #include "collect_restricted_features.h"
 
 #include <optional>
+#include <utility>
 
 #include <takatori/relation/step/dispatch.h>
 #include <takatori/plan/dispatch.h>
@@ -16,7 +17,6 @@ namespace trelation = ::takatori::relation;
 namespace tplan = ::takatori::plan;
 namespace tstatement = ::takatori::statement;
 
-using ::takatori::util::optional_ptr;
 using ::takatori::util::string_builder;
 
 using diagnostic_type = diagnostic<compiler_code>;
@@ -38,11 +38,11 @@ public:
 
     explicit engine(
             restricted_feature_set features,
-            optional_ptr<remote::symbol_location_query const> query) noexcept :
+            remote::location_options location_options) noexcept :
         features_ { features }
     {
-        if (query) {
-            locations_.emplace(*query);
+        if (location_options.symbol_location_query()) {
+            locations_.emplace(std::move(location_options));
         }
     }
 
@@ -310,8 +310,8 @@ private:
 std::vector<diagnostic_type> collect_restricted_features(
         restricted_feature_set features,
         tstatement::statement const& statement,
-        optional_ptr<remote::symbol_location_query const> query) {
-    engine e { features, query };
+        remote::location_options location_options) {
+    engine e { features, std::move(location_options) };
     e.process(statement);
     return e.release();
 }

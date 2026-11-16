@@ -51,6 +51,7 @@ protected:
     std::shared_ptr<storage::index> nowhere_index = storages->add_index({ nowhere_table, "N", });
 
     mock_symbol_location_query query {};
+    remote::location_options options = location_options_of(query);
 
     void SetUp() override {
         query.all = { 0, 7, 8 };
@@ -104,7 +105,7 @@ TEST_F(decide_operator_locations_test, remote_scan) {
     auto&& emit = add_emit(graph);
     scan.output() >> emit.input();
 
-    auto locations = decide_operator_locations(graph, query);
+    auto locations = decide_operator_locations(graph, options);
     EXPECT_EQ(locations.size(), 2);
     EXPECT_EQ(location_of(locations, scan), 7);
     EXPECT_EQ(location_of(locations, emit), 0);
@@ -119,7 +120,7 @@ TEST_F(decide_operator_locations_test, local_scan) {
     scan.output() >> filter.input();
     filter.output() >> emit.input();
 
-    auto locations = decide_operator_locations(graph, query);
+    auto locations = decide_operator_locations(graph, options);
     EXPECT_EQ(location_of(locations, scan), 0);
     EXPECT_EQ(location_of(locations, filter), 0);
     EXPECT_EQ(location_of(locations, emit), 0);
@@ -132,7 +133,7 @@ TEST_F(decide_operator_locations_test, shared_scan) {
     auto&& emit = add_emit(graph);
     scan.output() >> emit.input();
 
-    auto locations = decide_operator_locations(graph, query);
+    auto locations = decide_operator_locations(graph, options);
     EXPECT_EQ(location_of(locations, scan), 0);
     EXPECT_EQ(location_of(locations, emit), 0);
 }
@@ -144,14 +145,14 @@ TEST_F(decide_operator_locations_test, multi_remote_scan) {
     auto&& emit = add_emit(graph);
     scan.output() >> emit.input();
 
-    auto locations = decide_operator_locations(graph, query);
+    auto locations = decide_operator_locations(graph, options);
     auto location = location_of(locations, scan);
     ASSERT_TRUE(location);
     EXPECT_TRUE(*location == 7 || *location == 8) << *location;
     EXPECT_EQ(location_of(locations, emit), 0);
 
     // stable
-    auto again = decide_operator_locations(graph, query);
+    auto again = decide_operator_locations(graph, options);
     EXPECT_EQ(location_of(again, scan), location);
 }
 
@@ -162,7 +163,7 @@ TEST_F(decide_operator_locations_test, multi_remote_write_shared_with_upstream) 
     auto&& write = add_write(graph, *multi_remote_index);
     scan.output() >> write.input();
 
-    auto locations = decide_operator_locations(graph, query);
+    auto locations = decide_operator_locations(graph, options);
     EXPECT_EQ(location_of(locations, scan), 8);
     EXPECT_EQ(location_of(locations, write), 8);
 }
@@ -174,7 +175,7 @@ TEST_F(decide_operator_locations_test, remote_write) {
     auto&& write = add_write(graph, *remote_index);
     values.output() >> write.input();
 
-    auto locations = decide_operator_locations(graph, query);
+    auto locations = decide_operator_locations(graph, options);
     EXPECT_EQ(location_of(locations, values), 0);
     EXPECT_EQ(location_of(locations, write), 7);
 }
@@ -194,7 +195,7 @@ TEST_F(decide_operator_locations_test, join) {
     right.output() >> join.right();
     join.output() >> emit.input();
 
-    auto locations = decide_operator_locations(graph, query);
+    auto locations = decide_operator_locations(graph, options);
     EXPECT_EQ(location_of(locations, left), 7);
     EXPECT_EQ(location_of(locations, right), 8);
     EXPECT_EQ(location_of(locations, join), 0);
@@ -208,7 +209,7 @@ TEST_F(decide_operator_locations_test, nowhere) {
     auto&& emit = add_emit(graph);
     scan.output() >> emit.input();
 
-    auto locations = decide_operator_locations(graph, query);
+    auto locations = decide_operator_locations(graph, options);
     EXPECT_FALSE(location_of(locations, scan));
     EXPECT_EQ(location_of(locations, emit), 0);
 }

@@ -75,6 +75,7 @@ protected:
     std::shared_ptr<storage::index> shared_index = storages->add_index({ shared_table, "S", });
 
     mock_symbol_location_query query {};
+    remote::location_options options = location_options_of(query);
 
     void SetUp() override {
         query.all = { 0, 7, 8 };
@@ -123,7 +124,7 @@ TEST_F(compute_operation_locations_test, remote_scan_offer) {
     auto&& source = add_scan_offer(graph, *remote_index, exchange);
     auto&& sink = add_take_emit(graph, exchange);
 
-    auto result = compute_operation_locations(stmt, query);
+    auto result = compute_operation_locations(stmt, options);
     ASSERT_TRUE(result);
     auto&& locations = **result;
     EXPECT_EQ(locations.find(source), (location_id_set_type { 7 }));
@@ -135,7 +136,7 @@ TEST_F(compute_operation_locations_test, local_process) {
     tstatement::execute stmt { plan::graph_type {} };
     auto&& process = add_scan_emit(stmt.execution_plan(), *local_index);
 
-    auto result = compute_operation_locations(stmt, query);
+    auto result = compute_operation_locations(stmt, options);
     ASSERT_TRUE(result);
     EXPECT_TRUE(contains_local((*result)->find(process)));
 }
@@ -147,7 +148,7 @@ TEST_F(compute_operation_locations_test, shared_table_process) {
     auto&& source = add_scan_offer(graph, *shared_index, exchange);
     add_take_emit(graph, exchange);
 
-    auto result = compute_operation_locations(stmt, query);
+    auto result = compute_operation_locations(stmt, options);
     ASSERT_TRUE(result);
     EXPECT_TRUE(contains_local((*result)->find(source)));
 }
@@ -156,7 +157,7 @@ TEST_F(compute_operation_locations_test, empty_process) {
     tstatement::execute stmt { plan::graph_type {} };
     add_scan_emit(stmt.execution_plan(), *remote_index);
 
-    auto result = compute_operation_locations(stmt, query);
+    auto result = compute_operation_locations(stmt, options);
     ASSERT_FALSE(result);
     auto&& diagnostics = result.error();
     ASSERT_EQ(diagnostics.size(), 1);
@@ -187,7 +188,7 @@ TEST_F(compute_operation_locations_test, empty_process_region_from_operator_with
     join.output() >> emit.input();
     join.region() = known_region;
 
-    auto result = compute_operation_locations(stmt, query);
+    auto result = compute_operation_locations(stmt, options);
     ASSERT_FALSE(result);
     auto&& diagnostics = result.error();
     ASSERT_EQ(diagnostics.size(), 1);
@@ -199,7 +200,8 @@ TEST_F(compute_operation_locations_test, empty_process_allowed) {
     tstatement::execute stmt { plan::graph_type {} };
     auto&& process = add_scan_emit(stmt.execution_plan(), *remote_index);
 
-    auto result = compute_operation_locations(stmt, query, true);
+    options.allow_empty_operation_location() = true;
+    auto result = compute_operation_locations(stmt, options);
     ASSERT_TRUE(result);
     EXPECT_EQ((*result)->find(process), (location_id_set_type {}));
 }
@@ -211,7 +213,7 @@ TEST_F(compute_operation_locations_test, statement_execute) {
     add_scan_offer(graph, *remote_index, exchange);
     add_take_emit(graph, exchange);
 
-    auto result = compute_operation_locations(stmt, query);
+    auto result = compute_operation_locations(stmt, options);
     ASSERT_TRUE(result);
     auto&& locations = **result;
 
@@ -232,7 +234,7 @@ TEST_F(compute_operation_locations_test, statement_execute_local) {
     tstatement::execute stmt { plan::graph_type {} };
     add_scan_emit(stmt.execution_plan(), *local_index);
 
-    auto result = compute_operation_locations(stmt, query);
+    auto result = compute_operation_locations(stmt, options);
     ASSERT_TRUE(result);
     EXPECT_TRUE(contains_local((*result)->find(stmt)));
 }
@@ -245,7 +247,7 @@ TEST_F(compute_operation_locations_test, statement_write) {
             {},
     };
 
-    auto result = compute_operation_locations(stmt, query);
+    auto result = compute_operation_locations(stmt, options);
     ASSERT_TRUE(result);
     EXPECT_EQ((*result)->find(stmt), (location_id_set_type { 7 }));
 }
@@ -258,7 +260,7 @@ TEST_F(compute_operation_locations_test, statement_empty) {
             },
     };
 
-    auto result = compute_operation_locations(stmt, query);
+    auto result = compute_operation_locations(stmt, options);
     ASSERT_FALSE(result);
     auto&& diagnostics = result.error();
     ASSERT_EQ(diagnostics.size(), 1);
@@ -273,7 +275,8 @@ TEST_F(compute_operation_locations_test, statement_empty_allowed) {
             },
     };
 
-    auto result = compute_operation_locations(stmt, query, true);
+    options.allow_empty_operation_location() = true;
+    auto result = compute_operation_locations(stmt, options);
     ASSERT_TRUE(result);
     EXPECT_EQ((*result)->find(stmt), (location_id_set_type {}));
 }
@@ -285,7 +288,7 @@ TEST_F(compute_operation_locations_test, statement_execute_empty) {
     add_scan_offer(graph, *remote_index, exchange);
     add_take_emit(graph, exchange);
 
-    auto result = compute_operation_locations(stmt, query);
+    auto result = compute_operation_locations(stmt, options);
     ASSERT_TRUE(result);
     EXPECT_EQ((*result)->find(stmt), (location_id_set_type {}));
 }

@@ -8,6 +8,8 @@
 #include <takatori/plan/process.h>
 #include <takatori/statement/execute.h>
 
+#include <boost/assert.hpp>
+
 #include <takatori/util/downcast.h>
 #include <takatori/util/string_builder.h>
 
@@ -65,10 +67,9 @@ private:
 
 class engine {
 public:
-    engine(remote::symbol_location_query const& query, bool allow_empty) noexcept :
-        query_ { query },
-        locations_ { query },
-        allow_empty_ { allow_empty }
+    explicit engine(remote::location_options const& options) noexcept :
+        options_ { options },
+        locations_ { options }
     {}
 
     [[nodiscard]] result_type process(tstatement::statement const& statement) {
@@ -76,7 +77,7 @@ public:
         if (statement.kind() == tstatement::execute::tag) {
             for (auto&& step : unsafe_downcast<tstatement::execute>(statement).execution_plan()) {
                 auto step_locations = locations_(step);
-                if (step_locations.empty() && !allow_empty_) {
+                if (step_locations.empty() && !options_.allow_empty_operation_location()) {
                     report_empty(step);
                 }
                 steps.emplace(std::addressof(step), std::move(step_locations));
@@ -84,7 +85,7 @@ public:
         }
         auto statement_locations = locations_(statement);
         // NOTE: `execute` statements may be empty, because their steps can be executed in different locations
-        if (statement.kind() != tstatement::execute::tag && statement_locations.empty() && !allow_empty_) {
+        if (statement.kind() != tstatement::execute::tag && statement_locations.empty() && !options_.allow_empty_operation_location()) {
             report_empty(statement);
         }
         if (!diagnostics_.empty()) {
@@ -98,9 +99,8 @@ public:
     }
 
 private:
-    remote::symbol_location_query const& query_;
+    remote::location_options const& options_;
     element_location locations_;
-    bool allow_empty_;
     std::vector<diagnostic_type> diagnostics_ {};
 
     void report_empty(tplan::step const& step) {
@@ -164,7 +164,7 @@ private:
 
     void print_location(string_builder& builder, location_id_type id) const {
         try {
-            builder << query_.of(id).location_name();
+            builder << options_.symbol_location_query()->of(id).location_name();
         } catch (std::out_of_range const&) {
             builder << "#" << id;
         }
@@ -186,9 +186,9 @@ private:
 
 result_type compute_operation_locations(
         tstatement::statement const& statement,
-        remote::symbol_location_query const& query,
-        bool allow_empty) {
-    engine e { query, allow_empty };
+        remote::location_options const& options) {
+    BOOST_ASSERT(options.symbol_location_query()); // NOLINT
+    engine e { options };
     return e.process(statement);
 }
 

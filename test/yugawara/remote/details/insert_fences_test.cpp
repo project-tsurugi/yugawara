@@ -47,6 +47,7 @@ protected:
     std::shared_ptr<storage::index> nowhere_index = storages->add_index({ nowhere_table, "N", });
 
     mock_symbol_location_query query {};
+    remote::location_options options = location_options_of(query);
 
     void SetUp() override {
         query.all = { 0, 7, 8 };
@@ -117,7 +118,7 @@ TEST_F(insert_fences_test, remote_scan) {
     auto&& emit = add_emit(graph);
     scan.output() >> emit.input();
 
-    ASSERT_TRUE(insert_fences(graph, query).empty());
+    ASSERT_TRUE(insert_fences(graph, options).empty());
 
     ASSERT_EQ(graph.size(), 3);
     auto&& f = fence_after(scan.output());
@@ -138,7 +139,7 @@ TEST_F(insert_fences_test, local) {
     scan.output() >> filter.input();
     filter.output() >> emit.input();
 
-    ASSERT_TRUE(insert_fences(graph, query).empty());
+    ASSERT_TRUE(insert_fences(graph, options).empty());
 
     ASSERT_EQ(graph.size(), 3);
     EXPECT_EQ(count_fences(graph), 0);
@@ -157,7 +158,7 @@ TEST_F(insert_fences_test, remote_write) {
     auto&& write = graph.insert(relation::write { relation::write_kind::insert, factory(*remote_index), {}, {} });
     values.output() >> write.input();
 
-    ASSERT_TRUE(insert_fences(graph, query).empty());
+    ASSERT_TRUE(insert_fences(graph, options).empty());
 
     ASSERT_EQ(graph.size(), 3);
     auto&& f = fence_after(values.output());
@@ -185,7 +186,7 @@ TEST_F(insert_fences_test, join_remote_local) {
     right.output() >> join.right();
     join.output() >> emit.input();
 
-    ASSERT_TRUE(insert_fences(graph, query).empty());
+    ASSERT_TRUE(insert_fences(graph, options).empty());
 
     ASSERT_EQ(graph.size(), 5);
     EXPECT_EQ(count_fences(graph), 1);
@@ -216,7 +217,7 @@ TEST_F(insert_fences_test, join_remote_remote) {
     right.output() >> join.right();
     join.output() >> emit.input();
 
-    ASSERT_TRUE(insert_fences(graph, query).empty());
+    ASSERT_TRUE(insert_fences(graph, options).empty());
 
     ASSERT_EQ(graph.size(), 6);
     EXPECT_EQ(count_fences(graph), 2);
@@ -242,7 +243,7 @@ TEST_F(insert_fences_test, nowhere) {
     auto&& emit = add_emit(graph);
     scan.output() >> emit.input();
 
-    auto diagnostics = insert_fences(graph, query);
+    auto diagnostics = insert_fences(graph, options);
 
     ASSERT_EQ(diagnostics.size(), 1);
     EXPECT_EQ(diagnostics[0].code(), compiler_code::empty_operation_location);
@@ -268,7 +269,7 @@ TEST_F(insert_fences_test, nowhere_join) {
     right.output() >> join.right();
     join.output() >> emit.input();
 
-    auto diagnostics = insert_fences(graph, query);
+    auto diagnostics = insert_fences(graph, options);
 
     ASSERT_EQ(diagnostics.size(), 1);
     EXPECT_EQ(diagnostics[0].code(), compiler_code::empty_operation_location);

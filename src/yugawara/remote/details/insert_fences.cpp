@@ -46,8 +46,8 @@ struct boundary {
 
 std::vector<diagnostic_type> insert_fences(
         trelation::graph_type& graph,
-        remote::symbol_location_query const& query) {
-    auto locations = decide_operator_locations(graph, query);
+        remote::location_options const& options) {
+    auto locations = decide_operator_locations(graph, options);
     if (auto diagnostics = collect_undecided(graph, locations); !diagnostics.empty()) {
         // NOTE: inserts no fences, so that the caller can compile the plan as if the locations were ignored
         return diagnostics;

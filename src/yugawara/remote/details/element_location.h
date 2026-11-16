@@ -6,6 +6,7 @@
 #include <takatori/plan/exchange.h>
 #include <takatori/statement/statement.h>
 
+#include <yugawara/remote/location_options.h>
 #include <yugawara/remote/symbol_location_query.h>
 
 namespace yugawara::remote::details {
@@ -32,9 +33,10 @@ public:
 
     /**
      * @brief creates a new instance.
-     * @param query the symbol location query
+     * @details This keeps a copy of the given options, but the symbol location query in them is shared.
+     * @param options the location options, which must have a symbol location query
      */
-    explicit element_location(remote::symbol_location_query const& query) noexcept;
+    explicit element_location(remote::location_options options) noexcept;
 
     /**
      * @brief returns all available locations.
@@ -78,6 +80,7 @@ public:
     [[nodiscard]] location_id_set_type operator()(::takatori::statement::statement const& statement) const;
 
 private:
+    remote::location_options options_;
     remote::symbol_location_query const& query_;
 };
 
