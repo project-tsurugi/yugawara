@@ -4,6 +4,7 @@
 #include <iterator>
 #include <utility>
 
+#include <takatori/relation/filter.h>
 #include <takatori/relation/scan.h>
 #include <takatori/relation/find.h>
 #include <takatori/relation/join_find.h>
@@ -93,6 +94,10 @@ public:
             return;
         }
         intersect(result_, local_location());
+    }
+
+    void add(location_id_set_type const& locations) {
+        intersect(result_, locations);
     }
 
     template<class T>
@@ -205,6 +210,9 @@ location_id_set_type element_location::operator()(trelation::expression const& e
         case trelation::step::take_flat::tag:
         case trelation::step::take_group::tag:
         case trelation::step::take_cogroup::tag:
+            break;
+        case trelation::filter::tag:
+            result.add((*this)(unsafe_downcast<trelation::filter>(expression).condition()));
             break;
         default:
             return local_location();

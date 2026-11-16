@@ -21,6 +21,7 @@ namespace yugawara::remote::details {
  *        and the location of the other relations (e.g. exchanges) is only the local location
  *      - elements which never restrict the location (`offer`, `take_flat`, `take_group`, and `take_cogroup` operators):
  *        all available locations
+ *      - `filter` operators: the locations where their conditions can be evaluated
  *      - process: the intersection of the locations of its operators
  *      - `execute` statement: the intersection of the locations of its steps
  *      - other elements: the local location only
@@ -28,7 +29,7 @@ namespace yugawara::remote::details {
  *      Additionally, the locations of each operator are restricted to the local location
  *      if its kind is not in remote::location_options::remote_relation_expression_kinds().
  *
- *      Note that this does not consider symbols in scalar expressions.
+ *      Note that this inspects scalar expressions only in the conditions of `filter` operators.
  */
 class element_location {
 public:

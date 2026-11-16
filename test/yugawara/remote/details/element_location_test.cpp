@@ -13,6 +13,7 @@
 #include <takatori/relation/join_scan.h>
 #include <takatori/relation/write.h>
 #include <takatori/relation/filter.h>
+#include <takatori/relation/values.h>
 #include <takatori/relation/emit.h>
 #include <takatori/relation/step/offer.h>
 #include <takatori/relation/step/take_flat.h>
@@ -301,8 +302,37 @@ TEST_F(element_location_test, scalar_intersection) {
     EXPECT_EQ(locations(expr), (location_id_set_type { 7 }));
 }
 
-TEST_F(element_location_test, other_operator) {
+TEST_F(element_location_test, filter) {
     relation::filter expr { constant() };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, filter_condition) {
+    auto func = std::make_shared<function::declaration>(function::declaration {
+            function::declaration::minimum_builtin_function_id + 1,
+            "f",
+            ::takatori::type::boolean {},
+            {},
+    });
+    query.functions.emplace(func.get(), location_id_set_type { 0, 7 });
+    relation::filter expr { scalar::function_call { factory(func), {} } };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7 }));
+}
+
+TEST_F(element_location_test, filter_kind_not_remote) {
+    options.remote_relation_expression_kinds().erase(relation::expression_kind::filter);
+    relation::filter expr { constant() };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0 }));
+}
+
+TEST_F(element_location_test, filter_condition_kind_not_remote) {
+    options.remote_scalar_expression_kinds().erase(scalar::expression_kind::immediate);
+    relation::filter expr { constant() };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0 }));
+}
+
+TEST_F(element_location_test, other_operator) {
+    relation::values expr { {}, {} };
     EXPECT_EQ(locations(expr), (location_id_set_type { 0 }));
 }
 
