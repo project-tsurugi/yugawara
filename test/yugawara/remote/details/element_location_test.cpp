@@ -2,6 +2,11 @@
 
 #include <gtest/gtest.h>
 
+#include <takatori/scalar/binary.h>
+#include <takatori/scalar/compare.h>
+#include <takatori/scalar/function_call.h>
+#include <takatori/scalar/variable_reference.h>
+
 #include <takatori/relation/scan.h>
 #include <takatori/relation/find.h>
 #include <takatori/relation/join_find.h>
@@ -27,6 +32,8 @@
 
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/binding/factory.h>
+#include <yugawara/function/declaration.h>
+#include <yugawara/variable/declaration.h>
 
 #include <yugawara/testing/utils.h>
 #include <yugawara/testing/mock_symbol_location_query.h>
@@ -230,6 +237,68 @@ TEST_F(element_location_test, process_kind_not_remote) {
     auto&& exchange = graph.insert(plan::forward {});
     auto&& process = add_scan_offer(graph, *remote_index, exchange);
     EXPECT_EQ(locations(process), (location_id_set_type {}));
+}
+
+TEST_F(element_location_test, scalar_immediate) {
+    EXPECT_EQ(locations(constant()), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, scalar_stream_variable) {
+    scalar::variable_reference expr { factory.stream_variable("x") };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, scalar_kind_not_remote) {
+    options.remote_scalar_expression_kinds().erase(scalar::expression_kind::compare);
+    scalar::binary expr {
+            scalar::binary_operator::conditional_and,
+            scalar::compare { scalar::comparison_operator::equal, constant(1), constant(2) },
+            scalar::compare { scalar::comparison_operator::equal, constant(3), constant(4) },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0 }));
+}
+
+TEST_F(element_location_test, scalar_function_call) {
+    auto func = std::make_shared<function::declaration>(function::declaration {
+            function::declaration::minimum_builtin_function_id + 1,
+            "f",
+            ::takatori::type::int4 {},
+            {},
+    });
+    query.functions.emplace(func.get(), location_id_set_type { 0, 7 });
+    scalar::function_call expr { factory(func), {} };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7 }));
+}
+
+TEST_F(element_location_test, scalar_external_variable) {
+    auto decl = std::make_shared<variable::declaration>(variable::declaration {
+            "p",
+            ::takatori::type::int4 {},
+    });
+    query.variables.emplace(decl.get(), location_id_set_type { 0 });
+    scalar::variable_reference expr { factory.external_variable(decl) };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0 }));
+}
+
+TEST_F(element_location_test, scalar_intersection) {
+    auto func = std::make_shared<function::declaration>(function::declaration {
+            function::declaration::minimum_builtin_function_id + 1,
+            "f",
+            ::takatori::type::int4 {},
+            {},
+    });
+    query.functions.emplace(func.get(), location_id_set_type { 0, 7 });
+    auto decl = std::make_shared<variable::declaration>(variable::declaration {
+            "p",
+            ::takatori::type::int4 {},
+    });
+    query.variables.emplace(decl.get(), location_id_set_type { 7, 8 });
+    scalar::compare expr {
+            scalar::comparison_operator::equal,
+            scalar::function_call { factory(func), {} },
+            scalar::variable_reference { factory.external_variable(decl) },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 7 }));
 }
 
 TEST_F(element_location_test, other_operator) {

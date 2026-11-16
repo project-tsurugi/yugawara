@@ -1,5 +1,6 @@
 #pragma once
 
+#include <takatori/scalar/expression.h>
 #include <takatori/relation/expression.h>
 #include <takatori/plan/step.h>
 #include <takatori/plan/process.h>
@@ -46,6 +47,24 @@ public:
      * @return all available locations
      */
     [[nodiscard]] location_id_set_type all() const;
+
+    /**
+     * @brief returns the locations where the given scalar expression can be evaluated.
+     * @details The result is the intersection of the locations of all nodes in the expression tree:
+     *
+     *      - nodes whose kind is not in remote::location_options::remote_scalar_expression_kinds():
+     *        the local location only
+     *      - function calls: the locations of the function
+     *      - references to external variables (e.g. host variables): the locations of the variable
+     *      - extensions: the local location only, because this does not inspect their contents
+     *      - other nodes: all available locations
+     *
+     *      If the referred function is not a function declaration, the function call is restricted to
+     *      the local location.
+     * @param expression the target expression
+     * @return the locations
+     */
+    [[nodiscard]] location_id_set_type operator()(::takatori::scalar::expression const& expression) const;
 
     /**
      * @brief returns the locations where the given operator can be executed.

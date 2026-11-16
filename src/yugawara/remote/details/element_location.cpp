@@ -14,6 +14,11 @@
 #include <takatori/relation/step/take_group.h>
 #include <takatori/relation/step/take_cogroup.h>
 
+#include <takatori/scalar/function_call.h>
+#include <takatori/scalar/variable_reference.h>
+#include <takatori/scalar/extension.h>
+#include <takatori/scalar/walk.h>
+
 #include <takatori/statement/execute.h>
 #include <takatori/statement/write.h>
 #include <takatori/statement/drop_table.h>
@@ -32,10 +37,13 @@
 
 #include <yugawara/binding/extract.h>
 #include <yugawara/storage/index.h>
+#include <yugawara/function/declaration.h>
+#include <yugawara/variable/declaration.h>
 
 namespace yugawara::remote::details {
 
 namespace descriptor = ::takatori::descriptor;
+namespace tscalar = ::takatori::scalar;
 namespace trelation = ::takatori::relation;
 namespace tplan = ::takatori::plan;
 namespace tstatement = ::takatori::statement;
@@ -107,6 +115,54 @@ private:
     }
 };
 
+class scalar_location_collector {
+public:
+    explicit scalar_location_collector(
+            remote::location_options::scalar_expression_kind_set const& kinds,
+            remote::symbol_location_query const& query,
+            location_id_set_type& result) noexcept :
+        kinds_ { kinds },
+        query_ { query },
+        result_ { result }
+    {}
+
+    void operator()(tscalar::expression const& expression) {
+        check_kind(expression);
+    }
+
+    void operator()(tscalar::function_call const& expression) {
+        check_kind(expression);
+        if (auto function = binding::extract_if<function::declaration>(expression.function())) {
+            intersect(result_, query_.find(*function));
+            return;
+        }
+        intersect(result_, local_location());
+    }
+
+    void operator()(tscalar::variable_reference const& expression) {
+        check_kind(expression);
+        if (auto variable = binding::extract_if<variable::declaration>(expression.variable())) {
+            intersect(result_, query_.find(*variable));
+        }
+    }
+
+    void operator()(tscalar::extension const&) {
+        // NOTE: the contents of extensions are not inspected
+        intersect(result_, local_location());
+    }
+
+private:
+    remote::location_options::scalar_expression_kind_set const& kinds_;
+    remote::symbol_location_query const& query_;
+    location_id_set_type& result_;
+
+    void check_kind(tscalar::expression const& expression) {
+        if (!kinds_.contains(expression.kind())) {
+            intersect(result_, local_location());
+        }
+    }
+};
+
 } // namespace
 
 element_location::element_location(remote::location_options options) noexcept :
@@ -116,6 +172,13 @@ element_location::element_location(remote::location_options options) noexcept :
 
 location_id_set_type element_location::all() const {
     return query_.available_location_ids();
+}
+
+location_id_set_type element_location::operator()(tscalar::expression const& expression) const {
+    auto result = all();
+    scalar_location_collector collector { options_.remote_scalar_expression_kinds(), query_, result };
+    tscalar::walk(collector, expression);
+    return result;
 }
 
 location_id_set_type element_location::operator()(trelation::expression const& expression) const {
