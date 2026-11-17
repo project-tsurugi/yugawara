@@ -101,8 +101,8 @@ public:
 
     /**
      * @brief returns the kinds of relational operators which can be executed in locations other than the local.
-     * @details The default value contains all kinds.
-     * @attention The compiler does not use this list yet.
+     * @details The relational operators whose kinds are not in this list are executed only in the local location.
+     *      The default value contains all kinds.
      * @return the allow list of relational operator kinds
      */
     [[nodiscard]] relation_expression_kind_set& remote_relation_expression_kinds() noexcept;
@@ -112,8 +112,9 @@ public:
 
     /**
      * @brief returns the kinds of scalar expressions which can be evaluated in locations other than the local.
-     * @details The default value contains all kinds.
-     * @attention The compiler does not use this list yet.
+     * @details The scalar expressions whose kinds are not in this list are evaluated only in the local location,
+     *      and so are the elements which contain them.
+     *      The default value contains all kinds.
      * @return the allow list of scalar expression kinds
      */
     [[nodiscard]] scalar_expression_kind_set& remote_scalar_expression_kinds() noexcept;
