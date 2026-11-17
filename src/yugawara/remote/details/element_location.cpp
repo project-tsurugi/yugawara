@@ -373,6 +373,10 @@ public:
     }
 
     void operator()(trelation::intermediate::limit const& expression) {
+        add_variables(expression.group_keys());
+        for (auto&& key : expression.sort_keys()) {
+            add_variable(key.variable());
+        }
         add_constant_value(expression.row_slice().start());
         add_constant_value(expression.row_slice().count());
     }
@@ -389,6 +393,7 @@ public:
     }
 
     void operator()(trelation::intermediate::aggregate const& expression) {
+        add_variables(expression.group_keys());
         add_aggregations(expression.columns());
     }
 
@@ -398,6 +403,12 @@ public:
 
     void operator()(trelation::write const& expression) {
         constraints_.add(expression.destination());
+        for (auto&& key : expression.keys()) {
+            add_variable(key.source());
+        }
+        for (auto&& column : expression.columns()) {
+            add_variable(column.source());
+        }
     }
 
     void operator()(trelation::project const& expression) {
@@ -418,36 +429,54 @@ public:
         tscalar::walk(*this, expression.condition());
     }
 
+    // operators which refer to variables only
+    void operator()(trelation::emit const& expression) {
+        for (auto&& column : expression.columns()) {
+            add_variable(column.source());
+        }
+    }
+
+    void operator()(trelation::intermediate::distinct const& expression) {
+        add_variables(expression.group_keys());
+    }
+
+    void operator()(trelation::intermediate::union_ const& expression) {
+        for (auto&& mapping : expression.mappings()) {
+            if (mapping.left()) {
+                add_variable(*mapping.left());
+            }
+            if (mapping.right()) {
+                add_variable(*mapping.right());
+            }
+        }
+    }
+
+    void operator()(trelation::intermediate::intersection const& expression) {
+        add_key_pairs(expression.group_key_pairs());
+    }
+
+    void operator()(trelation::intermediate::difference const& expression) {
+        add_key_pairs(expression.group_key_pairs());
+    }
+
+    void operator()(trelation::intermediate::escape const& expression) {
+        for (auto&& mapping : expression.mappings()) {
+            add_variable(mapping.source());
+        }
+    }
+
+    void operator()(trelation::step::offer const& expression) {
+        for (auto&& column : expression.columns()) {
+            add_variable(column.source());
+        }
+    }
+
     // operators which never have scalar expressions nor symbols
     void operator()(trelation::buffer const& expression) noexcept {
         (void) expression;
     }
 
     void operator()(trelation::identify const& expression) noexcept {
-        (void) expression;
-    }
-
-    void operator()(trelation::emit const& expression) noexcept {
-        (void) expression;
-    }
-
-    void operator()(trelation::intermediate::distinct const& expression) noexcept {
-        (void) expression;
-    }
-
-    void operator()(trelation::intermediate::union_ const& expression) noexcept {
-        (void) expression;
-    }
-
-    void operator()(trelation::intermediate::intersection const& expression) noexcept {
-        (void) expression;
-    }
-
-    void operator()(trelation::intermediate::difference const& expression) noexcept {
-        (void) expression;
-    }
-
-    void operator()(trelation::intermediate::escape const& expression) noexcept {
         (void) expression;
     }
 
@@ -460,10 +489,6 @@ public:
     }
 
     void operator()(trelation::step::flatten const& expression) noexcept {
-        (void) expression;
-    }
-
-    void operator()(trelation::step::offer const& expression) noexcept {
         (void) expression;
     }
 
@@ -516,9 +541,42 @@ private:
         constraints_.add_kind(options_.remote_scalar_expression_kinds(), expression.kind());
     }
 
+    /**
+     * @brief adds the location of the given variable, only if it is an external variable.
+     * @details Operators may refer external variables directly (not in scalar expressions),
+     *      e.g. if optimizations inline external variables into the columns of operators.
+     * @param variable the target variable
+     */
+    void add_variable(descriptor::variable const& variable) {
+        if (binding::kind_of(variable) != binding::variable_info_kind::external_variable) {
+            return;
+        }
+        if (auto declaration = binding::extract_if<variable::declaration>(variable)) {
+            constraints_.add(query_.find(*declaration));
+            return;
+        }
+        constraints_.restrict_to_local();
+    }
+
+    template<class Variables>
+    void add_variables(Variables const& variables) {
+        for (auto&& variable : variables) {
+            add_variable(variable);
+        }
+    }
+
+    template<class KeyPairs>
+    void add_key_pairs(KeyPairs const& pairs) {
+        for (auto&& pair : pairs) {
+            add_variable(pair.left());
+            add_variable(pair.right());
+        }
+    }
+
     template<class Aggregations>
     void add_aggregations(Aggregations const& aggregations) {
         for (auto&& aggregation : aggregations) {
+            add_variables(aggregation.arguments());
             if (auto function = binding::extract_if<aggregate::declaration>(aggregation.function())) {
                 constraints_.add(query_.find(*function));
                 continue;

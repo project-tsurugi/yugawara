@@ -24,7 +24,7 @@ namespace yugawara::remote::details {
  *        and the location of the other relations is only the local location,
  *        except that the upstream exchanges of join operators never restrict them
  *      - operators which never have scalar expressions nor symbols
- *        (e.g. `emit`, `buffer`, `offer`, and `take_flat`): all available locations
+ *        (e.g. `buffer` and `take_flat`): all available locations
  *      - `filter` operators: the locations where their conditions can be evaluated
  *      - `project` and `values` operators: the locations where all of their scalar expressions can be evaluated
  *      - join operators (`join`, `join_find`, and `join_scan`):
@@ -46,6 +46,10 @@ namespace yugawara::remote::details {
  *      their search keys can be evaluated, and the locations of the variables in the row slice of `scan`.
  *      Similarly, the locations of `write` statements are restricted to the locations where
  *      all elements of their tuples can be evaluated.
+ *
+ *      Operators may also refer external variables directly, not in scalar expressions
+ *      (e.g. the columns of `emit` after optimizations inline external variables).
+ *      The locations of such operators are restricted to the locations of the external variables.
  *
  *      Additionally, the locations of each operator are restricted to the local location
  *      if its kind is not in remote::location_options::remote_relation_expression_kinds(),

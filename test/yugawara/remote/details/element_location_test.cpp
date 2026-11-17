@@ -17,6 +17,10 @@
 #include <takatori/relation/step/aggregate.h>
 #include <takatori/relation/intermediate/limit.h>
 #include <takatori/relation/apply.h>
+#include <takatori/relation/intermediate/distinct.h>
+#include <takatori/relation/intermediate/union.h>
+#include <takatori/relation/intermediate/intersection.h>
+#include <takatori/relation/intermediate/escape.h>
 #include <takatori/relation/write.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/values.h>
@@ -116,6 +120,13 @@ protected:
 
     relation::scan make_scan(storage::index const& index) {
         return relation::scan { factory(index), {} };
+    }
+
+    static std::shared_ptr<variable::declaration> make_variable() {
+        return std::make_shared<variable::declaration>(variable::declaration {
+                "p",
+                ::takatori::type::int4 {},
+        });
     }
 
     static std::shared_ptr<aggregate::declaration> make_aggregate() {
@@ -567,6 +578,120 @@ TEST_F(element_location_test, filter_condition_kind_not_remote) {
 TEST_F(element_location_test, emit) {
     relation::emit expr { std::vector<relation::emit::column> {} };
     EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, emit_external_variable) {
+    auto decl = make_variable();
+    query.variables.emplace(decl.get(), location_id_set_type { 0, 7 });
+    relation::emit expr { factory.stream_variable("x"), factory.external_variable(decl) };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7 }));
+}
+
+TEST_F(element_location_test, write_external_variable) {
+    auto decl = make_variable();
+    query.variables.emplace(decl.get(), location_id_set_type { 0 });
+    relation::write expr {
+            relation::write_kind::insert,
+            factory(*remote_index),
+            {},
+            {
+                    relation::write::column { factory.external_variable(decl), factory(remote_table->columns()[0]) },
+            },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type {}));
+}
+
+TEST_F(element_location_test, offer_external_variable) {
+    auto decl = make_variable();
+    query.variables.emplace(decl.get(), location_id_set_type { 8 });
+    plan::forward exchange {};
+    relation::step::offer expr {
+            factory(exchange),
+            {
+                    relation::step::offer::column { factory.external_variable(decl), factory.exchange_column("c") },
+            },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 8 }));
+}
+
+TEST_F(element_location_test, distinct_external_variable) {
+    auto decl = make_variable();
+    query.variables.emplace(decl.get(), location_id_set_type { 0, 8 });
+    relation::intermediate::distinct expr { { factory.external_variable(decl) } };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 8 }));
+}
+
+TEST_F(element_location_test, union_external_variable) {
+    auto decl = make_variable();
+    query.variables.emplace(decl.get(), location_id_set_type { 7 });
+    relation::intermediate::union_ expr {
+            relation::set_quantifier::all,
+            {
+                    relation::intermediate::union_::mapping {
+                            factory.external_variable(decl),
+                            {},
+                            factory.stream_variable("d"),
+                    },
+            },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 7 }));
+}
+
+TEST_F(element_location_test, intersection_external_variable) {
+    auto decl = make_variable();
+    query.variables.emplace(decl.get(), location_id_set_type { 0 });
+    relation::intermediate::intersection expr {
+            relation::set_quantifier::all,
+            {
+                    relation::intermediate::intersection::group_key_pair {
+                            factory.stream_variable("l"),
+                            factory.external_variable(decl),
+                    },
+            },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0 }));
+}
+
+TEST_F(element_location_test, escape_external_variable) {
+    auto decl = make_variable();
+    query.variables.emplace(decl.get(), location_id_set_type { 0, 7 });
+    relation::intermediate::escape expr {
+            {
+                    relation::intermediate::escape::mapping {
+                            factory.external_variable(decl),
+                            factory.stream_variable("d"),
+                    },
+            },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7 }));
+}
+
+TEST_F(element_location_test, limit_external_variable) {
+    auto decl = make_variable();
+    query.variables.emplace(decl.get(), location_id_set_type { 8 });
+    relation::intermediate::limit expr {
+            {},
+            {
+                    relation::intermediate::limit::sort_key { factory.external_variable(decl) },
+            },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 8 }));
+}
+
+TEST_F(element_location_test, aggregate_external_variable) {
+    auto agg = make_aggregate();
+    auto decl = make_variable();
+    query.variables.emplace(decl.get(), location_id_set_type { 0, 7 });
+    relation::step::aggregate expr {
+            {
+                    relation::step::aggregate::column {
+                            factory(agg),
+                            factory.external_variable(decl),
+                            factory.stream_variable("y"),
+                    },
+            },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7 }));
 }
 
 TEST_F(element_location_test, join_find_local) {

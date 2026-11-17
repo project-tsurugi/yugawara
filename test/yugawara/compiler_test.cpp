@@ -2070,6 +2070,63 @@ TEST_F(compiler_test, fix_external_variable_inlining) {
     dump(result);
 }
 
+TEST_F(compiler_test, operation_location_query_inlined_external_variable) {
+    /*
+     * SELECT :q0 FROM t0, with inlining external variables
+     * =>
+     * r0:scan t0 -> r2:emit (:q0)
+     */
+    auto query = std::make_shared<mock_symbol_location_query>();
+    query->all = { 0, 7 };
+    query->tables.emplace(t0.get(), location_id_set_type { 0, 7 });
+    auto q0_decl = std::make_shared<variable::declaration>(variable::declaration {
+            "q0",
+            t::int4 {},
+    });
+    query->variables.emplace(q0_decl.get(), location_id_set_type { 7 });
+
+    relation::graph_type graph;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& r0 = graph.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    auto q0 = bindings.external_variable(q0_decl);
+    auto x1 = bindings.stream_variable("x1");
+    auto& r1 = graph.insert(relation::project {
+            {
+                    relation::project::column {
+                            x1,
+                            scalar::variable_reference { q0 },
+                    },
+            },
+    });
+    auto&& r2 = graph.insert(relation::emit {
+            x1,
+    });
+    r0.output() >> r1.input();
+    r1.output() >> r2.input();
+
+    auto opts = options();
+    opts.enable_external_variable_inlining() = true;
+    opts.symbol_location_query() = query;
+    auto result = compiler()(opts, std::move(graph));
+    ASSERT_TRUE(result) << diagnostics(result);
+    ASSERT_TRUE(result.operation_location_query());
+    auto&& locations = *result.operation_location_query();
+
+    // the emit refers the external variable directly
+    ASSERT_EQ(r2.columns().size(), 1);
+    EXPECT_EQ(r2.columns()[0].source(), q0);
+
+    // the emit can be executed only in the location of the external variable
+    auto&& stmt = downcast<statement::execute>(result.statement());
+    auto&& p = find(stmt.execution_plan(), r2);
+    EXPECT_EQ(locations.find(p), (location_id_set_type { 7 }));
+}
+
 TEST_F(compiler_test, feat_scalar_subquery_no_broadcast) {
     // disable broadcast joins
     runtime_features.erase(runtime_feature::broadcast_exchange);
