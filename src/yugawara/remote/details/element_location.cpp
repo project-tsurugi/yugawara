@@ -92,8 +92,9 @@ void intersect(location_id_set_type& target, location_id_set_type const& other) 
 
 /**
  * @brief accepts constraints of locations, and provides the locations which satisfy all of them.
- * @details The constraints are the referred symbols (e.g. tables), the locations of scalar expressions,
+ * @details The constraints are the referred symbols (e.g. tables, functions, and variables),
  *      and the local location.
+ *      This is the only place which asks the symbol location query for the locations of the symbols.
  */
 class location_constraints {
 public:
@@ -195,10 +196,6 @@ public:
         }
     }
 
-    void add(location_id_set_type const& locations) {
-        intersect(locations_, locations);
-    }
-
     template<class T>
     void add_privilege_elements(T const& statement) {
         for (auto&& element : statement.elements()) {
@@ -241,7 +238,6 @@ public:
             remote::location_options const& options,
             location_constraints& constraints) noexcept :
         options_ { options },
-        query_ { require_query(options) },
         constraints_ { constraints }
     {}
 
@@ -577,7 +573,6 @@ public:
 
 private:
     remote::location_options const& options_;
-    remote::symbol_location_query const& query_;
     location_constraints& constraints_;
 
     void check_kind(tscalar::expression const& expression) {
