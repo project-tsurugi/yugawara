@@ -29,15 +29,15 @@ namespace yugawara::remote::details {
  *      - `project` and `values` operators: the locations where all of their scalar expressions can be evaluated
  *      - join operators (`join`, `join_find`, and `join_scan`):
  *        the locations where their keys and conditions can be evaluated, and their source tables
+ *      - `aggregate` operators and exchanges: the locations of their aggregate functions
  *      - the other operators which may have scalar expressions or symbols not inspected here
- *        (e.g. `aggregate` and `apply`):
+ *        (e.g. `apply`):
  *        restricted to the local location
  *      - process: the intersection of the locations of its operators
  *      - `broadcast` and `discard` exchanges, which never have scalar expressions nor symbols:
  *        all available locations
  *      - `forward` and `group` exchanges: the locations of the variables in their row slice
- *      - the other exchanges which may have symbols not inspected here (e.g. `aggregate`):
- *        restricted to the local location
+ *      - the other exchanges: restricted to the local location
  *      - `execute` statement: the intersection of the locations of its steps
  *      - other elements: the local location only
  *

@@ -24,6 +24,8 @@
 #include <takatori/relation/join_scan.h>
 #include <takatori/relation/intermediate/join.h>
 #include <takatori/relation/step/join.h>
+#include <takatori/relation/intermediate/aggregate.h>
+#include <takatori/relation/step/aggregate.h>
 #include <takatori/relation/write.h>
 #include <takatori/relation/step/offer.h>
 #include <takatori/relation/step/take_flat.h>
@@ -47,6 +49,7 @@
 #include <yugawara/binding/extract.h>
 #include <yugawara/storage/index.h>
 #include <yugawara/function/declaration.h>
+#include <yugawara/aggregate/declaration.h>
 #include <yugawara/variable/declaration.h>
 
 namespace yugawara::remote::details {
@@ -296,8 +299,12 @@ public:
 
     void operator()(tplan::exchange const& step) {
         (void) step;
-        // NOTE: the contents of the other exchanges (e.g. aggregate functions) are not inspected yet
+        // NOTE: the contents of the other exchanges are not inspected
         constraints_.restrict_to_local();
+    }
+
+    void operator()(tplan::aggregate const& step) {
+        add_aggregations(step.aggregations());
     }
 
     void operator()(tplan::forward const& step) {
@@ -361,6 +368,14 @@ public:
 
     void operator()(trelation::step::join const& expression) {
         add_condition(expression.condition());
+    }
+
+    void operator()(trelation::intermediate::aggregate const& expression) {
+        add_aggregations(expression.columns());
+    }
+
+    void operator()(trelation::step::aggregate const& expression) {
+        add_aggregations(expression.columns());
     }
 
     void operator()(trelation::write const& expression) {
@@ -481,6 +496,17 @@ private:
 
     void check_kind(tscalar::expression const& expression) {
         constraints_.add_kind(options_.remote_scalar_expression_kinds(), expression.kind());
+    }
+
+    template<class Aggregations>
+    void add_aggregations(Aggregations const& aggregations) {
+        for (auto&& aggregation : aggregations) {
+            if (auto function = binding::extract_if<aggregate::declaration>(aggregation.function())) {
+                constraints_.add(query_.find(*function));
+                continue;
+            }
+            constraints_.restrict_to_local();
+        }
     }
 
     void add_condition(::takatori::util::optional_ptr<tscalar::expression const> condition) {

@@ -13,6 +13,8 @@
 #include <takatori/relation/join_scan.h>
 #include <takatori/relation/intermediate/join.h>
 #include <takatori/relation/step/join.h>
+#include <takatori/relation/intermediate/aggregate.h>
+#include <takatori/relation/step/aggregate.h>
 #include <takatori/relation/write.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/values.h>
@@ -39,6 +41,7 @@
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/binding/factory.h>
 #include <yugawara/function/declaration.h>
+#include <yugawara/aggregate/declaration.h>
 #include <yugawara/variable/declaration.h>
 
 #include <yugawara/extension/relation/fence.h>
@@ -111,6 +114,18 @@ protected:
 
     relation::scan make_scan(storage::index const& index) {
         return relation::scan { factory(index), {} };
+    }
+
+    static std::shared_ptr<aggregate::declaration> make_aggregate() {
+        return std::make_shared<aggregate::declaration>(aggregate::declaration {
+                aggregate::declaration::minimum_builtin_function_id + 1,
+                "agg",
+                ::takatori::type::int4 {},
+                {
+                        ::takatori::type::int4 {},
+                },
+                true,
+        });
     }
 
     // scan -> offer
@@ -635,9 +650,60 @@ TEST_F(element_location_test, exchange_without_symbols) {
     EXPECT_EQ(locations(plan::group {}), (location_id_set_type { 0, 7, 8 }));
 }
 
-TEST_F(element_location_test, exchange_not_inspected) {
-    // aggregate functions are not inspected yet
-    EXPECT_EQ(locations(plan::aggregate {}), (location_id_set_type { 0 }));
+TEST_F(element_location_test, exchange_aggregate) {
+    auto agg = make_aggregate();
+    query.aggregates.emplace(agg.get(), location_id_set_type { 0, 7 });
+    plan::aggregate exchange {
+            {},
+            {},
+            {},
+            {
+                    plan::aggregate::aggregation {
+                            factory(agg),
+                            factory.stream_variable("x"),
+                            factory.stream_variable("y"),
+                    },
+            },
+    };
+    EXPECT_EQ(locations(exchange), (location_id_set_type { 0, 7 }));
+
+    query.aggregates[agg.get()] = location_id_set_type { 0 };
+    EXPECT_EQ(locations(exchange), (location_id_set_type { 0 }));
+}
+
+TEST_F(element_location_test, exchange_aggregate_empty) {
+    EXPECT_EQ(locations(plan::aggregate {}), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, aggregate_relation) {
+    auto agg = make_aggregate();
+    query.aggregates.emplace(agg.get(), location_id_set_type { 7, 8 });
+    relation::intermediate::aggregate expr {
+            {},
+            {
+                    relation::intermediate::aggregate::column {
+                            factory(agg),
+                            factory.stream_variable("x"),
+                            factory.stream_variable("y"),
+                    },
+            },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 7, 8 }));
+}
+
+TEST_F(element_location_test, aggregate_group) {
+    auto agg = make_aggregate();
+    query.aggregates.emplace(agg.get(), location_id_set_type { 0 });
+    relation::step::aggregate expr {
+            {
+                    relation::step::aggregate::column {
+                            factory(agg),
+                            factory.stream_variable("x"),
+                            factory.stream_variable("y"),
+                    },
+            },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0 }));
 }
 
 TEST_F(element_location_test, exchange_not_remote) {
