@@ -254,6 +254,22 @@ TEST_F(compute_operation_locations_test, statement_write) {
     EXPECT_EQ((*result)->find(stmt), (location_id_set_type { 7 }));
 }
 
+TEST_F(compute_operation_locations_test, statement_write_not_remote) {
+    options.remote_statement_kinds().erase(tstatement::statement_kind::write);
+    tstatement::write stmt {
+            tstatement::write_kind::insert,
+            factory(*remote_index),
+            {},
+            {},
+    };
+
+    auto result = compute_operation_locations(stmt, options);
+    ASSERT_FALSE(result);
+    auto&& diagnostics = result.error();
+    ASSERT_EQ(diagnostics.size(), 1);
+    EXPECT_EQ(diagnostics[0].code(), compiler_code::empty_operation_location);
+}
+
 TEST_F(compute_operation_locations_test, statement_empty) {
     tstatement::grant_table stmt {
             {

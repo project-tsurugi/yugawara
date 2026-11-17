@@ -531,6 +531,15 @@ TEST_F(element_location_test, statement_execute_exchange_not_remote) {
     EXPECT_EQ(locations(stmt), (location_id_set_type { 0 }));
 }
 
+TEST_F(element_location_test, statement_execute_not_remote) {
+    options.remote_statement_kinds().erase(tstatement::statement_kind::execute);
+    tstatement::execute stmt { plan::graph_type {} };
+    auto&& graph = stmt.execution_plan();
+    auto&& exchange = graph.insert(plan::forward {});
+    add_scan_offer(graph, *shared_index, exchange);
+    EXPECT_EQ(locations(stmt), (location_id_set_type { 0 }));
+}
+
 TEST_F(element_location_test, statement_execute_remote) {
     tstatement::execute stmt { plan::graph_type {} };
     auto&& graph = stmt.execution_plan();
@@ -547,6 +556,28 @@ TEST_F(element_location_test, statement_write) {
             {},
     };
     EXPECT_EQ(locations(stmt), (location_id_set_type { 7 }));
+}
+
+TEST_F(element_location_test, statement_write_not_remote) {
+    options.remote_statement_kinds().erase(tstatement::statement_kind::write);
+    tstatement::write stmt {
+            tstatement::write_kind::insert,
+            factory(*shared_index),
+            {},
+            {},
+    };
+    EXPECT_EQ(locations(stmt), (location_id_set_type { 0 }));
+}
+
+TEST_F(element_location_test, statement_write_not_remote_empty) {
+    options.remote_statement_kinds().erase(tstatement::statement_kind::write);
+    tstatement::write stmt {
+            tstatement::write_kind::insert,
+            factory(*remote_index),
+            {},
+            {},
+    };
+    EXPECT_EQ(locations(stmt), (location_id_set_type {}));
 }
 
 TEST_F(element_location_test, statement_write_tuples) {
@@ -601,6 +632,17 @@ TEST_F(element_location_test, statement_multiple_tables_disjoint) {
             },
     };
     EXPECT_EQ(locations(stmt), (location_id_set_type {}));
+}
+
+TEST_F(element_location_test, statement_kind) {
+    EXPECT_EQ(locations(tstatement::statement_kind::execute), (location_id_set_type { 0, 7, 8 }));
+    EXPECT_EQ(locations(tstatement::statement_kind::write), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, statement_kind_not_remote) {
+    options.remote_statement_kinds() = {};
+    EXPECT_EQ(locations(tstatement::statement_kind::execute), (location_id_set_type { 0 }));
+    EXPECT_EQ(locations(tstatement::statement_kind::write), (location_id_set_type { 0 }));
 }
 
 TEST_F(element_location_test, statement_without_tables) {

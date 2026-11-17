@@ -8,6 +8,7 @@
 #include <takatori/plan/process.h>
 #include <takatori/plan/exchange.h>
 #include <takatori/statement/statement.h>
+#include <takatori/statement/statement_kind.h>
 
 #include <yugawara/remote/location_options.h>
 #include <yugawara/remote/symbol_location_query.h>
@@ -43,8 +44,10 @@ namespace yugawara::remote::details {
  *
  *      Additionally, the locations of each operator are restricted to the local location
  *      if its kind is not in remote::location_options::remote_relation_expression_kinds(),
- *      and the locations of each step are restricted to the local location
- *      if its kind is not in remote::location_options::remote_step_kinds().
+ *      the locations of each step are restricted to the local location
+ *      if its kind is not in remote::location_options::remote_step_kinds(),
+ *      and the locations of each statement are restricted to the local location
+ *      if its kind is not in remote::location_options::remote_statement_kinds().
  */
 class element_location {
 public:
@@ -131,6 +134,16 @@ public:
      * @return the locations
      */
     [[nodiscard]] location_id_set_type operator()(::takatori::plan::exchange const& step) const;
+
+    /**
+     * @brief returns the locations where statements of the given kind can be executed.
+     * @details The result is all available locations if the kind is in
+     *      remote::location_options::remote_statement_kinds(), or the local location only otherwise.
+     *      This does not consider the contents of the statements (e.g. steps and symbols).
+     * @param kind the statement kind
+     * @return the locations
+     */
+    [[nodiscard]] location_id_set_type operator()(::takatori::statement::statement_kind kind) const;
 
     /**
      * @brief returns the locations where the given statement can be executed.

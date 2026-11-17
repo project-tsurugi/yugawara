@@ -175,6 +175,7 @@ public:
      * @param statement the target statement
      */
     void collect(tstatement::statement const& statement) {
+        constraints_.add_kind(options_.remote_statement_kinds(), statement.kind());
         tstatement::dispatch(*this, statement);
     }
 
@@ -507,6 +508,12 @@ location_id_set_type element_location::operator()(tplan::process const& step) co
 
 location_id_set_type element_location::operator()(tplan::exchange const& step) const {
     return collect_locations<tplan::step>(options_, step);
+}
+
+location_id_set_type element_location::operator()(tstatement::statement_kind kind) const {
+    location_constraints constraints { query_ };
+    constraints.add_kind(options_.remote_statement_kinds(), kind);
+    return std::move(constraints).release();
 }
 
 location_id_set_type element_location::operator()(tstatement::statement const& statement) const {

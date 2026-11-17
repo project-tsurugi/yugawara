@@ -135,8 +135,12 @@ public:
 
     /**
      * @brief returns the kinds of statements which can be executed in locations other than the local.
-     * @details The default value contains all kinds.
-     * @attention The compiler does not use this list yet.
+     * @details The statements whose kinds are not in this list are executed only in the local location.
+     *      The locations of `execute` statements are the intersection of the locations of their steps,
+     *      that is, the locations where the whole of their execution plan can be executed.
+     *      To use them, this list should contain `execute`;
+     *      otherwise, they are also restricted to the local location.
+     *      The default value contains all kinds.
      * @return the allow list of statement kinds
      */
     [[nodiscard]] statement_kind_set& remote_statement_kinds() noexcept;
