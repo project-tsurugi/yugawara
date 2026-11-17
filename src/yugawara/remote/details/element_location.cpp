@@ -93,8 +93,11 @@ void intersect(location_id_set_type& target, location_id_set_type const& other) 
 /**
  * @brief accepts constraints of locations, and provides the locations which satisfy all of them.
  * @details The constraints are the referred symbols (e.g. tables, functions, and variables),
- *      and the local location.
- *      This is the only place which asks the symbol location query for the locations of the symbols.
+ *      the kinds of elements, and the elements whose contents are not inspected.
+ *      This is the only place which asks the symbol location query for the locations of the symbols,
+ *      and decides the locations of the things which cannot be confirmed (e.g. the uninspected elements,
+ *      the kinds not in the allow lists, and the symbols which are not declarations):
+ *      they can be executed only in the local location.
  */
 class location_constraints {
 public:
@@ -179,8 +182,12 @@ public:
         restrict_to_local();
     }
 
-    void restrict_to_local() {
-        intersect(locations_, local_location());
+    /**
+     * @brief adds an element whose contents (e.g. scalar expressions and symbols) are not inspected.
+     * @details Such elements can be executed only in the local location.
+     */
+    void add_uninspected() {
+        restrict_to_local();
     }
 
     /**
@@ -214,6 +221,10 @@ public:
 private:
     remote::symbol_location_query const& query_;
     location_id_set_type locations_;
+
+    void restrict_to_local() {
+        intersect(locations_, local_location());
+    }
 
     void add(storage::table const& table) {
         intersect(locations_, query_.find(table));
@@ -284,8 +295,8 @@ public:
 
     void operator()(tstatement::statement const& statement) {
         (void) statement;
-        // NOTE: the symbols in the other statements are not inspected
-        constraints_.restrict_to_local();
+        // NOTE: the symbols in the other statements
+        constraints_.add_uninspected();
     }
 
     void operator()(tstatement::execute const& statement) {
@@ -350,8 +361,8 @@ public:
 
     void operator()(tplan::exchange const& step) {
         (void) step;
-        // NOTE: the contents of the other exchanges are not inspected
-        constraints_.restrict_to_local();
+        // NOTE: the contents of the other exchanges
+        constraints_.add_uninspected();
     }
 
     void operator()(tplan::aggregate const& step) {
@@ -381,8 +392,8 @@ public:
 
     void operator()(trelation::expression const& expression) {
         (void) expression;
-        // NOTE: the scalar expressions and symbols in the other operators are not inspected yet
-        constraints_.restrict_to_local();
+        // NOTE: the scalar expressions and symbols in the other operators (i.e. extensions)
+        constraints_.add_uninspected();
     }
 
     void operator()(trelation::scan const& expression) {
@@ -567,8 +578,8 @@ public:
 
     void operator()(tscalar::extension const& expression) {
         (void) expression;
-        // NOTE: the contents of extensions are not inspected
-        constraints_.restrict_to_local();
+        // NOTE: the contents of extensions
+        constraints_.add_uninspected();
     }
 
 private:
