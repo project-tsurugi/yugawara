@@ -119,6 +119,19 @@ public:
         intersect(locations_, local_location());
     }
 
+    /**
+     * @brief restricts the locations to the local location, if the given kind is not in the given set.
+     * @tparam Set the kind set type
+     * @param kinds the kinds which can be executed in locations other than the local
+     * @param kind the kind of the target element
+     */
+    template<class Set>
+    void add_kind(Set const& kinds, typename Set::value_type kind) {
+        if (!kinds.contains(kind)) {
+            restrict_to_local();
+        }
+    }
+
     void add(location_id_set_type const& locations) {
         intersect(locations_, locations);
     }
@@ -149,20 +162,45 @@ private:
 
 /**
  * @brief decomposes an operator or a scalar expression, and collects its constraints of locations.
- * @details Each operator is restricted by the symbols it refers, and by the scalar expressions in it.
+ * @details Each element is restricted by its kind, by the symbols it refers, and by the scalar expressions in it.
  *      The operators not listed here may have scalar expressions or symbols not inspected here,
  *      so that they are restricted to the local location.
  */
 class location_collector {
 public:
+    /**
+     * @brief creates a new instance.
+     * @param options the location options, which must have a symbol location query
+     * @param constraints the destination of the collected constraints
+     */
     explicit location_collector(
-            remote::location_options::scalar_expression_kind_set const& scalar_kinds,
-            remote::symbol_location_query const& query,
+            remote::location_options const& options,
             location_constraints& constraints) noexcept :
-        scalar_kinds_ { scalar_kinds },
-        query_ { query },
+        options_ { options },
+        query_ { require_query(options) },
         constraints_ { constraints }
     {}
+
+    /**
+     * @brief collects the constraints of the given operator.
+     * @param expression the target operator
+     */
+    void collect(trelation::expression const& expression) {
+        constraints_.add_kind(options_.remote_relation_expression_kinds(), expression.kind());
+        if (trelation::is_available_in_intermediate_plan(expression.kind())) {
+            trelation::intermediate::dispatch(*this, expression);
+        } else {
+            trelation::step::dispatch(*this, expression);
+        }
+    }
+
+    /**
+     * @brief collects the constraints of the given scalar expression.
+     * @param expression the target scalar expression
+     */
+    void collect(tscalar::expression const& expression) {
+        tscalar::walk(*this, expression);
+    }
 
     // operators
 
@@ -295,14 +333,12 @@ public:
     }
 
 private:
-    remote::location_options::scalar_expression_kind_set const& scalar_kinds_;
+    remote::location_options const& options_;
     remote::symbol_location_query const& query_;
     location_constraints& constraints_;
 
     void check_kind(tscalar::expression const& expression) {
-        if (!scalar_kinds_.contains(expression.kind())) {
-            constraints_.restrict_to_local();
-        }
+        constraints_.add_kind(options_.remote_scalar_expression_kinds(), expression.kind());
     }
 
     template<class Keys>
@@ -323,6 +359,14 @@ private:
     }
 };
 
+template<class T>
+location_id_set_type collect_locations(remote::location_options const& options, T const& element) {
+    location_constraints constraints { require_query(options) };
+    location_collector collector { options, constraints };
+    collector.collect(element);
+    return std::move(constraints).release();
+}
+
 } // namespace
 
 element_location::element_location(remote::location_options options) noexcept :
@@ -335,30 +379,17 @@ location_id_set_type element_location::all() const {
 }
 
 location_id_set_type element_location::operator()(tscalar::expression const& expression) const {
-    location_constraints constraints { query_ };
-    location_collector collector { options_.remote_scalar_expression_kinds(), query_, constraints };
-    tscalar::walk(collector, expression);
-    return std::move(constraints).release();
+    return collect_locations(options_, expression);
 }
 
 location_id_set_type element_location::operator()(trelation::expression_kind kind) const {
-    if (options_.remote_relation_expression_kinds().contains(kind)) {
-        return all();
-    }
-    return local_location();
+    location_constraints constraints { query_ };
+    constraints.add_kind(options_.remote_relation_expression_kinds(), kind);
+    return std::move(constraints).release();
 }
 
 location_id_set_type element_location::operator()(trelation::expression const& expression) const {
-    location_constraints constraints { query_ };
-    location_collector collector { options_.remote_scalar_expression_kinds(), query_, constraints };
-    if (trelation::is_available_in_intermediate_plan(expression.kind())) {
-        trelation::intermediate::dispatch(collector, expression);
-    } else {
-        trelation::step::dispatch(collector, expression);
-    }
-    auto locations = std::move(constraints).release();
-    intersect(locations, (*this)(expression.kind()));
-    return locations;
+    return collect_locations(options_, expression);
 }
 
 location_id_set_type element_location::operator()(tplan::step const& step) const {
