@@ -160,6 +160,24 @@ public:
         restrict_to_local();
     }
 
+    /**
+     * @brief adds the locations of the given variable, only if it is an external variable (e.g. host variables).
+     * @details The other variables (e.g. stream variables) never restrict the locations.
+     *      If the external variable is not a variable declaration,
+     *      this restricts the locations to the local location.
+     * @param descriptor the target variable
+     */
+    void add(descriptor::variable const& descriptor) {
+        if (binding::kind_of(descriptor) != binding::variable_info_kind::external_variable) {
+            return;
+        }
+        if (auto variable = binding::extract_if<variable::declaration>(descriptor)) {
+            intersect(locations_, query_.find(*variable));
+            return;
+        }
+        restrict_to_local();
+    }
+
     void restrict_to_local() {
         intersect(locations_, local_location());
     }
@@ -410,7 +428,7 @@ public:
     void operator()(trelation::intermediate::limit const& expression) {
         add_variables(expression.group_keys());
         for (auto&& key : expression.sort_keys()) {
-            add_variable(key.variable());
+            constraints_.add(key.variable());
         }
         add_constant_value(expression.row_slice().start());
         add_constant_value(expression.row_slice().count());
@@ -435,10 +453,10 @@ public:
     void operator()(trelation::write const& expression) {
         constraints_.add(expression.destination());
         for (auto&& key : expression.keys()) {
-            add_variable(key.source());
+            constraints_.add(key.source());
         }
         for (auto&& column : expression.columns()) {
-            add_variable(column.source());
+            constraints_.add(column.source());
         }
     }
 
@@ -463,7 +481,7 @@ public:
     // operators which refer to variables only
     void operator()(trelation::emit const& expression) {
         for (auto&& column : expression.columns()) {
-            add_variable(column.source());
+            constraints_.add(column.source());
         }
     }
 
@@ -474,10 +492,10 @@ public:
     void operator()(trelation::intermediate::union_ const& expression) {
         for (auto&& mapping : expression.mappings()) {
             if (mapping.left()) {
-                add_variable(*mapping.left());
+                constraints_.add(*mapping.left());
             }
             if (mapping.right()) {
-                add_variable(*mapping.right());
+                constraints_.add(*mapping.right());
             }
         }
     }
@@ -492,13 +510,13 @@ public:
 
     void operator()(trelation::intermediate::escape const& expression) {
         for (auto&& mapping : expression.mappings()) {
-            add_variable(mapping.source());
+            constraints_.add(mapping.source());
         }
     }
 
     void operator()(trelation::step::offer const& expression) {
         for (auto&& column : expression.columns()) {
-            add_variable(column.source());
+            constraints_.add(column.source());
         }
     }
 
@@ -548,9 +566,7 @@ public:
 
     void operator()(tscalar::variable_reference const& expression) {
         check_kind(expression);
-        if (auto variable = binding::extract_if<variable::declaration>(expression.variable())) {
-            constraints_.add(query_.find(*variable));
-        }
+        constraints_.add(expression.variable());
     }
 
     void operator()(tscalar::extension const& expression) {
@@ -569,34 +585,23 @@ private:
     }
 
     /**
-     * @brief adds the location of the given variable, only if it is an external variable.
+     * @brief adds the locations of the given variables.
      * @details Operators may refer external variables directly (not in scalar expressions),
      *      e.g. if optimizations inline external variables into the columns of operators.
-     * @param variable the target variable
+     * @param variables the target variables
      */
-    void add_variable(descriptor::variable const& variable) {
-        if (binding::kind_of(variable) != binding::variable_info_kind::external_variable) {
-            return;
-        }
-        if (auto declaration = binding::extract_if<variable::declaration>(variable)) {
-            constraints_.add(query_.find(*declaration));
-            return;
-        }
-        constraints_.restrict_to_local();
-    }
-
     template<class Variables>
     void add_variables(Variables const& variables) {
         for (auto&& variable : variables) {
-            add_variable(variable);
+            constraints_.add(variable);
         }
     }
 
     template<class KeyPairs>
     void add_key_pairs(KeyPairs const& pairs) {
         for (auto&& pair : pairs) {
-            add_variable(pair.left());
-            add_variable(pair.right());
+            constraints_.add(pair.left());
+            constraints_.add(pair.right());
         }
     }
 
@@ -623,11 +628,8 @@ private:
 
     template<class Value>
     void add_constant_value(Value const& value) {
-        if (!value.has_variable()) {
-            return;
-        }
-        if (auto variable = binding::extract_if<variable::declaration>(value.variable())) {
-            constraints_.add(query_.find(*variable));
+        if (value.has_variable()) {
+            constraints_.add(value.variable());
         }
     }
 };
