@@ -22,6 +22,8 @@
 #include <takatori/relation/find.h>
 #include <takatori/relation/join_find.h>
 #include <takatori/relation/join_scan.h>
+#include <takatori/relation/intermediate/join.h>
+#include <takatori/relation/step/join.h>
 #include <takatori/relation/write.h>
 #include <takatori/relation/step/offer.h>
 #include <takatori/relation/step/take_flat.h>
@@ -95,6 +97,19 @@ public:
             return;
         }
         intersect(locations_, local_location());
+    }
+
+    /**
+     * @brief adds the source relation of the join operators.
+     * @details The upstream exchanges never restrict the locations of the operators,
+     *      because the locations of the exchanges are decided as the individual steps.
+     * @param descriptor the source relation
+     */
+    void add_join_source(descriptor::relation const& descriptor) {
+        if (binding::kind_of(descriptor) == binding::relation_info_kind::exchange) {
+            return;
+        }
+        add(descriptor);
     }
 
     void add(descriptor::storage const& descriptor) {
@@ -326,15 +341,26 @@ public:
     }
 
     void operator()(trelation::join_find const& expression) {
-        // NOTE: the join keys and conditions are not inspected yet
-        constraints_.add(expression.source());
-        constraints_.restrict_to_local();
+        constraints_.add_join_source(expression.source());
+        add_keys(expression.keys());
+        add_condition(expression.condition());
     }
 
     void operator()(trelation::join_scan const& expression) {
-        // NOTE: the join keys and conditions are not inspected yet
-        constraints_.add(expression.source());
-        constraints_.restrict_to_local();
+        constraints_.add_join_source(expression.source());
+        add_keys(expression.lower().keys());
+        add_keys(expression.upper().keys());
+        add_condition(expression.condition());
+    }
+
+    void operator()(trelation::intermediate::join const& expression) {
+        add_keys(expression.lower().keys());
+        add_keys(expression.upper().keys());
+        add_condition(expression.condition());
+    }
+
+    void operator()(trelation::step::join const& expression) {
+        add_condition(expression.condition());
     }
 
     void operator()(trelation::write const& expression) {
@@ -455,6 +481,12 @@ private:
 
     void check_kind(tscalar::expression const& expression) {
         constraints_.add_kind(options_.remote_scalar_expression_kinds(), expression.kind());
+    }
+
+    void add_condition(::takatori::util::optional_ptr<tscalar::expression const> condition) {
+        if (condition) {
+            collect(*condition);
+        }
     }
 
     template<class Keys>

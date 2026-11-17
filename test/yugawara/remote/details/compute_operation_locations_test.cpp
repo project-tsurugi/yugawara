@@ -65,6 +65,7 @@ protected:
                     { "C0", t::int4() },
             },
     });
+    std::shared_ptr<storage::index> other_remote_index = storages->add_index({ other_remote_table, "O", });
 
     std::shared_ptr<storage::table> shared_table = storages->add_table({
             "S",
@@ -172,14 +173,14 @@ TEST_F(compute_operation_locations_test, empty_process_region_from_operator_with
     };
     ::takatori::document::region known_region { doc, 14, 15 };
 
-    // [scan(remote) -> join_find(remote) -> emit]: the upstream scan has no region,
+    // [scan(remote) -> join_find(other remote) -> emit]: the upstream scan has no region,
     // like operators introduced by optimizations
     tstatement::execute stmt { plan::graph_type {} };
     auto&& process = stmt.execution_plan().insert(plan::process {});
     auto&& scan = process.operators().insert(relation::scan { factory(*remote_index), {} });
     auto&& join = process.operators().insert(relation::join_find {
             relation::join_kind::inner,
-            factory(*remote_index),
+            factory(*other_remote_index),
             std::vector<relation::join_find::column> {},
             std::vector<relation::join_find::key> {},
             {},

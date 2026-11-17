@@ -11,6 +11,8 @@
 #include <takatori/relation/find.h>
 #include <takatori/relation/join_find.h>
 #include <takatori/relation/join_scan.h>
+#include <takatori/relation/intermediate/join.h>
+#include <takatori/relation/step/join.h>
 #include <takatori/relation/write.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/values.h>
@@ -220,24 +222,151 @@ TEST_F(element_location_test, find_keys) {
 
 TEST_F(element_location_test, join_find) {
     relation::join_find expr { relation::join_kind::inner, factory(*remote_index), {}, {} };
-    EXPECT_EQ(locations(expr), (location_id_set_type {}));
+    EXPECT_EQ(locations(expr), (location_id_set_type { 7 }));
 }
 
 TEST_F(element_location_test, join_find_exchange) {
+    // the upstream exchange does not restrict the locations
     plan::broadcast exchange {};
     relation::join_find expr { relation::join_kind::inner, factory(exchange), {}, {} };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, join_find_keys) {
+    auto decl = std::make_shared<variable::declaration>(variable::declaration {
+            "p",
+            ::takatori::type::int4 {},
+    });
+    query.variables.emplace(decl.get(), location_id_set_type { 0, 8 });
+    relation::join_find expr {
+            relation::join_kind::inner,
+            factory(*shared_index),
+            {},
+            {
+                    relation::join_find::key {
+                            factory(shared_table->columns()[0]),
+                            scalar::variable_reference { factory.external_variable(decl) },
+                    },
+            },
+    };
     EXPECT_EQ(locations(expr), (location_id_set_type { 0 }));
+}
+
+TEST_F(element_location_test, join_find_condition) {
+    auto func = std::make_shared<function::declaration>(function::declaration {
+            function::declaration::minimum_builtin_function_id + 1,
+            "f",
+            ::takatori::type::boolean {},
+            {},
+    });
+    query.functions.emplace(func.get(), location_id_set_type { 7, 8 });
+    plan::broadcast exchange {};
+    relation::join_find expr {
+            relation::join_kind::inner,
+            factory(exchange),
+            {},
+            {},
+            scalar::function_call { factory(func), {} },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 7, 8 }));
 }
 
 TEST_F(element_location_test, join_scan) {
     relation::join_scan expr { relation::join_kind::inner, factory(*remote_index), {}, {}, {} };
-    EXPECT_EQ(locations(expr), (location_id_set_type {}));
+    EXPECT_EQ(locations(expr), (location_id_set_type { 7 }));
 }
 
 TEST_F(element_location_test, join_scan_exchange) {
+    // the upstream exchange does not restrict the locations
     plan::broadcast exchange {};
     relation::join_scan expr { relation::join_kind::inner, factory(exchange), {}, {}, {} };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, join_scan_keys_and_condition) {
+    auto func = std::make_shared<function::declaration>(function::declaration {
+            function::declaration::minimum_builtin_function_id + 1,
+            "f",
+            ::takatori::type::int4 {},
+            {},
+    });
+    query.functions.emplace(func.get(), location_id_set_type { 0, 7 });
+    auto cond = std::make_shared<function::declaration>(function::declaration {
+            function::declaration::minimum_builtin_function_id + 2,
+            "g",
+            ::takatori::type::boolean {},
+            {},
+    });
+    query.functions.emplace(cond.get(), location_id_set_type { 7, 8 });
+    relation::join_scan expr {
+            relation::join_kind::inner,
+            factory(*shared_index),
+            {},
+            relation::join_scan::endpoint {
+                    relation::join_scan::key {
+                            factory(shared_table->columns()[0]),
+                            scalar::function_call { factory(func), {} },
+                    },
+                    relation::endpoint_kind::inclusive,
+            },
+            {},
+            scalar::function_call { factory(cond), {} },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 7 }));
+}
+
+TEST_F(element_location_test, join_relation) {
+    auto func = std::make_shared<function::declaration>(function::declaration {
+            function::declaration::minimum_builtin_function_id + 1,
+            "f",
+            ::takatori::type::boolean {},
+            {},
+    });
+    query.functions.emplace(func.get(), location_id_set_type { 0, 7 });
+    relation::intermediate::join expr {
+            relation::join_kind::inner,
+            scalar::function_call { factory(func), {} },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7 }));
+}
+
+TEST_F(element_location_test, join_relation_keys) {
+    auto decl = std::make_shared<variable::declaration>(variable::declaration {
+            "p",
+            ::takatori::type::int4 {},
+    });
+    query.variables.emplace(decl.get(), location_id_set_type { 8 });
+    relation::intermediate::join expr {
+            relation::join_kind::inner,
+            relation::intermediate::join::endpoint {
+                    relation::intermediate::join::key {
+                            factory.stream_variable("x"),
+                            scalar::variable_reference { factory.external_variable(decl) },
+                    },
+                    relation::endpoint_kind::inclusive,
+            },
+            {},
+            {},
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 8 }));
+}
+
+TEST_F(element_location_test, join_group) {
+    auto func = std::make_shared<function::declaration>(function::declaration {
+            function::declaration::minimum_builtin_function_id + 1,
+            "f",
+            ::takatori::type::boolean {},
+            {},
+    });
+    query.functions.emplace(func.get(), location_id_set_type { 0 });
+    relation::step::join expr {
+            relation::join_kind::inner,
+            scalar::function_call { factory(func), {} },
+    };
     EXPECT_EQ(locations(expr), (location_id_set_type { 0 }));
+
+    relation::step::join no_condition { relation::join_kind::inner };
+    EXPECT_EQ(locations(no_condition), (location_id_set_type { 0, 7, 8 }));
 }
 
 TEST_F(element_location_test, write) {
