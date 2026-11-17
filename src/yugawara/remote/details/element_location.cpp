@@ -46,6 +46,12 @@
 
 #include <takatori/statement/dispatch.h>
 
+#include <takatori/descriptor/relation.h>
+#include <takatori/descriptor/storage.h>
+#include <takatori/descriptor/function.h>
+#include <takatori/descriptor/aggregate_function.h>
+#include <takatori/descriptor/variable.h>
+
 #include <boost/assert.hpp>
 
 #include <yugawara/binding/extract.h>
@@ -125,6 +131,33 @@ public:
             return;
         }
         intersect(locations_, local_location());
+    }
+
+    /**
+     * @brief adds the locations of the given function.
+     * @details If it is not a function declaration, this restricts the locations to the local location.
+     * @param descriptor the target function
+     */
+    void add(descriptor::function const& descriptor) {
+        if (auto function = binding::extract_if<function::declaration>(descriptor)) {
+            intersect(locations_, query_.find(*function));
+            return;
+        }
+        restrict_to_local();
+    }
+
+    /**
+     * @brief adds the locations of the given aggregate function.
+     * @details If it is not an aggregate function declaration,
+     *      this restricts the locations to the local location.
+     * @param descriptor the target aggregate function
+     */
+    void add(descriptor::aggregate_function const& descriptor) {
+        if (auto function = binding::extract_if<aggregate::declaration>(descriptor)) {
+            intersect(locations_, query_.find(*function));
+            return;
+        }
+        restrict_to_local();
     }
 
     void restrict_to_local() {
@@ -384,11 +417,7 @@ public:
     }
 
     void operator()(trelation::apply const& expression) {
-        if (auto function = binding::extract_if<function::declaration>(expression.function())) {
-            constraints_.add(query_.find(*function));
-        } else {
-            constraints_.restrict_to_local();
-        }
+        constraints_.add(expression.function());
         for (auto&& argument : expression.arguments()) {
             collect(argument);
         }
@@ -514,11 +543,7 @@ public:
 
     void operator()(tscalar::function_call const& expression) {
         check_kind(expression);
-        if (auto function = binding::extract_if<function::declaration>(expression.function())) {
-            constraints_.add(query_.find(*function));
-            return;
-        }
-        constraints_.restrict_to_local();
+        constraints_.add(expression.function());
     }
 
     void operator()(tscalar::variable_reference const& expression) {
@@ -579,11 +604,7 @@ private:
     void add_aggregations(Aggregations const& aggregations) {
         for (auto&& aggregation : aggregations) {
             add_variables(aggregation.arguments());
-            if (auto function = binding::extract_if<aggregate::declaration>(aggregation.function())) {
-                constraints_.add(query_.find(*function));
-                continue;
-            }
-            constraints_.restrict_to_local();
+            constraints_.add(aggregation.function());
         }
     }
 
