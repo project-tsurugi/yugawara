@@ -34,21 +34,11 @@
 #include <takatori/scalar/extension.h>
 #include <takatori/scalar/walk.h>
 
-#include <takatori/statement/execute.h>
-#include <takatori/statement/write.h>
-#include <takatori/statement/drop_table.h>
-#include <takatori/statement/rename_table.h>
-#include <takatori/statement/rename_column.h>
-#include <takatori/statement/create_index.h>
-#include <takatori/statement/drop_index.h>
-#include <takatori/statement/rename_index.h>
-#include <takatori/statement/truncate_table.h>
-#include <takatori/statement/grant_table.h>
-#include <takatori/statement/revoke_table.h>
+#include <takatori/plan/dispatch.h>
+
+#include <takatori/statement/dispatch.h>
 
 #include <boost/assert.hpp>
-
-#include <takatori/util/downcast.h>
 
 #include <yugawara/binding/extract.h>
 #include <yugawara/storage/index.h>
@@ -62,8 +52,6 @@ namespace tscalar = ::takatori::scalar;
 namespace trelation = ::takatori::relation;
 namespace tplan = ::takatori::plan;
 namespace tstatement = ::takatori::statement;
-
-using ::takatori::util::unsafe_downcast;
 
 using location_id_set_type = element_location::location_id_set_type;
 
@@ -161,9 +149,10 @@ private:
 };
 
 /**
- * @brief decomposes an operator or a scalar expression, and collects its constraints of locations.
- * @details Each element is restricted by its kind, by the symbols it refers, and by the scalar expressions in it.
- *      The operators not listed here may have scalar expressions or symbols not inspected here,
+ * @brief decomposes an element (statement, step, operator, or scalar expression),
+ *      and collects its constraints of locations.
+ * @details Each element is restricted by its kind, by the symbols it refers, and by the elements in it.
+ *      The operators and statements not listed here may have scalar expressions or symbols not inspected here,
  *      so that they are restricted to the local location.
  */
 class location_collector {
@@ -180,6 +169,22 @@ public:
         query_ { require_query(options) },
         constraints_ { constraints }
     {}
+
+    /**
+     * @brief collects the constraints of the given statement.
+     * @param statement the target statement
+     */
+    void collect(tstatement::statement const& statement) {
+        tstatement::dispatch(*this, statement);
+    }
+
+    /**
+     * @brief collects the constraints of the given step.
+     * @param step the target step
+     */
+    void collect(tplan::step const& step) {
+        tplan::dispatch(*this, step);
+    }
 
     /**
      * @brief collects the constraints of the given operator.
@@ -200,6 +205,80 @@ public:
      */
     void collect(tscalar::expression const& expression) {
         tscalar::walk(*this, expression);
+    }
+
+    // statements
+
+    void operator()(tstatement::statement const& statement) {
+        (void) statement;
+        // NOTE: the symbols in the other statements are not inspected
+        constraints_.restrict_to_local();
+    }
+
+    void operator()(tstatement::execute const& statement) {
+        // NOTE: the steps may be executed in different locations, so that the result may be empty
+        for (auto&& step : statement.execution_plan()) {
+            collect(step);
+        }
+    }
+
+    void operator()(tstatement::write const& statement) {
+        constraints_.add(statement.destination());
+        for (auto&& tuple : statement.tuples()) {
+            for (auto&& element : tuple.elements()) {
+                collect(element);
+            }
+        }
+    }
+
+    void operator()(tstatement::drop_table const& statement) {
+        constraints_.add(statement.target());
+    }
+
+    void operator()(tstatement::rename_table const& statement) {
+        constraints_.add(statement.target());
+    }
+
+    void operator()(tstatement::rename_column const& statement) {
+        constraints_.add(statement.table());
+    }
+
+    void operator()(tstatement::create_index const& statement) {
+        constraints_.add(statement.definition());
+    }
+
+    void operator()(tstatement::drop_index const& statement) {
+        constraints_.add(statement.target());
+    }
+
+    void operator()(tstatement::rename_index const& statement) {
+        constraints_.add(statement.target());
+    }
+
+    void operator()(tstatement::truncate_table const& statement) {
+        constraints_.add(statement.target());
+    }
+
+    void operator()(tstatement::grant_table const& statement) {
+        constraints_.add_privilege_elements(statement);
+    }
+
+    void operator()(tstatement::revoke_table const& statement) {
+        constraints_.add_privilege_elements(statement);
+    }
+
+    // steps
+
+    void operator()(tplan::process const& step) {
+        for (auto&& expression : step.operators()) {
+            collect(expression);
+        }
+    }
+
+    void operator()(tplan::exchange const& step) {
+        (void) step;
+        // NOTE: exchanges are always in the local location
+        constraints_.restrict_to_local();
     }
 
     // operators
@@ -393,75 +472,19 @@ location_id_set_type element_location::operator()(trelation::expression const& e
 }
 
 location_id_set_type element_location::operator()(tplan::step const& step) const {
-    if (step.kind() == tplan::process::tag) {
-        return (*this)(unsafe_downcast<tplan::process>(step));
-    }
-    return (*this)(unsafe_downcast<tplan::exchange>(step));
+    return collect_locations(options_, step);
 }
 
 location_id_set_type element_location::operator()(tplan::process const& step) const {
-    auto result = all();
-    for (auto&& expression : step.operators()) {
-        intersect(result, (*this)(expression));
-    }
-    return result;
+    return collect_locations<tplan::step>(options_, step);
 }
 
-location_id_set_type element_location::operator()(tplan::exchange const&) const {
-    return local_location();
+location_id_set_type element_location::operator()(tplan::exchange const& step) const {
+    return collect_locations<tplan::step>(options_, step);
 }
 
 location_id_set_type element_location::operator()(tstatement::statement const& statement) const {
-    location_constraints constraints { query_ };
-    switch (statement.kind()) {
-        case tstatement::execute::tag: {
-            auto locations = all();
-            for (auto&& step : unsafe_downcast<tstatement::execute>(statement).execution_plan()) {
-                intersect(locations, (*this)(step));
-            }
-            return locations;
-        }
-        case tstatement::write::tag: {
-            auto&& write = unsafe_downcast<tstatement::write>(statement);
-            constraints.add(write.destination());
-            for (auto&& tuple : write.tuples()) {
-                for (auto&& element : tuple.elements()) {
-                    constraints.add((*this)(element));
-                }
-            }
-            break;
-        }
-        case tstatement::drop_table::tag:
-            constraints.add(unsafe_downcast<tstatement::drop_table>(statement).target());
-            break;
-        case tstatement::rename_table::tag:
-            constraints.add(unsafe_downcast<tstatement::rename_table>(statement).target());
-            break;
-        case tstatement::rename_column::tag:
-            constraints.add(unsafe_downcast<tstatement::rename_column>(statement).table());
-            break;
-        case tstatement::create_index::tag:
-            constraints.add(unsafe_downcast<tstatement::create_index>(statement).definition());
-            break;
-        case tstatement::drop_index::tag:
-            constraints.add(unsafe_downcast<tstatement::drop_index>(statement).target());
-            break;
-        case tstatement::rename_index::tag:
-            constraints.add(unsafe_downcast<tstatement::rename_index>(statement).target());
-            break;
-        case tstatement::truncate_table::tag:
-            constraints.add(unsafe_downcast<tstatement::truncate_table>(statement).target());
-            break;
-        case tstatement::grant_table::tag:
-            constraints.add_privilege_elements(unsafe_downcast<tstatement::grant_table>(statement));
-            break;
-        case tstatement::revoke_table::tag:
-            constraints.add_privilege_elements(unsafe_downcast<tstatement::revoke_table>(statement));
-            break;
-        default:
-            return local_location();
-    }
-    return std::move(constraints).release();
+    return collect_locations(options_, statement);
 }
 
 } // namespace yugawara::remote::details
