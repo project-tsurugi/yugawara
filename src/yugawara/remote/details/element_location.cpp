@@ -341,6 +341,13 @@ location_id_set_type element_location::operator()(tscalar::expression const& exp
     return std::move(constraints).release();
 }
 
+location_id_set_type element_location::operator()(trelation::expression_kind kind) const {
+    if (options_.remote_relation_expression_kinds().contains(kind)) {
+        return all();
+    }
+    return local_location();
+}
+
 location_id_set_type element_location::operator()(trelation::expression const& expression) const {
     location_constraints constraints { query_ };
     location_collector collector { options_.remote_scalar_expression_kinds(), query_, constraints };
@@ -350,9 +357,7 @@ location_id_set_type element_location::operator()(trelation::expression const& e
         trelation::step::dispatch(collector, expression);
     }
     auto locations = std::move(constraints).release();
-    if (!options_.remote_relation_expression_kinds().contains(expression.kind())) {
-        intersect(locations, local_location());
-    }
+    intersect(locations, (*this)(expression.kind()));
     return locations;
 }
 

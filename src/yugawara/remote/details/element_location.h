@@ -2,6 +2,7 @@
 
 #include <takatori/scalar/expression.h>
 #include <takatori/relation/expression.h>
+#include <takatori/relation/expression_kind.h>
 #include <takatori/plan/step.h>
 #include <takatori/plan/process.h>
 #include <takatori/plan/exchange.h>
@@ -72,6 +73,18 @@ public:
      * @return the locations
      */
     [[nodiscard]] location_id_set_type operator()(::takatori::scalar::expression const& expression) const;
+
+    /**
+     * @brief returns the locations where operators of the given kind can be executed.
+     * @details The result is all available locations if the kind is in
+     *      remote::location_options::remote_relation_expression_kinds(), or the local location only otherwise.
+     *      This does not consider the contents of the operators (e.g. scalar expressions and symbols),
+     *      so that this is a precondition for moving a part of an operator (e.g. a term of a filter condition)
+     *      to another location, where the moved part becomes an operator of the given kind.
+     * @param kind the operator kind
+     * @return the locations
+     */
+    [[nodiscard]] location_id_set_type operator()(::takatori::relation::expression_kind kind) const;
 
     /**
      * @brief returns the locations where the given operator can be executed.

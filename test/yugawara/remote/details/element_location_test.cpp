@@ -373,6 +373,17 @@ TEST_F(element_location_test, scalar_intersection) {
     EXPECT_EQ(locations(expr), (location_id_set_type { 7 }));
 }
 
+TEST_F(element_location_test, kind) {
+    EXPECT_EQ(locations(relation::expression_kind::filter), (location_id_set_type { 0, 7, 8 }));
+    EXPECT_EQ(locations(relation::expression_kind::project), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, kind_not_remote) {
+    options.remote_relation_expression_kinds().erase(relation::expression_kind::filter);
+    EXPECT_EQ(locations(relation::expression_kind::filter), (location_id_set_type { 0 }));
+    EXPECT_EQ(locations(relation::expression_kind::project), (location_id_set_type { 0, 7, 8 }));
+}
+
 TEST_F(element_location_test, filter) {
     relation::filter expr { constant() };
     EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7, 8 }));
