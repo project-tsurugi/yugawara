@@ -32,6 +32,8 @@
 #include <takatori/relation/intermediate/difference.h>
 #include <takatori/relation/intermediate/escape.h>
 
+#include <takatori/scalar/function_call.h>
+
 #include <takatori/util/downcast.h>
 
 #include <yugawara/binding/factory.h>
@@ -39,8 +41,10 @@
 #include <yugawara/type/repository.h>
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/aggregate/configurable_provider.h>
+#include <yugawara/function/declaration.h>
 
 #include <yugawara/testing/utils.h>
+#include <yugawara/testing/mock_symbol_location_query.h>
 
 namespace yugawara::analyzer::details {
 
@@ -116,8 +120,26 @@ protected:
         return emit.input() << output;
     }
 
+    mock_symbol_location_query query {};
+    remote::location_options location_options = location_options_of(query);
+
+    std::shared_ptr<function::declaration> local_function = std::make_shared<function::declaration>(
+            function::declaration {
+                    function::declaration::minimum_builtin_function_id + 1,
+                    "local_function",
+                    ::takatori::type::boolean {},
+                    {},
+            });
+
     void apply(relation::graph_type& r) {
         push_down_selections(r);
+    }
+
+    // available locations: { 0, 7 }, local_function: { 0 }
+    void apply_with_locations(relation::graph_type& r) {
+        query.all = { 0, 7 };
+        query.functions.emplace(local_function.get(), remote::symbol_location_query::location_id_set_type { 0 });
+        push_down_selections(r, remote::details::element_location { location_options });
     }
 
     using expression_list = std::vector<scalar::expression const*>;
@@ -3364,6 +3386,171 @@ TEST_F(push_down_filters_test, fence_upstream) {
     EXPECT_EQ(r1.input().opposite()->owner().kind(), relation::filter::tag);
     ASSERT_TRUE(r1.output().opposite());
     EXPECT_EQ(r1.output().opposite()->owner().kind(), relation::emit::tag);
+}
+
+TEST_F(push_down_filters_test, fence_locations) {
+    /*
+     * scan:r0 - fence:r1 - filter:rf - ...
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+            },
+    });
+    auto&& r1 = r.insert(extension::relation::fence { 7, 0 });
+    auto&& rf = r.insert(relation::filter {
+            compare(varref(c0), constant(0)),
+    });
+    r0.output() >> r1.input();
+    r1.output() >> rf.input();
+
+    connect(rf.output());
+    apply_with_locations(r);
+
+    // the filter goes over the fence, because it can be executed in the upstream location
+    ASSERT_EQ(r.size(), 5);
+    auto&& f0 = next<relation::filter>(r0.output());
+    EXPECT_GT(f0.output(), r1.input());
+    EXPECT_GT(r1.output(), rf.input());
+
+    EXPECT_EQ(f0.condition(), compare(varref(c0), constant(0)));
+    EXPECT_EQ(rf.condition(), boolean(true));
+}
+
+TEST_F(push_down_filters_test, fence_locations_unavailable) {
+    /*
+     * scan:r0 - fence:r1 - filter:rf - ...
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+            },
+    });
+    auto&& r1 = r.insert(extension::relation::fence { 7, 0 });
+    auto&& rf = r.insert(relation::filter {
+            scalar::function_call { bindings(local_function), {} },
+    });
+    r0.output() >> r1.input();
+    r1.output() >> rf.input();
+
+    connect(rf.output());
+    apply_with_locations(r);
+
+    // the filter must not go over the fence, because the function is only available in the local location
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(r0.output(), r1.input());
+    auto&& f0 = next<relation::filter>(r1.output());
+    EXPECT_GT(f0.output(), rf.input());
+
+    EXPECT_EQ(f0.condition().kind(), scalar::function_call::tag);
+    EXPECT_EQ(rf.condition(), boolean(true));
+}
+
+TEST_F(push_down_filters_test, fence_locations_partial) {
+    /*
+     * scan:r0 - fence:r1 - filter:rf - ...
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+            },
+    });
+    auto&& r1 = r.insert(extension::relation::fence { 7, 0 });
+    auto&& rf = r.insert(relation::filter {
+            land(
+                    compare(varref(c0), constant(0)),
+                    scalar::function_call { bindings(local_function), {} }),
+    });
+    r0.output() >> r1.input();
+    r1.output() >> rf.input();
+
+    connect(rf.output());
+    apply_with_locations(r);
+
+    // only the term which can be executed in the upstream location goes over the fence
+    ASSERT_EQ(r.size(), 6);
+    auto&& f0 = next<relation::filter>(r0.output());
+    EXPECT_GT(f0.output(), r1.input());
+    auto&& f1 = next<relation::filter>(r1.output());
+    EXPECT_GT(f1.output(), rf.input());
+
+    EXPECT_EQ(f0.condition(), compare(varref(c0), constant(0)));
+    EXPECT_EQ(f1.condition().kind(), scalar::function_call::tag);
+    EXPECT_EQ(rf.condition(), boolean(true));
+}
+
+TEST_F(push_down_filters_test, fence_locations_filter_kind_not_remote) {
+    /*
+     * scan:r0 - fence:r1 - filter:rf - ...
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+            },
+    });
+    auto&& r1 = r.insert(extension::relation::fence { 7, 0 });
+    auto&& rf = r.insert(relation::filter {
+            compare(varref(c0), constant(0)),
+    });
+    r0.output() >> r1.input();
+    r1.output() >> rf.input();
+
+    connect(rf.output());
+    location_options.remote_relation_expression_kinds().erase(relation::expression_kind::filter);
+    apply_with_locations(r);
+
+    // the filter must not go over the fence, because filter operators are only available in the local location
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(r0.output(), r1.input());
+    auto&& f0 = next<relation::filter>(r1.output());
+    EXPECT_GT(f0.output(), rf.input());
+
+    EXPECT_EQ(f0.condition(), compare(varref(c0), constant(0)));
+    EXPECT_EQ(rf.condition(), boolean(true));
+}
+
+TEST_F(push_down_filters_test, fence_locations_upstream_local) {
+    /*
+     * scan:r0 - fence:r1 - filter:rf - ...
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+            },
+    });
+    auto&& r1 = r.insert(extension::relation::fence { 0, 7 });
+    auto&& rf = r.insert(relation::filter {
+            scalar::function_call { bindings(local_function), {} },
+    });
+    r0.output() >> r1.input();
+    r1.output() >> rf.input();
+
+    connect(rf.output());
+    apply_with_locations(r);
+
+    // the filter goes over the fence, because the upstream location is local
+    ASSERT_EQ(r.size(), 5);
+    auto&& f0 = next<relation::filter>(r0.output());
+    EXPECT_GT(f0.output(), r1.input());
+    EXPECT_GT(r1.output(), rf.input());
+
+    EXPECT_EQ(f0.condition().kind(), scalar::function_call::tag);
+    EXPECT_EQ(rf.condition(), boolean(true));
 }
 
 } // namespace yugawara::analyzer::details

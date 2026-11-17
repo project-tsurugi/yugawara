@@ -9,6 +9,7 @@
 
 #include <tsl/hopscotch_set.h>
 
+#include <takatori/relation/expression_kind.h>
 #include <takatori/scalar/binary.h>
 #include <takatori/scalar/walk.h>
 #include <takatori/relation/intermediate/dispatch.h>
@@ -95,6 +96,10 @@ public:
         variable_replacer<Replacement> replacer { replacement, uses_ };
         scalar::walk(replacer, *copy);
         return term { std::move(copy) };
+    }
+
+    [[nodiscard]] scalar::expression const& expression() const noexcept {
+        return *expression_;
     }
 
     [[nodiscard]] auto const& uses() const noexcept {
@@ -220,8 +225,11 @@ private:
  */
 class engine {
 public:
-    explicit engine(relation::graph_type& graph) :
-        graph_ { graph }
+    explicit engine(
+            relation::graph_type& graph,
+            std::optional<remote::details::element_location> locations) :
+        graph_ { graph },
+        locations_ { std::move(locations) }
     {}
 
     void process() {
@@ -447,10 +455,7 @@ public:
 
     void operator()(relation::intermediate::extension& expr, term_list incoming) {
         if (expr.extension_id() == extension::relation::fence::extension_tag) {
-            // selection cannot push over fence
-            auto&& fence = ::takatori::util::unsafe_downcast<extension::relation::fence>(expr);
-            place_downstream(fence.output(), std::move(incoming));
-            forward(fence.input(), {});
+            operator()(::takatori::util::unsafe_downcast<extension::relation::fence>(expr), std::move(incoming));
             return;
         }
         throw_exception(std::domain_error(string_builder {}
@@ -459,13 +464,41 @@ public:
                 << string_builder::to_string));
     }
 
+    void operator()(extension::relation::fence& expr, term_list incoming) {
+        // selection can push over fence only if it can be executed in the upstream location
+        auto to_input = extract(incoming, [&](term const& element) {
+            return available_at(element, expr.upstream());
+        });
+        place_downstream(expr.output(), std::move(incoming));
+        forward(expr.input(), std::move(to_input));
+    }
+
 private:
     relation::graph_type& graph_;
+    std::optional<remote::details::element_location> locations_;
     std::vector<task_info> tasks_;
     stream_variable_flow_info flow_info_; // FIXME: reuse flow info?
 
     void schedule(relation::expression& expr, term_list terms) {
         tasks_.emplace_back(expr, std::move(terms));
+    }
+
+    /**
+     * @brief returns whether or not a filter operator with the term can be executed in the given location.
+     * @param element the term
+     * @param location the location
+     * @return true if both filter operators and the term are available in the location
+     * @return false otherwise, or the locations of elements are not given
+     */
+    [[nodiscard]] bool available_at(
+            term const& element,
+            extension::relation::fence::location_id_type location) const {
+        if (!locations_) {
+            return false;
+        }
+        auto&& locations = *locations_;
+        return locations(relation::expression_kind::filter).count(location) > 0
+            && locations(element.expression()).count(location) > 0;
     }
 
     /**
@@ -599,8 +632,10 @@ private:
 
 } // namespace
 
-void push_down_selections(relation::graph_type& graph) {
-    engine e { graph };
+void push_down_selections(
+        relation::graph_type& graph,
+        std::optional<remote::details::element_location> locations) {
+    engine e { graph, std::move(locations) };
     e.process();
 }
 
