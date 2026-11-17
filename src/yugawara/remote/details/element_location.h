@@ -21,8 +21,8 @@ namespace yugawara::remote::details {
  *
  *      - elements which may refer to tables: the intersection of the locations of the referred relations,
  *        where the location of each table index is the location of its table,
- *        and the location of the other relations is only the local location,
- *        except that the upstream exchanges of join operators never restrict them
+ *        the upstream exchanges and the external relations never restrict the locations,
+ *        and the location of the other relations is only the local location
  *      - operators which never have scalar expressions nor symbols
  *        (e.g. `buffer` and `take_flat`): all available locations
  *      - `filter` operators: the locations where their conditions can be evaluated

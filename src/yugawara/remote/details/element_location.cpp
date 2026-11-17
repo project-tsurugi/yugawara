@@ -96,25 +96,27 @@ public:
         locations_ { query.available_location_ids() }
     {}
 
+    /**
+     * @brief adds the location of the given relation.
+     * @details The location of each table index is the location of its table.
+     *      The upstream exchanges and the external relations never restrict the locations,
+     *      because the locations of the exchanges are decided as the individual steps,
+     *      and the external relations are the substitutes of the exchanges, which are managed by the
+     *      runtime environment.
+     *      The other relations restrict the locations to the local location.
+     * @param descriptor the target relation
+     */
     void add(descriptor::relation const& descriptor) {
         if (auto index = binding::extract_if<storage::index>(descriptor)) {
             add(index->table());
             return;
         }
-        intersect(locations_, local_location());
-    }
-
-    /**
-     * @brief adds the source relation of the join operators.
-     * @details The upstream exchanges never restrict the locations of the operators,
-     *      because the locations of the exchanges are decided as the individual steps.
-     * @param descriptor the source relation
-     */
-    void add_join_source(descriptor::relation const& descriptor) {
-        if (binding::kind_of(descriptor) == binding::relation_info_kind::exchange) {
+        if (auto kind = binding::kind_of(descriptor);
+                kind == binding::relation_info_kind::exchange
+                || kind == binding::relation_info_kind::external) {
             return;
         }
-        add(descriptor);
+        intersect(locations_, local_location());
     }
 
     void add(descriptor::storage const& descriptor) {
@@ -350,13 +352,13 @@ public:
     }
 
     void operator()(trelation::join_find const& expression) {
-        constraints_.add_join_source(expression.source());
+        constraints_.add(expression.source());
         add_keys(expression.keys());
         add_condition(expression.condition());
     }
 
     void operator()(trelation::join_scan const& expression) {
-        constraints_.add_join_source(expression.source());
+        constraints_.add(expression.source());
         add_keys(expression.lower().keys());
         add_keys(expression.upper().keys());
         add_condition(expression.condition());

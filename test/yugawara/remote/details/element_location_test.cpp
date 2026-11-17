@@ -46,6 +46,7 @@
 
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/binding/factory.h>
+#include <yugawara/binding/external_relation_info.h>
 #include <yugawara/function/declaration.h>
 #include <yugawara/aggregate/declaration.h>
 #include <yugawara/variable/declaration.h>
@@ -257,6 +258,18 @@ TEST_F(element_location_test, join_find_exchange) {
     // the upstream exchange does not restrict the locations
     plan::broadcast exchange {};
     relation::join_find expr { relation::join_kind::inner, factory(exchange), {}, {} };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, join_find_external_relation) {
+    // the external relations (substitutes of exchanges) do not restrict the locations
+    auto column = factory.exchange_column("c");
+    relation::join_find expr {
+            relation::join_kind::inner,
+            factory(binding::external_relation_info { 1, { column } }),
+            {},
+            {},
+    };
     EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7, 8 }));
 }
 
