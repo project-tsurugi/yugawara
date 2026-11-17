@@ -14,6 +14,7 @@
 #include <takatori/relation/write.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/values.h>
+#include <takatori/relation/project.h>
 #include <takatori/relation/emit.h>
 #include <takatori/relation/step/offer.h>
 #include <takatori/relation/step/take_flat.h>
@@ -37,6 +38,8 @@
 #include <yugawara/binding/factory.h>
 #include <yugawara/function/declaration.h>
 #include <yugawara/variable/declaration.h>
+
+#include <yugawara/extension/relation/fence.h>
 
 #include <yugawara/testing/utils.h>
 #include <yugawara/testing/mock_symbol_location_query.h>
@@ -425,9 +428,56 @@ TEST_F(element_location_test, join_find_local) {
     EXPECT_EQ(locations(expr), (location_id_set_type { 0 }));
 }
 
-TEST_F(element_location_test, operator_with_expressions) {
-    relation::values expr { {}, {} };
+TEST_F(element_location_test, operator_not_inspected) {
+    // the contents of extensions are not inspected
+    extension::relation::fence expr { 7, 0 };
     EXPECT_EQ(locations(expr), (location_id_set_type { 0 }));
+}
+
+TEST_F(element_location_test, project) {
+    auto func = std::make_shared<function::declaration>(function::declaration {
+            function::declaration::minimum_builtin_function_id + 1,
+            "f",
+            ::takatori::type::int4 {},
+            {},
+    });
+    query.functions.emplace(func.get(), location_id_set_type { 0, 7 });
+    relation::project expr {
+            relation::project::column { constant(), factory.stream_variable("a") },
+            relation::project::column { scalar::function_call { factory(func), {} }, factory.stream_variable("b") },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7 }));
+
+    query.functions[func.get()] = location_id_set_type { 7 };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 7 }));
+}
+
+TEST_F(element_location_test, project_empty) {
+    relation::project expr { std::vector<relation::project::column> {} };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, values) {
+    auto decl = std::make_shared<variable::declaration>(variable::declaration {
+            "p",
+            ::takatori::type::int4 {},
+    });
+    query.variables.emplace(decl.get(), location_id_set_type { 0, 8 });
+    relation::values expr {
+            {
+                    factory.stream_variable("a"),
+            },
+            {
+                    { constant() },
+                    { scalar::variable_reference { factory.external_variable(decl) } },
+            },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 8 }));
+}
+
+TEST_F(element_location_test, values_empty) {
+    relation::values expr { {}, {} };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7, 8 }));
 }
 
 TEST_F(element_location_test, exchange) {

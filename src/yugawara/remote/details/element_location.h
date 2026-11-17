@@ -25,8 +25,9 @@ namespace yugawara::remote::details {
  *      - operators which never have scalar expressions nor symbols
  *        (e.g. `emit`, `buffer`, `offer`, and `take_flat`): all available locations
  *      - `filter` operators: the locations where their conditions can be evaluated
+ *      - `project` and `values` operators: the locations where all of their scalar expressions can be evaluated
  *      - the other operators which may have scalar expressions or symbols not inspected here
- *        (e.g. `project`, `values`, `aggregate`, `join_find`, and `join_scan`):
+ *        (e.g. `aggregate`, `join_find`, and `join_scan`):
  *        restricted to the local location
  *      - process: the intersection of the locations of its operators
  *      - `broadcast` and `discard` exchanges, which never have scalar expressions nor symbols:

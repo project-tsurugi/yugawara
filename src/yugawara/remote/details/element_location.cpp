@@ -5,6 +5,8 @@
 #include <utility>
 
 #include <takatori/relation/filter.h>
+#include <takatori/relation/project.h>
+#include <takatori/relation/values.h>
 #include <takatori/relation/buffer.h>
 #include <takatori/relation/identify.h>
 #include <takatori/relation/emit.h>
@@ -337,6 +339,20 @@ public:
 
     void operator()(trelation::write const& expression) {
         constraints_.add(expression.destination());
+    }
+
+    void operator()(trelation::project const& expression) {
+        for (auto&& column : expression.columns()) {
+            collect(column.value());
+        }
+    }
+
+    void operator()(trelation::values const& expression) {
+        for (auto&& row : expression.rows()) {
+            for (auto&& element : row.elements()) {
+                collect(element);
+            }
+        }
     }
 
     void operator()(trelation::filter const& expression) {
