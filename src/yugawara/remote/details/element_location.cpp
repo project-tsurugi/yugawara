@@ -183,6 +183,7 @@ public:
      * @param step the target step
      */
     void collect(tplan::step const& step) {
+        constraints_.add_kind(options_.remote_step_kinds(), step.kind());
         tplan::dispatch(*this, step);
     }
 
@@ -277,8 +278,27 @@ public:
 
     void operator()(tplan::exchange const& step) {
         (void) step;
-        // NOTE: exchanges are always in the local location
+        // NOTE: the contents of the other exchanges (e.g. aggregate functions) are not inspected yet
         constraints_.restrict_to_local();
+    }
+
+    void operator()(tplan::forward const& step) {
+        add_constant_value(step.row_slice().start());
+        add_constant_value(step.row_slice().count());
+    }
+
+    void operator()(tplan::group const& step) {
+        add_constant_value(step.row_slice().start());
+        add_constant_value(step.row_slice().count());
+    }
+
+    // exchanges which never have scalar expressions nor symbols
+    void operator()(tplan::broadcast const& step) noexcept {
+        (void) step;
+    }
+
+    void operator()(tplan::discard const& step) noexcept {
+        (void) step;
     }
 
     // operators
@@ -469,6 +489,12 @@ location_id_set_type element_location::operator()(trelation::expression_kind kin
 
 location_id_set_type element_location::operator()(trelation::expression const& expression) const {
     return collect_locations(options_, expression);
+}
+
+location_id_set_type element_location::operator()(tplan::step_kind kind) const {
+    location_constraints constraints { query_ };
+    constraints.add_kind(options_.remote_step_kinds(), kind);
+    return std::move(constraints).release();
 }
 
 location_id_set_type element_location::operator()(tplan::step const& step) const {

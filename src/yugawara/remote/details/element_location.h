@@ -4,6 +4,7 @@
 #include <takatori/relation/expression.h>
 #include <takatori/relation/expression_kind.h>
 #include <takatori/plan/step.h>
+#include <takatori/plan/step_kind.h>
 #include <takatori/plan/process.h>
 #include <takatori/plan/exchange.h>
 #include <takatori/statement/statement.h>
@@ -27,6 +28,11 @@ namespace yugawara::remote::details {
  *        (e.g. `project`, `values`, `aggregate`, `join_find`, and `join_scan`):
  *        restricted to the local location
  *      - process: the intersection of the locations of its operators
+ *      - `broadcast` and `discard` exchanges, which never have scalar expressions nor symbols:
+ *        all available locations
+ *      - `forward` and `group` exchanges: the locations of the variables in their row slice
+ *      - the other exchanges which may have symbols not inspected here (e.g. `aggregate`):
+ *        restricted to the local location
  *      - `execute` statement: the intersection of the locations of its steps
  *      - other elements: the local location only
  *
@@ -36,7 +42,9 @@ namespace yugawara::remote::details {
  *      all elements of their tuples can be evaluated.
  *
  *      Additionally, the locations of each operator are restricted to the local location
- *      if its kind is not in remote::location_options::remote_relation_expression_kinds().
+ *      if its kind is not in remote::location_options::remote_relation_expression_kinds(),
+ *      and the locations of each step are restricted to the local location
+ *      if its kind is not in remote::location_options::remote_step_kinds().
  */
 class element_location {
 public:
@@ -92,6 +100,16 @@ public:
      * @return the locations
      */
     [[nodiscard]] location_id_set_type operator()(::takatori::relation::expression const& expression) const;
+
+    /**
+     * @brief returns the locations where steps of the given kind can be executed.
+     * @details The result is all available locations if the kind is in
+     *      remote::location_options::remote_step_kinds(), or the local location only otherwise.
+     *      This does not consider the contents of the steps (e.g. operators).
+     * @param kind the step kind
+     * @return the locations
+     */
+    [[nodiscard]] location_id_set_type operator()(::takatori::plan::step_kind kind) const;
 
     /**
      * @brief returns the locations where the given step (process or exchange) can be executed.

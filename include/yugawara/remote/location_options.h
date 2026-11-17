@@ -124,8 +124,8 @@ public:
 
     /**
      * @brief returns the kinds of steps which can be executed in locations other than the local.
-     * @details The default value contains all kinds.
-     * @attention The compiler does not use this list yet.
+     * @details The steps whose kinds are not in this list are executed only in the local location.
+     *      The default value contains all kinds.
      * @return the allow list of step kinds
      */
     [[nodiscard]] step_kind_set& remote_step_kinds() noexcept;

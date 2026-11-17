@@ -284,6 +284,8 @@ TEST_F(compute_operation_locations_test, statement_empty_allowed) {
 }
 
 TEST_F(compute_operation_locations_test, statement_execute_empty) {
+    // the downstream process can be executed only in the local location
+    options.remote_relation_expression_kinds().erase(relation::expression_kind::emit);
     tstatement::execute stmt { plan::graph_type {} };
     auto&& graph = stmt.execution_plan();
     auto&& exchange = graph.insert(plan::forward {});

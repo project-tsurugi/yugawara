@@ -24,6 +24,8 @@
 #include <takatori/plan/forward.h>
 #include <takatori/plan/broadcast.h>
 #include <takatori/plan/group.h>
+#include <takatori/plan/aggregate.h>
+#include <takatori/plan/discard.h>
 
 #include <takatori/statement/execute.h>
 #include <takatori/statement/write.h>
@@ -430,6 +432,38 @@ TEST_F(element_location_test, operator_with_expressions) {
 
 TEST_F(element_location_test, exchange) {
     plan::forward exchange {};
+    EXPECT_EQ(locations(exchange), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, exchange_row_slice) {
+    auto decl = std::make_shared<variable::declaration>(variable::declaration {
+            "p",
+            ::takatori::type::int8 {},
+    });
+    query.variables.emplace(decl.get(), location_id_set_type { 0, 7 });
+    plan::forward exchange {
+            plan::forward::row_slice_type { {}, factory.external_variable(decl) },
+    };
+    EXPECT_EQ(locations(exchange), (location_id_set_type { 0, 7 }));
+
+    query.variables[decl.get()] = location_id_set_type { 0 };
+    EXPECT_EQ(locations(exchange), (location_id_set_type { 0 }));
+}
+
+TEST_F(element_location_test, exchange_without_symbols) {
+    EXPECT_EQ(locations(plan::broadcast {}), (location_id_set_type { 0, 7, 8 }));
+    EXPECT_EQ(locations(plan::discard {}), (location_id_set_type { 0, 7, 8 }));
+    EXPECT_EQ(locations(plan::group {}), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, exchange_not_inspected) {
+    // aggregate functions are not inspected yet
+    EXPECT_EQ(locations(plan::aggregate {}), (location_id_set_type { 0 }));
+}
+
+TEST_F(element_location_test, exchange_not_remote) {
+    options.remote_step_kinds().erase(plan::step_kind::forward);
+    plan::forward exchange {};
     EXPECT_EQ(locations(exchange), (location_id_set_type { 0 }));
 }
 
@@ -438,6 +472,13 @@ TEST_F(element_location_test, process) {
     auto&& exchange = graph.insert(plan::forward {});
     auto&& process = add_scan_offer(graph, *remote_index, exchange);
     EXPECT_EQ(locations(process), (location_id_set_type { 7 }));
+}
+
+TEST_F(element_location_test, process_not_remote) {
+    options.remote_step_kinds().erase(plan::step_kind::process);
+    plan::graph_type graph {};
+    auto&& process = add_scan_emit(graph, *shared_index);
+    EXPECT_EQ(locations(process), (location_id_set_type { 0 }));
 }
 
 TEST_F(element_location_test, process_local) {
@@ -459,10 +500,30 @@ TEST_F(element_location_test, step) {
     auto&& exchange = graph.insert(plan::forward {});
     auto&& process = add_scan_offer(graph, *remote_index, exchange);
     EXPECT_EQ(locations(static_cast<plan::step const&>(process)), (location_id_set_type { 7 }));
-    EXPECT_EQ(locations(static_cast<plan::step const&>(exchange)), (location_id_set_type { 0 }));
+    EXPECT_EQ(locations(static_cast<plan::step const&>(exchange)), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, step_kind) {
+    EXPECT_EQ(locations(plan::step_kind::process), (location_id_set_type { 0, 7, 8 }));
+    EXPECT_EQ(locations(plan::step_kind::forward), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, step_kind_not_remote) {
+    options.remote_step_kinds().erase(plan::step_kind::forward);
+    EXPECT_EQ(locations(plan::step_kind::process), (location_id_set_type { 0, 7, 8 }));
+    EXPECT_EQ(locations(plan::step_kind::forward), (location_id_set_type { 0 }));
 }
 
 TEST_F(element_location_test, statement_execute) {
+    tstatement::execute stmt { plan::graph_type {} };
+    auto&& graph = stmt.execution_plan();
+    auto&& exchange = graph.insert(plan::forward {});
+    add_scan_offer(graph, *shared_index, exchange);
+    EXPECT_EQ(locations(stmt), (location_id_set_type { 0, 7 }));
+}
+
+TEST_F(element_location_test, statement_execute_exchange_not_remote) {
+    options.remote_step_kinds().erase(plan::step_kind::forward);
     tstatement::execute stmt { plan::graph_type {} };
     auto&& graph = stmt.execution_plan();
     auto&& exchange = graph.insert(plan::forward {});
@@ -475,7 +536,7 @@ TEST_F(element_location_test, statement_execute_remote) {
     auto&& graph = stmt.execution_plan();
     auto&& exchange = graph.insert(plan::forward {});
     add_scan_offer(graph, *remote_index, exchange);
-    EXPECT_EQ(locations(stmt), (location_id_set_type {}));
+    EXPECT_EQ(locations(stmt), (location_id_set_type { 7 }));
 }
 
 TEST_F(element_location_test, statement_write) {
