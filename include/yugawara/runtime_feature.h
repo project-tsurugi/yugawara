@@ -40,7 +40,7 @@ enum class runtime_feature {
 };
 
 /**
- * @brief a set of intermediate_plan_optimizer_feature.
+ * @brief a set of runtime_feature.
  */
 using runtime_feature_set = ::takatori::util::enum_set<
         runtime_feature,

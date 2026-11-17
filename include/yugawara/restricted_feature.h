@@ -155,7 +155,7 @@ enum class restricted_feature {
 };
 
 /**
- * @brief a set of intermediate_plan_optimizer_feature.
+ * @brief a set of restricted_feature.
  */
 using restricted_feature_set = ::takatori::util::enum_set<
         restricted_feature,
