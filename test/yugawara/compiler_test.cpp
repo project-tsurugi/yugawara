@@ -8,6 +8,8 @@
 
 #include <takatori/value/character.h>
 
+#include <takatori/scalar/function_call.h>
+
 #include <takatori/relation/scan.h>
 #include <takatori/relation/emit.h>
 #include <takatori/relation/write.h>
@@ -46,6 +48,7 @@
 #include <yugawara/binding/extract.h>
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/variable/declaration.h>
+#include <yugawara/function/declaration.h>
 
 #include <yugawara/extension/scalar/subquery.h>
 #include <yugawara/extension/scalar/exists.h>
@@ -146,6 +149,45 @@ protected:
             }
         }
         return {};
+    }
+
+    /*
+     * checks the plan of: scan(remote) -> ... -> emit
+     * =>
+     * [scan(remote) -> ... -> offer] -> forward -> [take_flat -> ... -> emit]
+     */
+    static void check_remote_scan(compiler_result const& result, std::size_t remote_operators) {
+        ASSERT_TRUE(result.operation_location_query());
+        auto&& locations = *result.operation_location_query();
+
+        auto&& stmt = downcast<statement::execute>(result.statement());
+        std::size_t processes = 0;
+        std::size_t exchanges = 0;
+        for (auto&& step : stmt.execution_plan()) {
+            if (step.kind() != plan::step_kind::process) {
+                ++exchanges;
+                EXPECT_EQ(step.kind(), plan::step_kind::forward);
+                continue;
+            }
+            ++processes;
+            auto&& operators = downcast<plan::process>(step).operators();
+            bool remote = false;
+            for (auto&& expression : operators) {
+                // no fences remain
+                EXPECT_NE(expression.kind(), relation::expression_kind::extension);
+                remote = remote || expression.kind() == relation::expression_kind::scan;
+            }
+            if (remote) {
+                EXPECT_EQ(operators.size(), remote_operators);
+                EXPECT_EQ(locations.find(step), (location_id_set_type { 7 }));
+            } else {
+                // the other process can be executed in the local location
+                auto step_locations = locations.find(step);
+                EXPECT_NE(step_locations.find(remote::location_info::local_location_id), step_locations.end());
+            }
+        }
+        EXPECT_EQ(processes, 2);
+        EXPECT_EQ(exchanges, 1);
     }
 
     static void dump(compiler_result const& r) {
@@ -418,7 +460,7 @@ TEST_F(compiler_test, operation_location_query_fence) {
     /*
      * scan(remote) -> filter -> emit
      * =>
-     * [scan(remote) -> offer] -> forward -> [take_flat -> filter -> emit]
+     * [scan(remote) -> filter -> offer] -> forward -> [take_flat -> emit]
      */
     relation::graph_type r;
     auto c0 = bindings.stream_variable("c0");
@@ -442,38 +484,99 @@ TEST_F(compiler_test, operation_location_query_fence) {
 
     auto result = compiler()(opts, std::move(r));
     ASSERT_TRUE(result) << diagnostics(result);
-    ASSERT_TRUE(result.operation_location_query());
-    auto&& locations = *result.operation_location_query();
 
-    auto&& stmt = downcast<statement::execute>(result.statement());
-    std::size_t processes = 0;
-    std::size_t exchanges = 0;
-    for (auto&& step : stmt.execution_plan()) {
-        if (step.kind() != plan::step_kind::process) {
-            ++exchanges;
-            EXPECT_EQ(step.kind(), plan::step_kind::forward);
-            continue;
-        }
-        ++processes;
-        auto&& operators = downcast<plan::process>(step).operators();
-        bool remote = false;
-        for (auto&& expression : operators) {
-            // no fences remain
-            EXPECT_NE(expression.kind(), relation::expression_kind::extension);
-            remote = remote || expression.kind() == relation::expression_kind::scan;
-        }
-        if (remote) {
-            // the remote process only contains the scan and the offer: the filter does not go over the fence
-            EXPECT_EQ(operators.size(), 2);
-            EXPECT_EQ(locations.find(step), (location_id_set_type { 7 }));
-        } else {
-            // the other process can be executed in the local location
-            auto step_locations = locations.find(step);
-            EXPECT_NE(step_locations.find(remote::location_info::local_location_id), step_locations.end());
-        }
-    }
-    EXPECT_EQ(processes, 2);
-    EXPECT_EQ(exchanges, 1);
+    // the filter goes over the fence, because it can be executed in the remote location
+    check_remote_scan(result, 3);
+}
+
+TEST_F(compiler_test, operation_location_query_fence_filter_kind_not_remote) {
+    auto query = std::make_shared<mock_symbol_location_query>();
+    query->all = { 0, 7 };
+    query->tables.emplace(t0.get(), location_id_set_type { 7 });
+
+    /*
+     * scan(remote) -> filter -> emit
+     * =>
+     * [scan(remote) -> offer] -> forward -> [take_flat -> filter -> emit]
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+                    { bindings(t0c1), c1 },
+            },
+    });
+    auto&& filter = r.insert(relation::filter {
+            compare(varref(c1), constant(1)),
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+    in.output() >> filter.input();
+    filter.output() >> out.input();
+
+    auto opts = options();
+    opts.symbol_location_query() = query;
+    opts.location_options().remote_relation_expression_kinds().erase(relation::expression_kind::filter);
+
+    auto result = compiler()(opts, std::move(r));
+    ASSERT_TRUE(result) << diagnostics(result);
+
+    // the filter does not go over the fence, because filter operators can be executed only in the local location
+    check_remote_scan(result, 2);
+}
+
+TEST_F(compiler_test, operation_location_query_fence_local_function) {
+    auto query = std::make_shared<mock_symbol_location_query>();
+    query->all = { 0, 7 };
+    query->tables.emplace(t0.get(), location_id_set_type { 7 });
+
+    auto func = std::make_shared<function::declaration>(function::declaration {
+            function::declaration::minimum_builtin_function_id + 1,
+            "f",
+            t::boolean {},
+            {
+                    t::int4 {},
+            },
+    });
+    query->functions.emplace(func.get(), location_id_set_type { 0 });
+
+    /*
+     * scan(remote) -> filter -> emit
+     * =>
+     * [scan(remote) -> offer] -> forward -> [take_flat -> filter -> emit]
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto c1 = bindings.stream_variable("c1");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+                    { bindings(t0c1), c1 },
+            },
+    });
+    auto&& filter = r.insert(relation::filter {
+            scalar::function_call {
+                    bindings(func),
+                    {
+                            varref(c1),
+                    },
+            },
+    });
+    auto&& out = r.insert(relation::emit { c0 });
+    in.output() >> filter.input();
+    filter.output() >> out.input();
+
+    auto opts = options();
+    opts.symbol_location_query() = query;
+
+    auto result = compiler()(opts, std::move(r));
+    ASSERT_TRUE(result) << diagnostics(result);
+
+    // the filter does not go over the fence, because the function can be executed only in the local location
+    check_remote_scan(result, 2);
 }
 
 TEST_F(compiler_test, operation_location_query_allow_empty_restricted) {

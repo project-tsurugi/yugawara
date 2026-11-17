@@ -6,6 +6,7 @@
 
 #include <yugawara/analyzer/index_estimator.h>
 #include <yugawara/analyzer/index_selection_parameters.h>
+#include <yugawara/remote/location_options.h>
 #include <yugawara/runtime_feature.h>
 
 namespace yugawara::analyzer::details {
@@ -86,6 +87,19 @@ public:
     /// @copydoc max_partial_limit_count()
     [[nodiscard]] std::size_t max_partial_limit_count() const noexcept;
 
+    /**
+     * @brief returns the options about the execution locations.
+     * @details If the symbol location query is present in it, the optimizer moves each term of `filter` conditions
+     *      across fences (extension::relation::fence), only if a `filter` operator with the term can be executed
+     *      in the upstream location of the fence.
+     *      Otherwise, the optimizer never moves any operators across fences.
+     * @return the location options
+     */
+    [[nodiscard]] remote::location_options& location_options() noexcept;
+
+    /// @copydoc location_options()
+    [[nodiscard]] remote::location_options const& location_options() const noexcept;
+
 private:
     ::takatori::util::maybe_shared_ptr<analyzer::index_estimator const> index_estimator_ {};
     analyzer::index_selection_parameters index_selection_parameters_ {};
@@ -94,6 +108,7 @@ private:
     bool enable_disjunction_range_hinting_ {};
     bool enable_external_variable_inlining_ {};
     std::size_t max_partial_limit_count_ {};
+    remote::location_options location_options_ {};
 };
 
 } // namespace yugawara::analyzer::details

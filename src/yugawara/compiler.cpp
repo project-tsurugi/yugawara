@@ -218,6 +218,7 @@ private:
         sub.options().enable_disjunction_range_hinting() = options_.enable_disjunction_range_hinting();
         sub.options().enable_external_variable_inlining() = options_.enable_external_variable_inlining();
         sub.options().max_partial_limit_count() = options_.max_partial_limit_count();
+        sub.options().location_options() = options_.location_options();
         sub(graph);
     }
 

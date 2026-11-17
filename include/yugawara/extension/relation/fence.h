@@ -15,10 +15,11 @@ namespace yugawara::extension::relation {
 /**
  * @brief pseudo relation expression that represents a boundary of the execution locations.
  * @details This passes through the input rows to the output without any changes.
- *      The upstream and downstream operators of this expression may be executed in the different locations,
- *      and the optimizations must not move or merge the operators across this expression.
- *      This appears only in the intermediate execution plan,
- *      and it will be removed or replaced with a forward exchange while building the step execution plan.
+ *      The operators in the upstream of this expression are executed in its upstream location,
+ *      and the ones in the downstream are executed in its downstream location.
+ *      Optimizations may move operators, or parts of them, across this expression,
+ *      only if they can be executed in the location of the destination.
+ *      This appears only in the intermediate execution plan, and never appears in the step execution plan.
  */
 class fence final : public ::takatori::relation::intermediate::extension {
 public:

@@ -1,5 +1,6 @@
 #include <yugawara/analyzer/intermediate_plan_optimizer.h>
 
+#include <optional>
 #include <utility>
 
 #include "details/remove_variable_aliases.h"
@@ -31,6 +32,14 @@ intermediate_plan_optimizer::options_type& intermediate_plan_optimizer::options(
 
 intermediate_plan_optimizer::options_type const& intermediate_plan_optimizer::options() const noexcept {
     return options_;
+}
+
+static std::optional<remote::details::element_location> make_element_location(
+        remote::location_options const& options) {
+    if (!options.symbol_location_query()) {
+        return {};
+    }
+    return remote::details::element_location { options };
 }
 
 static constexpr details::collect_join_keys_feature_set compute_join_keys_features(runtime_feature_set const& features) {
@@ -70,7 +79,7 @@ void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& g
         details::decompose_disjunction_range(graph);
     }
 
-    details::push_down_selections(graph);
+    details::push_down_selections(graph, make_element_location(options_.location_options()));
     // NOTE: push_down_selections() may leave the filters whose condition is just `TRUE`,
     // and the succeeding passes like push_down_limits() treat them as the regular filters
     details::remove_redundant_conditions(graph);

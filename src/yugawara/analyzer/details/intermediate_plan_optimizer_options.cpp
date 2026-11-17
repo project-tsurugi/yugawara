@@ -59,4 +59,12 @@ std::size_t intermediate_plan_optimizer_options::max_partial_limit_count() const
     return max_partial_limit_count_;
 }
 
+remote::location_options& intermediate_plan_optimizer_options::location_options() noexcept {
+    return location_options_;
+}
+
+remote::location_options const& intermediate_plan_optimizer_options::location_options() const noexcept {
+    return location_options_;
+}
+
 } // namespace yugawara::analyzer::details
