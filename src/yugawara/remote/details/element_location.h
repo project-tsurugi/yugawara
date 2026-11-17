@@ -30,9 +30,10 @@ namespace yugawara::remote::details {
  *      - join operators (`join`, `join_find`, and `join_scan`):
  *        the locations where their keys and conditions can be evaluated, and their source tables
  *      - `aggregate` operators and exchanges: the locations of their aggregate functions
- *      - the other operators which may have scalar expressions or symbols not inspected here
- *        (e.g. `apply`):
- *        restricted to the local location
+ *      - `limit` operators: the locations of the variables in their row slice
+ *      - `apply` operators: the locations of their table-valued functions and arguments
+ *      - the other operators, which may have scalar expressions or symbols not inspected here
+ *        (i.e. extensions): restricted to the local location
  *      - process: the intersection of the locations of its operators
  *      - `broadcast` and `discard` exchanges, which never have scalar expressions nor symbols:
  *        all available locations

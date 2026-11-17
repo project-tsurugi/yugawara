@@ -26,6 +26,8 @@
 #include <takatori/relation/step/join.h>
 #include <takatori/relation/intermediate/aggregate.h>
 #include <takatori/relation/step/aggregate.h>
+#include <takatori/relation/intermediate/limit.h>
+#include <takatori/relation/apply.h>
 #include <takatori/relation/write.h>
 #include <takatori/relation/step/offer.h>
 #include <takatori/relation/step/take_flat.h>
@@ -368,6 +370,22 @@ public:
 
     void operator()(trelation::step::join const& expression) {
         add_condition(expression.condition());
+    }
+
+    void operator()(trelation::intermediate::limit const& expression) {
+        add_constant_value(expression.row_slice().start());
+        add_constant_value(expression.row_slice().count());
+    }
+
+    void operator()(trelation::apply const& expression) {
+        if (auto function = binding::extract_if<function::declaration>(expression.function())) {
+            constraints_.add(query_.find(*function));
+        } else {
+            constraints_.restrict_to_local();
+        }
+        for (auto&& argument : expression.arguments()) {
+            collect(argument);
+        }
     }
 
     void operator()(trelation::intermediate::aggregate const& expression) {

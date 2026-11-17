@@ -15,6 +15,8 @@
 #include <takatori/relation/step/join.h>
 #include <takatori/relation/intermediate/aggregate.h>
 #include <takatori/relation/step/aggregate.h>
+#include <takatori/relation/intermediate/limit.h>
+#include <takatori/relation/apply.h>
 #include <takatori/relation/write.h>
 #include <takatori/relation/filter.h>
 #include <takatori/relation/values.h>
@@ -673,6 +675,46 @@ TEST_F(element_location_test, exchange_aggregate) {
 
 TEST_F(element_location_test, exchange_aggregate_empty) {
     EXPECT_EQ(locations(plan::aggregate {}), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, limit) {
+    auto decl = std::make_shared<variable::declaration>(variable::declaration {
+            "p",
+            ::takatori::type::int8 {},
+    });
+    query.variables.emplace(decl.get(), location_id_set_type { 0, 7 });
+    relation::intermediate::limit expr {
+            relation::intermediate::limit::row_slice_type { {}, factory.external_variable(decl) },
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 0, 7 }));
+
+    relation::intermediate::limit no_variables {};
+    EXPECT_EQ(locations(no_variables), (location_id_set_type { 0, 7, 8 }));
+}
+
+TEST_F(element_location_test, apply) {
+    auto tvf = std::make_shared<function::declaration>(function::declaration {
+            function::declaration::minimum_builtin_function_id + 1,
+            "tvf",
+            ::takatori::type::int4 {},
+            {
+                    ::takatori::type::int4 {},
+            },
+    });
+    query.functions.emplace(tvf.get(), location_id_set_type { 0, 7 });
+    auto decl = std::make_shared<variable::declaration>(variable::declaration {
+            "p",
+            ::takatori::type::int4 {},
+    });
+    query.variables.emplace(decl.get(), location_id_set_type { 7, 8 });
+    relation::apply expr {
+            factory(tvf),
+            {
+                    scalar::variable_reference { factory.external_variable(decl) },
+            },
+            {},
+    };
+    EXPECT_EQ(locations(expr), (location_id_set_type { 7 }));
 }
 
 TEST_F(element_location_test, aggregate_relation) {
