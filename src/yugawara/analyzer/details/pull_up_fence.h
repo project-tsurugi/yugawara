@@ -26,9 +26,15 @@ namespace yugawara::analyzer::details {
  *      If there are no operators of gain in the followed operators, this does not move the fence.
  *
  *      This only changes the positions of fences, and never decomposes nor reorders the other operators.
- *      This also never merges nor removes fences: another fence is barrier.
+ *      Another fence is barrier.
  *      This processes fences from downstream, so that each fence can take in the operators
  *      up to the next fence, which has already been moved.
+ *
+ *      After deciding the destination of a fence (or its current position, if it does not move),
+ *      if the next operator is another fence, this merges them into the latter one,
+ *      whose upstream location becomes the one of the former: `.. - fence{a, b} - fence{b, c} - ..`
+ *      becomes `.. - fence{a, c} - ..`. This keeps the merged fence even if its upstream and downstream
+ *      locations are the same, and never moves it again.
  * @param graph the target graph
  * @param locations the locations of elements
  */

@@ -121,6 +121,36 @@ void move_fence(fence_type& fence, relation::expression::output_port_type& outpu
     fence.output().reconnect_to(*next);
 }
 
+/**
+ * @brief merges the fence into the next fence, if the next operator is a fence.
+ * @param graph the owner of the fence
+ * @param fence the fence
+ * @post if the next operator was a fence, the given fence has been removed from the graph,
+ *      so that the caller must not refer it after this call
+ */
+void merge_fence(relation::graph_type& graph, fence_type& fence) {
+    /*
+     * .. - upstream - fence{a, b} - next{b, c} - ..
+     * =>
+     * .. - upstream - next{a, c} - ..
+     */
+    auto downstream = fence.output().opposite();
+    if (!downstream || !is_fence(downstream->owner())) {
+        return;
+    }
+    auto upstream = fence.input().opposite();
+    if (!upstream) {
+        throw_exception(std::domain_error(string_builder {}
+                << "disconnected fence: "
+                << fence
+                << string_builder::to_string));
+    }
+    auto&& next = unsafe_downcast<fence_type>(downstream->owner());
+    next.upstream(fence.upstream());
+    upstream->reconnect_to(next.input());
+    graph.erase(fence);
+}
+
 } // namespace
 
 void pull_up_fence(
@@ -140,6 +170,7 @@ void pull_up_fence(
         if (auto destination = find_destination(*fence, locations)) {
             move_fence(*fence, *destination);
         }
+        merge_fence(graph, *fence);
     }
 }
 

@@ -349,8 +349,8 @@ TEST_F(pull_up_fence_test, other_fence) {
     /*
      * scan:r0 - fence:rf0 - project:r1 - fence:rf1 - filter:r2 - emit:r3
      * =>
-     * scan:r0 - project:r1 - filter:r2 - fence:rf0 - fence:rf1 - emit:r3
-     * (rf1 moves first, and then rf0 follows it up to rf1)
+     * scan:r0 - project:r1 - filter:r2 - fence:rf1{7, 8} - emit:r3
+     * (rf1 moves first, and then rf0 follows it up to rf1, and is merged into rf1)
      */
     relation::graph_type r;
     auto&& r0 = scan(r);
@@ -367,12 +367,108 @@ TEST_F(pull_up_fence_test, other_fence) {
 
     apply(r);
 
-    ASSERT_EQ(r.size(), 6);
+    ASSERT_EQ(r.size(), 5);
     EXPECT_GT(r0.output(), r1.input());
     EXPECT_GT(r1.output(), r2.input());
-    EXPECT_GT(r2.output(), rf0.input());
-    EXPECT_GT(rf0.output(), rf1.input());
+    EXPECT_GT(r2.output(), rf1.input());
     EXPECT_GT(rf1.output(), r3.input());
+    EXPECT_EQ(rf1.upstream(), 7);
+    EXPECT_EQ(rf1.downstream(), 8);
+}
+
+TEST_F(pull_up_fence_test, merge_adjacent) {
+    /*
+     * scan:r0 - fence:rf0 - fence:rf1 - emit:r1
+     * =>
+     * scan:r0 - fence:rf1{7, 8} - emit:r1
+     * (rf0 does not move, but is merged into the adjacent fence)
+     */
+    relation::graph_type r;
+    auto&& r0 = scan(r);
+    auto&& rf0 = r.insert(extension::relation::fence { 7, 0 });
+    auto&& rf1 = r.insert(extension::relation::fence { 0, 8 });
+    auto&& r1 = r.insert(relation::emit { c0 });
+    r0.output() >> rf0.input();
+    rf0.output() >> rf1.input();
+    rf1.output() >> r1.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 3);
+    EXPECT_GT(r0.output(), rf1.input());
+    EXPECT_GT(rf1.output(), r1.input());
+    EXPECT_EQ(rf1.upstream(), 7);
+    EXPECT_EQ(rf1.downstream(), 8);
+}
+
+TEST_F(pull_up_fence_test, merge_same_location) {
+    /*
+     * scan:r0 - fence:rf0 - project:r1 - filter:r2 - fence:rf1 - write:r3
+     * =>
+     * scan:r0 - project:r1 - filter:r2 - fence:rf1{7, 7} - write:r3
+     * (the merged fence remains even if its upstream and downstream locations are the same)
+     */
+    relation::graph_type r;
+    auto&& r0 = scan(r);
+    auto&& rf0 = r.insert(extension::relation::fence { 7, 0 });
+    auto&& r1 = project(r, x0);
+    auto&& r2 = remote_filter(r, x0);
+    auto&& rf1 = r.insert(extension::relation::fence { 0, 7 });
+    auto&& r3 = r.insert(relation::write {
+            relation::write_kind::insert,
+            bindings(*i0),
+            {},
+            {
+                    { x0, t0c0, },
+            },
+    });
+    r0.output() >> rf0.input();
+    rf0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> rf1.input();
+    rf1.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(r0.output(), r1.input());
+    EXPECT_GT(r1.output(), r2.input());
+    EXPECT_GT(r2.output(), rf1.input());
+    EXPECT_GT(rf1.output(), r3.input());
+    EXPECT_EQ(rf1.upstream(), 7);
+    EXPECT_EQ(rf1.downstream(), 7);
+}
+
+TEST_F(pull_up_fence_test, not_merge_with_project_between) {
+    /*
+     * scan:r0 - fence:rf0 - filter:r1 - project:r2 - fence:rf1 - emit:r3
+     * =>
+     * scan:r0 - filter:r1 - fence:rf0 - project:r2 - fence:rf1 - emit:r3
+     * (rf0 does not take in the trailing project, so that it is not adjacent to rf1)
+     */
+    relation::graph_type r;
+    auto&& r0 = scan(r);
+    auto&& rf0 = r.insert(extension::relation::fence { 7, 0 });
+    auto&& r1 = remote_filter(r, c0);
+    auto&& r2 = project(r, x0);
+    auto&& rf1 = r.insert(extension::relation::fence { 0, 8 });
+    auto&& r3 = r.insert(relation::emit { x0 });
+    r0.output() >> rf0.input();
+    rf0.output() >> r1.input();
+    r1.output() >> r2.input();
+    r2.output() >> rf1.input();
+    rf1.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 6);
+    EXPECT_GT(r0.output(), r1.input());
+    EXPECT_GT(r1.output(), rf0.input());
+    EXPECT_GT(rf0.output(), r2.input());
+    EXPECT_GT(r2.output(), rf1.input());
+    EXPECT_GT(rf1.output(), r3.input());
+    EXPECT_EQ(rf0.upstream(), 7);
+    EXPECT_EQ(rf0.downstream(), 0);
 }
 
 } // namespace yugawara::analyzer::details
