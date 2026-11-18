@@ -124,6 +124,7 @@ add_test_executable(yugawara/analyzer/details/stream_variable_flow_info_test.cpp
 add_test_executable(yugawara/analyzer/details/predicate_decomposer_test.cpp)
 add_test_executable(yugawara/analyzer/details/collect_stream_variables_test.cpp)
 add_test_executable(yugawara/analyzer/details/push_down_filters_test.cpp)
+add_test_executable(yugawara/analyzer/details/pull_up_fence_test.cpp)
 add_test_executable(yugawara/analyzer/details/push_down_limits_test.cpp)
 add_test_executable(yugawara/analyzer/details/row_slice_utils_test.cpp)
 add_test_executable(yugawara/analyzer/details/path_capability_test.cpp)

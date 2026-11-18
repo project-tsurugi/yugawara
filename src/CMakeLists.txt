@@ -129,6 +129,7 @@ add_library(yugawara
     yugawara/analyzer/details/decompose_predicate.cpp
     yugawara/analyzer/details/collect_stream_variables.cpp
     yugawara/analyzer/details/push_down_filters.cpp
+    yugawara/analyzer/details/pull_up_fence.cpp
     yugawara/analyzer/details/push_down_limits.cpp
     yugawara/analyzer/details/row_slice_utils.cpp
     yugawara/analyzer/details/path_capability.cpp
