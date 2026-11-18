@@ -4,6 +4,7 @@
 #include <functional>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -37,6 +38,7 @@ using ::takatori::util::enum_tag_t;
 using ::takatori::util::ownership_reference;
 using ::takatori::util::string_builder;
 using ::takatori::util::throw_exception;
+using ::takatori::util::unsafe_downcast;
 
 namespace {
 
@@ -354,7 +356,7 @@ public:
     }
 
     void operator()(relation::project& expr, term_list incoming) {
-        process_column_definitions(expr, std::move(incoming));
+        process_column_definitions(expr, std::move(incoming), find_upstream_fence_location(expr.input()));
     }
 
     void operator()(relation::filter& expr, term_list incoming) {
@@ -455,7 +457,7 @@ public:
 
     void operator()(relation::intermediate::extension& expr, term_list incoming) {
         if (expr.extension_id() == extension::relation::fence::extension_tag) {
-            operator()(::takatori::util::unsafe_downcast<extension::relation::fence>(expr), std::move(incoming));
+            operator()(unsafe_downcast<extension::relation::fence>(expr), std::move(incoming));
             return;
         }
         throw_exception(std::domain_error(string_builder {}
@@ -499,6 +501,34 @@ private:
         auto&& locations = *locations_;
         return locations(relation::expression_kind::filter).count(location) > 0
             && locations(element.expression()).count(location) > 0;
+    }
+
+    /**
+     * @brief returns the upstream location of the nearest fence in the upstream of the given input.
+     * @details This only follows `project` and `filter` operators, which pull_up_fence() can move fences across.
+     * @param input the input port
+     * @return the upstream location of the fence
+     * @return empty if there is no such fence, or the locations of elements are not given
+     */
+    [[nodiscard]] std::optional<extension::relation::fence::location_id_type> find_upstream_fence_location(
+            relation::expression::input_port_type const& input) const {
+        if (!locations_) {
+            return {};
+        }
+        for (auto port = input.opposite(); port;) {
+            auto&& upstream = port->owner();
+            if (upstream.kind() == relation::intermediate::extension::tag
+                    && unsafe_downcast<relation::intermediate::extension>(upstream).extension_id()
+                            == extension::relation::fence::extension_tag) {
+                return unsafe_downcast<extension::relation::fence>(upstream).upstream();
+            }
+            if (upstream.kind() != relation::expression_kind::project
+                    && upstream.kind() != relation::expression_kind::filter) {
+                return {};
+            }
+            port = upstream.input_ports()[0].opposite();
+        }
+        return {};
     }
 
     /**
@@ -611,7 +641,10 @@ private:
     }
 
     template<class Expr>
-    void process_column_definitions(Expr& expr, term_list incoming) {
+    void process_column_definitions(
+            Expr& expr,
+            term_list incoming,
+            std::optional<extension::relation::fence::location_id_type> fence_location = {}) {
         // pass terms only using the input columns
         auto to_input = extract(incoming, [&](term const& element) {
             auto&& columns = expr.columns();
@@ -619,6 +652,24 @@ private:
                 return element.use(column.variable());
             });
         });
+        if (fence_location) {
+            /*
+             * Reorders the terms as follows, preserving the order of terms in each group:
+             *   [the terms which cannot be executed in the upstream of the fence..., the ones which can...]
+             * (std::stable_partition() moves the terms satisfying the predicate to the front.)
+             *
+             * Because place_downstream() places the last term nearest to the output,
+             * the filters are placed as follows:
+             *   operator - (the filters which can be executed in the upstream of the fence)
+             *            - (the filters which cannot) - ..
+             *
+             * Then, if pull_up_fence() can move the fence down to just after the operator, it can also take in
+             * all of the former filters, so that it maximizes the filters executed in the upstream location.
+             */
+            std::stable_partition(incoming.begin(), incoming.end(), [&](term const& element) {
+                return !available_at(element, *fence_location);
+            });
+        }
         place_downstream(expr.output(), std::move(incoming));
         forward(expr.input(), std::move(to_input));
     }

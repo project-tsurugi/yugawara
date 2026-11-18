@@ -685,6 +685,70 @@ TEST_F(compiler_test, operation_location_query_pull_up_fence_local_project) {
     check_remote_scan(result, 2);
 }
 
+TEST_F(compiler_test, operation_location_query_pull_up_fence_terms_order) {
+    auto query = std::make_shared<mock_symbol_location_query>();
+    query->all = { 0, 7 };
+    query->tables.emplace(t0.get(), location_id_set_type { 7 });
+
+    auto func = std::make_shared<function::declaration>(function::declaration {
+            function::declaration::minimum_builtin_function_id + 1,
+            "f",
+            t::boolean {},
+            {
+                    t::int4 {},
+            },
+    });
+    query->functions.emplace(func.get(), location_id_set_type { 0 });
+
+    /*
+     * scan(remote) -> project -> filter(f(x0) AND x0 = 1) -> emit
+     * =>
+     * [scan(remote) -> project -> filter(x0 = 1) -> offer] -> forward -> [take_flat -> filter(f(x0)) -> emit]
+     */
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto x0 = bindings.stream_variable("x0");
+    auto&& in = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { bindings(t0c0), c0 },
+            },
+    });
+    auto&& project = r.insert(relation::project {
+            relation::project::column {
+                    scalar::binary {
+                            scalar::binary_operator::add,
+                            varref(c0),
+                            constant(1),
+                    },
+                    x0,
+            },
+    });
+    auto&& filter = r.insert(relation::filter {
+            land(
+                    scalar::function_call {
+                            bindings(func),
+                            {
+                                    varref(x0),
+                            },
+                    },
+                    compare(varref(x0), constant(1))),
+    });
+    auto&& out = r.insert(relation::emit { x0 });
+    in.output() >> project.input();
+    project.output() >> filter.input();
+    filter.output() >> out.input();
+
+    auto opts = options();
+    opts.symbol_location_query() = query;
+
+    auto result = compiler()(opts, std::move(r));
+    ASSERT_TRUE(result) << diagnostics(result);
+
+    // the term without the local function is placed next to the project, and goes into the remote process
+    check_remote_scan(result, 4);
+}
+
 TEST_F(compiler_test, operation_location_query_allow_empty_restricted) {
     auto query = std::make_shared<mock_symbol_location_query>();
     query->all = { 0, 7 };

@@ -3553,4 +3553,238 @@ TEST_F(push_down_filters_test, fence_locations_upstream_local) {
     EXPECT_EQ(rf.condition(), boolean(true));
 }
 
+/**
+ * @brief helper of the tests about the order of terms placed after a project.
+ */
+class project_terms_order {
+public:
+    explicit project_terms_order(binding::factory& bindings) : bindings_ { bindings } {}
+
+    std::shared_ptr<function::declaration> predicate = std::make_shared<function::declaration>(
+            function::declaration {
+                    function::declaration::minimum_builtin_function_id + 2,
+                    "local_predicate",
+                    ::takatori::type::boolean {},
+                    {
+                            t::int4 {},
+                    },
+            });
+
+    scalar::function_call call(descriptor::variable const& variable) {
+        return scalar::function_call {
+                bindings_(predicate),
+                {
+                        varref(variable),
+                },
+        };
+    }
+
+private:
+    binding::factory& bindings_;
+};
+
+TEST_F(push_down_filters_test, project_terms_order_fence) {
+    /*
+     * scan:r0 - fence:rf - project:rp - filter(x0 > 0 AND pred(x0)):rs - emit
+     * =>
+     * scan:r0 - fence:rf - project:rp - filter(x0 > 0) - filter(pred(x0)) - emit
+     * (the term which can be executed in the upstream location of the fence is placed next to the project)
+     */
+    project_terms_order h { bindings };
+    query.functions.emplace(h.predicate.get(), remote::symbol_location_query::location_id_set_type { 0 });
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+            },
+    });
+    auto&& rf = r.insert(extension::relation::fence { 7, 0 });
+    auto&& rp = r.insert(relation::project {
+            relation::project::column { varref(c0), x0 },
+    });
+    auto&& rs = r.insert(relation::filter {
+            land(
+                    compare(varref(x0), constant(0)),
+                    h.call(x0)),
+    });
+    auto&& out = r.insert(relation::emit { x0 });
+    r0.output() >> rf.input();
+    rf.output() >> rp.input();
+    rp.output() >> rs.input();
+    rs.output() >> out.input();
+
+    apply_with_locations(r);
+
+    auto&& f0 = next<relation::filter>(rp.output());
+    EXPECT_EQ(f0.condition(), compare(varref(x0), constant(0)));
+    auto&& f1 = next<relation::filter>(f0.output());
+    EXPECT_EQ(f1.condition().kind(), scalar::function_call::tag);
+}
+
+TEST_F(push_down_filters_test, project_terms_order_fence_reversed) {
+    /*
+     * scan:r0 - fence:rf - project:rp - filter(pred(x0) AND x0 > 0):rs - emit
+     * =>
+     * scan:r0 - fence:rf - project:rp - filter(x0 > 0) - filter(pred(x0)) - emit
+     * (the result does not depend on the order of terms in the condition)
+     */
+    project_terms_order h { bindings };
+    query.functions.emplace(h.predicate.get(), remote::symbol_location_query::location_id_set_type { 0 });
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+            },
+    });
+    auto&& rf = r.insert(extension::relation::fence { 7, 0 });
+    auto&& rp = r.insert(relation::project {
+            relation::project::column { varref(c0), x0 },
+    });
+    auto&& rs = r.insert(relation::filter {
+            land(
+                    h.call(x0),
+                    compare(varref(x0), constant(0))),
+    });
+    auto&& out = r.insert(relation::emit { x0 });
+    r0.output() >> rf.input();
+    rf.output() >> rp.input();
+    rp.output() >> rs.input();
+    rs.output() >> out.input();
+
+    apply_with_locations(r);
+
+    auto&& f0 = next<relation::filter>(rp.output());
+    EXPECT_EQ(f0.condition(), compare(varref(x0), constant(0)));
+    auto&& f1 = next<relation::filter>(f0.output());
+    EXPECT_EQ(f1.condition().kind(), scalar::function_call::tag);
+}
+
+TEST_F(push_down_filters_test, project_terms_order_fence_through_filter) {
+    /*
+     * scan:r0 - fence:rf - filter(pred(c0)):ri - project:rp - filter(x0 > 0 AND pred(x0)):rs - emit
+     * =>
+     * scan:r0 - fence:rf - filter(pred(c0)) - project:rp - filter(x0 > 0) - filter(pred(x0)) - emit
+     * (the fence is found through the filter between the fence and the project)
+     */
+    project_terms_order h { bindings };
+    query.functions.emplace(h.predicate.get(), remote::symbol_location_query::location_id_set_type { 0 });
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+            },
+    });
+    auto&& rf = r.insert(extension::relation::fence { 7, 0 });
+    auto&& ri = r.insert(relation::filter { h.call(c0) });
+    auto&& rp = r.insert(relation::project {
+            relation::project::column { varref(c0), x0 },
+    });
+    auto&& rs = r.insert(relation::filter {
+            land(
+                    compare(varref(x0), constant(0)),
+                    h.call(x0)),
+    });
+    auto&& out = r.insert(relation::emit { x0 });
+    r0.output() >> rf.input();
+    rf.output() >> ri.input();
+    ri.output() >> rp.input();
+    rp.output() >> rs.input();
+    rs.output() >> out.input();
+
+    apply_with_locations(r);
+
+    auto&& f0 = next<relation::filter>(rp.output());
+    EXPECT_EQ(f0.condition(), compare(varref(x0), constant(0)));
+    auto&& f1 = next<relation::filter>(f0.output());
+    EXPECT_EQ(f1.condition().kind(), scalar::function_call::tag);
+}
+
+TEST_F(push_down_filters_test, project_terms_order_no_fence) {
+    /*
+     * scan:r0 - project:rp - filter(x0 > 0 AND pred(x0)):rs - emit
+     * =>
+     * scan:r0 - project:rp - filter(pred(x0)) - filter(x0 > 0) - emit
+     * (the terms keep the order of place_downstream(), because there are no fences)
+     */
+    project_terms_order h { bindings };
+    query.functions.emplace(h.predicate.get(), remote::symbol_location_query::location_id_set_type { 0 });
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+            },
+    });
+    auto&& rp = r.insert(relation::project {
+            relation::project::column { varref(c0), x0 },
+    });
+    auto&& rs = r.insert(relation::filter {
+            land(
+                    compare(varref(x0), constant(0)),
+                    h.call(x0)),
+    });
+    auto&& out = r.insert(relation::emit { x0 });
+    r0.output() >> rp.input();
+    rp.output() >> rs.input();
+    rs.output() >> out.input();
+
+    apply_with_locations(r);
+
+    auto&& f0 = next<relation::filter>(rp.output());
+    EXPECT_EQ(f0.condition().kind(), scalar::function_call::tag);
+    auto&& f1 = next<relation::filter>(f0.output());
+    EXPECT_EQ(f1.condition(), compare(varref(x0), constant(0)));
+}
+
+TEST_F(push_down_filters_test, project_terms_order_no_locations) {
+    /*
+     * scan:r0 - fence:rf - project:rp - filter(x0 > 0 AND pred(x0)):rs - emit
+     * =>
+     * scan:r0 - fence:rf - project:rp - filter(pred(x0)) - filter(x0 > 0) - emit
+     * (the terms keep the order of place_downstream(), because the locations of elements are not given)
+     */
+    project_terms_order h { bindings };
+    relation::graph_type r;
+    auto c0 = bindings.stream_variable("c0");
+    auto x0 = bindings.stream_variable("x0");
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {
+                    { t0c0, c0 },
+            },
+    });
+    auto&& rf = r.insert(extension::relation::fence { 7, 0 });
+    auto&& rp = r.insert(relation::project {
+            relation::project::column { varref(c0), x0 },
+    });
+    auto&& rs = r.insert(relation::filter {
+            land(
+                    compare(varref(x0), constant(0)),
+                    h.call(x0)),
+    });
+    auto&& out = r.insert(relation::emit { x0 });
+    r0.output() >> rf.input();
+    rf.output() >> rp.input();
+    rp.output() >> rs.input();
+    rs.output() >> out.input();
+
+    apply(r);
+
+    auto&& f0 = next<relation::filter>(rp.output());
+    EXPECT_EQ(f0.condition().kind(), scalar::function_call::tag);
+    auto&& f1 = next<relation::filter>(f0.output());
+    EXPECT_EQ(f1.condition(), compare(varref(x0), constant(0)));
+}
+
 } // namespace yugawara::analyzer::details
