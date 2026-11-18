@@ -7,17 +7,18 @@
 namespace yugawara::analyzer::details {
 
 /**
- * @brief moves fences (extension::relation::fence) to downstream, to take in operators which reduce the rows.
+ * @brief moves fences (extension::relation::fence) to downstream, to take in operators which reduce the rows
+ *      or the exchanges across locations.
  * @details This classifies the operators in the downstream of each fence as follows:
  *
- *      - gain: operators which reduce the rows flowing through the fence, if they are taken in
- *        (`filter` operators)
+ *      - gain: operators which reduce the rows flowing through the fence, or the exchanges across locations,
+ *        if they are taken in (`filter` operators and other fences)
  *      - allow: operators which may be taken in, but are not worth taking in by themselves
  *        (`project` operators)
  *      - barrier: the other operators, which are never taken in
  *
- *      An operator of gain or allow becomes barrier if it cannot be executed in the upstream location of the fence,
- *      according to the given locations of elements.
+ *      An operator of gain or allow, except fences, becomes barrier if it cannot be executed
+ *      in the upstream location of the fence, according to the given locations of elements.
  *
  *      For each fence, this follows the operators of gain or allow from the output of the fence toward downstream
  *      until it reaches an operator of barrier, and then moves the fence to just after the last operator of gain
@@ -25,16 +26,20 @@ namespace yugawara::analyzer::details {
  *      That is, this rewrites `.. - fence - (gain|allow)* - gain - ..` into `.. - (gain|allow)* - gain - fence - ..`.
  *      If there are no operators of gain in the followed operators, this does not move the fence.
  *
- *      This only changes the positions of fences, and never decomposes nor reorders the other operators.
- *      Another fence is barrier.
- *      This processes fences from downstream, so that each fence can take in the operators
- *      up to the next fence, which has already been moved.
+ *      If the followed operators contain other fences, this moves them downstream together with the fence,
+ *      to the same destination. If the last operator of gain is a fence, it stays, and the others are moved
+ *      to just before it.
  *
- *      After deciding the destination of a fence (or its current position, if it does not move),
+ *      This only changes the positions of fences, and never decomposes nor reorders the other operators.
+ *      This processes fences from downstream, so that each fence can take in the operators
+ *      beyond the next fence, which has already been moved.
+ *
+ *      After moving a fence (or keeping its current position, if it does not move),
  *      if the next operator is another fence, this merges them into the latter one,
  *      whose upstream location becomes the one of the former: `.. - fence{a, b} - fence{b, c} - ..`
- *      becomes `.. - fence{a, c} - ..`. This keeps the merged fence even if its upstream and downstream
- *      locations are the same, and never moves it again.
+ *      becomes `.. - fence{a, c} - ..`. The fences moved together are merged in order from upstream.
+ *      This keeps the merged fence even if its upstream and downstream locations are the same,
+ *      and never moves it again.
  * @param graph the target graph
  * @param locations the locations of elements
  */

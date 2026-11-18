@@ -30,7 +30,10 @@ using fence_type = extension::relation::fence;
  * @details Operators of gain and allow must have just one input and one output, because fences move across them.
  */
 enum class fence_crossing {
-    /// @brief operators which reduce the rows flowing through the fence, if they are taken in.
+    /**
+     * @brief operators which reduce the rows flowing through the fence, or the exchanges across locations,
+     *      if they are taken in.
+     */
     gain,
 
     /// @brief operators which may be taken in, but are not worth taking in by themselves.
@@ -44,6 +47,10 @@ enum class fence_crossing {
         relation::expression const& expression,
         fence_type::location_id_type location,
         remote::details::element_location const& locations) {
+    if (fence_type::is_instance(expression)) {
+        // NOTE: taking in another fence reduces an exchange, and fences can be anywhere
+        return fence_crossing::gain;
+    }
     fence_crossing result {};
     switch (expression.kind()) {
         case relation::expression_kind::filter:
@@ -65,13 +72,15 @@ enum class fence_crossing {
  * @brief returns the destination of the fence.
  * @param fence the fence
  * @param locations the locations of elements
+ * @param followers the fences in the followed operators up to the destination, in order from upstream
  * @return the output port of the last operator of gain in the downstream of the fence,
  *      that is, the fence should be placed just after it
  * @return empty if there are no such operators
  */
 [[nodiscard]] optional_ptr<relation::expression::output_port_type> find_destination(
         fence_type& fence,
-        remote::details::element_location const& locations) {
+        remote::details::element_location const& locations,
+        std::vector<fence_type*>& followers) {
     optional_ptr<relation::expression::output_port_type> destination {};
     for (auto port = fence.output().opposite(); port;) {
         auto&& current = port->owner();
@@ -85,6 +94,9 @@ enum class fence_crossing {
         auto&& output = current.output_ports()[0];
         if (crossing == fence_crossing::gain) {
             destination = output;
+            if (fence_type::is_instance(current)) {
+                followers.emplace_back(std::addressof(unsafe_downcast<fence_type>(current)));
+            }
         }
         port = output.opposite();
     }
@@ -92,28 +104,92 @@ enum class fence_crossing {
 }
 
 /**
- * @brief moves the fence to just after the given output port.
+ * @brief removes the fence from its position, and connects its upstream and downstream directly.
  * @param fence the fence
- * @param output the destination, which is in the downstream of the fence
  */
-void move_fence(fence_type& fence, relation::expression::output_port_type& output) {
+void detach_fence(fence_type& fence) {
     /*
-     * .. - upstream - fence - downstream - .. - (output) - next - ..
+     * .. - upstream - fence - downstream - ..
      * =>
-     * .. - upstream - downstream - .. - (output) - fence - next - ..
+     * .. - upstream - downstream - ..
      */
     auto upstream = fence.input().opposite();
     auto downstream = fence.output().opposite();
-    auto next = output.opposite();
-    if (!upstream || !downstream || !next) {
+    if (!upstream || !downstream) {
         throw_exception(std::domain_error(string_builder {}
                 << "disconnected fence: "
                 << fence
                 << string_builder::to_string));
     }
     upstream->reconnect_to(*downstream);
+}
+
+/**
+ * @brief places the detached fence just after the given output port.
+ * @param fence the fence
+ * @param output the output port
+ */
+void attach_fence(fence_type& fence, relation::expression::output_port_type& output) {
+    /*
+     * .. - (output) - next - ..
+     * =>
+     * .. - (output) - fence - next - ..
+     */
+    auto next = output.opposite();
+    if (!next) {
+        throw_exception(std::domain_error(string_builder {}
+                << "disconnected port: "
+                << output
+                << string_builder::to_string));
+    }
     output.reconnect_to(fence.input());
     fence.output().reconnect_to(*next);
+}
+
+/**
+ * @brief moves the fence and the following fences downstream together to just after the given output port.
+ * @details If the owner of the output port is one of the following fences (that is, the last operator of gain),
+ *      it stays, and the others are placed just before it.
+ * @param fence the fence
+ * @param followers the following fences, in order from upstream
+ * @param output the destination, which is in the downstream of the fence
+ * @return the moved fences, in order from upstream
+ */
+[[nodiscard]] std::vector<fence_type*> move_fences(
+        fence_type& fence,
+        std::vector<fence_type*> const& followers,
+        relation::expression::output_port_type& output) {
+    std::vector<fence_type*> moved {};
+    moved.reserve(followers.size() + 1);
+    moved.emplace_back(std::addressof(fence));
+    for (auto* follower : followers) {
+        if (std::addressof(follower->output()) != std::addressof(output)) {
+            moved.emplace_back(follower);
+        }
+    }
+
+    // NOTE: detaches all of them first, because the destination may be next to them
+    for (auto* f : moved) {
+        detach_fence(*f);
+    }
+    auto&& anchor = output.owner();
+    auto* position = std::addressof(output);
+    if (fence_type::is_instance(anchor)) {
+        // places the fences just before the last fence, which stays
+        auto upstream = unsafe_downcast<fence_type>(anchor).input().opposite();
+        if (!upstream) {
+            throw_exception(std::domain_error(string_builder {}
+                    << "disconnected fence: "
+                    << anchor
+                    << string_builder::to_string));
+        }
+        position = upstream.get();
+    }
+    // NOTE: attaches them from downstream, because each one is placed just after the position
+    for (auto iter = moved.rbegin(); iter != moved.rend(); ++iter) {
+        attach_fence(**iter, *position);
+    }
+    return moved;
 }
 
 /**
@@ -162,10 +238,16 @@ void pull_up_fence(
                 }
             });
     for (auto* fence : fences) {
-        if (auto destination = find_destination(*fence, locations)) {
-            move_fence(*fence, *destination);
+        std::vector<fence_type*> followers {};
+        // NOTE: if there is no destination, the next operator is not a fence, because fences are gain
+        if (auto destination = find_destination(*fence, locations, followers)) {
+            // NOTE: merges the moved fences in order from upstream, each into the next fence.
+            // Only the moved fences and the last fence of gain can be adjacent here,
+            // because a fence just after the destination would also be gain.
+            for (auto* moved : move_fences(*fence, followers, *destination)) {
+                merge_fence(graph, *moved);
+            }
         }
-        merge_fence(graph, *fence);
     }
 }
 
