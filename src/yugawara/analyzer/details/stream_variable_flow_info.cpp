@@ -163,7 +163,7 @@ public:
     }
 
     void operator()(relation::intermediate::extension const& expr) {
-        if (expr.extension_id() == extension::relation::fence::extension_tag) {
+        if (extension::relation::fence::is_instance(expr)) {
             // no declarations
             // continue
             return;

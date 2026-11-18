@@ -5,6 +5,7 @@
 #include <takatori/relation/intermediate/extension.h>
 
 #include <takatori/util/clone_tag.h>
+#include <takatori/util/downcast.h>
 
 #include <yugawara/remote/location_info.h>
 
@@ -127,6 +128,18 @@ public:
      * @return the output
      */
     friend std::ostream& operator<<(std::ostream& out, fence const& value);
+
+    /**
+     * @brief returns whether or not the given expression is a fence.
+     * @param expression the target expression
+     * @return true if the expression is a fence
+     * @return false otherwise
+     */
+    [[nodiscard]] static bool is_instance(::takatori::relation::expression const& expression) noexcept {
+        return expression.kind() == ::takatori::relation::intermediate::extension::tag
+            && ::takatori::util::unsafe_downcast<::takatori::relation::intermediate::extension>(expression)
+                    .extension_id() == extension_tag;
+    }
 
 protected:
     [[nodiscard]] bool equals(extension const& other) const noexcept override;

@@ -118,7 +118,7 @@ public:
     }
 
     void operator()(relation::intermediate::extension& expr) {
-        if (expr.extension_id() == extension::relation::fence::extension_tag) {
+        if (extension::relation::fence::is_instance(expr)) {
             auto&& fence = unsafe_downcast<extension::relation::fence>(expr);
             if (redundant_fences_.contains(std::addressof(fence))) {
                 remove_fence(fence);
@@ -948,15 +948,13 @@ private:
      * @param expr the target extension operator
      */
     void decide_extension(relation::intermediate::extension const& expr) {
-        if (expr.extension_id() != extension::relation::fence::extension_tag) {
+        if (!extension::relation::fence::is_instance(expr)) {
             return;
         }
         auto&& fence = unsafe_downcast<extension::relation::fence>(expr);
         if (auto upstream = fence.input().opposite()) {
             auto&& owner = upstream->owner();
-            if (owner.kind() == relation::intermediate::extension::tag
-                    && unsafe_downcast<relation::intermediate::extension>(owner).extension_id()
-                            == extension::relation::fence::extension_tag) {
+            if (extension::relation::fence::is_instance(owner)) {
                 redundant_fences_.emplace(std::addressof(fence));
             }
         }

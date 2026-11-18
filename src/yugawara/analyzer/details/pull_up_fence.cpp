@@ -61,11 +61,6 @@ enum class fence_crossing {
     return result;
 }
 
-[[nodiscard]] bool is_fence(relation::expression const& expression) noexcept {
-    return expression.kind() == relation::intermediate::extension::tag
-        && unsafe_downcast<relation::intermediate::extension>(expression).extension_id() == fence_type::extension_tag;
-}
-
 /**
  * @brief returns the destination of the fence.
  * @param fence the fence
@@ -135,7 +130,7 @@ void merge_fence(relation::graph_type& graph, fence_type& fence) {
      * .. - upstream - next{a, c} - ..
      */
     auto downstream = fence.output().opposite();
-    if (!downstream || !is_fence(downstream->owner())) {
+    if (!downstream || !fence_type::is_instance(downstream->owner())) {
         return;
     }
     auto upstream = fence.input().opposite();
@@ -162,7 +157,7 @@ void pull_up_fence(
     relation::sort_from_downstream(
             graph,
             [&](relation::expression& expression) {
-                if (is_fence(expression)) {
+                if (fence_type::is_instance(expression)) {
                     fences.emplace_back(std::addressof(unsafe_downcast<fence_type>(expression)));
                 }
             });

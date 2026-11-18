@@ -217,7 +217,7 @@ public:
     }
 
     void operator()(relation::intermediate::extension const& expr) const {
-        if (expr.extension_id() == extension::relation::fence::extension_tag) {
+        if (extension::relation::fence::is_instance(expr)) {
             // no-op because fence does not refer any variables
             return;
         }

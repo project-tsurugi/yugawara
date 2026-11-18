@@ -456,7 +456,7 @@ public:
     }
 
     void operator()(relation::intermediate::extension& expr, term_list incoming) {
-        if (expr.extension_id() == extension::relation::fence::extension_tag) {
+        if (extension::relation::fence::is_instance(expr)) {
             operator()(unsafe_downcast<extension::relation::fence>(expr), std::move(incoming));
             return;
         }
@@ -517,9 +517,7 @@ private:
         }
         for (auto port = input.opposite(); port;) {
             auto&& upstream = port->owner();
-            if (upstream.kind() == relation::intermediate::extension::tag
-                    && unsafe_downcast<relation::intermediate::extension>(upstream).extension_id()
-                            == extension::relation::fence::extension_tag) {
+            if (extension::relation::fence::is_instance(upstream)) {
                 return unsafe_downcast<extension::relation::fence>(upstream).upstream();
             }
             if (upstream.kind() != relation::expression_kind::project

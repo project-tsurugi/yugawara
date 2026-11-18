@@ -35,6 +35,17 @@ TEST_F(relation_fence_test, simple) {
     EXPECT_EQ(std::addressof(expr.output().owner()), std::addressof(expr));
 }
 
+TEST_F(relation_fence_test, is_instance) {
+    fence expr { 7, 0 };
+    ::takatori::relation::values other {
+            {},
+            {},
+    };
+
+    EXPECT_TRUE(fence::is_instance(expr));
+    EXPECT_FALSE(fence::is_instance(other));
+}
+
 TEST_F(relation_fence_test, setter) {
     fence expr { 7, 0 };
     expr.upstream(1).downstream(2);
