@@ -509,4 +509,51 @@ TEST_F(pull_up_fence_test, move_with_following_fence) {
     EXPECT_EQ(rf0.downstream(), 8);
 }
 
+TEST_F(pull_up_fence_test, take_in_fences_across_project) {
+    /*
+     * scan:r0 - fence:rf0{7, 0} - project:r1 - fence:rf1{0, 7} - project:r2 - fence:rf2{7, 0} - emit:r3
+     * =>
+     * scan:r0 - project:r1 - project:r2 - fence:rf0{7, 0} - emit:r3
+     * (r2 is only available in the remote location 7, so that rf1 cannot move by itself,
+     *  but rf0 takes in rf1, r2, and rf2, beyond rf1)
+     */
+    auto remote_function = std::make_shared<function::declaration>(
+            function::declaration {
+                    function::declaration::minimum_builtin_function_id + 2,
+                    "remote_function",
+                    ::takatori::type::boolean {},
+                    {},
+            });
+    query.functions.emplace(remote_function.get(), remote::symbol_location_query::location_id_set_type { 7 });
+    relation::graph_type r;
+    auto&& r0 = scan(r);
+    auto&& rf0 = r.insert(extension::relation::fence { 7, 0 });
+    auto&& r1 = project(r, x0);
+    auto&& rf1 = r.insert(extension::relation::fence { 0, 7 });
+    auto&& r2 = r.insert(relation::project {
+            relation::project::column {
+                    scalar::function_call { bindings(remote_function), {} },
+                    x1,
+            },
+    });
+    auto&& rf2 = r.insert(extension::relation::fence { 7, 0 });
+    auto&& r3 = r.insert(relation::emit { x1 });
+    r0.output() >> rf0.input();
+    rf0.output() >> r1.input();
+    r1.output() >> rf1.input();
+    rf1.output() >> r2.input();
+    r2.output() >> rf2.input();
+    rf2.output() >> r3.input();
+
+    apply(r);
+
+    ASSERT_EQ(r.size(), 5);
+    EXPECT_GT(r0.output(), r1.input());
+    EXPECT_GT(r1.output(), r2.input());
+    EXPECT_GT(r2.output(), rf0.input());
+    EXPECT_GT(rf0.output(), r3.input());
+    EXPECT_EQ(rf0.upstream(), 7);
+    EXPECT_EQ(rf0.downstream(), 0);
+}
+
 } // namespace yugawara::analyzer::details
