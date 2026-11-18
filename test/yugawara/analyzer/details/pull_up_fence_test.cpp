@@ -349,8 +349,8 @@ TEST_F(pull_up_fence_test, other_fence) {
     /*
      * scan:r0 - fence:rf0 - project:r1 - fence:rf1 - filter:r2 - emit:r3
      * =>
-     * scan:r0 - project:r1 - filter:r2 - fence:rf1{7, 8} - emit:r3
-     * (rf1 moves first, and then rf0 follows it up to rf1, and is merged into rf1)
+     * scan:r0 - project:r1 - filter:r2 - fence:rf0{7, 8} - emit:r3
+     * (rf1 moves first, and then rf0 follows it, and takes in rf1)
      */
     relation::graph_type r;
     auto&& r0 = scan(r);
@@ -370,18 +370,18 @@ TEST_F(pull_up_fence_test, other_fence) {
     ASSERT_EQ(r.size(), 5);
     EXPECT_GT(r0.output(), r1.input());
     EXPECT_GT(r1.output(), r2.input());
-    EXPECT_GT(r2.output(), rf1.input());
-    EXPECT_GT(rf1.output(), r3.input());
-    EXPECT_EQ(rf1.upstream(), 7);
-    EXPECT_EQ(rf1.downstream(), 8);
+    EXPECT_GT(r2.output(), rf0.input());
+    EXPECT_GT(rf0.output(), r3.input());
+    EXPECT_EQ(rf0.upstream(), 7);
+    EXPECT_EQ(rf0.downstream(), 8);
 }
 
-TEST_F(pull_up_fence_test, merge_adjacent) {
+TEST_F(pull_up_fence_test, take_in_adjacent_fence) {
     /*
      * scan:r0 - fence:rf0 - fence:rf1 - emit:r1
      * =>
-     * scan:r0 - fence:rf1{7, 8} - emit:r1
-     * (rf0 does not move, but is merged into the adjacent fence)
+     * scan:r0 - fence:rf0{7, 8} - emit:r1
+     * (rf0 takes in the adjacent fence)
      */
     relation::graph_type r;
     auto&& r0 = scan(r);
@@ -395,18 +395,18 @@ TEST_F(pull_up_fence_test, merge_adjacent) {
     apply(r);
 
     ASSERT_EQ(r.size(), 3);
-    EXPECT_GT(r0.output(), rf1.input());
-    EXPECT_GT(rf1.output(), r1.input());
-    EXPECT_EQ(rf1.upstream(), 7);
-    EXPECT_EQ(rf1.downstream(), 8);
+    EXPECT_GT(r0.output(), rf0.input());
+    EXPECT_GT(rf0.output(), r1.input());
+    EXPECT_EQ(rf0.upstream(), 7);
+    EXPECT_EQ(rf0.downstream(), 8);
 }
 
-TEST_F(pull_up_fence_test, merge_same_location) {
+TEST_F(pull_up_fence_test, take_in_fence_same_location) {
     /*
      * scan:r0 - fence:rf0 - project:r1 - filter:r2 - fence:rf1 - write:r3
      * =>
-     * scan:r0 - project:r1 - filter:r2 - fence:rf1{7, 7} - write:r3
-     * (the merged fence remains even if its upstream and downstream locations are the same)
+     * scan:r0 - project:r1 - filter:r2 - fence:rf0{7, 7} - write:r3
+     * (the fence remains even if its upstream and downstream locations become the same)
      */
     relation::graph_type r;
     auto&& r0 = scan(r);
@@ -433,18 +433,18 @@ TEST_F(pull_up_fence_test, merge_same_location) {
     ASSERT_EQ(r.size(), 5);
     EXPECT_GT(r0.output(), r1.input());
     EXPECT_GT(r1.output(), r2.input());
-    EXPECT_GT(r2.output(), rf1.input());
-    EXPECT_GT(rf1.output(), r3.input());
-    EXPECT_EQ(rf1.upstream(), 7);
-    EXPECT_EQ(rf1.downstream(), 7);
+    EXPECT_GT(r2.output(), rf0.input());
+    EXPECT_GT(rf0.output(), r3.input());
+    EXPECT_EQ(rf0.upstream(), 7);
+    EXPECT_EQ(rf0.downstream(), 7);
 }
 
 TEST_F(pull_up_fence_test, take_in_project_and_fence) {
     /*
      * scan:r0 - fence:rf0 - filter:r1 - project:r2 - fence:rf1 - emit:r3
      * =>
-     * scan:r0 - filter:r1 - project:r2 - fence:rf1{7, 8} - emit:r3
-     * (rf0 takes in the project, because the following fence is gain, and then is merged into it)
+     * scan:r0 - filter:r1 - project:r2 - fence:rf0{7, 8} - emit:r3
+     * (rf0 takes in the project and the following fence, because the fence is gain)
      */
     relation::graph_type r;
     auto&& r0 = scan(r);
@@ -464,19 +464,19 @@ TEST_F(pull_up_fence_test, take_in_project_and_fence) {
     ASSERT_EQ(r.size(), 5);
     EXPECT_GT(r0.output(), r1.input());
     EXPECT_GT(r1.output(), r2.input());
-    EXPECT_GT(r2.output(), rf1.input());
-    EXPECT_GT(rf1.output(), r3.input());
-    EXPECT_EQ(rf1.upstream(), 7);
-    EXPECT_EQ(rf1.downstream(), 8);
+    EXPECT_GT(r2.output(), rf0.input());
+    EXPECT_GT(rf0.output(), r3.input());
+    EXPECT_EQ(rf0.upstream(), 7);
+    EXPECT_EQ(rf0.downstream(), 8);
 }
 
 TEST_F(pull_up_fence_test, move_with_following_fence) {
     /*
      * scan:r0 - fence:rf0{7, 0} - project:r1 - fence:rf1{0, 8} - filter:r2 - emit:r3
      * =>
-     * scan:r0 - project:r1 - filter:r2 - fence:rf1{7, 8} - emit:r3
+     * scan:r0 - project:r1 - filter:r2 - fence:rf0{7, 8} - emit:r3
      * (r2 is only available in the remote location 7, so that rf1 cannot move by itself,
-     *  but rf0 moves downstream together with rf1, and then is merged into it)
+     *  but rf0 takes in rf1 and moves downstream beyond it)
      */
     auto remote_function = std::make_shared<function::declaration>(
             function::declaration {
@@ -506,10 +506,10 @@ TEST_F(pull_up_fence_test, move_with_following_fence) {
     ASSERT_EQ(r.size(), 5);
     EXPECT_GT(r0.output(), r1.input());
     EXPECT_GT(r1.output(), r2.input());
-    EXPECT_GT(r2.output(), rf1.input());
-    EXPECT_GT(rf1.output(), r3.input());
-    EXPECT_EQ(rf1.upstream(), 7);
-    EXPECT_EQ(rf1.downstream(), 8);
+    EXPECT_GT(r2.output(), rf0.input());
+    EXPECT_GT(rf0.output(), r3.input());
+    EXPECT_EQ(rf0.upstream(), 7);
+    EXPECT_EQ(rf0.downstream(), 8);
 }
 
 } // namespace yugawara::analyzer::details

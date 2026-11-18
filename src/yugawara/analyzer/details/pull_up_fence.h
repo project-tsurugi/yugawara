@@ -26,20 +26,15 @@ namespace yugawara::analyzer::details {
  *      That is, this rewrites `.. - fence - (gain|allow)* - gain - ..` into `.. - (gain|allow)* - gain - fence - ..`.
  *      If there are no operators of gain in the followed operators, this does not move the fence.
  *
- *      If the followed operators contain other fences, this moves them downstream together with the fence,
- *      to the same destination. If the last operator of gain is a fence, it stays, and the others are moved
- *      to just before it.
+ *      If the followed operators contain other fences, the fence takes them in: it takes over the downstream
+ *      location of the last one, and they are removed from the graph. That is,
+ *      `.. - fence{a, b} - ... - fence{b, c} - ..` becomes `.. - ... - fence{a, c} - ..`.
+ *      If the last operator of gain is a fence, the fence is placed at the position of it.
+ *      This keeps the fence even if its upstream and downstream locations become the same.
  *
  *      This only changes the positions of fences, and never decomposes nor reorders the other operators.
  *      This processes fences from downstream, so that each fence can take in the operators
  *      beyond the next fence, which has already been moved.
- *
- *      After moving a fence (or keeping its current position, if it does not move),
- *      if the next operator is another fence, this merges them into the latter one,
- *      whose upstream location becomes the one of the former: `.. - fence{a, b} - fence{b, c} - ..`
- *      becomes `.. - fence{a, c} - ..`. The fences moved together are merged in order from upstream.
- *      This keeps the merged fence even if its upstream and downstream locations are the same,
- *      and never moves it again.
  * @param graph the target graph
  * @param locations the locations of elements
  */

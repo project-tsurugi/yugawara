@@ -147,79 +147,41 @@ void attach_fence(fence_type& fence, relation::expression::output_port_type& out
 }
 
 /**
- * @brief moves the fence and the following fences downstream together to just after the given output port.
- * @details If the owner of the output port is one of the following fences (that is, the last operator of gain),
- *      it stays, and the others are placed just before it.
+ * @brief moves the fence downstream to just after the given output port, taking in the following fences.
+ * @details The fence takes over the downstream location of the last following fence, and the following fences
+ *      are removed from the graph: `fence{a, b} - ... - fence{b, c} - ..` becomes `... - fence{a, c} - ..`.
+ *      If the owner of the output port is the last following fence (that is, the last operator of gain),
+ *      the fence is placed at the position of it.
+ * @param graph the owner of the fences
  * @param fence the fence
- * @param followers the following fences, in order from upstream
+ * @param followers the following fences up to the destination, in order from upstream
  * @param output the destination, which is in the downstream of the fence
- * @return the moved fences, in order from upstream
  */
-[[nodiscard]] std::vector<fence_type*> move_fences(
+void move_fence(
+        relation::graph_type& graph,
         fence_type& fence,
         std::vector<fence_type*> const& followers,
         relation::expression::output_port_type& output) {
-    std::vector<fence_type*> moved {};
-    moved.reserve(followers.size() + 1);
-    moved.emplace_back(std::addressof(fence));
-    for (auto* follower : followers) {
-        if (std::addressof(follower->output()) != std::addressof(output)) {
-            moved.emplace_back(follower);
-        }
-    }
-
-    // NOTE: detaches all of them first, because the destination may be next to them
-    for (auto* f : moved) {
-        detach_fence(*f);
-    }
-    auto&& anchor = output.owner();
+    // NOTE: detaches the fence first, because the destination may be next to it
+    detach_fence(fence);
     auto* position = std::addressof(output);
-    if (fence_type::is_instance(anchor)) {
-        // places the fences just before the last fence, which stays
-        auto upstream = unsafe_downcast<fence_type>(anchor).input().opposite();
-        if (!upstream) {
-            throw_exception(std::domain_error(string_builder {}
-                    << "disconnected fence: "
-                    << anchor
-                    << string_builder::to_string));
+    for (auto* follower : followers) {
+        if (std::addressof(follower->output()) == position) {
+            // the fence will be placed at the position of the last following fence
+            auto upstream = follower->input().opposite();
+            if (!upstream) {
+                throw_exception(std::domain_error(string_builder {}
+                        << "disconnected fence: "
+                        << *follower
+                        << string_builder::to_string));
+            }
+            position = upstream.get();
         }
-        position = upstream.get();
+        fence.downstream(follower->downstream());
+        detach_fence(*follower);
+        graph.erase(*follower);
     }
-    // NOTE: attaches them from downstream, because each one is placed just after the position
-    for (auto iter = moved.rbegin(); iter != moved.rend(); ++iter) {
-        attach_fence(**iter, *position);
-    }
-    return moved;
-}
-
-/**
- * @brief merges the fence into the next fence, if the next operator is a fence.
- * @param graph the owner of the fence
- * @param fence the fence
- * @post if the next operator was a fence, the given fence has been removed from the graph,
- *      so that the caller must not refer it after this call
- */
-void merge_fence(relation::graph_type& graph, fence_type& fence) {
-    /*
-     * .. - upstream - fence{a, b} - next{b, c} - ..
-     * =>
-     * .. - upstream - next{a, c} - ..
-     */
-    auto downstream = fence.output().opposite();
-    if (!downstream || !fence_type::is_instance(downstream->owner())) {
-        return;
-    }
-    auto upstream = fence.input().opposite();
-    if (!upstream) {
-        throw_exception(std::domain_error(string_builder {}
-                << "disconnected fence: "
-                << fence
-                << string_builder::to_string));
-    }
-    auto&& next = unsafe_downcast<fence_type>(downstream->owner());
-    next.upstream(fence.upstream());
-    upstream->reconnect_to(next.input());
-    graph.erase(fence);
+    attach_fence(fence, *position);
 }
 
 } // namespace
@@ -228,7 +190,7 @@ void pull_up_fence(
         relation::graph_type& graph,
         remote::details::element_location const& locations) {
     // NOTE: moves the downstream fences first, so that the upstream fences can follow them.
-    // Moving fences never changes the order of fences, because each fence stops at the next fence.
+    // Each fence only takes in the fences in its downstream, which have already been processed.
     std::vector<fence_type*> fences {};
     relation::sort_from_downstream(
             graph,
@@ -239,14 +201,8 @@ void pull_up_fence(
             });
     for (auto* fence : fences) {
         std::vector<fence_type*> followers {};
-        // NOTE: if there is no destination, the next operator is not a fence, because fences are gain
         if (auto destination = find_destination(*fence, locations, followers)) {
-            // NOTE: merges the moved fences in order from upstream, each into the next fence.
-            // Only the moved fences and the last fence of gain can be adjacent here,
-            // because a fence just after the destination would also be gain.
-            for (auto* moved : move_fences(*fence, followers, *destination)) {
-                merge_fence(graph, *moved);
-            }
+            move_fence(graph, *fence, followers, *destination);
         }
     }
 }
