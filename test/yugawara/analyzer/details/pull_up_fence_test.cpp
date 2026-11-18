@@ -401,12 +401,12 @@ TEST_F(pull_up_fence_test, take_in_adjacent_fence) {
     EXPECT_EQ(rf0.downstream(), 8);
 }
 
-TEST_F(pull_up_fence_test, take_in_fence_same_location) {
+TEST_F(pull_up_fence_test, remove_fence_same_location) {
     /*
      * scan:r0 - fence:rf0 - project:r1 - filter:r2 - fence:rf1 - write:r3
      * =>
-     * scan:r0 - project:r1 - filter:r2 - fence:rf0{7, 7} - write:r3
-     * (the fence remains even if its upstream and downstream locations become the same)
+     * scan:r0 - project:r1 - filter:r2 - write:r3
+     * (rf0 takes in rf1, and then is removed, because its upstream and downstream locations become the same)
      */
     relation::graph_type r;
     auto&& r0 = scan(r);
@@ -430,13 +430,10 @@ TEST_F(pull_up_fence_test, take_in_fence_same_location) {
 
     apply(r);
 
-    ASSERT_EQ(r.size(), 5);
+    ASSERT_EQ(r.size(), 4);
     EXPECT_GT(r0.output(), r1.input());
     EXPECT_GT(r1.output(), r2.input());
-    EXPECT_GT(r2.output(), rf0.input());
-    EXPECT_GT(rf0.output(), r3.input());
-    EXPECT_EQ(rf0.upstream(), 7);
-    EXPECT_EQ(rf0.downstream(), 7);
+    EXPECT_GT(r2.output(), r3.input());
 }
 
 TEST_F(pull_up_fence_test, take_in_project_and_fence) {

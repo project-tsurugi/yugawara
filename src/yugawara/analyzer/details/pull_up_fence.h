@@ -30,7 +30,8 @@ namespace yugawara::analyzer::details {
  *      location of the last one, and they are removed from the graph. That is,
  *      `.. - fence{a, b} - ... - fence{b, c} - ..` becomes `.. - ... - fence{a, c} - ..`.
  *      If the last operator of gain is a fence, the fence is placed at the position of it.
- *      This keeps the fence even if its upstream and downstream locations become the same.
+ *      If the upstream and downstream locations of the fence become the same, it no longer switches the locations,
+ *      so that this removes it from the graph instead of placing it.
  *
  *      This only changes the positions of fences, and never decomposes nor reorders the other operators.
  *      This processes fences from downstream, so that each fence can take in the operators

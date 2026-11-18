@@ -152,10 +152,13 @@ void attach_fence(fence_type& fence, relation::expression::output_port_type& out
  *      are removed from the graph: `fence{a, b} - ... - fence{b, c} - ..` becomes `... - fence{a, c} - ..`.
  *      If the owner of the output port is the last following fence (that is, the last operator of gain),
  *      the fence is placed at the position of it.
+ *      If the upstream and downstream locations of the fence become the same, this removes the fence
+ *      from the graph instead of placing it, because it no longer switches the locations.
  * @param graph the owner of the fences
  * @param fence the fence
  * @param followers the following fences up to the destination, in order from upstream
  * @param output the destination, which is in the downstream of the fence
+ * @post if the fence has been removed, the caller must not refer it after this call
  */
 void move_fence(
         relation::graph_type& graph,
@@ -180,6 +183,11 @@ void move_fence(
         fence.downstream(follower->downstream());
         detach_fence(*follower);
         graph.erase(*follower);
+    }
+    if (fence.upstream() == fence.downstream()) {
+        // NOTE: the fence is already detached
+        graph.erase(fence);
+        return;
     }
     attach_fence(fence, *position);
 }
