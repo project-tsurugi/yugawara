@@ -540,6 +540,10 @@ private:
 
     /**
      * @brief places filters of the terms just after the given output.
+     * @details This places the filter of each term just after the output, in the order of the list,
+     *      so that the filter of the last term becomes the nearest to the output (the most upstream),
+     *      and the filter of the first term becomes the farthest from it (the most downstream):
+     *      `output - filter(terms[n-1]) - ... - filter(terms[0]) - (the original downstream)`.
      * @param output the output port
      * @param terms the terms
      */
