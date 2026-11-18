@@ -8,6 +8,7 @@
 #include "details/remove_unused_stream_variables.h"
 #include "details/remove_redundant_conditions.h"
 #include "details/push_down_filters.h"
+#include "details/pull_up_fence.h"
 #include "details/push_down_limits.h"
 #include "details/flow_volume_info.h"
 #include "details/rewrite_join.h"
@@ -79,10 +80,16 @@ void intermediate_plan_optimizer::operator()(::takatori::relation::graph_type& g
         details::decompose_disjunction_range(graph);
     }
 
-    details::push_down_selections(graph, make_element_location(options_.location_options()));
+    auto locations = make_element_location(options_.location_options());
+    details::push_down_selections(graph, locations);
     // NOTE: push_down_selections() may leave the filters whose condition is just `TRUE`,
     // and the succeeding passes like push_down_limits() treat them as the regular filters
     details::remove_redundant_conditions(graph);
+    if (locations) {
+        // NOTE: this must be after remove_redundant_conditions(),
+        // not to take in the filters whose condition is just `TRUE`, together with the projects before them
+        details::pull_up_fence(graph, *locations);
+    }
     auto capability_options = details::make_path_capability_options(options_.runtime_features());
     details::push_down_limits(graph, options_.max_partial_limit_count(), capability_options);
     // FIXME: auto flow_volume = details::reorder_join(...);
