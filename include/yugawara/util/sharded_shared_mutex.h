@@ -4,7 +4,6 @@
 #include <cstddef>
 #include <memory>
 #include <shared_mutex>
-#include <thread>
 
 namespace yugawara::util {
 
@@ -23,6 +22,8 @@ namespace yugawara::util {
  *      but shared locks must be released on the thread which acquired them.
  * @note Re-entering shared locks on the same thread has the same semantics as std::shared_mutex,
  *      because the thread always uses the same shard.
+ * @attention PoC: this class is a proof-of-concept for measuring the effect of sharding the reader locks
+ *      of storage::configurable_provider. The production code will be re-designed from scratch.
  */
 class sharded_shared_mutex {
 public:
@@ -30,9 +31,18 @@ public:
     static constexpr std::size_t shard_alignment = 128;
 
     /**
+     * @brief the environment variable name to override the default number of shards.
+     * @attention PoC: this environment variable is only for measuring the proof-of-concept code,
+     *      and will be removed (or re-designed) in the production code. Do not depend on it.
+     */
+    static constexpr char const* shard_count_environment_variable = "YUGAWARA_SHARD_COUNT";
+
+    /// @brief the maximum number of shards which can be specified via the environment variable (PoC).
+    static constexpr std::size_t max_shard_count_from_environment = 65'536;
+
+    /**
      * @brief creates a new instance with the default number of shards.
-     * @details The default number of shards is the smallest prime number which is
-     *      greater than or equal to the number of hardware threads.
+     * @see default_shard_count()
      */
     sharded_shared_mutex() :
         sharded_shared_mutex(default_shard_count())
@@ -131,16 +141,25 @@ public:
 
     /**
      * @brief returns the default number of shards.
-     * @return the smallest prime number which is greater than or equal to the number of hardware threads
+     * @details This is the smallest prime number which is greater than or equal to the number of
+     *      hardware threads.
+     *      PoC: If the environment variable YUGAWARA_SHARD_COUNT is a valid number
+     *      (from 1 to max_shard_count_from_environment), this returns it instead.
+     *      The value is computed only once in the process, and is reported to the log.
+     * @return the default number of shards
      */
-    [[nodiscard]] static std::size_t default_shard_count() noexcept {
-        std::size_t n = std::thread::hardware_concurrency();
-        n = n < 2 ? 2 : n;
-        while (!is_prime(n)) {
-            ++n;
-        }
-        return n;
-    }
+    [[nodiscard]] static std::size_t default_shard_count() noexcept;
+
+    /**
+     * @brief computes the default number of shards (PoC).
+     * @param environment_value the value of the environment variable YUGAWARA_SHARD_COUNT, or nullptr if it is not set
+     * @param hardware_threads the number of hardware threads
+     * @return the specified number if environment_value is valid
+     * @return the smallest prime number which is greater than or equal to hardware_threads (at least 2) otherwise
+     */
+    [[nodiscard]] static std::size_t compute_default_shard_count(
+            char const* environment_value,
+            std::size_t hardware_threads) noexcept;
 
 private:
     struct alignas(shard_alignment) shard {
@@ -158,18 +177,6 @@ private:
         static std::atomic<std::size_t> next_slot { 0 };
         thread_local std::size_t const slot = next_slot.fetch_add(1, std::memory_order_relaxed);
         return slot;
-    }
-
-    [[nodiscard]] static constexpr bool is_prime(std::size_t n) noexcept {
-        if (n < 2) {
-            return false;
-        }
-        for (std::size_t i = 2; i * i <= n; ++i) {
-            if (n % i == 0) {
-                return false;
-            }
-        }
-        return true;
     }
 };
 
