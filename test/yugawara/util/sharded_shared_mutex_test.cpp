@@ -1,6 +1,7 @@
 #include <yugawara/util/sharded_shared_mutex.h>
 
 #include <atomic>
+#include <cstdlib>
 #include <mutex>
 #include <shared_mutex>
 #include <string>
@@ -37,6 +38,9 @@ auto on_other_thread(F&& f) {
 } // namespace
 
 TEST_F(sharded_shared_mutex_test, default_shard_count) {
+    if (std::getenv(sharded_shared_mutex::shard_count_environment_variable) != nullptr) { // NOLINT
+        GTEST_SKIP() << "the number of shards is overridden by the environment variable";
+    }
     sharded_shared_mutex m {};
     auto n = m.shard_count();
     EXPECT_GE(n, std::thread::hardware_concurrency());
@@ -44,6 +48,26 @@ TEST_F(sharded_shared_mutex_test, default_shard_count) {
     for (std::size_t i = 2; i * i <= n; ++i) {
         EXPECT_NE(n % i, 0) << i;
     }
+}
+
+TEST_F(sharded_shared_mutex_test, compute_default_shard_count) {
+    // unset or invalid: the smallest prime >= max(2, hardware threads)
+    EXPECT_EQ(sharded_shared_mutex::compute_default_shard_count(nullptr, 16), 17);
+    EXPECT_EQ(sharded_shared_mutex::compute_default_shard_count(nullptr, 17), 17);
+    EXPECT_EQ(sharded_shared_mutex::compute_default_shard_count(nullptr, 240), 241);
+    EXPECT_EQ(sharded_shared_mutex::compute_default_shard_count(nullptr, 0), 2);
+    EXPECT_EQ(sharded_shared_mutex::compute_default_shard_count("", 16), 17);
+    EXPECT_EQ(sharded_shared_mutex::compute_default_shard_count("0", 16), 17);
+    EXPECT_EQ(sharded_shared_mutex::compute_default_shard_count("-1", 16), 17);
+    EXPECT_EQ(sharded_shared_mutex::compute_default_shard_count("8x", 16), 17);
+    EXPECT_EQ(sharded_shared_mutex::compute_default_shard_count("abc", 16), 17);
+    EXPECT_EQ(sharded_shared_mutex::compute_default_shard_count("65537", 16), 17);
+
+    // valid: as is (need not be a prime)
+    EXPECT_EQ(sharded_shared_mutex::compute_default_shard_count("1", 16), 1);
+    EXPECT_EQ(sharded_shared_mutex::compute_default_shard_count("8", 16), 8);
+    EXPECT_EQ(sharded_shared_mutex::compute_default_shard_count("256", 16), 256);
+    EXPECT_EQ(sharded_shared_mutex::compute_default_shard_count("65536", 16), 65536);
 }
 
 TEST_F(sharded_shared_mutex_test, shard_count) {

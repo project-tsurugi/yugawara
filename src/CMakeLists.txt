@@ -158,6 +158,10 @@ add_library(yugawara
     # analyzer misc.
     yugawara/analyzer/details/detect_join_endpoint_style.cpp
 
+    # utilities
+    # PoC: sharded_shared_mutex (only for the environment variable and its log)
+    yugawara/util/sharded_shared_mutex.cpp
+
     # serializer
     yugawara/serializer/object_scanner.cpp
     yugawara/serializer/details/binding_scanner.cpp
