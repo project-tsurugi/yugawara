@@ -5,6 +5,8 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <unordered_map>
 
 #include <takatori/util/clonable.h>
 #include <takatori/util/exception.h>
@@ -180,23 +182,46 @@ public:
         internal_each<&provider::each_index>(indices_, consumer);
     }
 
-    std::shared_ptr<index const> find_primary_index(class table const& table) const override {
+    /**
+     * @brief provides all indices of the given table in this provider or its parents.
+     * @details This only visits the indices of the given table, instead of all indices in this provider.
+     * @param table the target table
+     * @param consumer the destination consumer, which accepts pairs of element ID and element
+     * @note The hidden entries in parent provider will not occur in the consumer.
+     */
+    void each_table_index(class table const& table, index_consumer_type const& consumer) const override {
         reader_lock_type lock { mutex_ };
-
-        // NOTE: we assume almost primary index name equals to its table name
-        if (auto it = indices_.find(table.simple_name()); it != indices_.end()) {
-            auto&& idx = *it->second;
-            if (std::addressof(idx.table()) == std::addressof(table)
-                    && idx.features().contains(index_feature::primary)) {
-                return it->second;
+        if (auto iter = table_indices_.find(std::addressof(table)); iter != table_indices_.end()) {
+            for (auto&& entry : iter->second.indices) {
+                consumer(entry.first, entry.second);
             }
         }
-        // If there is no such the index, then we find for all indices
-        for (auto&& entry : indices_) {
-            auto&& idx = *entry.second;
-            if (std::addressof(idx.table()) == std::addressof(table)
-                    && idx.features().contains(index_feature::primary)) {
-                return entry.second;
+        if (parent_) {
+            parent_->each_table_index(table, [&](std::string_view id, std::shared_ptr<index const> const& element) {
+                // filter elements defined in this provider
+                if (auto iter = indices_.find(id); iter == indices_.end()) {
+                    consumer(id, element);
+                }
+            });
+        }
+    }
+
+    std::shared_ptr<index const> find_primary_index(class table const& table) const override {
+        reader_lock_type lock { mutex_ };
+        if (auto iter = table_indices_.find(std::addressof(table)); iter != table_indices_.end()) {
+            auto&& indices = iter->second.indices;
+
+            // NOTE: we assume almost primary index name equals to its table name
+            if (auto it = indices.find(table.simple_name()); it != indices.end()) {
+                if (it->second->features().contains(index_feature::primary)) {
+                    return it->second;
+                }
+            }
+            // If there is no such the index, then we find for all indices of the table
+            for (auto&& entry : indices) {
+                if (entry.second->features().contains(index_feature::primary)) {
+                    return entry.second;
+                }
             }
         }
         if (parent_) {
@@ -212,6 +237,8 @@ public:
      * @return this
      * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
      * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
+     * @attention The table of the index must not be changed while the index is registered in this provider.
+     *      Otherwise, each_table_index() and find_primary_index() may return wrong results.
      */
     std::shared_ptr<index> add_index(std::shared_ptr<index> element, bool overwrite = false) {
         internal_add<&provider::find_index>(indices_, element, overwrite);
@@ -340,14 +367,68 @@ private:
             std::shared_ptr<sequence const>,
             std::less<>>;
 
+    /**
+     * @brief the indices of a table.
+     */
+    struct table_index_list {
+        /// @brief the owner table, which keeps its address unique while it is listed.
+        std::shared_ptr<class table const> table;
+        /// @brief the indices of the table.
+        index_map_type indices;
+    };
+
+    using table_index_map_type = std::unordered_map<class table const*, table_index_list>;
+
     ::takatori::util::maybe_shared_ptr<provider const> parent_;
     relation_map_type relations_;
     index_map_type indices_;
     sequence_map_type sequences_;
+
+    // the partition of indices_ by their tables (on the address of table objects)
+    table_index_map_type table_indices_;
+
     mutable mutex_type mutex_ {};
 
     template<class Container>
     using element_type = typename Container::value_type::second_type::element_type;
+
+    template<class E>
+    static constexpr bool is_index_v = std::is_same_v<index, std::remove_const_t<E>>;
+
+    // must be called in the writer lock
+    void register_table_index(std::string_view id, std::shared_ptr<index const> const& element) {
+        auto&& entry = table_indices_.try_emplace(std::addressof(element->table())).first->second;
+        if (!entry.table) {
+            entry.table = element->shared_table();
+        }
+        entry.indices.insert_or_assign(key_type { id }, element);
+    }
+
+    // must be called in the writer lock
+    void unregister_table_index(std::string_view id, std::shared_ptr<index const> const& element) {
+        auto remove_from = [&](typename table_index_map_type::iterator iter) {
+            auto&& indices = iter->second.indices;
+            if (auto it = indices.find(id); it != indices.end() && it->second == element) {
+                indices.erase(it);
+                if (indices.empty()) {
+                    table_indices_.erase(iter);
+                }
+                return true;
+            }
+            return false;
+        };
+        if (auto iter = table_indices_.find(std::addressof(element->table())); iter != table_indices_.end()) {
+            if (remove_from(iter)) {
+                return;
+            }
+        }
+        // the table of the index may have been changed after registered
+        for (auto iter = table_indices_.begin(); iter != table_indices_.end(); ++iter) {
+            if (remove_from(iter)) {
+                return;
+            }
+        }
+    }
 
     template<auto Find, class Container>
     [[nodiscard]] std::shared_ptr<element_type<Container> const> internal_find(
@@ -401,10 +482,18 @@ private:
 
         writer_lock_type lock { mutex_ };
         if (overwrite) {
+            if constexpr (is_index_v<element_type>) { // NOLINT
+                if (auto iter = container.find(id); iter != container.end()) {
+                    unregister_table_index(id, iter->second);
+                }
+            }
             auto [iter, success] = container.insert_or_assign(std::move(key), std::move(element));
             (void) success;
             if constexpr (is_bless_target_v<element_type>) { // NOLINT
                 bless(*iter->second);
+            }
+            if constexpr (is_index_v<element_type>) { // NOLINT
+                register_table_index(iter->first, iter->second);
             }
             return;
         }
@@ -414,6 +503,9 @@ private:
         if (auto [iter, success] = container.try_emplace(std::move(key), std::move(element)); success) {
             if constexpr (is_bless_target_v<element_type>) { // NOLINT
                 bless(*iter->second);
+            }
+            if constexpr (is_index_v<element_type>) { // NOLINT
+                register_table_index(iter->first, iter->second);
             }
             return;
         }
@@ -429,6 +521,9 @@ private:
             using element_type = element_type<Container>;
             if constexpr (is_bless_target_v<element_type>) { // NOLINT
                 unbless(*iter->second);
+            }
+            if constexpr (is_index_v<element_type>) { // NOLINT
+                unregister_table_index(id, iter->second);
             }
             // NOTE: container.erase(id) does not work
             container.erase(iter);

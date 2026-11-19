@@ -2,6 +2,8 @@
 
 #include <memory>
 #include <mutex>
+#include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -353,6 +355,117 @@ TEST_F(storage_configurable_provider_test, each_index_parent) {
     EXPECT_NE(std::find(saw.begin(), saw.end(), e1), saw.end());
     EXPECT_NE(std::find(saw.begin(), saw.end(), e2), saw.end());
     EXPECT_NE(std::find(saw.begin(), saw.end(), e3), saw.end());
+}
+
+namespace {
+
+std::vector<std::shared_ptr<index const>> collect_table_indices(provider const& p, table const& t) {
+    std::vector<std::shared_ptr<index const>> results {};
+    p.each_table_index(t, [&](std::string_view id, std::shared_ptr<index const> const& element) {
+        if (id != element->simple_name()) {
+            throw std::runtime_error("fail");
+        }
+        results.emplace_back(element);
+    });
+    return results;
+}
+
+} // namespace
+
+TEST_F(storage_configurable_provider_test, each_table_index) {
+    auto other = takatori::util::clone_shared(table { "T2", { { "C1", t::int4() } } });
+    auto p1 = std::make_shared<configurable_provider>();
+    auto e1 = p1->add_index({ origin, "I1", { c1 } });
+    auto e2 = p1->add_index({ other, "I2", { other->columns()[0] } });
+    auto e3 = p1->add_index({ origin, "I3", { c1 } });
+
+    using v = std::vector<std::shared_ptr<index const>>;
+    EXPECT_EQ(collect_table_indices(*p1, *origin), (v { e1, e3 }));
+    EXPECT_EQ(collect_table_indices(*p1, *other), (v { e2 }));
+
+    table missing { "MISSING", { { "C1", t::int4() } } };
+    EXPECT_EQ(collect_table_indices(*p1, missing), (v {}));
+}
+
+TEST_F(storage_configurable_provider_test, each_table_index_parent) {
+    auto other = takatori::util::clone_shared(table { "T2", { { "C1", t::int4() } } });
+    auto p1 = std::make_shared<configurable_provider>();
+    auto e1 = p1->add_index({ origin, "I1", { c1 } });
+    p1->add_index({ origin, "I2", { c1 } });
+    auto e4 = p1->add_index({ origin, "I4", { c1 } });
+
+    auto p2 = std::make_shared<configurable_provider>(p1);
+    // hides parent's I2, with an index of the other table
+    auto e2 = p2->add_index({ other, "I2", { other->columns()[0] } }, true);
+    auto e3 = p2->add_index({ origin, "I3", { c1 } });
+
+    using v = std::vector<std::shared_ptr<index const>>;
+    // child first, and then the parent
+    EXPECT_EQ(collect_table_indices(*p2, *origin), (v { e3, e1, e4 }));
+    EXPECT_EQ(collect_table_indices(*p2, *other), (v { e2 }));
+}
+
+TEST_F(storage_configurable_provider_test, each_table_index_overwrite) {
+    auto other = takatori::util::clone_shared(table { "T2", { { "C1", t::int4() } } });
+    auto p1 = std::make_shared<configurable_provider>();
+    p1->add_index({ origin, "I1", { c1 } });
+    auto e2 = p1->add_index({ other, "I1", { other->columns()[0] } }, true);
+
+    using v = std::vector<std::shared_ptr<index const>>;
+    EXPECT_EQ(collect_table_indices(*p1, *origin), (v {}));
+    EXPECT_EQ(collect_table_indices(*p1, *other), (v { e2 }));
+    EXPECT_FALSE(p1->find_primary_index(*origin));
+}
+
+TEST_F(storage_configurable_provider_test, each_table_index_remove) {
+    auto p1 = std::make_shared<configurable_provider>();
+    auto e1 = p1->add_index({ origin, "I1", { c1 }, {}, { index_feature::primary } });
+    auto e2 = p1->add_index({ origin, "I2", { c1 } });
+
+    EXPECT_TRUE(p1->remove_index("I1"));
+
+    using v = std::vector<std::shared_ptr<index const>>;
+    EXPECT_EQ(collect_table_indices(*p1, *origin), (v { e2 }));
+    EXPECT_FALSE(p1->find_primary_index(*origin));
+
+    EXPECT_TRUE(p1->remove_index("I2"));
+    EXPECT_EQ(collect_table_indices(*p1, *origin), (v {}));
+
+    // re-add after the table has no indices
+    auto e3 = p1->add_index({ origin, "I3", { c1 }, {}, { index_feature::primary } });
+    EXPECT_EQ(collect_table_indices(*p1, *origin), (v { e3 }));
+    EXPECT_EQ(p1->find_primary_index(*origin), e3);
+}
+
+TEST_F(storage_configurable_provider_test, each_table_index_same_as_full_scan) {
+    std::vector<std::shared_ptr<table const>> tables {};
+    for (std::size_t i = 0; i < 5; ++i) {
+        tables.emplace_back(takatori::util::clone_shared(table {
+                "T" + std::to_string(i),
+                { { "C1", t::int4() } },
+        }));
+    }
+    auto p1 = std::make_shared<configurable_provider>();
+    for (std::size_t i = 0; i < 20; ++i) {
+        auto&& tbl = tables[(i * 3) % tables.size()];
+        p1->add_index({ tbl, "I" + std::to_string(i), { tbl->columns()[0] } });
+    }
+    auto p2 = std::make_shared<configurable_provider>(p1);
+    for (std::size_t i = 10; i < 25; ++i) {
+        auto&& tbl = tables[(i * 7) % tables.size()];
+        p2->add_index({ tbl, "I" + std::to_string(i), { tbl->columns()[0] } }, true);
+    }
+    p2->remove_index("I12");
+    p2->remove_index("I22");
+
+    for (auto&& tbl : tables) {
+        std::vector<std::shared_ptr<index const>> expected {};
+        // the default implementation, which scans all indices
+        p2->provider::each_table_index(*tbl, [&](std::string_view, std::shared_ptr<index const> const& element) {
+            expected.emplace_back(element);
+        });
+        EXPECT_EQ(collect_table_indices(*p2, *tbl), expected) << tbl->simple_name();
+    }
 }
 
 TEST_F(storage_configurable_provider_test, find_primary_index) {
