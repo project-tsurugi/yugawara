@@ -1,4 +1,4 @@
-#include <yugawara/remote/details/insert_fences.h>
+#include <yugawara/analyzer/details/insert_fences.h>
 
 #include <gtest/gtest.h>
 
@@ -19,7 +19,7 @@
 #include <yugawara/testing/utils.h>
 #include <yugawara/testing/mock_symbol_location_query.h>
 
-namespace yugawara::remote::details {
+namespace yugawara::analyzer::details {
 
 // import test utils
 using namespace ::yugawara::testing;
@@ -246,7 +246,7 @@ TEST_F(insert_fences_test, nowhere) {
     auto diagnostics = insert_fences(graph, options);
 
     ASSERT_EQ(diagnostics.size(), 1);
-    EXPECT_EQ(diagnostics[0].code(), compiler_code::empty_operation_location);
+    EXPECT_EQ(diagnostics[0].code(), intermediate_plan_normalizer_code::empty_operation_location);
 
     ASSERT_EQ(graph.size(), 2);
     EXPECT_EQ(count_fences(graph), 0);
@@ -272,7 +272,7 @@ TEST_F(insert_fences_test, nowhere_join) {
     auto diagnostics = insert_fences(graph, options);
 
     ASSERT_EQ(diagnostics.size(), 1);
-    EXPECT_EQ(diagnostics[0].code(), compiler_code::empty_operation_location);
+    EXPECT_EQ(diagnostics[0].code(), intermediate_plan_normalizer_code::empty_operation_location);
 
     ASSERT_EQ(graph.size(), 4);
     EXPECT_EQ(count_fences(graph), 0);
@@ -281,4 +281,4 @@ TEST_F(insert_fences_test, nowhere_join) {
     EXPECT_GT(join.output(), emit.input());
 }
 
-} // namespace yugawara::remote::details
+} // namespace yugawara::analyzer::details

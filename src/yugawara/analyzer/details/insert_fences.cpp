@@ -4,16 +4,17 @@
 
 #include <yugawara/extension/relation/fence.h>
 
-#include "decide_operator_locations.h"
+#include <yugawara/remote/details/decide_operator_locations.h>
 
-namespace yugawara::remote::details {
+namespace yugawara::analyzer::details {
 
 namespace trelation = ::takatori::relation;
 
 using ::takatori::util::string_builder;
 
 using location_id_type = remote::location_info::location_id_type;
-using diagnostic_type = diagnostic<compiler_code>;
+using diagnostic_type = diagnostic<intermediate_plan_normalizer_code>;
+using remote::details::operator_location_map;
 
 namespace {
 
@@ -31,7 +32,7 @@ struct boundary {
     for (auto&& expression : graph) {
         if (!locations.at(std::addressof(expression))) {
             results.emplace_back(
-                    compiler_code::empty_operation_location,
+                    intermediate_plan_normalizer_code::empty_operation_location,
                     string_builder {}
                             << "there are no locations where the operator can be executed: "
                             << expression.kind()
@@ -47,7 +48,7 @@ struct boundary {
 std::vector<diagnostic_type> insert_fences(
         trelation::graph_type& graph,
         remote::location_options const& options) {
-    auto locations = decide_operator_locations(graph, options);
+    auto locations = remote::details::decide_operator_locations(graph, options);
     if (auto diagnostics = collect_undecided(graph, locations); !diagnostics.empty()) {
         // NOTE: inserts no fences, so that the caller can compile the plan as if the locations were ignored
         return diagnostics;
@@ -90,4 +91,4 @@ std::vector<diagnostic_type> insert_fences(
     return {};
 }
 
-} // namespace yugawara::remote::details
+} // namespace yugawara::analyzer::details

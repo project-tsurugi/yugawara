@@ -14,7 +14,6 @@ add_library(yugawara
     yugawara/remote/details/element_location.cpp
     yugawara/remote/details/compute_operation_locations.cpp
     yugawara/remote/details/decide_operator_locations.cpp
-    yugawara/remote/details/insert_fences.cpp
 
     # storage information
     yugawara/storage/relation.cpp
@@ -114,6 +113,7 @@ add_library(yugawara
     # normalizer
     yugawara/analyzer/intermediate_plan_normalizer.cpp
     yugawara/analyzer/details/expand_subquery.cpp
+    yugawara/analyzer/details/insert_fences.cpp
     yugawara/analyzer/details/rewrite_correlated_subquery.cpp
 
     # optimizer
