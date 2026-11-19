@@ -17,6 +17,9 @@ enum class intermediate_plan_normalizer_code {
 
     /// @brief scalar subquery is not supported here.
     unsupported_scalar_subquery_placement,
+
+    /// @brief there are operators which cannot be executed in any locations.
+    empty_operation_location,
 };
 
 /**
@@ -31,6 +34,7 @@ constexpr std::string_view to_string_view(intermediate_plan_normalizer_code valu
         case kind::unknown: return "unknown"sv;
         case kind::unsupported_feature: return "unsupported_feature"sv;
         case kind::unsupported_scalar_subquery_placement: return "unsupported_scalar_subquery_placement"sv;
+        case kind::empty_operation_location: return "empty_operation_location"sv;
     }
     std::abort();
 }

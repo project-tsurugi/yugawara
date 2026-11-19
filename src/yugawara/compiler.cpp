@@ -14,7 +14,6 @@
 #include <yugawara/storage/resolve_prototype.h>
 
 #include <yugawara/remote/details/compute_operation_locations.h>
-#include <yugawara/remote/details/insert_fences.h>
 
 #include "details/collect_restricted_features.h"
 
@@ -72,6 +71,7 @@ std::vector<diagnostic_type> build_error(analyzer::expression_analyzer const& an
         case from::unknown: return to::unknown;
         case from::unsupported_feature: return to::unsupported_feature;
         case from::unsupported_scalar_subquery_placement: return to::unsupported_feature;
+        case from::empty_operation_location: return to::empty_operation_location;
     }
     std::abort();
 }
@@ -125,15 +125,6 @@ public:
 
         if (auto diagnostics = do_normalize(plan); !diagnostics.empty()) {
             return result_type { std::move(diagnostics) };
-        }
-        if (options_.location_options().symbol_location_query()) {
-            // NOTE: fences must be placed before optimization, to prevent moving operators across the locations
-            // TODO: reconsider where to insert fences (e.g., intermediate_plan_normalizer or intermediate_plan_optimizer)
-            auto diagnostics = remote::details::insert_fences(plan, options_.location_options());
-            if (!diagnostics.empty() && !options_.location_options().allow_empty_operation_location()) {
-                return result_type { std::move(diagnostics) };
-            }
-            // NOTE: if empty locations are allowed, continues without fences, as if the locations were ignored
         }
         do_optimize(plan);
         auto steps = do_plan(std::move(plan));
@@ -204,6 +195,7 @@ private:
 
     [[nodiscard]] std::vector<diagnostic_type> do_normalize(relation::graph_type& graph) {
         analyzer::intermediate_plan_normalizer sub {};
+        sub.location_options() = options_.location_options();
         if (auto diagnostics = sub(graph); !diagnostics.empty()) {
             return build_error(diagnostics);
         }

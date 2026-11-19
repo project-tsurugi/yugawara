@@ -11,6 +11,7 @@
 #include <takatori/relation/project.h>
 #include <takatori/relation/intermediate/join.h>
 
+#include <takatori/util/downcast.h>
 #include <takatori/util/vector_print_support.h>
 
 #include <yugawara/binding/factory.h>
@@ -18,8 +19,10 @@
 
 #include <yugawara/extension/scalar/subquery.h>
 #include <yugawara/extension/relation/subquery.h>
+#include <yugawara/extension/relation/fence.h>
 
 #include <yugawara/testing/utils.h>
+#include <yugawara/testing/mock_symbol_location_query.h>
 
 namespace yugawara::analyzer {
 
@@ -61,6 +64,25 @@ protected:
 
     std::shared_ptr<storage::index> i0 = storages->add_index({ t0, "I0", });
     std::shared_ptr<storage::index> i1 = storages->add_index({ t1, "I1", });
+
+    // T0 is in the local location (0), and T1 is in a remote location (7)
+    mock_symbol_location_query query {};
+
+    void SetUp() override {
+        query.all = { 0, 7 };
+        query.tables.emplace(t0.get(), remote::location_info::location_id_set_type { 0 });
+        query.tables.emplace(t1.get(), remote::location_info::location_id_set_type { 7 });
+    }
+
+    static std::size_t count_fences(relation::graph_type const& graph) {
+        std::size_t result = 0;
+        for (auto&& expr : graph) {
+            if (extension::relation::fence::is_instance(expr)) {
+                ++result;
+            }
+        }
+        return result;
+    }
 };
 
 TEST_F(intermediate_plan_normalizer_test, relation_subquery) {
@@ -180,6 +202,92 @@ TEST_F(intermediate_plan_normalizer_test, scalar_subquery) {
     ASSERT_EQ(re.columns().size(), 2);
     EXPECT_EQ(re.columns()[0].source(), c1);
     EXPECT_EQ(re.columns()[1].source(), c2);
+}
+
+TEST_F(intermediate_plan_normalizer_test, location_fence) {
+    /*
+     * scan(T1) - emit
+     * =>
+     * scan(T1) - fence{7, 0} - emit
+     */
+    relation::graph_type graph;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& scan = graph.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), c0 },
+            },
+    });
+    auto&& emit = graph.insert(relation::emit { c0 });
+    scan.output() >> emit.input();
+
+    intermediate_plan_normalizer normalizer {};
+    normalizer.location_options() = location_options_of(query);
+    auto diagnostics = normalizer(graph);
+    ASSERT_TRUE(diagnostics.empty()) << print_support(diagnostics);
+
+    ASSERT_EQ(graph.size(), 3);
+    auto opposite = scan.output().opposite();
+    ASSERT_TRUE(opposite);
+    ASSERT_TRUE(extension::relation::fence::is_instance(opposite->owner()));
+    auto&& fence = ::takatori::util::unsafe_downcast<extension::relation::fence>(opposite->owner());
+    EXPECT_EQ(fence.upstream(), 7);
+    EXPECT_EQ(fence.downstream(), 0);
+    EXPECT_GT(fence.output(), emit.input());
+}
+
+TEST_F(intermediate_plan_normalizer_test, location_empty) {
+    /*
+     * scan(T1{}) - emit
+     * => (error)
+     */
+    query.tables[t1.get()] = {};
+
+    relation::graph_type graph;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& scan = graph.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), c0 },
+            },
+    });
+    auto&& emit = graph.insert(relation::emit { c0 });
+    scan.output() >> emit.input();
+
+    intermediate_plan_normalizer normalizer {};
+    normalizer.location_options() = location_options_of(query);
+    auto diagnostics = normalizer(graph);
+    ASSERT_EQ(diagnostics.size(), 1) << print_support(diagnostics);
+    EXPECT_EQ(diagnostics[0].code(), intermediate_plan_normalizer_code::empty_operation_location);
+}
+
+TEST_F(intermediate_plan_normalizer_test, location_empty_allowed) {
+    /*
+     * scan(T1{}) - emit
+     * => (no changes)
+     */
+    query.tables[t1.get()] = {};
+
+    relation::graph_type graph;
+    auto c0 = bindings.stream_variable("c0");
+    auto&& scan = graph.insert(relation::scan {
+            bindings(*i1),
+            {
+                    { bindings(t1c0), c0 },
+            },
+    });
+    auto&& emit = graph.insert(relation::emit { c0 });
+    scan.output() >> emit.input();
+
+    intermediate_plan_normalizer normalizer {};
+    normalizer.location_options() = location_options_of(query);
+    normalizer.location_options().allow_empty_operation_location() = true;
+    auto diagnostics = normalizer(graph);
+    ASSERT_TRUE(diagnostics.empty()) << print_support(diagnostics);
+
+    ASSERT_EQ(graph.size(), 2);
+    EXPECT_EQ(count_fences(graph), 0);
+    EXPECT_GT(scan.output(), emit.input());
 }
 
 } // namespace yugawara::analyzer
