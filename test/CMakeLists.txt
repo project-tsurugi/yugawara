@@ -156,6 +156,7 @@ add_test_executable(yugawara/serializer/object_scanner_test.cpp)
 
 # utilities
 add_test_executable(yugawara/util/either_test.cpp)
+add_test_executable(yugawara/util/maybe_shared_lock_test.cpp)
 add_test_executable(yugawara/util/move_only_test.cpp)
 add_test_executable(yugawara/util/object_cache_test.cpp)
 add_test_executable(yugawara/util/object_repository_test.cpp)
