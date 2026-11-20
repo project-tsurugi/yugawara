@@ -26,6 +26,7 @@ add_library(yugawara
     yugawara/storage/basic_prototype_processor.cpp
     yugawara/storage/details/index_key_element.cpp
     yugawara/storage/details/search_key_element.cpp
+    yugawara/storage/details/configurable_provider_base.cpp
 
     yugawara/storage/resolve_prototype.cpp
 
