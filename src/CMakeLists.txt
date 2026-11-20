@@ -168,6 +168,9 @@ add_library(yugawara
     yugawara/serializer/details/extension_scalar_property_scanner.cpp
     yugawara/serializer/details/extension_relation_property_scanner.cpp
     yugawara/serializer/utils.cpp
+
+    # utilities
+    yugawara/util/sharded_shared_mutex.cpp
 )
 
 target_include_directories(yugawara
