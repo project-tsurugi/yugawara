@@ -2,7 +2,9 @@
 
 #include <memory>
 #include <mutex>
+#include <cstddef>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
 #include <takatori/util/clonable.h>
@@ -17,7 +19,7 @@ namespace yugawara::storage {
 
 /**
  * @brief an implementation of provider that can configurable its contents.
- * @tparam Mutex the mutex type, must satisfy *DefaultConstructible* and *BasicLockable*.
+ * @tparam Mutex the mutex type, must satisfy *BasicLockable*.
  * @note This class works as thread-safe only if the mutex works right
  */
 template<class Mutex>
@@ -34,11 +36,22 @@ public:
 
     /**
      * @brief creates a new object.
+     * @details This is available only if the mutex is constructible from the given arguments.
+     *      Without the arguments, the mutex must be default constructible.
+     * @tparam MutexArgs the argument types of the mutex constructor
      * @param parent the parent provider (nullable)
+     * @param args the arguments of the mutex constructor
+     * @throws any exceptions thrown by the mutex constructor
      */
+    template<
+            class... MutexArgs,
+            std::enable_if_t<std::is_constructible_v<mutex_type, MutexArgs...>, std::nullptr_t> = nullptr>
     explicit basic_configurable_provider(
-            ::takatori::util::maybe_shared_ptr<provider const> parent = {}) noexcept :
-        configurable_provider_base { std::move(parent) }
+            ::takatori::util::maybe_shared_ptr<provider const> parent = {},
+            MutexArgs&&... args) noexcept(std::is_nothrow_constructible_v<mutex_type, MutexArgs...>) :
+        configurable_provider_base { std::move(parent) },
+        // NOTE: use parentheses as well as std::is_constructible, to accept the arguments with narrowing conversions
+        mutex_(std::forward<MutexArgs>(args)...)
     {}
 
     std::shared_ptr<relation const> find_relation(std::string_view id) const override {
@@ -321,7 +334,7 @@ public:
     }
 
 private:
-    mutable mutex_type mutex_ {};
+    mutable mutex_type mutex_;
 };
 
 } // namespace yugawara::storage

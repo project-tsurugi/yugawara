@@ -5,11 +5,14 @@
 #include <set>
 #include <stdexcept>
 #include <string_view>
+#include <type_traits>
 
 #include <gtest/gtest.h>
 
 #include <takatori/type/primitive.h>
 #include <takatori/type/character.h>
+
+#include <yugawara/util/sharded_shared_mutex.h>
 
 namespace yugawara::storage {
 
@@ -577,6 +580,23 @@ TEST_F(storage_configurable_provider_test, find_primary_index_in_parent_with_exc
     exclusive_provider child { parent };
 
     EXPECT_EQ(child.find_primary_index(*origin), primary);
+}
+
+TEST_F(storage_configurable_provider_test, mutex_arguments) {
+    using sharded_provider = basic_configurable_provider<util::sharded_shared_mutex>;
+    auto parent = std::make_shared<sharded_provider>(nullptr, 4);
+    auto primary = parent->add_index({ origin, "PRIMARY_PARENT", { c1 }, {}, { index_feature::primary } });
+    sharded_provider child { parent, 2 };
+
+    EXPECT_EQ(child.find_primary_index(*origin), primary);
+    EXPECT_THROW((sharded_provider { {}, 0 }), std::invalid_argument);
+}
+
+TEST_F(storage_configurable_provider_test, mutex_arguments_unavailable) {
+    using exclusive_provider = basic_configurable_provider<std::mutex>;
+    static_assert(std::is_constructible_v<exclusive_provider>);
+    static_assert(std::is_constructible_v<exclusive_provider, std::shared_ptr<configurable_provider>>);
+    static_assert(!std::is_constructible_v<exclusive_provider, std::nullptr_t, std::size_t>);
 }
 
 TEST_F(storage_configurable_provider_test, add_index_conflict) {
