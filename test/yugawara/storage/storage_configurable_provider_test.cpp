@@ -2,6 +2,9 @@
 
 #include <memory>
 #include <mutex>
+#include <set>
+#include <stdexcept>
+#include <string_view>
 
 #include <gtest/gtest.h>
 
@@ -26,6 +29,27 @@ public:
     column const& c1 = origin->columns()[0];
     column const& c2 = origin->columns()[1];
     column const& c3 = origin->columns()[2];
+
+    std::shared_ptr<table const> other = takatori::util::clone_shared(table {
+            "T2",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+
+    using index_set = std::set<std::shared_ptr<index const>>;
+
+    // the order of the indices is not a part of the contract
+    static index_set table_indices(provider const& p, table const& tbl) {
+        index_set results {};
+        p.each_table_index(tbl, [&](std::string_view id, std::shared_ptr<index const> const& element) {
+            if (id != element->simple_name()) {
+                throw std::runtime_error("inconsistent ID");
+            }
+            results.emplace(element);
+        });
+        return results;
+    }
 };
 
 TEST_F(storage_configurable_provider_test, find_relation) {
@@ -675,6 +699,90 @@ TEST_F(storage_configurable_provider_test, remove_sequence) {
     EXPECT_NE(std::find(saw.begin(), saw.end(), s1), saw.end());
     EXPECT_EQ(std::find(saw.begin(), saw.end(), s2), saw.end());
     EXPECT_NE(std::find(saw.begin(), saw.end(), s3), saw.end());
+}
+
+TEST_F(storage_configurable_provider_test, each_table_index) {
+    configurable_provider p1 {};
+    auto i1 = p1.add_index({ origin, "I1", { c1 } });
+    auto i2 = p1.add_index({ origin, "I2", { c1 } });
+    auto i3 = p1.add_index({ other, "I3", { other->columns()[0] } });
+
+    EXPECT_EQ(table_indices(p1, *origin), (index_set { i1, i2 }));
+    EXPECT_EQ(table_indices(p1, *other), (index_set { i3 }));
+}
+
+TEST_F(storage_configurable_provider_test, each_table_index_absent) {
+    configurable_provider p1 {};
+    p1.add_index({ origin, "I1", { c1 } });
+
+    EXPECT_EQ(table_indices(p1, *other), (index_set {}));
+}
+
+TEST_F(storage_configurable_provider_test, each_table_index_parent) {
+    auto parent = std::make_shared<configurable_provider>();
+    auto i1 = parent->add_index({ origin, "I1", { c1 } });
+    configurable_provider child { parent };
+    auto i2 = child.add_index({ origin, "I2", { c1 } });
+
+    EXPECT_EQ(table_indices(child, *origin), (index_set { i1, i2 }));
+    EXPECT_EQ(table_indices(*parent, *origin), (index_set { i1 }));
+}
+
+TEST_F(storage_configurable_provider_test, each_table_index_hide_in_parent) {
+    auto parent = std::make_shared<configurable_provider>();
+    auto i1 = parent->add_index({ origin, "I1", { c1 } });
+    auto i2 = parent->add_index({ origin, "I2", { c1 } });
+    configurable_provider child { parent };
+    // hides the index in parent, even if it is of another table
+    auto i1c = child.add_index(index { other, "I1", { other->columns()[0] } }, true);
+
+    EXPECT_EQ(table_indices(child, *origin), (index_set { i2 }));
+    EXPECT_EQ(table_indices(child, *other), (index_set { i1c }));
+    EXPECT_EQ(table_indices(*parent, *origin), (index_set { i1, i2 }));
+}
+
+TEST_F(storage_configurable_provider_test, each_table_index_overwrite) {
+    configurable_provider p1 {};
+    p1.add_index({ origin, "I1", { c1 } });
+    auto i2 = p1.add_index({ origin, "I2", { c1 } });
+    auto i1o = p1.add_index(index { other, "I1", { other->columns()[0] } }, true);
+
+    EXPECT_EQ(table_indices(p1, *origin), (index_set { i2 }));
+    EXPECT_EQ(table_indices(p1, *other), (index_set { i1o }));
+}
+
+TEST_F(storage_configurable_provider_test, each_table_index_remove) {
+    configurable_provider p1 {};
+    p1.add_index({ origin, "I1", { c1 } });
+    auto i2 = p1.add_index({ origin, "I2", { c1 } });
+    ASSERT_TRUE(p1.remove_index("I1"));
+
+    EXPECT_EQ(table_indices(p1, *origin), (index_set { i2 }));
+    ASSERT_TRUE(p1.remove_index("I2"));
+    EXPECT_EQ(table_indices(p1, *origin), (index_set {}));
+}
+
+TEST_F(storage_configurable_provider_test, find_primary_index_remove) {
+    auto parent = std::make_shared<configurable_provider>();
+    auto primary = parent->add_index({ origin, "PRIMARY_PARENT", { c1 }, {}, { index_feature::primary } });
+    configurable_provider child { parent };
+    auto local = child.add_index({ origin, "PRIMARY_CHILD", { c1 }, {}, { index_feature::primary } });
+    ASSERT_EQ(child.find_primary_index(*origin), local);
+
+    ASSERT_TRUE(child.remove_index("PRIMARY_CHILD"));
+    EXPECT_EQ(child.find_primary_index(*origin), primary);
+
+    ASSERT_TRUE(parent->remove_index("PRIMARY_PARENT"));
+    EXPECT_FALSE(child.find_primary_index(*origin));
+}
+
+TEST_F(storage_configurable_provider_test, find_primary_index_overwrite) {
+    configurable_provider p1 {};
+    p1.add_index({ origin, "PRIMARY", { c1 }, {}, { index_feature::primary } });
+    auto replaced = p1.add_index(index { other, "PRIMARY", { other->columns()[0] }, {}, { index_feature::primary } }, true);
+
+    EXPECT_FALSE(p1.find_primary_index(*origin));
+    EXPECT_EQ(p1.find_primary_index(*other), replaced);
 }
 
 // the following tests use deprecated API
