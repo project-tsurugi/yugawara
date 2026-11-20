@@ -3,6 +3,7 @@
 #include <memory>
 #include <mutex>
 #include <set>
+#include <shared_mutex>
 #include <stdexcept>
 #include <string_view>
 #include <type_traits>
@@ -580,6 +581,11 @@ TEST_F(storage_configurable_provider_test, find_primary_index_in_parent_with_exc
     exclusive_provider child { parent };
 
     EXPECT_EQ(child.find_primary_index(*origin), primary);
+}
+
+TEST_F(storage_configurable_provider_test, mutex_types) {
+    static_assert(std::is_same_v<configurable_provider::mutex_type, util::sharded_shared_mutex>);
+    static_assert(std::is_same_v<single_mutex_configurable_provider::mutex_type, std::shared_mutex>);
 }
 
 TEST_F(storage_configurable_provider_test, mutex_arguments) {

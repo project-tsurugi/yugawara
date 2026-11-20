@@ -21,6 +21,9 @@ namespace yugawara::storage {
  * @brief an implementation of provider that can configurable its contents.
  * @tparam Mutex the mutex type, must satisfy *BasicLockable*.
  * @note This class works as thread-safe only if the mutex works right
+ * @attention The consumers of each_*() are called while holding the locks of this provider and its parents.
+ *      Depending on the mutex type, waiting for other threads in the consumers may cause deadlocks.
+ *      Therefore, the consumers must not wait for other threads, including acquiring other locks.
  */
 template<class Mutex>
 class basic_configurable_provider : public details::configurable_provider_base {
