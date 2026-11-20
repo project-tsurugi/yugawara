@@ -677,4 +677,98 @@ TEST_F(storage_configurable_provider_test, remove_sequence) {
     EXPECT_NE(std::find(saw.begin(), saw.end(), s3), saw.end());
 }
 
+// the following tests use deprecated API
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
+TEST_F(storage_configurable_provider_test, add_relation_deprecated) {
+    configurable_provider p1 {};
+    std::shared_ptr<relation> element = takatori::util::clone_shared(table {
+            "TBL",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+    auto added = p1.add_relation("TBL", element);
+    EXPECT_EQ(added, element);
+    EXPECT_EQ(p1.find_relation("TBL"), element);
+    EXPECT_EQ(element->owner().get(), &p1);
+
+    std::shared_ptr<relation> other = takatori::util::clone_shared(table {
+            "OTHER",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+    EXPECT_THROW(p1.add_relation("INCONSISTENT", other), std::invalid_argument);
+}
+
+TEST_F(storage_configurable_provider_test, add_relation_deprecated_rvalue) {
+    configurable_provider p1 {};
+    auto added = p1.add_relation("TBL", table {
+            "TBL",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+    ASSERT_TRUE(added);
+    EXPECT_EQ(p1.find_relation("TBL"), added);
+    EXPECT_THROW(p1.add_relation("INCONSISTENT", table { "OTHER", { { "C1", t::int4() } } }), std::invalid_argument);
+}
+
+TEST_F(storage_configurable_provider_test, add_table_deprecated) {
+    configurable_provider p1 {};
+    auto element = takatori::util::clone_shared(table {
+            "TBL",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+    auto added = p1.add_table("TBL", element);
+    EXPECT_EQ(added, element);
+    EXPECT_EQ(p1.find_table("TBL"), element);
+
+    auto other = takatori::util::clone_shared(table {
+            "OTHER",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+    EXPECT_THROW(p1.add_table("INCONSISTENT", other), std::invalid_argument);
+}
+
+TEST_F(storage_configurable_provider_test, add_table_deprecated_rvalue) {
+    configurable_provider p1 {};
+    auto added = p1.add_table("TBL", table {
+            "TBL",
+            {
+                    { "C1", t::int4() },
+            },
+    });
+    ASSERT_TRUE(added);
+    EXPECT_EQ(p1.find_table("TBL"), added);
+    EXPECT_THROW(p1.add_table("INCONSISTENT", table { "OTHER", { { "C1", t::int4() } } }), std::invalid_argument);
+}
+
+TEST_F(storage_configurable_provider_test, add_index_deprecated) {
+    configurable_provider p1 {};
+    auto element = std::make_shared<index>(origin, "IDX", std::initializer_list<index::key> { c1 });
+    auto added = p1.add_index("IDX", element);
+    EXPECT_EQ(added, element);
+    EXPECT_EQ(p1.find_index("IDX"), element);
+
+    auto other = std::make_shared<index>(origin, "OTHER", std::initializer_list<index::key> { c1 });
+    EXPECT_THROW(p1.add_index("INCONSISTENT", other), std::invalid_argument);
+}
+
+TEST_F(storage_configurable_provider_test, add_index_deprecated_rvalue) {
+    configurable_provider p1 {};
+    auto added = p1.add_index("IDX", index { origin, "IDX", { c1 } });
+    ASSERT_TRUE(added);
+    EXPECT_EQ(p1.find_index("IDX"), added);
+    EXPECT_THROW(p1.add_index("INCONSISTENT", index { origin, "OTHER", { c1 } }), std::invalid_argument);
+}
+
+#pragma GCC diagnostic pop
+
 } // namespace yugawara::storage

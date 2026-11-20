@@ -115,19 +115,19 @@ public:
      * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
      */
     [[deprecated]]
-    std::shared_ptr<relation> const& add_relation(std::string_view id, std::shared_ptr<relation> element, bool overwrite = false) {
-        if (id != element->simple_name()) {
-            using ::takatori::util::throw_exception;
-            throw_exception(std::invalid_argument("inconsistent relation ID"));
-        }
-        return add_relation(std::move(element), overwrite);
+    std::shared_ptr<relation> add_relation(std::string_view id, std::shared_ptr<relation> element, bool overwrite = false) {
+        check_element_id(id, *element, "inconsistent relation ID");
+        internal_add<&provider::find_relation>(relations_, element, overwrite);
+        return element;
     }
 
     /// @copydoc add_relation(std::string_view id, std::shared_ptr<relation>, bool)
     [[deprecated]]
-    std::shared_ptr<relation> const& add_relation(std::string_view id, relation&& element, bool overwrite = false) {
+    std::shared_ptr<relation> add_relation(std::string_view id, relation&& element, bool overwrite = false) {
         auto shared = takatori::util::clone_shared(std::move(element));
-        return add_relation(id, std::move(shared), overwrite);
+        check_element_id(id, *shared, "inconsistent relation ID");
+        internal_add<&provider::find_relation>(relations_, shared, overwrite);
+        return shared;
     }
 
     /**
@@ -143,10 +143,7 @@ public:
      */
     [[deprecated]]
     std::shared_ptr<table> add_table(std::string_view id, std::shared_ptr<table> element, bool overwrite = false) {
-        if (id != element->simple_name()) {
-            using ::takatori::util::throw_exception;
-            throw_exception(std::invalid_argument("inconsistent table ID"));
-        }
+        check_element_id(id, *element, "inconsistent table ID");
         return add_table(std::move(element), overwrite);
     }
 
@@ -154,7 +151,8 @@ public:
     [[deprecated]]
     std::shared_ptr<table> add_table(std::string_view id, table&& element, bool overwrite = false) {
         auto shared = takatori::util::clone_shared(std::move(element));
-        return add_table(id, std::move(shared), overwrite);
+        check_element_id(id, *shared, "inconsistent table ID");
+        return add_table(std::move(shared), overwrite);
     }
 
     /**
@@ -241,19 +239,17 @@ public:
      * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
      */
     [[deprecated]]
-    std::shared_ptr<index> const& add_index(std::string_view id, std::shared_ptr<index> element, bool overwrite = false) {
-        if (id != element->simple_name()) {
-            using ::takatori::util::throw_exception;
-            throw_exception(std::invalid_argument("inconsistent index ID"));
-        }
-        return add_index(indices_, std::move(element), overwrite);
+    std::shared_ptr<index> add_index(std::string_view id, std::shared_ptr<index> element, bool overwrite = false) {
+        check_element_id(id, *element, "inconsistent index ID");
+        return add_index(std::move(element), overwrite);
     }
 
     /// @copydoc add_index(std::string_view id, std::shared_ptr<index>, bool)
     [[deprecated]]
-    std::shared_ptr<index> const& add_index(std::string_view id, index&& element, bool overwrite = false) {
+    std::shared_ptr<index> add_index(std::string_view id, index&& element, bool overwrite = false) {
         auto shared = std::make_shared<index>(std::move(element));
-        return add_index(id, std::move(shared), overwrite);
+        check_element_id(id, *shared, "inconsistent index ID");
+        return add_index(std::move(shared), overwrite);
     }
 
     /**
@@ -380,6 +376,14 @@ private:
                     consumer(id, element);
                 }
             });
+        }
+    }
+
+    template<class Element>
+    static void check_element_id(std::string_view id, Element const& element, char const* message) {
+        if (id != element.simple_name()) {
+            using ::takatori::util::throw_exception;
+            throw_exception(std::invalid_argument(message));
         }
     }
 
