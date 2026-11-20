@@ -5,6 +5,9 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <tuple>
+#include <utility>
 
 #include <takatori/util/clonable.h>
 #include <takatori/util/exception.h>
@@ -180,21 +183,17 @@ public:
 
     std::shared_ptr<index const> find_primary_index(class table const& table) const override {
         reader_lock_type lock { mutex_ };
-
+        auto const* target = std::addressof(table);
         // NOTE: we assume almost primary index name equals to its table name
-        if (auto it = indices_.find(table.simple_name()); it != indices_.end()) {
-            auto&& idx = *it->second;
-            if (std::addressof(idx.table()) == std::addressof(table)
-                    && idx.features().contains(index_feature::primary)) {
+        if (auto it = table_indices_.find(std::make_tuple(target, table.simple_name())); it != table_indices_.end()) {
+            if (it->second->features().contains(index_feature::primary)) {
                 return it->second;
             }
         }
-        // If there is no such the index, then we find for all indices
-        for (auto&& entry : indices_) {
-            auto&& idx = *entry.second;
-            if (std::addressof(idx.table()) == std::addressof(table)
-                    && idx.features().contains(index_feature::primary)) {
-                return entry.second;
+        // If there is no such the index, then we find for all indices of the table
+        for (auto it = lower_bound_table_index(target); it != table_indices_.end() && std::get<0>(it->first) == target; ++it) {
+            if (it->second->features().contains(index_feature::primary)) {
+                return it->second;
             }
         }
         if (parent_) {
@@ -204,21 +203,45 @@ public:
     }
 
     /**
+     * @brief provides all indices of the given table in this provider or its parents.
+     * @param table the target table
+     * @param consumer the destination consumer, which accepts pairs of element ID and element
+     * @note The hidden entries in parent provider will not occur in the consumer.
+     */
+    void each_table_index(class table const& table, index_consumer_type const& consumer) const override {
+        reader_lock_type lock { mutex_ };
+        auto const* target = std::addressof(table);
+        for (auto it = lower_bound_table_index(target); it != table_indices_.end() && std::get<0>(it->first) == target; ++it) {
+            consumer(std::get<1>(it->first), it->second);
+        }
+        if (parent_) {
+            parent_->each_table_index(table, [&](std::string_view id, std::shared_ptr<index const> const& element) {
+                // filter elements defined in this provider
+                if (auto iter = indices_.find(id); iter == indices_.end()) {
+                    consumer(id, element);
+                }
+            });
+        }
+    }
+
+    /**
      * @brief adds an index.
      * @param element the index to add
      * @param overwrite true to overwrite the existing entry
      * @return this
      * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
      * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
+     * @attention The origin table of the index must not be changed while the index is registered in this provider.
+     *      Otherwise, each_table_index() and find_primary_index() may return wrong results.
      */
     std::shared_ptr<index> add_index(std::shared_ptr<index> element, bool overwrite = false) {
-        internal_add<&provider::find_index>(indices_, element, overwrite);
+        internal_add_index(element, overwrite);
         return element;
     }
 
     /// @copydoc add_index(std::shared_ptr<index>, bool)
     std::shared_ptr<index const> add_index(std::shared_ptr<index const> element, bool overwrite = false) {
-        internal_add<&provider::find_index>(indices_, element, overwrite);
+        internal_add_index(element, overwrite);
         return element;
     }
 
@@ -336,14 +359,90 @@ private:
             std::shared_ptr<sequence const>,
             std::less<>>;
 
+    // the key of elements associated with tables: the address of the table, and the element ID.
+    // The registered element must hold its table, so that the address is not reused while it is registered.
+    using table_scoped_key_type = std::tuple<class table const*, key_type>;
+
+    // compares (table, ID) pairs, including the ones with std::string_view as the ID
+    struct table_scoped_key_compare {
+        using is_transparent = void;
+
+        template<class Left, class Right>
+        bool operator()(Left const& left, Right const& right) const noexcept {
+            auto const* left_table = std::get<0>(left);
+            auto const* right_table = std::get<0>(right);
+            if (left_table != right_table) {
+                // NOTE: std::less is a total order even for the pointers to unrelated objects
+                return std::less<class table const*> {}(left_table, right_table);
+            }
+            return std::string_view { std::get<1>(left) } < std::string_view { std::get<1>(right) };
+        }
+    };
+
+    // indices_ ordered by their origin table and ID
+    using table_index_map_type = std::map<
+            table_scoped_key_type,
+            std::shared_ptr<index const>,
+            table_scoped_key_compare>;
+
     ::takatori::util::maybe_shared_ptr<provider const> parent_;
     relation_map_type relations_;
     index_map_type indices_;
+    table_index_map_type table_indices_;
     sequence_map_type sequences_;
     mutable mutex_type mutex_ {};
 
     template<class Container>
     using element_type = typename Container::value_type::second_type::element_type;
+
+    template<class Container>
+    static constexpr bool is_index_container_v = std::is_same_v<Container, index_map_type>;
+
+    [[nodiscard]] typename table_index_map_type::const_iterator lower_bound_table_index(class table const* table) const {
+        // NOTE: the empty ID is the smallest one of the table
+        return table_indices_.lower_bound(std::make_tuple(table, std::string_view {}));
+    }
+
+    /**
+     * @brief removes an index from table_indices_.
+     * @param key the index ID
+     * @param element the index
+     */
+    void remove_table_index(std::string_view key, index const& element) noexcept {
+        if (auto it = table_indices_.find(std::make_tuple(element.shared_table().get(), key));
+                it != table_indices_.end()) {
+            table_indices_.erase(it);
+        }
+    }
+
+    void internal_add_index(
+            std::shared_ptr<index const> element,
+            bool overwrite) {
+        using ::takatori::util::throw_exception;
+        auto id = element->simple_name();
+        key_type key { id };
+
+        writer_lock_type lock { mutex_ };
+        if (!overwrite) {
+            if (parent_ && parent_->find_index(id)) {
+                throw_exception(std::invalid_argument(std::string("already exists in parent provider: ") += id));
+            }
+            if (indices_.find(id) != indices_.end()) {
+                throw_exception(std::invalid_argument(std::string("already exists: ") += id));
+            }
+        }
+
+        // NOTE: this does not recover the containers from std::bad_alloc
+        auto const* table = element->shared_table().get();
+        if (auto iter = indices_.find(id); iter != indices_.end()) {
+            // overwrite
+            remove_table_index(iter->first, *iter->second);
+            iter->second = element;
+        } else {
+            indices_.emplace(key, element);
+        }
+        table_indices_.emplace(table_scoped_key_type { table, std::move(key) }, std::move(element));
+    }
 
     template<auto Find, class Container>
     [[nodiscard]] std::shared_ptr<element_type<Container> const> internal_find(
@@ -433,6 +532,9 @@ private:
             using element_type = element_type<Container>;
             if constexpr (is_bless_target_v<element_type>) { // NOLINT
                 unbless(*iter->second);
+            }
+            if constexpr (is_index_container_v<Container>) { // NOLINT
+                remove_table_index(iter->first, *iter->second);
             }
             // NOTE: container.erase(id) does not work
             container.erase(iter);
