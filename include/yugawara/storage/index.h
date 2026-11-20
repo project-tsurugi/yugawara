@@ -138,9 +138,13 @@ public:
 
     /**
      * @brief sets origin table.
+     * @attention deprecated: specify the origin table in the constructor instead
      * @param table the origin table
      * @return this
+     * @warning Do not change the origin table while this index is registered in a provider.
+     *      The provider may keep associating this index with the previous origin table.
      */
+    [[deprecated]]
     index& table(std::shared_ptr<class table const> table) noexcept;
 
     /**
