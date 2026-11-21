@@ -17,10 +17,11 @@ namespace yugawara::storage {
  *      `configurable_provider { parent, shard_count }`.
  *      Consider single_mutex_configurable_provider if the sharded mutex does not fit, e.g. while migrating to this.
  * @note This class works as thread-safe.
- * @attention The consumers of each_*() are called while holding the locks of this provider and its parents.
- *      While a thread is acquiring the exclusive lock of util::sharded_shared_mutex,
- *      the threads on the shards already acquired by the thread cannot acquire shared locks.
- *      Therefore, the consumers must not wait for other threads, including acquiring other locks.
+ * @attention The consumers of each_*() have restrictions, see basic_configurable_provider.
+ *      In particular, the consumers must not wait even for threads that only read this provider:
+ *      while a thread is acquiring the exclusive lock of util::sharded_shared_mutex,
+ *      readers on the shards it has already acquired are blocked.
+ * @see basic_configurable_provider
  * @see util::sharded_shared_mutex
  */
 using configurable_provider = basic_configurable_provider<util::sharded_shared_mutex>;
@@ -31,6 +32,8 @@ using configurable_provider = basic_configurable_provider<util::sharded_shared_m
  *      This is for the users who keep using the single mutex even if configurable_provider uses another mutex type,
  *      e.g. while migrating to it.
  * @note This class works as thread-safe.
+ * @attention The consumers of each_*() have restrictions, see basic_configurable_provider.
+ * @see basic_configurable_provider
  */
 using single_mutex_configurable_provider = basic_configurable_provider<std::shared_mutex>;
 

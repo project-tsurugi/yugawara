@@ -20,10 +20,21 @@ namespace yugawara::storage {
 /**
  * @brief an implementation of provider that can configurable its contents.
  * @tparam Mutex the mutex type, must satisfy *BasicLockable*.
- * @note This class works as thread-safe only if the mutex works right
- * @attention The consumers of each_*() are called while holding the locks of this provider and its parents.
- *      Depending on the mutex type, waiting for other threads in the consumers may cause deadlocks.
- *      Therefore, the consumers must not wait for other threads, including acquiring other locks.
+ *      The read operations, which are the member functions declared in storage::provider
+ *      (find_*() and each_*()), and the write operations, which are add_*() and remove_*(),
+ *      acquire exclusive locks.
+ *      However, if the mutex has lock_shared() and unlock_shared(), as *SharedLockable* types do,
+ *      the read operations acquire shared locks instead.
+ * @note This class works as thread-safe only if the mutex works right and the parent chain is thread-safe.
+ * @note The parent provider is the provider passed as `parent` to the constructor,
+ *      and this provider looks up entries also in the parent provider.
+ *      The parent chain consists of the parent provider, its parent provider, and so on.
+ * @note Any operation may call the read operations of the parent provider while holding the lock of this provider.
+ * @attention The consumers of each_*() are called while holding the lock of this provider,
+ *      and may be called while holding the locks of the providers in its parent chain.
+ *      The consumers must not call, directly or indirectly, the member functions of this provider
+ *      or the providers in its parent chain,
+ *      and must not wait for other threads that may call them directly or indirectly.
  */
 template<class Mutex>
 class basic_configurable_provider : public details::configurable_provider_base {
@@ -63,9 +74,9 @@ public:
     }
 
     /**
-     * @brief provides all relations in this provider or its parents.
+     * @brief provides all relations in this provider or its parent chain.
      * @param consumer the destination consumer, which accepts pairs of element ID and element
-     * @note The hidden entries in parent provider will not occur in the consumer.
+     * @note The hidden entries in the parent chain will not occur in the consumer.
      */
     void each_relation(relation_consumer_type consumer) const override {
         reader_lock_type lock { mutex_ };
@@ -79,7 +90,7 @@ public:
      * @return the added element
      * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
      * @throws std::invalid_argument if the target entry has been already owned another provider
-     * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
+     * @note This operation may **hide** elements defined in the parent chain if `overwrite=true`
      */
     std::shared_ptr<relation const> add_relation(std::shared_ptr<relation const> element, bool overwrite = false) {
         writer_lock_type lock { mutex_ };
@@ -102,7 +113,7 @@ public:
      * @return the added element
      * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
      * @throws std::invalid_argument if the target entry has been already owned another provider
-     * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
+     * @note This operation may **hide** elements defined in the parent chain if `overwrite=true`
      */
     std::shared_ptr<table> add_table(std::shared_ptr<table> element, bool overwrite = false) {
         writer_lock_type lock { mutex_ };
@@ -132,7 +143,7 @@ public:
      * @return the added element
      * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
      * @throws std::invalid_argument if the target entry has been already owned another provider
-     * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
+     * @note This operation may **hide** elements defined in the parent chain if `overwrite=true`
      */
     [[deprecated]]
     std::shared_ptr<relation> add_relation(std::string_view id, std::shared_ptr<relation> element, bool overwrite = false) {
@@ -161,7 +172,7 @@ public:
      * @return the added element
      * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
      * @throws std::invalid_argument if the target entry has been already owned another provider
-     * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
+     * @note This operation may **hide** elements defined in the parent chain if `overwrite=true`
      */
     [[deprecated]]
     std::shared_ptr<table> add_table(std::string_view id, std::shared_ptr<table> element, bool overwrite = false) {
@@ -194,9 +205,9 @@ public:
     }
 
     /**
-     * @brief provides all indices in this provider or its parents.
+     * @brief provides all indices in this provider or its parent chain.
      * @param consumer the destination consumer, which accepts pairs of element ID and element
-     * @note The hidden entries in parent provider will not occur in the consumer.
+     * @note The hidden entries in the parent chain will not occur in the consumer.
      */
     void each_index(index_consumer_type const& consumer) const override {
         reader_lock_type lock { mutex_ };
@@ -209,10 +220,10 @@ public:
     }
 
     /**
-     * @brief provides all indices of the given table in this provider or its parents.
+     * @brief provides all indices of the given table in this provider or its parent chain.
      * @param table the target table
      * @param consumer the destination consumer, which accepts pairs of element ID and element
-     * @note The hidden entries in parent provider will not occur in the consumer.
+     * @note The hidden entries in the parent chain will not occur in the consumer.
      */
     void each_table_index(class table const& table, index_consumer_type const& consumer) const override {
         reader_lock_type lock { mutex_ };
@@ -225,7 +236,7 @@ public:
      * @param overwrite true to overwrite the existing entry
      * @return this
      * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
-     * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
+     * @note This operation may **hide** elements defined in the parent chain if `overwrite=true`
      * @attention The origin table of the index must not be changed while the index is registered in this provider.
      *      Otherwise, each_table_index() and find_primary_index() may return wrong results.
      */
@@ -256,7 +267,7 @@ public:
      * @param overwrite true to overwrite the existing entry
      * @return this
      * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
-     * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
+     * @note This operation may **hide** elements defined in the parent chain if `overwrite=true`
      */
     [[deprecated]]
     std::shared_ptr<index> add_index(std::string_view id, std::shared_ptr<index> element, bool overwrite = false) {
@@ -289,9 +300,9 @@ public:
     }
 
     /**
-     * @brief provides all sequences in this provider or its parents.
+     * @brief provides all sequences in this provider or its parent chain.
      * @param consumer the destination consumer, which accepts pairs of element ID and element
-     * @note The hidden entries in parent provider will not occur in the consumer.
+     * @note The hidden entries in the parent chain will not occur in the consumer.
      */
     void each_sequence(sequence_consumer_type const& consumer) const override {
         reader_lock_type lock { mutex_ };
@@ -304,7 +315,7 @@ public:
      * @param overwrite true to overwrite the existing entry
      * @return this
      * @throws std::invalid_argument if the target entry already exists and `overwrite=false`
-     * @note This operation may **hide** elements defined in parent providers if `overwrite=true`
+     * @note This operation may **hide** elements defined in the parent chain if `overwrite=true`
      */
     std::shared_ptr<sequence> add_sequence(std::shared_ptr<sequence> element, bool overwrite = false) {
         writer_lock_type lock { mutex_ };

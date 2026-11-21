@@ -21,7 +21,7 @@ namespace yugawara::util {
  *      This class does not make it worse, because the thread always uses the same shard.
  * @attention While a thread is acquiring the exclusive lock, it holds a part of the shards,
  *      and then the threads on those shards cannot acquire shared locks.
- *      Therefore, a thread holding a shared lock must not wait for other threads,
+ *      Therefore, a thread holding a shared lock must not wait for other threads
  *      which may directly or indirectly acquire a shared lock of the same mutex.
  * @attention This does not guarantee fairness for writers.
  *      If readers continuously hold shared locks, a thread acquiring the exclusive lock may wait for a long time,
