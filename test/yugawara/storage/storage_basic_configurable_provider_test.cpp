@@ -2,15 +2,20 @@
 
 #include <cstddef>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include <takatori/type/primitive.h>
+
+#include <yugawara/storage/configurable_provider.h>
+#include <yugawara/util/sharded_shared_mutex.h>
 
 namespace yugawara::storage {
 
@@ -19,10 +24,12 @@ namespace t = ::takatori::type;
 namespace {
 
 /*
- * Tests of the locking contract of basic_configurable_provider, with mutex types which record their lock operations.
+ * Tests of basic_configurable_provider which depend on the mutex type:
+ * the constructor arguments for the mutex, and the locking contract.
+ * The tests of the locking contract use mutex types which record their lock operations.
  * They run on a single thread, and only check which locks are acquired and when.
- * The behavior of the provider other than locks is tested with configurable_provider (see
- * storage_configurable_provider_test).
+ * The behavior of the provider independent of the mutex type is tested with configurable_provider
+ * (see storage_configurable_provider_test).
  */
 
 enum class lock_kind {
@@ -177,6 +184,8 @@ public:
             },
     });
 
+    column const& c1 = origin->columns()[0];
+
     template<class Provider>
     void fill(Provider& p) {
         p.add_relation(table { "R1", { { "C1", t::int4() } } });
@@ -319,6 +328,32 @@ TEST_F(storage_basic_configurable_provider_test, write_operations_lock_parent_in
     EXPECT_EQ(log.acquired_kinds("PARENT"), (std::set<lock_kind> { lock_kind::shared }));
     EXPECT_TRUE(log.balanced("PARENT"));
     EXPECT_TRUE(log.balanced("CHILD"));
+}
+
+TEST_F(storage_basic_configurable_provider_test, find_primary_index_in_parent_with_exclusive_mutex) {
+    using std_mutex_provider = basic_configurable_provider<std::mutex>;
+    auto parent = std::make_shared<std_mutex_provider>();
+    auto primary = parent->add_index({ origin, "PRIMARY_PARENT", { c1 }, {}, { index_feature::primary } });
+    std_mutex_provider child { parent };
+
+    EXPECT_EQ(child.find_primary_index(*origin), primary);
+}
+
+TEST_F(storage_basic_configurable_provider_test, mutex_arguments) {
+    using sharded_mutex_provider = basic_configurable_provider<util::sharded_shared_mutex>;
+    auto parent = std::make_shared<sharded_mutex_provider>(nullptr, 4);
+    auto primary = parent->add_index({ origin, "PRIMARY_PARENT", { c1 }, {}, { index_feature::primary } });
+    sharded_mutex_provider child { parent, 2 };
+
+    EXPECT_EQ(child.find_primary_index(*origin), primary);
+    EXPECT_THROW((sharded_mutex_provider { {}, 0 }), std::invalid_argument);
+}
+
+TEST_F(storage_basic_configurable_provider_test, mutex_arguments_unavailable) {
+    using std_mutex_provider = basic_configurable_provider<std::mutex>;
+    static_assert(std::is_constructible_v<std_mutex_provider>);
+    static_assert(std::is_constructible_v<std_mutex_provider, std::shared_ptr<configurable_provider>>);
+    static_assert(!std::is_constructible_v<std_mutex_provider, std::nullptr_t, std::size_t>);
 }
 
 } // namespace yugawara::storage
