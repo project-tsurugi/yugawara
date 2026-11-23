@@ -17,13 +17,15 @@ namespace yugawara::storage {
 enum class column_feature {
     /**
      * @brief the target column is defined by the system (NOT explicitly defined by a user).
-     * @details users cannot access these columns.
+     * @details this feature does not decide whether or not users can access the column.
+     *      Use column_feature::hidden for the columns which users must not access.
      */
     synthesized = 0,
 
     /**
      * @brief the target column is hidden from the user.
-     * @details these columns are ignored the following operations:
+     * @details users cannot access these columns explicitly, even if they are referred by qualified names.
+     *      These columns are also ignored in the following operations:
      * - `SELECT *`
      * - `NATURAL JOIN`, and similar column name based matching (e.g. `UNION CORRESPONDING`)
      */
