@@ -148,9 +148,7 @@ public:
     }
 
     void operator()(relation::intermediate::aggregate& expr) {
-        if (!expr.columns().empty()) {
-            remove_unused_mappings(expr.columns());
-        }
+        remove_unused_mappings(expr.columns());
         for (auto&& column : expr.columns()) {
             touch_variables(column.arguments());
         }
@@ -266,7 +264,6 @@ private:
 
     template<class Columns>
     void remove_unused_mappings(Columns& columns) {
-        BOOST_ASSERT(!columns.empty()); // NOLINT
         for (auto&& it = columns.begin(); it != columns.end();) {
             if (is_used(it->destination())) {
                 ++it;

@@ -1109,4 +1109,85 @@ TEST_F(remove_unused_stream_variables_contract_test, let_keeps_declarators_refer
     EXPECT_TRUE(same(destinations(r0.columns()), { c0, c2 }));
 }
 
+// Operators may already have no columns when the pass starts, for example after an earlier rewrite
+// removed all of them. The pass accepts such operators and keeps them, like the ones whose columns it removes.
+TEST_F(remove_unused_stream_variables_contract_test, scan_without_columns_is_accepted) {
+    auto&& r0 = r.insert(relation::scan {
+            bindings(*i0),
+            {},
+    });
+    auto&& ro = r.insert(no_columns());
+    r0.output() >> ro.input();
+
+    apply();
+
+    ASSERT_EQ(r.size(), 2);
+    EXPECT_TRUE(connected(r0.output(), ro.input()));
+    EXPECT_TRUE(r0.columns().empty());
+}
+
+TEST_F(remove_unused_stream_variables_contract_test, union_all_without_mappings_is_accepted) {
+    auto&& rl = r.insert(relation::scan {
+            bindings(*i0),
+            {},
+    });
+    auto&& rr = r.insert(relation::scan {
+            bindings(*i1),
+            {},
+    });
+    auto&& r0 = r.insert(relation::intermediate::union_ {
+            relation::set_quantifier::all,
+            {},
+    });
+    auto&& ro = r.insert(no_columns());
+    rl.output() >> r0.left();
+    rr.output() >> r0.right();
+    r0.output() >> ro.input();
+
+    apply();
+
+    ASSERT_EQ(r.size(), 4);
+    EXPECT_TRUE(connected(rl.output(), r0.left()));
+    EXPECT_TRUE(connected(rr.output(), r0.right()));
+    EXPECT_TRUE(connected(r0.output(), ro.input()));
+    EXPECT_TRUE(r0.mappings().empty());
+}
+
+TEST_F(remove_unused_stream_variables_contract_test, escape_without_mappings_is_accepted) {
+    auto&& r0 = left_scan();
+    auto&& r1 = r.insert(relation::intermediate::escape {
+            std::vector<relation::intermediate::escape::mapping> {},
+    });
+    auto&& ro = r.insert(no_columns());
+    r0.output() >> r1.input();
+    r1.output() >> ro.input();
+
+    apply();
+
+    ASSERT_EQ(r.size(), 3);
+    EXPECT_TRUE(connected(r0.output(), r1.input()));
+    EXPECT_TRUE(connected(r1.output(), ro.input()));
+    EXPECT_TRUE(r1.mappings().empty());
+    EXPECT_TRUE(r0.columns().empty());
+}
+
+TEST_F(remove_unused_stream_variables_contract_test, aggregate_without_columns_is_accepted) {
+    auto&& r0 = left_scan();
+    auto&& r1 = r.insert(relation::intermediate::aggregate {
+            { c0 },
+            {},
+    });
+    auto&& ro = r.insert(no_columns());
+    r0.output() >> r1.input();
+    r1.output() >> ro.input();
+
+    apply();
+
+    ASSERT_EQ(r.size(), 3);
+    EXPECT_TRUE(connected(r0.output(), r1.input()));
+    EXPECT_TRUE(connected(r1.output(), ro.input()));
+    EXPECT_TRUE(r1.columns().empty());
+    EXPECT_TRUE(same(destinations(r0.columns()), { c0 }));
+}
+
 } // namespace yugawara::analyzer::details
