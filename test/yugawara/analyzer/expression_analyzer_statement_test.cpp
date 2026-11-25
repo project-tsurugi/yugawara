@@ -5,6 +5,9 @@
 #include <takatori/document/basic_document.h>
 
 #include <takatori/type/primitive.h>
+#include <takatori/type/decimal.h>
+#include <takatori/type/character.h>
+#include <takatori/type/octet.h>
 #include <takatori/type/date.h>
 #include <takatori/type/time_of_day.h>
 #include <takatori/type/time_point.h>
@@ -99,6 +102,44 @@ protected:
     });
     std::shared_ptr<storage::index> i0 = storages_.add_index({ t0, "I0", });
     std::shared_ptr<storage::index> i1 = storages_.add_index({ t1, "I1" });
+
+    bool resolve_partitioned(::takatori::type::data&& type, storage::partition::prefix_extractor extractor) {
+        auto schema = std::make_shared<schema::declaration>("s");
+        auto table = std::make_shared<storage::table>(::takatori::util::clone_tag, storage::table {
+                "T0",
+                {
+                        { "K0", t::int4() },
+                        { "K1", std::move(type) },
+                        { "V", t::int4() },
+                },
+        });
+        auto index = std::make_shared<storage::index>(storage::index {
+                table,
+                "I0",
+                {
+                        table->columns()[0],
+                        table->columns()[1],
+                },
+        });
+        index->partition_key_columns().emplace_back(table->columns()[0]);
+        index->partition_key_columns().emplace_back(table->columns()[1], "P1", extractor);
+        statement::create_table stmt {
+                bindings(schema),
+                bindings(table),
+                bindings(index),
+        };
+        analyzer.clear_diagnostics();
+        auto b = analyzer.resolve(stmt, true);
+        if (b) {
+            EXPECT_TRUE(ok()) << *this;
+        } else {
+            EXPECT_FALSE(ok());
+            for (auto&& d : analyzer.diagnostics()) {
+                EXPECT_EQ(d.code(), code::inconsistent_type) << d;
+            }
+        }
+        return b;
+    }
 
     ::takatori::document::basic_document doc_ {
             "testing.sql",
@@ -512,6 +553,35 @@ TEST_F(expression_analyzer_statement_test, create_table_default_value_function_i
     auto b = analyzer.resolve(stmt, true);
     EXPECT_FALSE(b);
     EXPECT_FALSE(ok());
+}
+
+TEST_F(expression_analyzer_statement_test, create_table_partitioned) {
+    namespace p = storage::partition;
+    EXPECT_TRUE(resolve_partitioned(t::int4(), {}));
+    EXPECT_TRUE(resolve_partitioned(t::character(4), p::character_prefix { 2 }));
+    EXPECT_TRUE(resolve_partitioned(t::character(t::varying, 10), p::character_prefix { 2 }));
+    EXPECT_TRUE(resolve_partitioned(t::octet(4), p::binary_prefix { 2 }));
+    EXPECT_TRUE(resolve_partitioned(t::octet(t::varying, 10), p::binary_prefix { 2 }));
+    EXPECT_TRUE(resolve_partitioned(t::int4(), p::floor_division { 10 }));
+    EXPECT_TRUE(resolve_partitioned(t::int8(), p::floor_division { 10 }));
+    EXPECT_TRUE(resolve_partitioned(t::int2(), p::floor_division { 10 }));
+    EXPECT_TRUE(resolve_partitioned(t::decimal(10, 2), p::floor_division { 10 }));
+    EXPECT_TRUE(resolve_partitioned(t::decimal(10, 2), p::floor_fractional { 1 }));
+    EXPECT_TRUE(resolve_partitioned(t::int8(), p::floor_fractional { 1 }));
+    EXPECT_TRUE(resolve_partitioned(t::date(), p::date_truncate { p::date_unit::month }));
+    EXPECT_TRUE(resolve_partitioned(t::time_point(), p::timestamp_truncate { p::timestamp_unit::hour }));
+}
+
+TEST_F(expression_analyzer_statement_test, create_table_partitioned_inconsistent) {
+    namespace p = storage::partition;
+    EXPECT_FALSE(resolve_partitioned(t::int4(), p::character_prefix { 2 }));
+    EXPECT_FALSE(resolve_partitioned(t::character(4), p::binary_prefix { 2 }));
+    EXPECT_FALSE(resolve_partitioned(t::character(t::varying, 10), p::floor_division { 10 }));
+    EXPECT_FALSE(resolve_partitioned(t::float8(), p::floor_division { 10 }));
+    EXPECT_FALSE(resolve_partitioned(t::float8(), p::floor_fractional { 1 }));
+    EXPECT_FALSE(resolve_partitioned(t::time_point(), p::date_truncate { p::date_unit::month }));
+    EXPECT_FALSE(resolve_partitioned(t::date(), p::timestamp_truncate { p::timestamp_unit::day }));
+    EXPECT_FALSE(resolve_partitioned(t::time_point(t::with_time_zone), p::timestamp_truncate { p::timestamp_unit::day }));
 }
 
 TEST_F(expression_analyzer_statement_test, truncate_table) {

@@ -44,6 +44,7 @@
 #include <yugawara/binding/external_relation_info.h>
 
 #include <yugawara/storage/table.h>
+#include <yugawara/storage/index.h>
 
 namespace yugawara::analyzer {
 
@@ -1838,6 +1839,22 @@ public:
                             });
                             success = false;
                         }
+                    }
+                }
+                for (auto&& element : index.partition_key_columns()) {
+                    auto&& extractor = element.prefix_extractor();
+                    if (!storage::partition::is_applicable(extractor.kind(), element.column().type())) {
+                        report({
+                                code::inconsistent_type,
+                                string_builder {}
+                                        << "partition key \"" << element.column_name() << "\" "
+                                        << "cannot apply " << extractor.kind() << " to its source column: "
+                                        << table.simple_name() << "." << element.column().simple_name()
+                                        << "(" << element.column().type() << ")"
+                                        << string_builder::to_string,
+                                stmt.primary_key().region(),
+                        });
+                        success = false;
                     }
                 }
             }
