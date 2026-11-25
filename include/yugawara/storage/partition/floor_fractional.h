@@ -8,7 +8,10 @@ namespace yugawara::storage::partition {
 
 /**
  * @brief truncates the fractional digits of the value toward negative infinity.
- * @details This is applicable to the `DECIMAL` type.
+ * @details This is applicable to the exact numeric types (`TINYINT`, `SMALLINT`, `INT`, `BIGINT`, and `DECIMAL`).
+ *      For the integral types, this extracts the value as is.
+ * @see is_applicable()
+ * @see compute_type()
  */
 class floor_fractional {
 public:

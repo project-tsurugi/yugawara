@@ -9,6 +9,8 @@ namespace yugawara::storage::partition {
 /**
  * @brief truncates date values.
  * @details This is applicable to the `DATE` type.
+ * @see is_applicable()
+ * @see compute_type()
  */
 class date_truncate {
 public:

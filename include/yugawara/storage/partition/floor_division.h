@@ -8,7 +8,9 @@ namespace yugawara::storage::partition {
 
 /**
  * @brief extracts the floor of the quotient of the value divided by a divisor.
- * @details This is applicable to the exact numeric types (`INT`, `BIGINT`, and `DECIMAL`).
+ * @details This is applicable to the exact numeric types (`TINYINT`, `SMALLINT`, `INT`, `BIGINT`, and `DECIMAL`).
+ * @see is_applicable()
+ * @see compute_type()
  */
 class floor_division {
 public:

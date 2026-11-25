@@ -9,6 +9,8 @@ namespace yugawara::storage::partition {
 /**
  * @brief extracts a prefix of binary strings.
  * @details This is applicable to the binary string types (`BINARY` and `VARBINARY`).
+ * @see is_applicable()
+ * @see compute_type()
  */
 class binary_prefix {
 public:

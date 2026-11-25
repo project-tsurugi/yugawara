@@ -11,6 +11,8 @@ namespace yugawara::storage::partition {
 /**
  * @brief truncates timestamp values.
  * @details This is applicable to the `TIMESTAMP` type (without time zone).
+ * @see is_applicable()
+ * @see compute_type()
  */
 class timestamp_truncate {
 public:

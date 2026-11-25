@@ -9,6 +9,8 @@ namespace yugawara::storage::partition {
 /**
  * @brief extracts a prefix of character strings.
  * @details This is applicable to the character string types (`CHAR` and `VARCHAR`).
+ * @see is_applicable()
+ * @see compute_type()
  */
 class character_prefix {
 public:
