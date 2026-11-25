@@ -147,7 +147,7 @@ void binding_scanner::properties(storage::column const& element) {
         acceptor_.property_end();
 
         acceptor_.property_begin("simple_name"sv);
-        acceptor_.string(element.simple_name());
+        acceptor_.string(owner->simple_name());
         acceptor_.property_end();
 
         acceptor_.struct_end();
