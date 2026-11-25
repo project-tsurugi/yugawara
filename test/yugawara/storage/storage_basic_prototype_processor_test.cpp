@@ -111,6 +111,27 @@ TEST_F(storage_basic_prototype_processor_test, primary) {
     EXPECT_EQ(rt.description(), tbl->description());
 }
 
+TEST_F(storage_basic_prototype_processor_test, primary_partitioned) {
+    idx.partition_key_columns().emplace_back(tbl->columns()[0]);
+    idx.partition_key_columns().emplace_back(tbl->columns()[1], "V1", partition::floor_division { 10 });
+
+    basic_prototype_processor proc {};
+    auto ri = proc(location, idx, [this](auto const& d) { diagnostics.push_back(d); });
+    EXPECT_TRUE(diagnostics.empty());
+    ASSERT_TRUE(ri);
+
+    auto& rt = ri->table();
+    ASSERT_EQ(ri->partition_key_columns().size(), 2);
+    for (std::size_t i = 0; i < ri->partition_key_columns().size(); ++i) {
+        auto&& p0 = idx.partition_key_columns()[i];
+        auto&& p1 = ri->partition_key_columns()[i];
+        expect_column_eq(p0.column(), p1.column());
+        EXPECT_EQ(std::addressof(p1.column().owner()), std::addressof(rt));
+        EXPECT_EQ(p0.column_name(), p1.column_name());
+        EXPECT_EQ(p0.prefix_extractor(), p1.prefix_extractor());
+    }
+}
+
 TEST_F(storage_basic_prototype_processor_test, secondary) {
     basic_prototype_processor proc {};
     auto ri = proc(location, idx, tbl, [this](auto const& d) { diagnostics.push_back(d); });

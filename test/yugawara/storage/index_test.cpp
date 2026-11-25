@@ -105,6 +105,28 @@ TEST_F(index_test, features) {
     EXPECT_EQ(idx.features(), features);
 }
 
+TEST_F(index_test, partition_key_columns_default) {
+    index idx {
+            origin,
+            "I1",
+            { c1, },
+    };
+    EXPECT_TRUE(idx.partition_key_columns().empty());
+}
+
+TEST_F(index_test, output_partitioned) {
+    index idx {
+            origin,
+            "I1",
+            { c1, c3, },
+            { c2, },
+    };
+    idx.partition_key_columns().emplace_back(c1);
+    idx.partition_key_columns().emplace_back(c3, "V3", partition::character_prefix { 2 });
+
+    std::cout << idx << std::endl;
+}
+
 TEST_F(index_test, output) {
     index idx {
             origin,

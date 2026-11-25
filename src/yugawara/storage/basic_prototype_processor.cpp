@@ -60,10 +60,27 @@ static std::shared_ptr<index> create_index_copy(
         }
     }
 
+    // rebind partition key columns
+    std::vector<index::partition_key> new_partition_key_columns {};
+    new_partition_key_columns.reserve(prototype.partition_key_columns().size());
+    for (auto const& old : prototype.partition_key_columns()) {
+        if (auto it = column_name_map.find(old.column().simple_name()); it != column_name_map.end()) {
+            new_partition_key_columns.emplace_back(
+                    it->second,
+                    index::partition_key::name_type { old.column_name() },
+                    old.prefix_extractor());
+        } else {
+            fail(string_builder {}
+                    << "missing partition key column " << prototype
+                    << "." << old.column().simple_name() << " in table " << *target
+                    << string_builder::to_string);
+        }
+    }
+
     // copy description
     auto description = prototype.description();
 
-    return std::make_shared<index>(
+    auto result = std::make_shared<index>(
             prototype.definition_id(),
             std::move(target),
             index::simple_name_type { prototype.simple_name() },
@@ -71,6 +88,8 @@ static std::shared_ptr<index> create_index_copy(
             std::move(new_values),
             prototype.features(),
             std::move(description));
+    result->partition_key_columns() = std::move(new_partition_key_columns);
+    return result;
 }
 
 std::shared_ptr<index const> basic_prototype_processor::operator()(

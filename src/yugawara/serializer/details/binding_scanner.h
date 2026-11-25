@@ -69,6 +69,8 @@ private:
     void accept(storage::column_value const& element);
     void accept(variable::criteria const& element);
     void accept(storage::details::index_key_element const& element);
+    void accept(storage::partition_key_element const& element);
+    void accept(storage::partition::prefix_extractor const& element);
 
     void properties(binding::table_column_info const& element);
     void properties(binding::external_variable_info const& element);

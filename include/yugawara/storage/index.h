@@ -11,6 +11,7 @@
 
 #include "table.h"
 #include "index_feature.h"
+#include "partition_key_element.h"
 #include "details/index_key_element.h"
 
 namespace yugawara::storage {
@@ -34,6 +35,9 @@ public:
 
     /// @brief the index feature set type.
     using feature_set_type = index_feature_set;
+
+    /// @brief the partition key element type.
+    using partition_key = partition_key_element;
 
     /// @brief the index description type.
     using description_type = std::string;
@@ -189,6 +193,28 @@ public:
     [[nodiscard]] feature_set_type const& features() const noexcept;
 
     /**
+     * @brief returns the partition key columns of this index.
+     * @details If this index is partitioned, the partition key columns must satisfy the following conditions:
+     *
+     *   - the number of elements is not greater than the number of keys(), and the i-th element corresponds to
+     *     the i-th element of keys(): its partition_key_element::column() is the column of the i-th index key.
+     *     That is, the partition key columns are a leading part of the index key columns, and each element
+     *     corresponds to a distinct index key (no duplicates)
+     *   - only the last element may have a prefix extractor (i.e., may represent a virtual column),
+     *     because the elements after one with a prefix extractor cannot form contiguous ranges on the index keys
+     *
+     *   Consumers of this index can rely on the above conditions.
+     *   Currently, only primary indices (tables) can be partitioned.
+     * @return the partition key columns
+     * @return empty vector if the index is not partitioned
+     * @attention this object does not validate the above conditions, the producer must satisfy them
+     */
+    [[nodiscard]] std::vector<partition_key>& partition_key_columns() noexcept;
+
+    /// @copydoc partition_key_columns()
+    [[nodiscard]] std::vector<partition_key> const& partition_key_columns() const noexcept;
+
+    /**
      * @brief returns the optional description of this element.
      * @return the description
      * @return empty string if the description is absent
@@ -217,6 +243,7 @@ private:
     std::vector<key> keys_;
     std::vector<column_ref> values_;
     feature_set_type features_;
+    std::vector<partition_key> partition_key_columns_ {};
     description_type description_;
 };
 

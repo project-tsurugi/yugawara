@@ -21,6 +21,8 @@ add_library(yugawara
     yugawara/storage/column.cpp
     yugawara/storage/column_value.cpp
     yugawara/storage/index.cpp
+    yugawara/storage/partition_key_element.cpp
+    yugawara/storage/partition/prefix_extractor.cpp
     yugawara/storage/sequence.cpp
     yugawara/storage/provider.cpp
     yugawara/storage/basic_prototype_processor.cpp

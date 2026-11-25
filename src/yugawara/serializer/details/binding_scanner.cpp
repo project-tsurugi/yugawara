@@ -200,6 +200,16 @@ void binding_scanner::properties(storage::index const& element) {
     acceptor_.array_end();
     acceptor_.property_end();
 
+    acceptor_.property_begin("partition_key_columns"sv);
+    if (auto&& columns = element.partition_key_columns(); !columns.empty()) {
+        acceptor_.array_begin();
+        for (auto&& column : columns) {
+            accept(column);
+        }
+        acceptor_.array_end();
+    }
+    acceptor_.property_end();
+
     acceptor_.property_begin("description"sv);
     if (auto&& str = element.description(); !str.empty()) {
         acceptor_.string(str);
@@ -445,6 +455,86 @@ void binding_scanner::accept(storage::details::index_key_element const& element)
     acceptor_.property_begin("direction"sv);
     acceptor_.string(to_string_view(element.direction()));
     acceptor_.property_end();
+
+    acceptor_.struct_end();
+}
+
+void binding_scanner::accept(storage::partition_key_element const& element) {
+    acceptor_.struct_begin();
+
+    acceptor_.property_begin("column"sv);
+    acceptor_.string(element.column().simple_name());
+    acceptor_.property_end();
+
+    acceptor_.property_begin("column_name"sv);
+    acceptor_.string(element.column_name());
+    acceptor_.property_end();
+
+    acceptor_.property_begin("prefix_extractor"sv);
+    if (auto&& extractor = element.prefix_extractor()) {
+        accept(extractor);
+    }
+    acceptor_.property_end();
+
+    acceptor_.struct_end();
+}
+
+void binding_scanner::accept(storage::partition::prefix_extractor const& element) {
+    acceptor_.struct_begin();
+
+    acceptor_.property_begin("kind"sv);
+    acceptor_.string(to_string_view(element.kind()));
+    acceptor_.property_end();
+
+    using kind = storage::partition::prefix_extractor::kind_type;
+    switch (element.kind()) {
+        case kind::nothing:
+            break;
+
+        case kind::character_prefix:
+            acceptor_.property_begin("length"sv);
+            acceptor_.unsigned_integer(element.element<kind::character_prefix>().length());
+            acceptor_.property_end();
+            break;
+
+        case kind::binary_prefix:
+            acceptor_.property_begin("length"sv);
+            acceptor_.unsigned_integer(element.element<kind::binary_prefix>().length());
+            acceptor_.property_end();
+            break;
+
+        case kind::floor_division:
+            acceptor_.property_begin("divisor"sv);
+            acceptor_.integer(element.element<kind::floor_division>().divisor());
+            acceptor_.property_end();
+            break;
+
+        case kind::floor_fractional:
+            acceptor_.property_begin("scale"sv);
+            acceptor_.unsigned_integer(element.element<kind::floor_fractional>().scale());
+            acceptor_.property_end();
+            break;
+
+        case kind::date_truncate:
+            acceptor_.property_begin("unit"sv);
+            acceptor_.string(to_string_view(element.element<kind::date_truncate>().unit()));
+            acceptor_.property_end();
+            break;
+
+        case kind::timestamp_truncate: {
+            auto&& e = element.element<kind::timestamp_truncate>();
+            acceptor_.property_begin("unit"sv);
+            acceptor_.string(to_string_view(e.unit()));
+            acceptor_.property_end();
+
+            acceptor_.property_begin("second_scale"sv);
+            if (e.unit() == storage::partition::timestamp_unit::second) {
+                acceptor_.unsigned_integer(e.second_scale());
+            }
+            acceptor_.property_end();
+            break;
+        }
+    }
 
     acceptor_.struct_end();
 }

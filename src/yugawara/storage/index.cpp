@@ -132,6 +132,14 @@ index::feature_set_type const& index::features() const noexcept {
     return features_;
 }
 
+std::vector<index::partition_key>& index::partition_key_columns() noexcept {
+    return partition_key_columns_;
+}
+
+std::vector<index::partition_key> const& index::partition_key_columns() const noexcept {
+    return partition_key_columns_;
+}
+
 index::description_type const& index::description() const noexcept {
     return description_;
 }
@@ -150,6 +158,7 @@ std::ostream& operator<<(std::ostream& out, index const& value) {
                << "keys=" << print_support { value.keys() } << ", "
                << "values=" << print_support { value.values() } << ", "
                << "features=" << value.features() << ", "
+               << "partition_key_columns=" << print_support { value.partition_key_columns() } << ", "
                << "description=" << value.description() << ")";
 }
 

@@ -7,6 +7,11 @@
 #include <takatori/value/primitive.h>
 
 #include <takatori/type/primitive.h>
+#include <takatori/type/character.h>
+#include <takatori/type/octet.h>
+#include <takatori/type/decimal.h>
+#include <takatori/type/date.h>
+#include <takatori/type/time_point.h>
 
 #include <takatori/scalar/immediate.h>
 
@@ -211,6 +216,44 @@ TEST_F(object_scanner_test, index) {
             {},
             "IDESC",
     }));
+}
+
+TEST_F(object_scanner_test, index_partitioned) {
+    auto t = std::make_shared<storage::table>(::takatori::util::clone_tag, storage::table {
+            "T",
+            {
+                    { "C0", t::int4 {} },
+                    { "C1", t::character { t::varying, 10 } },
+                    { "C2", t::octet { t::varying, 10 } },
+                    { "C3", t::decimal { 10, 2 } },
+                    { "C4", t::date {} },
+                    { "C5", t::time_point {} },
+            },
+    });
+    auto&& c = t->columns();
+    std::vector<std::pair<std::size_t, storage::partition::prefix_extractor>> extractors {
+            { 3, storage::partition::floor_division { 100 } },
+            { 1, storage::partition::character_prefix { 3 } },
+            { 2, storage::partition::binary_prefix { 4 } },
+            { 3, storage::partition::floor_fractional { 1 } },
+            { 4, storage::partition::date_truncate { storage::partition::date_unit::month } },
+            { 5, storage::partition::timestamp_truncate { storage::partition::timestamp_unit::second, 3 } },
+            { 5, storage::partition::timestamp_truncate { storage::partition::timestamp_unit::hour } },
+    };
+    for (auto&& [index, extractor] : extractors) {
+        auto&& column = c[index];
+        storage::index idx {
+                t,
+                "IDX",
+                {
+                        c[0],
+                        column,
+                },
+        };
+        idx.partition_key_columns().emplace_back(c[0]);
+        idx.partition_key_columns().emplace_back(column, "V", extractor);
+        print(bindings(std::move(idx)));
+    }
 }
 
 TEST_F(object_scanner_test, exchange) {
