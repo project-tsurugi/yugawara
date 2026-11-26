@@ -7,6 +7,7 @@
 #include <cstddef>
 
 #include <takatori/type/data.h>
+#include <takatori/value/data.h>
 
 #include <yugawara/type/repository.h>
 
@@ -223,5 +224,30 @@ private:
         prefix_extractor const& extractor,
         ::takatori::type::data const& source_type,
         ::yugawara::type::repository& repo = ::yugawara::type::default_repository());
+
+/**
+ * @brief returns whether or not the given value can be an output of the given prefix extractor.
+ * @details This returns the same result as is_valid_output() of the corresponding prefix extraction method
+ *      (e.g. is_valid_output(character_prefix const&, ...)), or true if the extractor is
+ *      prefix_extractor_kind::nothing.
+ *
+ *      This only checks the form of the value (e.g. the first day of the month for `DATE` values), and does not
+ *      consider the range of the source column type, that is, this is a necessary condition for that the value is
+ *      in the image of the prefix extractor. Null values are always acceptable. The values of approximate numeric
+ *      types (`REAL` and `DOUBLE`) are never acceptable for the prefix extraction methods, because they never
+ *      compute such the values.
+ * @param extractor the prefix extractor
+ * @param value the value
+ * @return true if the value can be an output of the prefix extractor, or it is a null value
+ * @return false otherwise
+ * @see character_prefix
+ * @see binary_prefix
+ * @see floor_division
+ * @see floor_fractional
+ * @see date_truncate
+ * @see timestamp_truncate
+ * @see compute_type()
+ */
+[[nodiscard]] bool is_valid_output(prefix_extractor const& extractor, ::takatori::value::data const& value) noexcept;
 
 } // namespace yugawara::storage::partition

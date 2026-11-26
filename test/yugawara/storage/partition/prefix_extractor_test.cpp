@@ -10,15 +10,35 @@
 #include <takatori/type/time_of_day.h>
 #include <takatori/type/time_point.h>
 
+#include <takatori/value/primitive.h>
+#include <takatori/value/decimal.h>
+#include <takatori/value/character.h>
+#include <takatori/value/octet.h>
+#include <takatori/value/date.h>
+#include <takatori/value/time_point.h>
+
 #include <yugawara/extension/type/error.h>
 #include <yugawara/extension/type/pending.h>
 
 namespace yugawara::storage::partition {
 
 namespace t = ::takatori::type;
+namespace v = ::takatori::value;
 
 class prefix_extractor_test : public ::testing::Test {
 public:
+    static v::decimal dec(std::int64_t coefficient, std::int32_t exponent) {
+        return v::decimal { ::takatori::decimal::triple { coefficient, exponent } };
+    }
+
+    static v::time_point ts(
+            std::uint32_t hour,
+            std::uint32_t minute,
+            std::uint32_t second,
+            std::uint64_t nanos = 0) {
+        return v::time_point { 2000, 1, 1, hour, minute, second, ::takatori::datetime::time_of_day::time_unit { nanos } };
+    }
+
     static bool is_error(std::shared_ptr<t::data const> const& type) {
         return type && type->kind() == t::extension::tag
             && extension::type::error::is_instance(static_cast<t::extension const&>(*type)); // NOLINT
@@ -257,6 +277,159 @@ TEST_F(prefix_extractor_test, compute_type_dispatch) {
     EXPECT_EQ(*compute_type(prefix_extractor { timestamp_truncate { timestamp_unit::hour } }, t::time_point {}), t::time_point {});
     EXPECT_TRUE(is_error(compute_type(prefix_extractor { floor_division { 10 } }, t::float8 {})));
     EXPECT_TRUE(is_pending(compute_type(prefix_extractor { date_truncate { date_unit::day } }, extension::type::pending {})));
+}
+
+TEST_F(prefix_extractor_test, is_valid_output_character_prefix) {
+    character_prefix e { 3 };
+    EXPECT_TRUE(is_valid_output(e, v::character { "" }));
+    EXPECT_TRUE(is_valid_output(e, v::character { "abc" }));
+    EXPECT_FALSE(is_valid_output(e, v::character { "abcd" }));
+    // counts in characters, not in octets
+    EXPECT_TRUE(is_valid_output(e, v::character { "\u3042\u3044\u3046" }));
+    EXPECT_FALSE(is_valid_output(e, v::character { "\u3042\u3044\u3046\u3048" }));
+    EXPECT_FALSE(is_valid_output(e, v::octet { "abc" }));
+    EXPECT_TRUE(is_valid_output(e, v::unknown {}));
+}
+
+TEST_F(prefix_extractor_test, is_valid_output_binary_prefix) {
+    binary_prefix e { 3 };
+    EXPECT_TRUE(is_valid_output(e, v::octet { "abc" }));
+    EXPECT_FALSE(is_valid_output(e, v::octet { "abcd" }));
+    EXPECT_FALSE(is_valid_output(e, v::character { "abc" }));
+    EXPECT_TRUE(is_valid_output(e, v::unknown {}));
+}
+
+TEST_F(prefix_extractor_test, is_valid_output_floor_division) {
+    floor_division e { 10 };
+    EXPECT_TRUE(is_valid_output(e, v::int4 { 15 }));
+    EXPECT_TRUE(is_valid_output(e, v::int8 { -15 }));
+    EXPECT_TRUE(is_valid_output(e, dec(15, 0)));
+    EXPECT_TRUE(is_valid_output(e, dec(1500, -2)));
+    EXPECT_FALSE(is_valid_output(e, dec(1501, -2)));
+    EXPECT_FALSE(is_valid_output(e, v::float8 { 15.0 }));
+    EXPECT_FALSE(is_valid_output(e, v::float4 { 15.0F }));
+    EXPECT_TRUE(is_valid_output(e, v::unknown {}));
+}
+
+TEST_F(prefix_extractor_test, is_valid_output_floor_fractional) {
+    floor_fractional e { 2 };
+    EXPECT_TRUE(is_valid_output(e, v::int4 { 1 }));
+    EXPECT_TRUE(is_valid_output(e, dec(125, -2)));
+    EXPECT_TRUE(is_valid_output(e, dec(12500, -4)));
+    EXPECT_FALSE(is_valid_output(e, dec(1251, -3)));
+    EXPECT_TRUE(is_valid_output(e, dec(-125, -2)));
+    EXPECT_TRUE(is_valid_output(e, dec(0, -10)));
+    EXPECT_FALSE(is_valid_output(e, v::float8 { 1.25 }));
+    EXPECT_FALSE(is_valid_output(floor_fractional { 0 }, dec(15, -1)));
+}
+
+TEST_F(prefix_extractor_test, is_valid_output_floor_fractional_large_coefficient) {
+    // 10^37 = 0x0785'ee10'd5da'46d9'00f4'36a0'0000'0000
+    ::takatori::decimal::triple exact { +1, 0x0785'ee10'd5da'46d9ULL, 0x00f4'36a0'0000'0000ULL, -37 };
+    EXPECT_TRUE(is_valid_output(floor_fractional { 0 }, v::decimal { exact }));
+    // 10^37 + 1
+    ::takatori::decimal::triple large { +1, 0x0785'ee10'd5da'46d9ULL, 0x00f4'36a0'0000'0001ULL, -37 };
+    EXPECT_FALSE(is_valid_output(floor_fractional { 0 }, v::decimal { large }));
+    EXPECT_FALSE(is_valid_output(floor_fractional { 36 }, v::decimal { large }));
+    EXPECT_TRUE(is_valid_output(floor_fractional { 37 }, v::decimal { large }));
+}
+
+TEST_F(prefix_extractor_test, is_valid_output_date_truncate) {
+    EXPECT_TRUE(is_valid_output(date_truncate { date_unit::year }, v::int4 { 2000 }));
+    EXPECT_TRUE(is_valid_output(date_truncate { date_unit::year }, dec(20000, -1)));
+    EXPECT_FALSE(is_valid_output(date_truncate { date_unit::year }, dec(20005, -1)));
+    EXPECT_FALSE(is_valid_output(date_truncate { date_unit::year }, v::date { 2000, 1, 1 }));
+    EXPECT_TRUE(is_valid_output(date_truncate { date_unit::month }, v::date { 2000, 1, 1 }));
+    EXPECT_FALSE(is_valid_output(date_truncate { date_unit::month }, v::date { 2000, 1, 15 }));
+    EXPECT_TRUE(is_valid_output(date_truncate { date_unit::day }, v::date { 2000, 1, 15 }));
+    EXPECT_FALSE(is_valid_output(date_truncate { date_unit::day }, ts(0, 0, 0)));
+    EXPECT_TRUE(is_valid_output(date_truncate { date_unit::month }, v::unknown {}));
+}
+
+TEST_F(prefix_extractor_test, is_valid_output_timestamp_truncate) {
+    EXPECT_TRUE(is_valid_output(timestamp_truncate { timestamp_unit::year }, v::int8 { 2000 }));
+    EXPECT_FALSE(is_valid_output(timestamp_truncate { timestamp_unit::year }, v::float8 { 2000 }));
+    EXPECT_TRUE(is_valid_output(timestamp_truncate { timestamp_unit::month }, v::date { 2000, 2, 1 }));
+    EXPECT_FALSE(is_valid_output(timestamp_truncate { timestamp_unit::month }, v::date { 2000, 2, 2 }));
+    EXPECT_FALSE(is_valid_output(timestamp_truncate { timestamp_unit::month }, ts(0, 0, 0)));
+    EXPECT_TRUE(is_valid_output(timestamp_truncate { timestamp_unit::day }, v::date { 2000, 2, 2 }));
+
+    EXPECT_TRUE(is_valid_output(timestamp_truncate { timestamp_unit::hour }, ts(10, 0, 0)));
+    EXPECT_FALSE(is_valid_output(timestamp_truncate { timestamp_unit::hour }, ts(10, 1, 0)));
+    EXPECT_FALSE(is_valid_output(timestamp_truncate { timestamp_unit::hour }, ts(10, 0, 1)));
+    EXPECT_FALSE(is_valid_output(timestamp_truncate { timestamp_unit::hour }, ts(10, 0, 0, 1)));
+    EXPECT_TRUE(is_valid_output(timestamp_truncate { timestamp_unit::hour }, v::date { 2000, 2, 2 }));
+
+    EXPECT_TRUE(is_valid_output(timestamp_truncate { timestamp_unit::minute }, ts(10, 30, 0)));
+    EXPECT_FALSE(is_valid_output(timestamp_truncate { timestamp_unit::minute }, ts(10, 30, 1)));
+    EXPECT_FALSE(is_valid_output(timestamp_truncate { timestamp_unit::minute }, ts(10, 30, 0, 1)));
+
+    EXPECT_TRUE(is_valid_output(timestamp_truncate { timestamp_unit::second, 0 }, ts(10, 30, 15)));
+    EXPECT_FALSE(is_valid_output(timestamp_truncate { timestamp_unit::second, 0 }, ts(10, 30, 15, 100'000'000)));
+    EXPECT_TRUE(is_valid_output(timestamp_truncate { timestamp_unit::second, 3 }, ts(10, 30, 15, 123'000'000)));
+    EXPECT_FALSE(is_valid_output(timestamp_truncate { timestamp_unit::second, 3 }, ts(10, 30, 15, 123'400'000)));
+    EXPECT_TRUE(is_valid_output(timestamp_truncate { timestamp_unit::second, 9 }, ts(10, 30, 15, 123'456'789)));
+    EXPECT_TRUE(is_valid_output(timestamp_truncate { timestamp_unit::second, 12 }, ts(10, 30, 15, 123'456'789)));
+    EXPECT_TRUE(is_valid_output(timestamp_truncate { timestamp_unit::second, 3 }, v::unknown {}));
+}
+
+TEST_F(prefix_extractor_test, is_valid_output_dispatch) {
+    EXPECT_TRUE(is_valid_output(prefix_extractor {}, v::float8 { 1.5 }));
+    EXPECT_TRUE(is_valid_output(prefix_extractor { character_prefix { 2 } }, v::character { "ab" }));
+    EXPECT_FALSE(is_valid_output(prefix_extractor { character_prefix { 2 } }, v::character { "abc" }));
+    EXPECT_FALSE(is_valid_output(prefix_extractor { binary_prefix { 2 } }, v::octet { "abc" }));
+    EXPECT_FALSE(is_valid_output(prefix_extractor { floor_division { 10 } }, dec(15, -1)));
+    EXPECT_FALSE(is_valid_output(prefix_extractor { floor_fractional { 1 } }, dec(125, -2)));
+    EXPECT_FALSE(is_valid_output(prefix_extractor { date_truncate { date_unit::month } }, v::date { 2000, 1, 15 }));
+    EXPECT_FALSE(is_valid_output(prefix_extractor { timestamp_truncate { timestamp_unit::hour } }, ts(10, 1, 0)));
+}
+
+TEST_F(prefix_extractor_test, is_valid_output_null) {
+    EXPECT_TRUE(is_valid_output(floor_fractional { 2 }, v::unknown {}));
+    EXPECT_TRUE(is_valid_output(date_truncate { date_unit::year }, v::unknown {}));
+    EXPECT_TRUE(is_valid_output(timestamp_truncate { timestamp_unit::hour }, v::unknown {}));
+    EXPECT_TRUE(is_valid_output(prefix_extractor {}, v::unknown {}));
+    EXPECT_TRUE(is_valid_output(prefix_extractor { character_prefix { 2 } }, v::unknown {}));
+}
+
+TEST_F(prefix_extractor_test, is_valid_output_approximate_number) {
+    EXPECT_FALSE(is_valid_output(character_prefix { 3 }, v::float8 { 1.0 }));
+    EXPECT_FALSE(is_valid_output(binary_prefix { 3 }, v::float8 { 1.0 }));
+    EXPECT_FALSE(is_valid_output(floor_fractional { 0 }, v::float4 { 1.0F }));
+    EXPECT_FALSE(is_valid_output(date_truncate { date_unit::year }, v::float8 { 2000.0 }));
+    EXPECT_FALSE(is_valid_output(date_truncate { date_unit::month }, v::float8 { 1.0 }));
+    EXPECT_FALSE(is_valid_output(date_truncate { date_unit::day }, v::float8 { 1.0 }));
+    EXPECT_FALSE(is_valid_output(timestamp_truncate { timestamp_unit::hour }, v::float8 { 1.0 }));
+    EXPECT_FALSE(is_valid_output(timestamp_truncate { timestamp_unit::second, 3 }, v::float8 { 1.0 }));
+}
+
+TEST_F(prefix_extractor_test, is_valid_output_exact_number_forms) {
+    // negative values
+    EXPECT_TRUE(is_valid_output(floor_division { 10 }, dec(-1500, -2)));
+    EXPECT_FALSE(is_valid_output(floor_division { 10 }, dec(-1501, -2)));
+    // positive exponents
+    EXPECT_TRUE(is_valid_output(floor_division { 10 }, dec(15, 2)));
+    EXPECT_TRUE(is_valid_output(floor_fractional { 0 }, dec(15, 2)));
+    // 2^64 * 10^-1: the high word is not zero, and the lowest digit is not zero
+    ::takatori::decimal::triple high_only { +1, 1ULL, 0ULL, -1 };
+    EXPECT_FALSE(is_valid_output(floor_fractional { 0 }, v::decimal { high_only }));
+    EXPECT_TRUE(is_valid_output(floor_fractional { 1 }, v::decimal { high_only }));
+}
+
+TEST_F(prefix_extractor_test, is_valid_output_binary_prefix_empty) {
+    EXPECT_TRUE(is_valid_output(binary_prefix { 3 }, v::octet { "" }));
+}
+
+TEST_F(prefix_extractor_test, is_valid_output_timestamp_truncate_types) {
+    EXPECT_TRUE(is_valid_output(timestamp_truncate { timestamp_unit::year }, dec(20000, -1)));
+    EXPECT_FALSE(is_valid_output(timestamp_truncate { timestamp_unit::year }, dec(20005, -1)));
+    EXPECT_FALSE(is_valid_output(timestamp_truncate { timestamp_unit::day }, ts(0, 0, 0)));
+    EXPECT_FALSE(is_valid_output(timestamp_truncate { timestamp_unit::hour }, v::int4 { 10 }));
+    EXPECT_FALSE(is_valid_output(timestamp_truncate { timestamp_unit::minute }, v::character { "10:30" }));
+    EXPECT_FALSE(is_valid_output(timestamp_truncate { timestamp_unit::second, 3 }, v::int8 { 0 }));
+    // DATE values represent the beginning of the day
+    EXPECT_TRUE(is_valid_output(timestamp_truncate { timestamp_unit::minute }, v::date { 2000, 2, 2 }));
+    EXPECT_TRUE(is_valid_output(timestamp_truncate { timestamp_unit::second, 0 }, v::date { 2000, 2, 2 }));
 }
 
 } // namespace yugawara::storage::partition

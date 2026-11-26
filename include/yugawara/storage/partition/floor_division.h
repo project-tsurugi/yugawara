@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include <takatori/type/data.h>
+#include <takatori/value/data.h>
 #include <takatori/util/enum_tag.h>
 
 #include <yugawara/type/repository.h>
@@ -113,5 +114,22 @@ inline std::ostream& operator<<(std::ostream& out, floor_division const& value) 
         floor_division const& extractor,
         ::takatori::type::data const& source_type,
         ::yugawara::type::repository& repo = ::yugawara::type::default_repository());
+
+/**
+ * @brief returns whether or not the given value can be an output of the given floor_division.
+ * @details The value must be an integral number, that is, an `INT` or `BIGINT` value, or a `DECIMAL` value
+ *      without fractional part. Approximate numbers (`REAL` and `DOUBLE`) are never acceptable, even if they are
+ *      integral.
+ *
+ *      Null values are always acceptable, and the values of the other types are never acceptable.
+ *      This only checks the form of the value, and does not consider the range of the source column type,
+ *      that is, this is a necessary condition for that the value is in the image of the prefix extractor.
+ * @param extractor the prefix extractor
+ * @param value the value
+ * @return true if the value can be an output of the prefix extractor, or it is a null value
+ * @return false otherwise
+ * @see compute_type()
+ */
+[[nodiscard]] bool is_valid_output(floor_division const& extractor, ::takatori::value::data const& value) noexcept;
 
 } // namespace yugawara::storage::partition

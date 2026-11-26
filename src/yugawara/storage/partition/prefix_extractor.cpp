@@ -108,4 +108,25 @@ std::shared_ptr<::takatori::type::data const> compute_type(
     return repo.get(extension::type::error {});
 }
 
+bool is_valid_output(prefix_extractor const& extractor, ::takatori::value::data const& value) noexcept {
+    using k = prefix_extractor_kind;
+    switch (extractor.kind()) {
+        case k::nothing:
+            return true;
+        case k::character_prefix:
+            return is_valid_output(extractor.element<k::character_prefix>(), value);
+        case k::binary_prefix:
+            return is_valid_output(extractor.element<k::binary_prefix>(), value);
+        case k::floor_division:
+            return is_valid_output(extractor.element<k::floor_division>(), value);
+        case k::floor_fractional:
+            return is_valid_output(extractor.element<k::floor_fractional>(), value);
+        case k::date_truncate:
+            return is_valid_output(extractor.element<k::date_truncate>(), value);
+        case k::timestamp_truncate:
+            return is_valid_output(extractor.element<k::timestamp_truncate>(), value);
+    }
+    return false;
+}
+
 } // namespace yugawara::storage::partition

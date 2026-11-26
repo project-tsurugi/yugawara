@@ -43,4 +43,9 @@ std::shared_ptr<::takatori::type::data const> compute_type(
     return repo.get(extension::type::error {});
 }
 
+bool is_valid_output(floor_division const& extractor, ::takatori::value::data const& value) noexcept {
+    (void) extractor;
+    return details::is_null_value(value) || details::is_exact_number_with_scale(value, 0);
+}
+
 } // namespace yugawara::storage::partition

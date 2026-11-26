@@ -2,12 +2,17 @@
 
 #include <takatori/type/octet.h>
 
+#include <takatori/value/octet.h>
+#include <takatori/util/downcast.h>
+
 #include <yugawara/extension/type/error.h>
 #include <yugawara/extension/type/pending.h>
 
 #include "details/prefix_extractor_util.h"
 
 namespace yugawara::storage::partition {
+
+using ::takatori::util::unsafe_downcast;
 
 bool is_applicable(
         ::takatori::util::enum_tag_t<prefix_extractor_kind::binary_prefix>,
@@ -27,6 +32,17 @@ std::shared_ptr<::takatori::type::data const> compute_type(
     }
     (void) extractor;
     return repo.get(::takatori::type::octet { ::takatori::type::varying });
+}
+
+bool is_valid_output(binary_prefix const& extractor, ::takatori::value::data const& value) noexcept {
+    if (details::is_null_value(value)) {
+        return true;
+    }
+    if (value.kind() != ::takatori::value::value_kind::octet) {
+        return false;
+    }
+    auto&& string = unsafe_downcast<::takatori::value::octet>(value).get();
+    return string.size() <= extractor.length();
 }
 
 } // namespace yugawara::storage::partition

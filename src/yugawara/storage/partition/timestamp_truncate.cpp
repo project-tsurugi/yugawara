@@ -41,4 +41,25 @@ std::shared_ptr<::takatori::type::data const> compute_type(
     return repo.get(extension::type::error {});
 }
 
+bool is_valid_output(timestamp_truncate const& extractor, ::takatori::value::data const& value) noexcept {
+    if (details::is_null_value(value)) {
+        return true;
+    }
+    switch (extractor.unit()) {
+        case timestamp_unit::year:
+            return details::is_exact_number_with_scale(value, 0);
+        case timestamp_unit::month:
+            return details::is_date_value(value, details::date_precision::month);
+        case timestamp_unit::day:
+            return details::is_date_value(value, details::date_precision::day);
+        case timestamp_unit::hour:
+            return details::is_time_point_value(value, details::time_point_precision::hour);
+        case timestamp_unit::minute:
+            return details::is_time_point_value(value, details::time_point_precision::minute);
+        case timestamp_unit::second:
+            return details::is_time_point_value(value, details::time_point_precision::second, extractor.second_scale());
+    }
+    return false;
+}
+
 } // namespace yugawara::storage::partition

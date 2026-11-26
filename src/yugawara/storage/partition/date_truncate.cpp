@@ -36,4 +36,19 @@ std::shared_ptr<::takatori::type::data const> compute_type(
     return repo.get(extension::type::error {});
 }
 
+bool is_valid_output(date_truncate const& extractor, ::takatori::value::data const& value) noexcept {
+    if (details::is_null_value(value)) {
+        return true;
+    }
+    switch (extractor.unit()) {
+        case date_unit::year:
+            return details::is_exact_number_with_scale(value, 0);
+        case date_unit::month:
+            return details::is_date_value(value, details::date_precision::month);
+        case date_unit::day:
+            return details::is_date_value(value, details::date_precision::day);
+    }
+    return false;
+}
+
 } // namespace yugawara::storage::partition

@@ -8,6 +8,7 @@
 #include "timestamp_unit.h"
 
 #include <takatori/type/data.h>
+#include <takatori/value/data.h>
 #include <takatori/util/enum_tag.h>
 
 #include <yugawara/type/repository.h>
@@ -131,5 +132,32 @@ inline std::ostream& operator<<(std::ostream& out, timestamp_truncate const& val
         timestamp_truncate const& extractor,
         ::takatori::type::data const& source_type,
         ::yugawara::type::repository& repo = ::yugawara::type::default_repository());
+
+/**
+ * @brief returns whether or not the given value can be an output of the given timestamp_truncate.
+ * @details The value must be:
+ *
+ *      - timestamp_unit::year - an integral number (an `INT` or `BIGINT` value, or a `DECIMAL` value
+ *        without fractional part, but not `REAL` nor `DOUBLE` values)
+ *      - timestamp_unit::month - a `DATE` value of the first day of the month
+ *      - timestamp_unit::day - a `DATE` value
+ *      - timestamp_unit::hour - a `TIMESTAMP` value whose minute, second, and fractional second are all zero
+ *      - timestamp_unit::minute - a `TIMESTAMP` value whose second and fractional second are all zero
+ *      - timestamp_unit::second - a `TIMESTAMP` value whose fractional second digits under
+ *        timestamp_truncate::second_scale() are all zero
+ *
+ *      For timestamp_unit::hour, timestamp_unit::minute, and timestamp_unit::second, a `DATE` value is also
+ *      acceptable, as it represents the beginning of the day.
+ *
+ *      Null values are always acceptable, and the values of the other types are never acceptable.
+ *      This only checks the form of the value, and does not consider the range of the source column type,
+ *      that is, this is a necessary condition for that the value is in the image of the prefix extractor.
+ * @param extractor the prefix extractor
+ * @param value the value
+ * @return true if the value can be an output of the prefix extractor, or it is a null value
+ * @return false otherwise
+ * @see compute_type()
+ */
+[[nodiscard]] bool is_valid_output(timestamp_truncate const& extractor, ::takatori::value::data const& value) noexcept;
 
 } // namespace yugawara::storage::partition

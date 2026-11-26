@@ -29,4 +29,8 @@ std::shared_ptr<::takatori::type::data const> compute_type(
     return repo.get(::takatori::type::decimal {});
 }
 
+bool is_valid_output(floor_fractional const& extractor, ::takatori::value::data const& value) noexcept {
+    return details::is_null_value(value) || details::is_exact_number_with_scale(value, extractor.scale());
+}
+
 } // namespace yugawara::storage::partition
