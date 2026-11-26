@@ -124,6 +124,15 @@ enum class restricted_feature {
     /// @brief restrict `write` statement with update operation.
     statement_write_update,
 
+    /// @brief restrict `create table` statement with partition key columns.
+    statement_create_table_partition,
+
+    /**
+     * @brief restrict `create table` statement with virtual columns in its partition key columns.
+     * @details This is restricted in addition to statement_create_table_partition.
+     */
+    statement_create_table_virtual_column,
+
     /// @brief restrict `alter table rename` statement.
     statement_rename_table,
 
@@ -132,6 +141,9 @@ enum class restricted_feature {
 
     /// @brief restrict `alter table rename column` statement.
     statement_rename_column,
+
+    /// @brief restrict `alter table drop partition` statement.
+    statement_drop_partition,
 
     /// @brief restrict `truncate table` statement.
     statement_truncate_table,
@@ -207,9 +219,12 @@ constexpr restricted_feature_set restricted_feature_exchange_steps {
 constexpr restricted_feature_set restricted_feature_statements {
         restricted_feature::statement_write_delete,
         restricted_feature::statement_write_update,
+        restricted_feature::statement_create_table_partition,
+        restricted_feature::statement_create_table_virtual_column,
         restricted_feature::statement_rename_table,
         restricted_feature::statement_rename_index,
         restricted_feature::statement_rename_column,
+        restricted_feature::statement_drop_partition,
         restricted_feature::statement_truncate_table,
         restricted_feature::statement_truncate_table_restart_identity,
         restricted_feature::statement_create_foreign_catalog,
@@ -258,9 +273,12 @@ constexpr std::string_view to_string_view(restricted_feature value) noexcept {
         case kind::exchange_group_row_slice_variable: return "group exchange with row slice variables"sv;
         case kind::statement_write_delete: return "write statement with delete operation"sv;
         case kind::statement_write_update: return "write statement with update operation"sv;
+        case kind::statement_create_table_partition: return "create table statement with partition key"sv;
+        case kind::statement_create_table_virtual_column: return "create table statement with virtual columns in partition key"sv;
         case kind::statement_rename_table: return "rename table statement"sv;
         case kind::statement_rename_index: return "rename index statement"sv;
         case kind::statement_rename_column: return "rename column statement"sv;
+        case kind::statement_drop_partition: return "drop partition statement"sv;
         case kind::statement_truncate_table: return "truncate table statement"sv;
         case kind::statement_truncate_table_restart_identity: return "truncate table statement with restart identity option"sv;
         case kind::statement_create_foreign_catalog: return "create foreign catalog statement"sv;

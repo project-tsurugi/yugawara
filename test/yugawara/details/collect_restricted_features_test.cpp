@@ -25,6 +25,10 @@
 #include <takatori/statement/truncate_table.h>
 #include <takatori/statement/create_foreign_catalog.h>
 #include <takatori/statement/drop_foreign_catalog.h>
+#include <takatori/statement/create_table.h>
+#include <takatori/statement/drop_partition.h>
+
+#include <takatori/value/primitive.h>
 
 #include <yugawara/storage/configurable_provider.h>
 #include <yugawara/binding/factory.h>
@@ -111,6 +115,39 @@ protected:
                 std::vector<descriptor::variable> {},
                 {},
                 std::move(row_slice),
+        };
+    }
+
+    ::takatori::statement::create_table make_create_table(
+            std::vector<storage::partition::prefix_extractor> partition_key = {}) {
+        auto table = std::make_shared<storage::table>(::takatori::util::clone_tag, storage::table {
+                "T1",
+                {
+                        { "C0", t::int4() },
+                        { "C1", t::int4() },
+                },
+        });
+        auto index = std::make_shared<storage::index>(storage::index {
+                table,
+                "T1",
+                {
+                        table->columns()[0],
+                        table->columns()[1],
+                },
+        });
+        // the i-th partition key element is on the i-th column
+        for (std::size_t i = 0; i < partition_key.size(); ++i) {
+            auto&& column = table->columns()[i];
+            if (partition_key[i]) {
+                index->partition_key_columns().emplace_back(column, "V" + std::to_string(i), partition_key[i]);
+            } else {
+                index->partition_key_columns().emplace_back(column);
+            }
+        }
+        return ::takatori::statement::create_table {
+                factory(std::make_shared<schema::declaration>("public")),
+                factory(table),
+                factory(index),
         };
     }
 
@@ -472,6 +509,67 @@ TEST_F(collect_restricted_features_test, statement_write_update_not_restricted) 
     ASSERT_EQ(result.size(), 0);
 }
 
+TEST_F(collect_restricted_features_test, statement_create_table_partition_restricted) {
+    auto result = collect_restricted_features(
+            {
+                    restricted_feature::statement_create_table_partition,
+                    restricted_feature::statement_create_table_virtual_column,
+            },
+            make_create_table({
+                    storage::partition::prefix_extractor {},
+            }));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::statement_create_table_partition);
+}
+
+TEST_F(collect_restricted_features_test, statement_create_table_virtual_column_restricted) {
+    auto result = collect_restricted_features(
+            {
+                    restricted_feature::statement_create_table_partition,
+                    restricted_feature::statement_create_table_virtual_column,
+            },
+            make_create_table({
+                    storage::partition::prefix_extractor {},
+                    storage::partition::floor_division { 10 },
+            }));
+    ASSERT_EQ(result.size(), 2);
+    check(result[0], restricted_feature::statement_create_table_partition);
+    check(result[1], restricted_feature::statement_create_table_virtual_column);
+}
+
+TEST_F(collect_restricted_features_test, statement_create_table_virtual_column_restricted_only) {
+    auto result = collect_restricted_features(
+            {
+                    restricted_feature::statement_create_table_virtual_column,
+            },
+            make_create_table({
+                    storage::partition::prefix_extractor {},
+                    storage::partition::floor_division { 10 },
+            }));
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::statement_create_table_virtual_column);
+}
+
+TEST_F(collect_restricted_features_test, statement_create_table_partition_not_partitioned) {
+    auto result = collect_restricted_features(
+            {
+                    restricted_feature::statement_create_table_partition,
+                    restricted_feature::statement_create_table_virtual_column,
+            },
+            make_create_table());
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, statement_create_table_partition_not_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_write_delete },
+            make_create_table({
+                    storage::partition::prefix_extractor {},
+                    storage::partition::floor_division { 10 },
+            }));
+    ASSERT_EQ(result.size(), 0);
+}
+
 TEST_F(collect_restricted_features_test, statement_rename_table_restricted) {
     auto schema = std::make_shared<schema::declaration>("s");
     auto result = collect_restricted_features(
@@ -543,6 +641,47 @@ TEST_F(collect_restricted_features_test, statement_rename_column_not_restricted)
                     factory(t0),
                     factory(t0->columns()[0]),
                     "X",
+            });
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST_F(collect_restricted_features_test, statement_drop_partition_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_drop_partition },
+            ::takatori::statement::drop_partition {
+                    factory(*i0),
+                    {
+                            ::takatori::statement::details::partition_criteria {
+                                    {
+                                            {
+                                                    factory(t0c0),
+                                                    "C0",
+                                                    { { ::takatori::scalar::comparison_operator::equal, ::takatori::value::int4 { 1 } } },
+                                            },
+                                    },
+                            },
+                    },
+            });
+    ASSERT_EQ(result.size(), 1);
+    check(result[0], restricted_feature::statement_drop_partition);
+}
+
+TEST_F(collect_restricted_features_test, statement_drop_partition_not_restricted) {
+    auto result = collect_restricted_features(
+            { restricted_feature::statement_write_delete },
+            ::takatori::statement::drop_partition {
+                    factory(*i0),
+                    {
+                            ::takatori::statement::details::partition_criteria {
+                                    {
+                                            {
+                                                    factory(t0c0),
+                                                    "C0",
+                                                    { { ::takatori::scalar::comparison_operator::equal, ::takatori::value::int4 { 1 } } },
+                                            },
+                                    },
+                            },
+                    },
             });
     ASSERT_EQ(result.size(), 0);
 }

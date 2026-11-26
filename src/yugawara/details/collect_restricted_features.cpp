@@ -1,5 +1,6 @@
 #include "collect_restricted_features.h"
 
+#include <algorithm>
 #include <optional>
 #include <utility>
 
@@ -9,7 +10,9 @@
 
 #include <takatori/util/string_builder.h>
 
+#include <yugawara/binding/extract.h>
 #include <yugawara/remote/details/element_location.h>
+#include <yugawara/storage/index.h>
 
 namespace yugawara::details {
 
@@ -91,6 +94,18 @@ public:
         }
     }
 
+    void operator()(tstatement::create_table const& statement) {
+        auto index = binding::extract_if<storage::index>(statement.primary_key());
+        if (!index || index->partition_key_columns().empty()) {
+            return;
+        }
+        validate(restricted_feature::statement_create_table_partition, statement.region());
+        auto&& columns = index->partition_key_columns();
+        if (std::any_of(columns.begin(), columns.end(), [](auto&& c) { return static_cast<bool>(c.prefix_extractor()); })) {
+            validate(restricted_feature::statement_create_table_virtual_column, statement.region());
+        }
+    }
+
     void operator()(tstatement::rename_table const& statement) {
         validate(restricted_feature::statement_rename_table, statement.region());
     }
@@ -101,6 +116,10 @@ public:
 
     void operator()(tstatement::rename_column const& statement) {
         validate(restricted_feature::statement_rename_column, statement.region());
+    }
+
+    void operator()(tstatement::drop_partition const& statement) {
+        validate(restricted_feature::statement_drop_partition, statement.region());
     }
 
     void operator()(tstatement::truncate_table const& statement) {
