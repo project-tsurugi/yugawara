@@ -2009,6 +2009,21 @@ public:
                                         first_region(stmt.index(), stmt),
                                 });
                                 success = false;
+                                continue;
+                            }
+                            if (is_approximate_number(value_type->kind()) && !is_approximate_number(key_type->kind())) {
+                                // NOTE: the partitions cannot be identified by approximate numbers
+                                report({
+                                        code::inconsistent_type,
+                                        string_builder {}
+                                                << "partition key \"" << key.column_name() << "\" "
+                                                << "cannot be compared with approximate numeric values: "
+                                                << "key type=" << *key_type << ", "
+                                                << "value type=" << *value_type
+                                                << string_builder::to_string,
+                                        first_region(stmt.index(), stmt),
+                                });
+                                success = false;
                             }
                         }
                     }
@@ -2613,6 +2628,11 @@ private:
             return true;
         }
         return type::category_of(*t) == category::unresolved;
+    }
+
+    static bool is_approximate_number(::takatori::type::type_kind kind) noexcept {
+        using k = ::takatori::type::type_kind;
+        return kind == k::float4 || kind == k::float8;
     }
 };
 

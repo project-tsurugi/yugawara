@@ -705,6 +705,32 @@ TEST_F(expression_analyzer_statement_test, drop_partition_inconsistent) {
             std::make_shared<v::time_point>(::takatori::datetime::date { 2026, 1, 1 })), code::inconsistent_type);
 }
 
+TEST_F(expression_analyzer_statement_test, drop_partition_approximate_number) {
+    namespace p = storage::partition;
+    using op = scalar::comparison_operator;
+    EXPECT_EQ(resolve_drop_partition(t::int8(), {}, op::equal, std::make_shared<v::float8>(1.5)), code::inconsistent_type);
+    EXPECT_EQ(resolve_drop_partition(t::decimal(10, 2), {}, op::less, std::make_shared<v::float4>(1.5F)), code::inconsistent_type);
+    EXPECT_EQ(resolve_drop_partition(
+            t::int8(),
+            p::floor_division { 1000 },
+            op::equal,
+            std::make_shared<v::float8>(5.0)), code::inconsistent_type);
+    EXPECT_EQ(resolve_drop_partition(
+            t::decimal(10, 4),
+            p::floor_fractional { 2 },
+            op::greater_equal,
+            std::make_shared<v::float8>(1.5)), code::inconsistent_type);
+    EXPECT_EQ(resolve_drop_partition(
+            t::time_point(),
+            p::timestamp_truncate { p::timestamp_unit::year },
+            op::equal,
+            std::make_shared<v::float8>(2000.0)), code::inconsistent_type);
+
+    // approximate numeric keys can be compared with approximate numeric values
+    EXPECT_FALSE(resolve_drop_partition(t::float8(), {}, op::equal, std::make_shared<v::float8>(1.5)));
+    EXPECT_FALSE(resolve_drop_partition(t::float4(), {}, op::less, std::make_shared<v::float8>(1.5)));
+}
+
 TEST_F(expression_analyzer_statement_test, drop_partition_too_many_elements) {
     statement::drop_partition stmt {
             bindings(i0),
