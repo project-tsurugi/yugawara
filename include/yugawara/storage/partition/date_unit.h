@@ -11,7 +11,7 @@ namespace yugawara::storage::partition {
  * @brief represents a unit to truncate date values.
  */
 enum class date_unit {
-    /// @brief truncates to the first day of the year.
+    /// @brief extracts the year number (as same as `EXTRACT(YEAR FROM ...)`).
     year,
     /// @brief truncates to the first day of the month.
     month,

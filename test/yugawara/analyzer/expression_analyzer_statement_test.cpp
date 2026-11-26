@@ -629,7 +629,6 @@ TEST_F(expression_analyzer_statement_test, create_table_partitioned) {
     EXPECT_TRUE(resolve_partitioned(t::int2(), p::floor_division { 10 }));
     EXPECT_TRUE(resolve_partitioned(t::decimal(10, 2), p::floor_division { 10 }));
     EXPECT_TRUE(resolve_partitioned(t::decimal(10, 2), p::floor_fractional { 1 }));
-    EXPECT_TRUE(resolve_partitioned(t::int8(), p::floor_fractional { 1 }));
     EXPECT_TRUE(resolve_partitioned(t::date(), p::date_truncate { p::date_unit::month }));
     EXPECT_TRUE(resolve_partitioned(t::time_point(), p::timestamp_truncate { p::timestamp_unit::hour }));
 }
@@ -641,6 +640,7 @@ TEST_F(expression_analyzer_statement_test, create_table_partitioned_inconsistent
     EXPECT_FALSE(resolve_partitioned(t::character(t::varying, 10), p::floor_division { 10 }));
     EXPECT_FALSE(resolve_partitioned(t::float8(), p::floor_division { 10 }));
     EXPECT_FALSE(resolve_partitioned(t::float8(), p::floor_fractional { 1 }));
+    EXPECT_FALSE(resolve_partitioned(t::int8(), p::floor_fractional { 1 }));
     EXPECT_FALSE(resolve_partitioned(t::time_point(), p::date_truncate { p::date_unit::month }));
     EXPECT_FALSE(resolve_partitioned(t::date(), p::timestamp_truncate { p::timestamp_unit::day }));
     EXPECT_FALSE(resolve_partitioned(t::time_point(t::with_time_zone), p::timestamp_truncate { p::timestamp_unit::day }));

@@ -11,7 +11,7 @@ namespace yugawara::storage::partition {
  * @brief represents a unit to truncate timestamp values.
  */
 enum class timestamp_unit {
-    /// @brief truncates to the beginning of the year.
+    /// @brief extracts the year number (as same as `EXTRACT(YEAR FROM ...)`).
     year,
     /// @brief truncates to the beginning of the month.
     month,

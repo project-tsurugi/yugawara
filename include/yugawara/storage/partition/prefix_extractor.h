@@ -199,6 +199,11 @@ private:
  *      (e.g. compute_type(character_prefix const&, ...)), or the source column type
  *      if the extractor is prefix_extractor_kind::nothing.
  *
+ *      The kind of the resulting type is the same as, or smaller than, the kind of the source column type,
+ *      where the kinds are ordered as "integral types < `DECIMAL`" and "`DATE` < `TIMESTAMP`"
+ *      (the integral types, which are promoted to `INT` or `BIGINT`, are the same kind).
+ *      As an exception, date_unit::year and timestamp_unit::year compute the year number as `INT`.
+ *
  *      Note that, the physical representation of the partition key element is not restricted by this type.
  * @param extractor the prefix extractor
  * @param source_type the source column type

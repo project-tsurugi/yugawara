@@ -140,11 +140,13 @@ TEST_F(prefix_extractor_test, is_applicable_floor_division) {
 
 TEST_F(prefix_extractor_test, is_applicable_floor_fractional) {
     using k = prefix_extractor_kind;
-    EXPECT_TRUE(is_applicable(k::floor_fractional, t::int4 {}));
-    EXPECT_TRUE(is_applicable(k::floor_fractional, t::int8 {}));
     EXPECT_TRUE(is_applicable(k::floor_fractional, t::decimal { 10, 2 }));
     EXPECT_TRUE(is_applicable(k::floor_fractional, t::decimal {}));
 
+    // integral types are not applicable, because the resulting type must not be larger than the source type
+    EXPECT_FALSE(is_applicable(k::floor_fractional, t::int1 {}));
+    EXPECT_FALSE(is_applicable(k::floor_fractional, t::int4 {}));
+    EXPECT_FALSE(is_applicable(k::floor_fractional, t::int8 {}));
     EXPECT_FALSE(is_applicable(k::floor_fractional, t::float8 {}));
     EXPECT_FALSE(is_applicable(k::floor_fractional, t::date {}));
 }
@@ -214,9 +216,10 @@ TEST_F(prefix_extractor_test, compute_type_floor_division) {
 }
 
 TEST_F(prefix_extractor_test, compute_type_floor_fractional) {
-    EXPECT_EQ(*compute_type(floor_fractional { 1 }, t::int4 {}), t::int4 {});
-    EXPECT_EQ(*compute_type(floor_fractional { 1 }, t::int8 {}), t::int8 {});
     EXPECT_EQ(*compute_type(floor_fractional { 1 }, t::decimal { 10, 2 }), t::decimal {});
+    EXPECT_EQ(*compute_type(floor_fractional { 0 }, t::decimal {}), t::decimal {});
+    EXPECT_TRUE(is_error(compute_type(floor_fractional { 1 }, t::int4 {})));
+    EXPECT_TRUE(is_error(compute_type(floor_fractional { 1 }, t::int8 {})));
 }
 
 TEST_F(prefix_extractor_test, compute_type_date_truncate) {

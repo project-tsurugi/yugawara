@@ -16,8 +16,8 @@ namespace yugawara::storage::partition {
 
 /**
  * @brief truncates the fractional digits of the value toward negative infinity.
- * @details This is applicable to the exact numeric types (`TINYINT`, `SMALLINT`, `INT`, `BIGINT`, and `DECIMAL`).
- *      For the integral types, this extracts the value as is.
+ * @details This is applicable only to the `DECIMAL` type.
+ *      It is not applicable to the integral types, because it does not change their values.
  * @see is_applicable()
  * @see compute_type()
  */
@@ -81,13 +81,13 @@ inline std::ostream& operator<<(std::ostream& out, floor_fractional const& value
 
 /**
  * @brief returns whether or not floor_fractional is applicable to the given source column type.
- * @details floor_fractional is applicable to the source column type,
- *      only if the "parameter application conversion" from the source column type to `DECIMAL(*, *)` is applicable,
- *      as same as the arguments of function calls.
+ * @details floor_fractional is applicable only to the `DECIMAL` type.
+ *      Unlike the other prefix extractors, this does not accept the source column types which are convertible to
+ *      `DECIMAL(*, *)` by the "parameter application conversion" (e.g. `INT`), because the resulting type must not be
+ *      larger than the source column type (see compute_type(prefix_extractor const&, ...)).
  * @param source_type the source column type
  * @return true if floor_fractional is applicable to the source column type
  * @return false otherwise, or the source column type is erroneous or pending
- * @see type::is_parameter_application_convertible()
  */
 [[nodiscard]] bool is_applicable(
         ::takatori::util::enum_tag_t<prefix_extractor_kind::floor_fractional>,
@@ -95,11 +95,7 @@ inline std::ostream& operator<<(std::ostream& out, floor_fractional const& value
 
 /**
  * @brief returns the type of values computed by the given floor_fractional.
- * @details The resulting type is:
- *
- *      - `INT` - if the source column type is `TINYINT`, `SMALLINT`, or `INT`
- *      - `BIGINT` - if the source column type is `BIGINT`
- *      - `DECIMAL(*, *)` - if the source column type is `DECIMAL`
+ * @details The resulting type is `DECIMAL(*, *)`.
  * @param extractor the prefix extractor
  * @param source_type the source column type
  * @param repo the type repository
