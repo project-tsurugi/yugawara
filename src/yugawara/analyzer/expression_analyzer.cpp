@@ -1928,6 +1928,97 @@ public:
         return true;
     }
 
+    bool operator()(statement::drop_partition const& stmt) { // NOLINT(*-function-cognitive-complexity)
+        if (validate_) {
+            bool success = true;
+            if (auto&& index_opt = binding::extract_if<storage::index>(stmt.index())) {
+                auto&& index = *index_opt;
+                auto&& keys = index.partition_key_columns();
+                for (auto&& criteria : stmt.target()) {
+                    auto&& elements = criteria.elements();
+                    if (elements.size() > keys.size()) {
+                        report({
+                                code::inconsistent_elements,
+                                string_builder {}
+                                        << "too many partition key elements: "
+                                        << index.simple_name() << " has "
+                                        << keys.size() << " partition key columns, but "
+                                        << elements.size() << " elements are specified"
+                                        << string_builder::to_string,
+                                first_region(stmt.index(), stmt),
+                        });
+                        success = false;
+                        continue;
+                    }
+                    for (std::size_t i = 0, n = elements.size(); i < n; ++i) {
+                        auto&& element = elements[i];
+                        auto&& key = keys[i];
+                        if (auto column = binding::extract_if<storage::column>(element.column());
+                                !column || *column != key.column()) {
+                            // NOTE: the producer of the statement must order the elements by the partition key columns
+                            report({
+                                    code::unknown,
+                                    string_builder {}
+                                            << "partition key element \"" << element.column_name() << "\" "
+                                            << "does not correspond to the partition key column \""
+                                            << key.column_name() << "\""
+                                            << string_builder::to_string,
+                                    first_region(stmt.index(), stmt),
+                            });
+                            success = false;
+                            continue;
+                        }
+                        auto key_type = storage::partition::compute_type(
+                                key.prefix_extractor(),
+                                key.column().type(),
+                                repo_);
+                        if (is_unresolved_or_error(key_type)) {
+                            // the partition key itself is broken
+                            continue;
+                        }
+                        for (auto&& predicate : element.predicates()) {
+                            auto&& value = *predicate.second;
+                            auto value_type = literal_type(value, *key_type);
+                            if (!value_type) {
+                                continue;
+                            }
+                            auto unify = type::unifying_conversion(*value_type, *key_type, repo_);
+                            if (type::category_of(*unify) == category::unresolved) {
+                                report({
+                                        code::inconsistent_type,
+                                        string_builder {}
+                                                << "partition key \"" << key.column_name() << "\" "
+                                                << "cannot be compared with the value: "
+                                                << "key type=" << *key_type << ", "
+                                                << "value type=" << *value_type
+                                                << string_builder::to_string,
+                                        first_region(stmt.index(), stmt),
+                                });
+                                success = false;
+                                continue;
+                            }
+                            if (!type::is_comparable(predicate.first, *unify)) {
+                                report({
+                                        code::unsupported_type,
+                                        string_builder {}
+                                                << "unsupported comparison for partition key \""
+                                                << key.column_name() << "\": "
+                                                << "operator=" << predicate.first << ", "
+                                                << "type=" << *unify
+                                                << string_builder::to_string,
+                                        first_region(stmt.index(), stmt),
+                                });
+                                success = false;
+                            }
+                        }
+                    }
+                }
+            }
+            return success;
+        }
+        return true;
+    }
+
     bool operator()(statement::truncate_table const& stmt) {
         (void) stmt;
         return true;

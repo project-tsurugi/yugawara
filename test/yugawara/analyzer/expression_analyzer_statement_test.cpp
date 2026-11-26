@@ -1,5 +1,9 @@
 #include <yugawara/analyzer/expression_analyzer.h>
 
+#include <memory>
+#include <optional>
+#include <vector>
+
 #include <gtest/gtest.h>
 
 #include <takatori/document/basic_document.h>
@@ -13,7 +17,9 @@
 #include <takatori/type/time_point.h>
 
 #include <takatori/value/primitive.h>
+#include <takatori/value/decimal.h>
 #include <takatori/value/character.h>
+#include <takatori/value/date.h>
 #include <takatori/value/time_of_day.h>
 #include <takatori/value/time_point.h>
 
@@ -32,6 +38,7 @@
 #include <takatori/statement/write.h>
 #include <takatori/statement/create_table.h>
 #include <takatori/statement/truncate_table.h>
+#include <takatori/statement/drop_partition.h>
 
 #include <takatori/util/optional_ptr.h>
 
@@ -139,6 +146,61 @@ protected:
             }
         }
         return b;
+    }
+
+    std::optional<code> resolve_drop_partition(
+            ::takatori::type::data&& type,
+            storage::partition::prefix_extractor extractor,
+            ::takatori::scalar::comparison_operator op,
+            std::shared_ptr<::takatori::value::data const> value) {
+        auto table = std::make_shared<storage::table>(::takatori::util::clone_tag, storage::table {
+                "T0",
+                {
+                        { "K0", t::int4() },
+                        { "K1", std::move(type) },
+                        { "V", t::int4() },
+                },
+        });
+        auto index = std::make_shared<storage::index>(storage::index {
+                table,
+                "I0",
+                {
+                        table->columns()[0],
+                        table->columns()[1],
+                },
+        });
+        index->partition_key_columns().emplace_back(table->columns()[0]);
+        index->partition_key_columns().emplace_back(table->columns()[1], "P1", extractor);
+        statement::drop_partition stmt {
+                bindings(index),
+                {
+                        statement::details::partition_criteria {
+                                {
+                                        {
+                                                bindings(table->columns()[0]),
+                                                "K0",
+                                                { { scalar::comparison_operator::equal, v::int4 { 1 } } },
+                                        },
+                                        {
+                                                bindings(table->columns()[1]),
+                                                "P1",
+                                                std::vector<statement::details::partition_key_element::predicate_type> {
+                                                        { op, std::move(value) },
+                                                },
+                                        },
+                                },
+                        },
+                },
+        };
+        analyzer.clear_diagnostics();
+        auto b = analyzer.resolve(stmt, true);
+        if (b) {
+            EXPECT_TRUE(ok()) << *this;
+            return {};
+        }
+        EXPECT_FALSE(ok());
+        EXPECT_EQ(analyzer.diagnostics().size(), 1) << *this;
+        return analyzer.diagnostics().front().code();
     }
 
     ::takatori::document::basic_document doc_ {
@@ -582,6 +644,124 @@ TEST_F(expression_analyzer_statement_test, create_table_partitioned_inconsistent
     EXPECT_FALSE(resolve_partitioned(t::time_point(), p::date_truncate { p::date_unit::month }));
     EXPECT_FALSE(resolve_partitioned(t::date(), p::timestamp_truncate { p::timestamp_unit::day }));
     EXPECT_FALSE(resolve_partitioned(t::time_point(t::with_time_zone), p::timestamp_truncate { p::timestamp_unit::day }));
+}
+
+TEST_F(expression_analyzer_statement_test, drop_partition) {
+    namespace p = storage::partition;
+    using op = scalar::comparison_operator;
+    EXPECT_FALSE(resolve_drop_partition(t::int4(), {}, op::equal, std::make_shared<v::int4>(1)));
+    EXPECT_FALSE(resolve_drop_partition(t::int4(), {}, op::less, std::make_shared<v::int8>(1)));
+    EXPECT_FALSE(resolve_drop_partition(t::decimal(10, 2), {}, op::greater_equal, std::make_shared<v::decimal>("1.5")));
+    EXPECT_FALSE(resolve_drop_partition(
+            t::character(t::varying, 10),
+            p::character_prefix { 2 },
+            op::equal,
+            std::make_shared<v::character>("ab")));
+    EXPECT_FALSE(resolve_drop_partition(
+            t::int8(),
+            p::floor_division { 1000 },
+            op::equal,
+            std::make_shared<v::int4>(5)));
+    EXPECT_FALSE(resolve_drop_partition(
+            t::date(),
+            p::date_truncate { p::date_unit::year },
+            op::equal,
+            std::make_shared<v::int4>(2026)));
+    EXPECT_FALSE(resolve_drop_partition(
+            t::date(),
+            p::date_truncate { p::date_unit::month },
+            op::equal,
+            std::make_shared<v::date>(2026, 1, 1)));
+    EXPECT_FALSE(resolve_drop_partition(
+            t::time_point(),
+            p::timestamp_truncate { p::timestamp_unit::month },
+            op::less,
+            std::make_shared<v::date>(2026, 1, 1)));
+    EXPECT_FALSE(resolve_drop_partition(
+            t::time_point(),
+            p::timestamp_truncate { p::timestamp_unit::hour },
+            op::equal,
+            std::make_shared<v::time_point>(::takatori::datetime::date { 2026, 1, 1 })));
+}
+
+TEST_F(expression_analyzer_statement_test, drop_partition_inconsistent) {
+    namespace p = storage::partition;
+    using op = scalar::comparison_operator;
+    EXPECT_EQ(resolve_drop_partition(t::int4(), {}, op::equal, std::make_shared<v::character>("1")), code::inconsistent_type);
+    EXPECT_EQ(resolve_drop_partition(
+            t::date(),
+            p::date_truncate { p::date_unit::year },
+            op::equal,
+            std::make_shared<v::date>(2026, 1, 1)), code::inconsistent_type);
+    EXPECT_EQ(resolve_drop_partition(
+            t::date(),
+            p::date_truncate { p::date_unit::month },
+            op::equal,
+            std::make_shared<v::int4>(2026)), code::inconsistent_type);
+    EXPECT_EQ(resolve_drop_partition(
+            t::time_point(),
+            p::timestamp_truncate { p::timestamp_unit::year },
+            op::less,
+            std::make_shared<v::time_point>(::takatori::datetime::date { 2026, 1, 1 })), code::inconsistent_type);
+}
+
+TEST_F(expression_analyzer_statement_test, drop_partition_too_many_elements) {
+    statement::drop_partition stmt {
+            bindings(i0),
+            {
+                    statement::details::partition_criteria {
+                            {
+                                    {
+                                            bindings(t0->columns()[0]),
+                                            "C0",
+                                            { { scalar::comparison_operator::equal, v::int4 { 1 } } },
+                                    },
+                            },
+                    },
+            },
+    };
+    auto b = analyzer.resolve(stmt, true);
+    EXPECT_FALSE(b);
+    ASSERT_EQ(analyzer.diagnostics().size(), 1);
+    EXPECT_EQ(analyzer.diagnostics().front().code(), code::inconsistent_elements);
+}
+
+TEST_F(expression_analyzer_statement_test, drop_partition_inconsistent_column) {
+    auto table = std::make_shared<storage::table>(::takatori::util::clone_tag, storage::table {
+            "T0",
+            {
+                    { "K0", t::int4() },
+                    { "K1", t::int4() },
+            },
+    });
+    auto index = std::make_shared<storage::index>(storage::index {
+            table,
+            "I0",
+            {
+                    table->columns()[0],
+                    table->columns()[1],
+            },
+    });
+    index->partition_key_columns().emplace_back(table->columns()[0]);
+    index->partition_key_columns().emplace_back(table->columns()[1]);
+    statement::drop_partition stmt {
+            bindings(index),
+            {
+                    statement::details::partition_criteria {
+                            {
+                                    {
+                                            bindings(table->columns()[1]),
+                                            "K1",
+                                            { { scalar::comparison_operator::equal, v::int4 { 1 } } },
+                                    },
+                            },
+                    },
+            },
+    };
+    auto b = analyzer.resolve(stmt, true);
+    EXPECT_FALSE(b);
+    ASSERT_EQ(analyzer.diagnostics().size(), 1);
+    EXPECT_EQ(analyzer.diagnostics().front().code(), code::unknown);
 }
 
 TEST_F(expression_analyzer_statement_test, truncate_table) {

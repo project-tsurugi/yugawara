@@ -335,6 +335,10 @@ public:
         constraints_.add(statement.target());
     }
 
+    void operator()(tstatement::drop_partition const& statement) {
+        constraints_.add(statement.index());
+    }
+
     void operator()(tstatement::rename_index const& statement) {
         constraints_.add(statement.target());
     }
