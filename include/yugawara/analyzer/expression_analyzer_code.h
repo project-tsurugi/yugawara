@@ -28,13 +28,15 @@ enum class expression_analyzer_code {
     inconsistent_elements,
     /// @brief the function type is inconsistent with the call site.
     inconsistent_function_type,
+    /// @brief the value is not valid for this operation (e.g. the value can never be a value of the partition key).
+    invalid_value,
 };
 
 /// @brief an enum set of expression_analyzer_code.
 using expression_analyzer_code_set = ::takatori::util::enum_set<
         expression_analyzer_code,
         expression_analyzer_code::unknown,
-        expression_analyzer_code::inconsistent_function_type>;
+        expression_analyzer_code::invalid_value>;
 
 /**
  * @brief returns string representation of the value.
@@ -52,6 +54,7 @@ constexpr std::string_view to_string_view(expression_analyzer_code value) noexce
         case kind::unresolved_variable: return "unresolved_variable"sv;
         case kind::inconsistent_elements: return "inconsistent_elements"sv;
         case kind::inconsistent_function_type: return "inconsistent_function_type"sv;
+        case kind::invalid_value: return "invalid_value"sv;
     }
     std::abort();
 }

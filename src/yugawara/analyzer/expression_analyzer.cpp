@@ -2024,6 +2024,20 @@ public:
                                         first_region(stmt.index(), stmt),
                                 });
                                 success = false;
+                                continue;
+                            }
+                            if (!storage::partition::is_valid_output(key.prefix_extractor(), value)) {
+                                report({
+                                        code::invalid_value,
+                                        string_builder {}
+                                                << "value is out of range for partition key \""
+                                                << key.column_name() << "\": "
+                                                << "value=" << value << ", "
+                                                << "prefix extractor=" << key.prefix_extractor()
+                                                << string_builder::to_string,
+                                        first_region(stmt.index(), stmt),
+                                });
+                                success = false;
                             }
                         }
                     }

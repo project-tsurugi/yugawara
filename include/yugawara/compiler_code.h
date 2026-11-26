@@ -28,6 +28,8 @@ enum class compiler_code {
     inconsistent_function_type,
     /// @brief there are no locations where the operation can be executed.
     empty_operation_location,
+    /// @brief the value is not valid for this operation (e.g. the value can never be a value of the partition key).
+    invalid_value,
 };
 
 /**
@@ -48,6 +50,7 @@ inline constexpr std::string_view to_string_view(compiler_code value) noexcept {
         case kind::inconsistent_elements: return "inconsistent_elements"sv;
         case kind::inconsistent_function_type: return "inconsistent_function_type"sv;
         case kind::empty_operation_location: return "empty_operation_location"sv;
+        case kind::invalid_value: return "invalid_value"sv;
     }
     std::abort();
 }

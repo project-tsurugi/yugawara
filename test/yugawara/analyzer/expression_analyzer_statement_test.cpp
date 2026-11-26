@@ -19,6 +19,7 @@
 #include <takatori/value/primitive.h>
 #include <takatori/value/decimal.h>
 #include <takatori/value/character.h>
+#include <takatori/value/octet.h>
 #include <takatori/value/date.h>
 #include <takatori/value/time_of_day.h>
 #include <takatori/value/time_point.h>
@@ -729,6 +730,90 @@ TEST_F(expression_analyzer_statement_test, drop_partition_approximate_number) {
     // approximate numeric keys can be compared with approximate numeric values
     EXPECT_FALSE(resolve_drop_partition(t::float8(), {}, op::equal, std::make_shared<v::float8>(1.5)));
     EXPECT_FALSE(resolve_drop_partition(t::float4(), {}, op::less, std::make_shared<v::float8>(1.5)));
+}
+
+TEST_F(expression_analyzer_statement_test, drop_partition_invalid_value) {
+    namespace p = storage::partition;
+    using op = scalar::comparison_operator;
+    // V26: EXTRACT(YEAR TO MONTH FROM ts) never computes the middle of the month
+    EXPECT_EQ(resolve_drop_partition(
+            t::time_point(),
+            p::timestamp_truncate { p::timestamp_unit::month },
+            op::equal,
+            std::make_shared<v::date>(2000, 1, 15)), code::invalid_value);
+    // checks the values of all predicates, regardless of the operator
+    EXPECT_EQ(resolve_drop_partition(
+            t::time_point(),
+            p::timestamp_truncate { p::timestamp_unit::month },
+            op::greater_equal,
+            std::make_shared<v::date>(2000, 1, 15)), code::invalid_value);
+    EXPECT_EQ(resolve_drop_partition(
+            t::character(t::varying, 10),
+            p::character_prefix { 2 },
+            op::equal,
+            std::make_shared<v::character>("abc")), code::invalid_value);
+    EXPECT_EQ(resolve_drop_partition(
+            t::int8(),
+            p::floor_division { 1000 },
+            op::equal,
+            std::make_shared<v::decimal>("5.5")), code::invalid_value);
+    EXPECT_EQ(resolve_drop_partition(
+            t::time_point(),
+            p::timestamp_truncate { p::timestamp_unit::hour },
+            op::less,
+            std::make_shared<v::time_point>(2026, 1, 1, 10, 30, 0)), code::invalid_value);
+
+    // the boundary values
+    EXPECT_FALSE(resolve_drop_partition(
+            t::decimal(10, 4),
+            p::floor_fractional { 2 },
+            op::equal,
+            std::make_shared<v::decimal>("1.25")));
+    EXPECT_EQ(resolve_drop_partition(
+            t::decimal(10, 4),
+            p::floor_fractional { 2 },
+            op::equal,
+            std::make_shared<v::decimal>("1.255")), code::invalid_value);
+
+    EXPECT_EQ(resolve_drop_partition(
+            t::octet(t::varying, 10),
+            p::binary_prefix { 2 },
+            op::equal,
+            std::make_shared<v::octet>("abc")), code::invalid_value);
+    EXPECT_EQ(resolve_drop_partition(
+            t::date(),
+            p::date_truncate { p::date_unit::month },
+            op::less,
+            std::make_shared<v::date>(2000, 1, 2)), code::invalid_value);
+    EXPECT_EQ(resolve_drop_partition(
+            t::time_point(),
+            p::timestamp_truncate { p::timestamp_unit::second, 3 },
+            op::equal,
+            std::make_shared<v::time_point>(2026, 1, 1, 10, 30, 15, ::takatori::datetime::time_of_day::time_unit { 123'400'000 })),
+            code::invalid_value);
+
+    // the valid values with the other operators
+    EXPECT_FALSE(resolve_drop_partition(
+            t::date(),
+            p::date_truncate { p::date_unit::month },
+            op::less,
+            std::make_shared<v::date>(2000, 2, 1)));
+    EXPECT_FALSE(resolve_drop_partition(
+            t::time_point(),
+            p::timestamp_truncate { p::timestamp_unit::second, 3 },
+            op::greater_equal,
+            std::make_shared<v::time_point>(2026, 1, 1, 10, 30, 15, ::takatori::datetime::time_of_day::time_unit { 123'000'000 })));
+
+    // null values are not checked
+    EXPECT_FALSE(resolve_drop_partition(
+            t::time_point(),
+            p::timestamp_truncate { p::timestamp_unit::month },
+            op::equal,
+            std::make_shared<v::unknown>()));
+
+    // the values for the whole column are not checked
+    EXPECT_FALSE(resolve_drop_partition(t::date(), {}, op::equal, std::make_shared<v::date>(2000, 1, 15)));
+    EXPECT_FALSE(resolve_drop_partition(t::decimal(10, 2), {}, op::equal, std::make_shared<v::decimal>("1.555")));
 }
 
 TEST_F(expression_analyzer_statement_test, drop_partition_too_many_elements) {
