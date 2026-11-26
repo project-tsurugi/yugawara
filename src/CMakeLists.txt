@@ -23,6 +23,12 @@ add_library(yugawara
     yugawara/storage/index.cpp
     yugawara/storage/partition_key_element.cpp
     yugawara/storage/partition/prefix_extractor.cpp
+    yugawara/storage/partition/character_prefix.cpp
+    yugawara/storage/partition/binary_prefix.cpp
+    yugawara/storage/partition/floor_division.cpp
+    yugawara/storage/partition/floor_fractional.cpp
+    yugawara/storage/partition/date_truncate.cpp
+    yugawara/storage/partition/timestamp_truncate.cpp
     yugawara/storage/sequence.cpp
     yugawara/storage/provider.cpp
     yugawara/storage/basic_prototype_processor.cpp

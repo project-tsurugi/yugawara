@@ -172,25 +172,20 @@ private:
 
 /**
  * @brief returns whether or not the given kind of prefix extractor is applicable to the given source column type.
- * @details Each kind of prefix extractor has its parameter type:
- *
- *      - prefix_extractor_kind::character_prefix - `VARCHAR(*)`
- *      - prefix_extractor_kind::binary_prefix - `VARBINARY(*)`
- *      - prefix_extractor_kind::floor_division - `DECIMAL(*, *)`
- *      - prefix_extractor_kind::floor_fractional - `DECIMAL(*, *)`
- *      - prefix_extractor_kind::date_truncate - `DATE`
- *      - prefix_extractor_kind::timestamp_truncate - `TIMESTAMP` (without time zone)
- *
- *      The prefix extractor is applicable to the source column type,
- *      only if the "parameter application conversion" from the source column type to its parameter type is
- *      applicable, as same as the arguments of function calls. Such the conversion never fails.
- *
+ * @details This returns the same result as is_applicable() of the given kind, which is declared in the header of
+ *      the corresponding prefix extraction method
+ *      (e.g. is_applicable(::takatori::util::enum_tag_t<prefix_extractor_kind::character_prefix>, ...)).
  *      prefix_extractor_kind::nothing is applicable to any types.
  * @param kind the kind of prefix extractor
  * @param source_type the source column type
  * @return true if the prefix extractor is applicable to the source column type
  * @return false otherwise, or the source column type is erroneous or pending
- * @see type::is_parameter_application_convertible()
+ * @see character_prefix
+ * @see binary_prefix
+ * @see floor_division
+ * @see floor_fractional
+ * @see date_truncate
+ * @see timestamp_truncate
  * @see compute_type()
  */
 [[nodiscard]] bool is_applicable(prefix_extractor_kind kind, ::takatori::type::data const& source_type) noexcept;
@@ -200,22 +195,9 @@ private:
  * @details This is the type of the partition key element, that is, the type of the corresponding SQL expression
  *      of the virtual column. The literal values in partition criteria are compared as values of this type.
  *
- *      The resulting type is decided as following:
- *
- *      - prefix_extractor_kind::nothing - the source column type
- *      - prefix_extractor_kind::character_prefix - `VARCHAR(*)`
- *      - prefix_extractor_kind::binary_prefix - `VARBINARY(*)`
- *      - prefix_extractor_kind::floor_division, prefix_extractor_kind::floor_fractional
- *          - `INT` - if the source column type is `TINYINT`, `SMALLINT`, or `INT`
- *          - `BIGINT` - if the source column type is `BIGINT`
- *          - `DECIMAL(*, *)` - if the source column type is `DECIMAL`
- *      - prefix_extractor_kind::date_truncate
- *          - `INT` - if the unit is date_unit::year (the year number, as same as `EXTRACT(YEAR FROM ...)`)
- *          - `DATE` - otherwise
- *      - prefix_extractor_kind::timestamp_truncate
- *          - `INT` - if the unit is timestamp_unit::year (the year number, as same as `EXTRACT(YEAR FROM ...)`)
- *          - `DATE` - if the unit is timestamp_unit::month or timestamp_unit::day
- *          - `TIMESTAMP` (without time zone) - otherwise
+ *      This returns the same result as compute_type() of the corresponding prefix extraction method
+ *      (e.g. compute_type(character_prefix const&, ...)), or the source column type
+ *      if the extractor is prefix_extractor_kind::nothing.
  *
  *      Note that, the physical representation of the partition key element is not restricted by this type.
  * @param extractor the prefix extractor
@@ -224,6 +206,12 @@ private:
  * @return the type of values computed by the prefix extractor
  * @return erroneous type if the prefix extractor is not applicable to the source column type
  * @return pending type if the source column type is erroneous or pending
+ * @see character_prefix
+ * @see binary_prefix
+ * @see floor_division
+ * @see floor_fractional
+ * @see date_truncate
+ * @see timestamp_truncate
  * @see is_applicable()
  */
 [[nodiscard]] std::shared_ptr<::takatori::type::data const> compute_type(

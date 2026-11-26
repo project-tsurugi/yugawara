@@ -171,6 +171,24 @@ TEST_F(prefix_extractor_test, is_applicable_erroneous) {
     EXPECT_FALSE(is_applicable(prefix_extractor_kind::floor_division, extension::type::error {}));
 }
 
+TEST_F(prefix_extractor_test, is_applicable_element) {
+    using k = prefix_extractor_kind;
+    using ::takatori::util::enum_tag;
+    EXPECT_TRUE(is_applicable(enum_tag<k::character_prefix>, t::character { 4 }));
+    EXPECT_FALSE(is_applicable(enum_tag<k::character_prefix>, t::octet { 4 }));
+    EXPECT_TRUE(is_applicable(enum_tag<k::binary_prefix>, t::octet { 4 }));
+    EXPECT_FALSE(is_applicable(enum_tag<k::binary_prefix>, t::character { 4 }));
+    EXPECT_TRUE(is_applicable(enum_tag<k::floor_division>, t::int8 {}));
+    EXPECT_FALSE(is_applicable(enum_tag<k::floor_division>, t::float8 {}));
+    EXPECT_TRUE(is_applicable(enum_tag<k::floor_fractional>, t::decimal { 10, 2 }));
+    EXPECT_FALSE(is_applicable(enum_tag<k::floor_fractional>, t::float8 {}));
+    EXPECT_TRUE(is_applicable(enum_tag<k::date_truncate>, t::date {}));
+    EXPECT_FALSE(is_applicable(enum_tag<k::date_truncate>, t::time_point {}));
+    EXPECT_TRUE(is_applicable(enum_tag<k::timestamp_truncate>, t::time_point {}));
+    EXPECT_FALSE(is_applicable(enum_tag<k::timestamp_truncate>, t::time_point { t::with_time_zone }));
+    EXPECT_FALSE(is_applicable(enum_tag<k::floor_division>, extension::type::error {}));
+}
+
 TEST_F(prefix_extractor_test, compute_type_nothing) {
     EXPECT_EQ(*compute_type({}, t::int4 {}), t::int4 {});
     EXPECT_EQ(*compute_type({}, t::character { 4 }), t::character { 4 });
@@ -225,6 +243,17 @@ TEST_F(prefix_extractor_test, compute_type_not_applicable) {
 TEST_F(prefix_extractor_test, compute_type_erroneous) {
     EXPECT_TRUE(is_pending(compute_type(floor_division { 10 }, extension::type::error {})));
     EXPECT_TRUE(is_pending(compute_type({}, extension::type::pending {})));
+}
+
+TEST_F(prefix_extractor_test, compute_type_dispatch) {
+    EXPECT_EQ(*compute_type(prefix_extractor { character_prefix { 2 } }, t::character { 4 }), t::character { t::varying });
+    EXPECT_EQ(*compute_type(prefix_extractor { binary_prefix { 2 } }, t::octet { 4 }), t::octet { t::varying });
+    EXPECT_EQ(*compute_type(prefix_extractor { floor_division { 10 } }, t::int8 {}), t::int8 {});
+    EXPECT_EQ(*compute_type(prefix_extractor { floor_fractional { 1 } }, t::decimal { 10, 2 }), t::decimal {});
+    EXPECT_EQ(*compute_type(prefix_extractor { date_truncate { date_unit::month } }, t::date {}), t::date {});
+    EXPECT_EQ(*compute_type(prefix_extractor { timestamp_truncate { timestamp_unit::hour } }, t::time_point {}), t::time_point {});
+    EXPECT_TRUE(is_error(compute_type(prefix_extractor { floor_division { 10 } }, t::float8 {})));
+    EXPECT_TRUE(is_pending(compute_type(prefix_extractor { date_truncate { date_unit::day } }, extension::type::pending {})));
 }
 
 } // namespace yugawara::storage::partition
